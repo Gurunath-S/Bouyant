@@ -2,10 +2,16 @@ import React, { useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { useAuthStore } from '../stores/authStore';
+import { useThemeStore, applyTheme } from '../stores/themeStore';
 import { authService } from '../services/auth/authService';
 
 export const App: React.FC = () => {
   const { setUser, isAuthenticated } = useAuthStore();
+  const { theme } = useThemeStore();
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     if (isAuthenticated) {
