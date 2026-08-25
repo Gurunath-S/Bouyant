@@ -8,21 +8,19 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import {
-  Sparkles,
   Lock,
   Mail,
   ArrowRight,
   ShieldCheck,
   Building2,
   Calendar,
-  Users,
-  Award,
-  ChevronRight,
-  UserCheck,
+  MapPin,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 
 const loginSchema = z.object({
-  email: z.string().email('Valid corporate email address is required'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -32,7 +30,7 @@ export const LoginPage: React.FC = () => {
   const { setTokens, setUser } = useAuthStore();
   const navigate = useNavigate();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loginRoleTab, setLoginRoleTab] = useState<'CLIENT' | 'ADMIN'>('CLIENT');
+  const [portalMode, setPortalMode] = useState<'CLIENT' | 'ADMIN'>('CLIENT');
 
   const {
     register,
@@ -47,9 +45,9 @@ export const LoginPage: React.FC = () => {
     },
   });
 
-  const handleSelectRoleTab = (role: 'CLIENT' | 'ADMIN') => {
-    setLoginRoleTab(role);
-    if (role === 'ADMIN') {
+  const handlePortalSwitch = (mode: 'CLIENT' | 'ADMIN') => {
+    setPortalMode(mode);
+    if (mode === 'ADMIN') {
       setValue('email', 'admin@buoyantmedia.com');
       setValue('password', 'admin123');
     } else {
@@ -70,233 +68,215 @@ export const LoginPage: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || err.message || 'Authentication failed. Please verify credentials.');
+      setErrorMsg(err.response?.data?.message || err.message || 'Invalid credentials. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
-      {/* LEFT PANEL: B2B BRANDING HERO */}
-      <div className="lg:w-7/12 relative flex flex-col justify-between p-8 sm:p-12 lg:p-16 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 border-r border-slate-800/80">
-        {/* Background Mesh Gradient Blobs */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/2 right-0 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 left-1/3 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Subtle Grid Pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
-
-        {/* Top Header: Brand Logo */}
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-black text-xl tracking-wider">
-              B
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                BUOYANT <span className="text-blue-400 font-extrabold">MEDIA</span>
-              </span>
-              <span className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-                Exhibitions & Trade Fairs
-              </span>
-            </div>
+    <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans flex flex-col justify-between">
+      {/* Top Header Bar */}
+      <header className="bg-white border-b border-slate-200 px-6 lg:px-12 py-4 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center font-extrabold text-xl shadow-xs">
+            B
           </div>
-
-          <a
-            href="https://buoyantevents.com"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden sm:flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-blue-400 transition-colors bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-full backdrop-blur-sm"
-          >
-            buoyantevents.com <ChevronRight className="w-3.5 h-3.5" />
-          </a>
+          <div>
+            <span className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-1">
+              BUOYANT <span className="text-blue-700 font-extrabold">MEDIA</span>
+            </span>
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Exhibition & Trade Fair Management
+            </span>
+          </div>
         </div>
 
-        {/* Middle Hero Showcase */}
-        <div className="relative z-10 my-12 lg:my-0 space-y-8 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-            <span>Next-Gen Interactive B2B Stall Booking Portal</span>
+        <a
+          href="https://buoyantevents.com"
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs font-semibold text-slate-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
+        >
+          Official Website <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </header>
+
+      {/* Main Content Body */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-12">
+        {/* Left Information Section */}
+        <div className="lg:w-1/2 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-800 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            Exhibitor Stall Reservation Portal
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-              Expose Your Business Through <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-300">Premier Trade Shows</span>
-            </h1>
-            <p className="text-sm sm:text-base text-slate-400 leading-relaxed font-normal">
-              Select your optimal exhibition stall, reserve realtime hall locations, manage corporate tax billing, and scale your brand presence across India's largest trade fair venues.
-            </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+            Book Exhibition Stalls with <span className="text-blue-700">Buoyant Media</span>
+          </h1>
+
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Welcome to the official stall booking platform for Buoyant Media trade shows. Select your stall layout, confirm company tax credentials, and manage invoices for upcoming industrial expos.
+          </p>
+
+          {/* Real Event Highlights */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-700" /> Featured Upcoming Trade Fairs
+            </h3>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-start justify-between border-b border-slate-100 pb-2">
+                <div>
+                  <span className="font-bold text-slate-900">MEDICCON EXPO 2026</span>
+                  <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Trade Fair Centre, Coimbatore
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-md text-[10px]">
+                  Booking Open
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="font-bold text-slate-900">INTERIO & EXTERIO EXPO 2026</span>
+                  <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Hall A & B, Coimbatore
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 font-bold rounded-md text-[10px]">
+                  Upcoming
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Key Metrics Strip */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800/80">
-            <div>
-              <div className="flex items-center gap-1.5 text-blue-400 font-extrabold text-2xl font-mono">
-                <Award className="w-5 h-5 text-blue-400" /> 1000+
-              </div>
-              <p className="text-xs text-slate-400 font-medium">Events Completed</p>
+          <div className="flex items-center gap-6 text-xs font-semibold text-slate-500">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-700" /> 1000+ Events Managed
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-cyan-400 font-extrabold text-2xl font-mono">
-                <Calendar className="w-5 h-5 text-cyan-400" /> 40+
-              </div>
-              <p className="text-xs text-slate-400 font-medium">Major Trade Fairs</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-indigo-400 font-extrabold text-2xl font-mono">
-                <Users className="w-5 h-5 text-indigo-400" /> 30,000+
-              </div>
-              <p className="text-xs text-slate-400 font-medium">Exhibitors & Visitors</p>
-            </div>
-          </div>
-
-          {/* Flagship Expos Badges */}
-          <div className="pt-2 space-y-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Featured Buoyant Expos</span>
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300">
-                🏥 Mediccon Expo 2026
-              </span>
-              <span className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300">
-                🏢 Interio & Exterio Expo
-              </span>
-              <span className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300">
-                🛍️ Kovai Bazaar Expo
-              </span>
-              <span className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300">
-                💎 Jewel-Ex 2026
-              </span>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-700" /> GST Tax Compliant
             </div>
           </div>
         </div>
 
-        {/* Footer info */}
-        <div className="relative z-10 pt-6 border-t border-slate-900 text-xs text-slate-500 flex flex-col sm:flex-row justify-between gap-2">
-          <span>© {new Date().getFullYear()} Buoyant Media Events Ltd. All rights reserved.</span>
-          <span>CODISSIA Trade Fair Center Partner</span>
-        </div>
-      </div>
-
-      {/* RIGHT PANEL: SAAS LOGIN CARD */}
-      <div className="lg:w-5/12 flex items-center justify-center p-6 sm:p-12 bg-slate-950 relative">
-        <div className="w-full max-w-md space-y-6">
-          {/* Form Header */}
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-white tracking-tight">Sign In to Platform</h2>
-            <p className="text-xs text-slate-400">
-              Select your role portal and authenticate to access your booking dashboard.
-            </p>
-          </div>
-
-          {/* Role Portal Switcher Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-slate-900 border border-slate-800 rounded-xl">
-            <button
-              type="button"
-              onClick={() => handleSelectRoleTab('CLIENT')}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                loginRoleTab === 'CLIENT'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" /> Exhibitor Client
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectRoleTab('ADMIN')}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                loginRoleTab === 'ADMIN'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" /> Admin / Organizer
-            </button>
-          </div>
-
-          {errorMsg && (
-            <div className="p-4 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 font-semibold flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-              {errorMsg}
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input
-              label="Corporate Email Address"
-              type="email"
-              placeholder="name@company.com"
-              leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
-              error={errors.password?.message}
-              {...register('password')}
-            />
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full mt-2 shadow-lg shadow-blue-600/20 font-bold"
-              isLoading={isSubmitting}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Sign In as {loginRoleTab === 'ADMIN' ? 'Organizer Admin' : 'Exhibitor'}
-            </Button>
-          </form>
-
-          {/* Quick Demo Credentials Assistant */}
-          <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-blue-400" /> One-Click Demo Access
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">Seed Data Ready</span>
+        {/* Right Login Card */}
+        <div className="lg:w-5/12 w-full">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Sign In</h2>
+              <p className="text-xs text-slate-500 mt-1">Access your exhibitor or administrator dashboard</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Role Mode Selector */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
               <button
                 type="button"
-                onClick={() => {
-                  handleSelectRoleTab('CLIENT');
-                  onSubmit({ email: 'client@techcorp.com', password: 'client123' });
-                }}
-                className="p-2.5 bg-blue-950/50 hover:bg-blue-900/60 border border-blue-800/80 rounded-lg text-left transition-all group"
+                onClick={() => handlePortalSwitch('CLIENT')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  portalMode === 'CLIENT'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <span className="font-bold text-blue-300 block text-xs group-hover:text-white">Demo Exhibitor</span>
-                <span className="text-[10px] text-slate-400 block font-mono">client@techcorp.com</span>
+                <Building2 className="w-3.5 h-3.5" /> Exhibitor Client
               </button>
-
               <button
                 type="button"
-                onClick={() => {
-                  handleSelectRoleTab('ADMIN');
-                  onSubmit({ email: 'admin@buoyantmedia.com', password: 'admin123' });
-                }}
-                className="p-2.5 bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/80 rounded-lg text-left transition-all group"
+                onClick={() => handlePortalSwitch('ADMIN')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  portalMode === 'ADMIN'
+                    ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <span className="font-bold text-purple-300 block text-xs group-hover:text-white">Demo Organizer</span>
-                <span className="text-[10px] text-slate-400 block font-mono">admin@buoyantmedia.com</span>
+                <ShieldCheck className="w-3.5 h-3.5" /> Event Admin
               </button>
             </div>
-          </div>
 
-          <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-900">
-            Need to register a new company?{' '}
-            <Link to="/register" className="text-blue-400 font-extrabold hover:underline">
-              Register Exhibitor Credentials
-            </Link>
+            {errorMsg && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="name@company.com"
+                leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
+                error={errors.email?.message}
+                {...register('email')}
+              />
+
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+                error={errors.password?.message}
+                {...register('password')}
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full font-bold shadow-xs bg-blue-700 hover:bg-blue-800"
+                isLoading={isSubmitting}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Sign In to {portalMode === 'ADMIN' ? 'Admin Studio' : 'Exhibitor Portal'}
+              </Button>
+            </form>
+
+            {/* Quick Demo Credentials */}
+            <div className="pt-4 border-t border-slate-100 text-center space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Quick Demo Credentials
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePortalSwitch('CLIENT');
+                    onSubmit({ email: 'client@techcorp.com', password: 'client123' });
+                  }}
+                  className="p-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg font-semibold text-slate-700 text-left transition-colors"
+                >
+                  <span className="block text-blue-700 font-bold text-[11px]">Exhibitor Account</span>
+                  <span className="text-[10px] text-slate-500 font-mono">client@techcorp.com</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePortalSwitch('ADMIN');
+                    onSubmit({ email: 'admin@buoyantmedia.com', password: 'admin123' });
+                  }}
+                  className="p-2 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg font-semibold text-slate-700 text-left transition-colors"
+                >
+                  <span className="block text-purple-700 font-bold text-[11px]">Admin Account</span>
+                  <span className="text-[10px] text-slate-500 font-mono">admin@buoyantmedia.com</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center text-xs text-slate-500 pt-2">
+              Need to register a company?{' '}
+              <Link to="/register" className="text-blue-700 font-bold hover:underline">
+                Create Exhibitor Account
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-500">
+        © {new Date().getFullYear()} Buoyant Media. No.57A Ramasamy Street, KK Pudur, Coimbatore, Tamil Nadu.
+      </footer>
     </div>
   );
 };
