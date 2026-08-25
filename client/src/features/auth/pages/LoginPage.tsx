@@ -50,18 +50,18 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-xl">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl">
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white mb-3 shadow-md">
             <Award className="h-7 w-7 text-white" />
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Buoyant Events</h2>
-          <p className="text-xs text-slate-500 mt-1">Exhibition Stall Booking & Management SaaS Platform</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Buoyant Events</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Exhibition Stall Booking & Management SaaS Platform</p>
         </div>
 
         {errorMsg && (
-          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold text-center">
+          <div className="mb-6 p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-semibold text-center">
             {errorMsg}
           </div>
         )}
@@ -97,8 +97,8 @@ export const LoginPage: React.FC = () => {
         </form>
 
         {/* Demo Quick Logins */}
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wider">
+        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 font-semibold uppercase tracking-wider">
             Quick Demo Accounts
           </p>
           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -107,7 +107,7 @@ export const LoginPage: React.FC = () => {
               onClick={() => {
                 onSubmit({ email: 'client@techcorp.com', password: 'ClientPassword123!' });
               }}
-              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-semibold border border-blue-200 transition-colors"
+              className="px-3 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-lg font-semibold border border-blue-200 dark:border-blue-800 transition-colors"
             >
               Demo Client User
             </button>
@@ -116,16 +116,16 @@ export const LoginPage: React.FC = () => {
               onClick={() => {
                 onSubmit({ email: 'admin@buoyantmedia.com', password: 'AdminPassword123!' });
               }}
-              className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg font-semibold border border-purple-200 transition-colors"
+              className="px-3 py-2 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-lg font-semibold border border-purple-200 dark:border-purple-800 transition-colors"
             >
               Demo Admin User
             </button>
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-500 mt-6">
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
           Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 font-bold hover:underline">
+          <Link to="/register" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">
             Register Exhibitor Account
           </Link>
         </p>
