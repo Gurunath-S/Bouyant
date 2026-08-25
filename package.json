@@ -1,0 +1,27 @@
+{
+  "name": "buoyant-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Buoyant Media - Full-Stack B2B SaaS Exhibition Booking & Management Platform",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "build": "npm run build:server && npm run build:client",
+    "seed": "cd server && npm run seed"
+  },
+  "keywords": [
+    "b2b",
+    "saas",
+    "exhibition",
+    "stall-booking",
+    "floor-plan",
+    "react",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "Buoyant Media Engineering",
+  "license": "ISC"
+}
