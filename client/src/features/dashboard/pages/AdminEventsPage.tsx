@@ -1,28 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Modal } from '../../../components/ui/Modal';
-import { Layers, Plus, Calendar, MapPin, Edit3 } from 'lucide-react';
+import { Layers, Plus, Calendar, MapPin, Sparkles } from 'lucide-react';
 
 export const AdminEventsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  // New Event Form State
-  const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    description: '',
-    venue: '',
-    city: '',
-    startDate: '',
-    endDate: '',
-    bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
-    totalStalls: 16,
-  });
 
   useEffect(() => {
     fetchEvents();
@@ -40,29 +26,25 @@ export const AdminEventsPage: React.FC = () => {
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      await exhibitionService.createExhibition(formData as any);
-      setModalOpen(false);
-      fetchEvents();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to create exhibition event.');
-    }
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Layers className="w-6 h-6 text-purple-600" />
             Exhibition Event & Floor Plan Builder
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Configure trade fair events, publish floor plans, and adjust stall capacity.</p>
+          <p className="text-xs text-slate-500 mt-1">Configure trade fair events, publish interactive floor plans, and adjust stall capacity.</p>
         </div>
 
-        <Button variant="primary" size="sm" onClick={() => setModalOpen(true)} leftIcon={<Plus className="w-4 h-4" />}>
-          Create New Exhibition
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => navigate('/admin/events/create')}
+          leftIcon={<Sparkles className="w-4 h-4" />}
+          className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+        >
+          Create Exhibition (Visual Floor Plan Studio)
         </Button>
       </div>
 
@@ -87,9 +69,9 @@ export const AdminEventsPage: React.FC = () => {
                 <td className="py-3.5 px-4 text-slate-500">
                   {new Date(e.startDate).toLocaleDateString()} - {new Date(e.endDate).toLocaleDateString()}
                 </td>
-                <td className="py-3.5 px-4 text-center font-bold text-blue-700">{e.totalStalls} Stalls</td>
+                <td className="py-3.5 px-4 text-center font-bold text-purple-700">{e.totalStalls} Stalls</td>
                 <td className="py-3.5 px-4 text-center">
-                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[10px] rounded">
+                  <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 font-bold text-[10px] rounded uppercase">
                     {e.status}
                   </span>
                 </td>
@@ -98,49 +80,6 @@ export const AdminEventsPage: React.FC = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Create Exhibition Event">
-        <div className="space-y-4">
-          <Input
-            label="Event Title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-          />
-          <Input
-            label="URL Slug"
-            value={formData.slug}
-            onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-          />
-          <Input
-            label="Venue Name"
-            value={formData.venue}
-            onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-          />
-          <Input
-            label="City"
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Start Date"
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            />
-            <Input
-              label="End Date"
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            />
-          </div>
-          <Button variant="primary" className="w-full mt-2" onClick={handleCreate}>
-            Publish Exhibition Event
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 };
