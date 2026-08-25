@@ -216,8 +216,8 @@ async function main() {
     });
   }
 
-  // 7. Create Exhibition 2: BuildAsia Industrial Summit 2026
-  await prisma.exhibition.create({
+  // 7. Create Floor Plan & Stalls for Exhibition 2: BuildAsia Industrial Summit 2026
+  const expo2 = await prisma.exhibition.create({
     data: {
       title: 'BuildAsia Industrial & Robotics Summit 2026',
       slug: 'buildasia-industrial-summit-2026',
@@ -228,9 +228,138 @@ async function main() {
       endDate: new Date('2026-11-23T18:00:00Z'),
       status: ExhibitionStatus.PUBLISHED,
       bannerUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1200',
-      totalStalls: 16,
+      totalStalls: 12,
     },
   });
+
+  const floorPlan2 = await prisma.floorPlan.create({
+    data: {
+      exhibitionId: expo2.id,
+      name: 'Robotics & Automation Pavilion',
+      width: 1000,
+      height: 600,
+      gridColumns: 4,
+      gridRows: 3,
+      isPublished: true,
+    },
+  });
+
+  const stallsData2 = [
+    { stallNumber: 'R-101', name: 'Robotics Demo Arena', category: StallCategory.ISLAND, price: 14000.00, areaSqFt: 450, width: 180, height: 130, xPosition: 80, yPosition: 60, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-102', name: 'Smart Factory Suite', category: StallCategory.PREMIUM, price: 9500.00, areaSqFt: 300, width: 150, height: 130, xPosition: 290, yPosition: 60, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-103', name: 'Industrial IoT Hub', category: StallCategory.CORNER, price: 7000.00, areaSqFt: 220, width: 130, height: 130, xPosition: 470, yPosition: 60, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-104', name: 'Automation Alley 1', category: StallCategory.STANDARD, price: 5000.00, areaSqFt: 160, width: 120, height: 130, xPosition: 630, yPosition: 60, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'R-201', name: 'Machinery Pavilion A', category: StallCategory.PREMIUM, price: 8800.00, areaSqFt: 280, width: 150, height: 120, xPosition: 80, yPosition: 230, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-202', name: 'Machinery Pavilion B', category: StallCategory.STANDARD, price: 5200.00, areaSqFt: 170, width: 120, height: 120, xPosition: 260, yPosition: 230, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-203', name: 'Sensors & Drones Bay', category: StallCategory.STANDARD, price: 5200.00, areaSqFt: 170, width: 120, height: 120, xPosition: 410, yPosition: 230, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-204', name: 'AI Vision Corner', category: StallCategory.CORNER, price: 6800.00, areaSqFt: 200, width: 130, height: 120, xPosition: 560, yPosition: 230, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'R-301', name: 'Logistics Tech Booth', category: StallCategory.STANDARD, price: 4600.00, areaSqFt: 150, width: 120, height: 110, xPosition: 80, yPosition: 390, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-302', name: '3D Printing Zone', category: StallCategory.CORNER, price: 6200.00, areaSqFt: 190, width: 130, height: 110, xPosition: 230, yPosition: 390, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-303', name: 'Cobot Interactive Lab', category: StallCategory.PREMIUM, price: 9000.00, areaSqFt: 300, width: 160, height: 110, xPosition: 390, yPosition: 390, status: StallStatus.AVAILABLE },
+    { stallNumber: 'R-304', name: 'Executive Lounge Bay', category: StallCategory.ISLAND, price: 13500.00, areaSqFt: 420, width: 180, height: 110, xPosition: 580, yPosition: 390, status: StallStatus.AVAILABLE },
+  ];
+
+  for (const s of stallsData2) {
+    await prisma.stall.create({
+      data: { floorPlanId: floorPlan2.id, ...s },
+    });
+  }
+
+  // 8. Create Exhibition 3: FinTech World Congress 2026
+  const expo3 = await prisma.exhibition.create({
+    data: {
+      title: 'Global FinTech World Congress 2026',
+      slug: 'global-fintech-world-congress-2026',
+      description: 'The world’s premier gathering for digital banking, paytech innovations, decentralized finance, and crypto regulation leaders.',
+      venue: 'Dubai World Trade Centre (DWTC) - Za’abeel Hall 3',
+      city: 'Dubai, UAE',
+      startDate: new Date('2026-12-05T09:00:00Z'),
+      endDate: new Date('2026-12-08T18:00:00Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200',
+      totalStalls: 10,
+    },
+  });
+
+  const floorPlan3 = await prisma.floorPlan.create({
+    data: {
+      exhibitionId: expo3.id,
+      name: 'Main Financial Innovation Hall',
+      width: 1100,
+      height: 650,
+      gridColumns: 5,
+      gridRows: 2,
+      isPublished: true,
+    },
+  });
+
+  const stallsData3 = [
+    { stallNumber: 'F-101', name: 'PayTech Pavilion 1', category: StallCategory.ISLAND, price: 16000.00, areaSqFt: 500, width: 200, height: 140, xPosition: 70, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-102', name: 'NeoBank Showcase', category: StallCategory.PREMIUM, price: 11000.00, areaSqFt: 350, width: 160, height: 140, xPosition: 300, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-103', name: 'Blockchain Alley 1', category: StallCategory.CORNER, price: 8500.00, areaSqFt: 240, width: 140, height: 140, xPosition: 490, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-104', name: 'DeFi Hub 1', category: StallCategory.STANDARD, price: 5800.00, areaSqFt: 180, width: 120, height: 140, xPosition: 660, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-105', name: 'RegTech Solution Booth', category: StallCategory.STANDARD, price: 5800.00, areaSqFt: 180, width: 120, height: 140, xPosition: 810, yPosition: 70, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'F-201', name: 'Crypto Exchange Stage', category: StallCategory.ISLAND, price: 18000.00, areaSqFt: 550, width: 210, height: 140, xPosition: 70, yPosition: 260, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-202', name: 'InsurTech Hub', category: StallCategory.CORNER, price: 8200.00, areaSqFt: 230, width: 140, height: 140, xPosition: 310, yPosition: 260, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-203', name: 'Cross-Border Payments', category: StallCategory.PREMIUM, price: 10500.00, areaSqFt: 320, width: 150, height: 140, xPosition: 480, yPosition: 260, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-204', name: 'Open Banking Bay', category: StallCategory.STANDARD, price: 6000.00, areaSqFt: 190, width: 120, height: 140, xPosition: 660, yPosition: 260, status: StallStatus.AVAILABLE },
+    { stallNumber: 'F-205', name: 'AI Credit Scoring Booth', category: StallCategory.CORNER, price: 7900.00, areaSqFt: 220, width: 130, height: 140, xPosition: 810, yPosition: 260, status: StallStatus.AVAILABLE },
+  ];
+
+  for (const s of stallsData3) {
+    await prisma.stall.create({
+      data: { floorPlanId: floorPlan3.id, ...s },
+    });
+  }
+
+  // 9. Create Exhibition 4: GreenEnergy & Electric Mobility World 2027
+  const expo4 = await prisma.exhibition.create({
+    data: {
+      title: 'GreenEnergy & Electric Mobility World 2027',
+      slug: 'green-energy-ev-mobility-world-2027',
+      description: 'The international exposition for renewable energy, solar innovations, EV battery gigafactories, and hydrogen mobility.',
+      venue: 'Tokyo International Exhibition Center (Tokyo Big Sight)',
+      city: 'Tokyo, Japan',
+      startDate: new Date('2027-02-14T09:00:00Z'),
+      endDate: new Date('2027-02-17T18:00:00Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200',
+      totalStalls: 8,
+    },
+  });
+
+  const floorPlan4 = await prisma.floorPlan.create({
+    data: {
+      exhibitionId: expo4.id,
+      name: 'Clean Tech & EV Pavilion',
+      width: 1000,
+      height: 550,
+      gridColumns: 4,
+      gridRows: 2,
+      isPublished: true,
+    },
+  });
+
+  const stallsData4 = [
+    { stallNumber: 'E-101', name: 'EV Supercharger Plaza', category: StallCategory.ISLAND, price: 15000.00, areaSqFt: 480, width: 190, height: 130, xPosition: 70, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-102', name: 'Solar Cell Technology', category: StallCategory.PREMIUM, price: 9200.00, areaSqFt: 300, width: 150, height: 130, xPosition: 290, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-103', name: 'Hydrogen Fuel Cell Arena', category: StallCategory.CORNER, price: 7800.00, areaSqFt: 220, width: 140, height: 130, xPosition: 470, yPosition: 70, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-104', name: 'Battery Recycling Station', category: StallCategory.STANDARD, price: 5400.00, areaSqFt: 170, width: 120, height: 130, xPosition: 640, yPosition: 70, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'E-201', name: 'Autonomous EV Fleet', category: StallCategory.ISLAND, price: 14500.00, areaSqFt: 460, width: 190, height: 130, xPosition: 70, yPosition: 250, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-202', name: 'Smart Grid Infrastructure', category: StallCategory.CORNER, price: 7500.00, areaSqFt: 210, width: 130, height: 130, xPosition: 290, yPosition: 250, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-203', name: 'Wind Turbine Dynamics', category: StallCategory.STANDARD, price: 5100.00, areaSqFt: 160, width: 120, height: 130, xPosition: 450, yPosition: 250, status: StallStatus.AVAILABLE },
+    { stallNumber: 'E-204', name: 'Carbon Offset Solutions', category: StallCategory.STANDARD, price: 5100.00, areaSqFt: 160, width: 120, height: 130, xPosition: 600, yPosition: 250, status: StallStatus.AVAILABLE },
+  ];
+
+  for (const s of stallsData4) {
+    await prisma.stall.create({
+      data: { floorPlanId: floorPlan4.id, ...s },
+    });
+  }
 
   console.log('✅ Seeding completed successfully!');
 }
