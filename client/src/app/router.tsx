@@ -9,11 +9,13 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ClientDashboardPage } from '../features/dashboard/pages/ClientDashboardPage';
 import { AdminDashboardPage } from '../features/dashboard/pages/AdminDashboardPage';
 import { AdminEventsPage } from '../features/dashboard/pages/AdminEventsPage';
+import { AdminExhibitionBuilderPage } from '../features/dashboard/pages/AdminExhibitionBuilderPage';
 import { AdminCompaniesPage } from '../features/dashboard/pages/AdminCompaniesPage';
 import { AdminBookingsPage } from '../features/dashboard/pages/AdminBookingsPage';
 import { AdminPaymentsPage } from '../features/dashboard/pages/AdminPaymentsPage';
 import { ExhibitionsPage } from '../features/exhibitions/pages/ExhibitionsPage';
 import { ExhibitionDetailPage } from '../features/exhibitions/pages/ExhibitionDetailPage';
+import { BookingWizardPage } from '../features/bookings/pages/BookingWizardPage';
 import { CompanyProfilePage } from '../features/companies/pages/CompanyProfilePage';
 import { BookingCheckoutPage } from '../features/bookings/pages/BookingCheckoutPage';
 import { MyBookingsPage } from '../features/bookings/pages/MyBookingsPage';
@@ -24,7 +26,7 @@ import { NotificationsPage } from '../features/notifications/pages/Notifications
 
 const RootLayout = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
@@ -57,6 +59,7 @@ export const router = createBrowserRouter([
       { path: '/dashboard', element: <ClientDashboardPage /> },
       { path: '/exhibitions', element: <ExhibitionsPage /> },
       { path: '/exhibitions/:slug', element: <ExhibitionDetailPage /> },
+      { path: '/exhibitions/:slug/book', element: <BookingWizardPage /> },
       { path: '/my-company', element: <CompanyProfilePage /> },
       { path: '/checkout', element: <BookingCheckoutPage /> },
       { path: '/my-bookings', element: <MyBookingsPage /> },
@@ -79,6 +82,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminEventsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/events/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
       },
