@@ -62,6 +62,7 @@ export interface Exhibition {
   startDate: string;
   endDate: string;
   status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
+  category?: string;
   bannerUrl?: string;
   totalStalls: number;
   floorPlans?: FloorPlan[];

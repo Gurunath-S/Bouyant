@@ -361,6 +361,57 @@ async function main() {
     });
   }
 
+  // 10. Create Exhibition 5: Mediccon Expo 2026
+  const expo5 = await prisma.exhibition.create({
+    data: {
+      title: 'Mediccon Expo 2026',
+      slug: 'mediccon-expo-2026',
+      description: 'India premier medical equipment, healthcare technology, and surgical instruments exhibition hosted by Buoyant Media.',
+      venue: 'CODISSIA Trade Fair Complex - Hall A',
+      city: 'Coimbatore, TN',
+      startDate: new Date('2026-11-15T09:00:00Z'),
+      endDate: new Date('2026-11-18T18:00:00Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200',
+      totalStalls: 12,
+    },
+  });
+
+  const floorPlan5 = await prisma.floorPlan.create({
+    data: {
+      exhibitionId: expo5.id,
+      name: 'Medical Equipment & ICU Pavilion',
+      width: 1050,
+      height: 650,
+      gridColumns: 4,
+      gridRows: 3,
+      isPublished: true,
+    },
+  });
+
+  const stallsData5 = [
+    { stallNumber: 'M-101', name: 'ICU & Surgical Suite', category: StallCategory.ISLAND, price: 12000.00, areaSqFt: 400, width: 160, height: 120, xPosition: 60, yPosition: 50, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-102', name: 'Diagnostic Imaging Hub', category: StallCategory.PREMIUM, price: 8500.00, areaSqFt: 280, width: 140, height: 120, xPosition: 240, yPosition: 50, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-103', name: 'Pharma Automation Corner', category: StallCategory.CORNER, price: 6500.00, areaSqFt: 200, width: 130, height: 120, xPosition: 400, yPosition: 50, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-104', name: 'Hospital Furniture Booth', category: StallCategory.STANDARD, price: 4500.00, areaSqFt: 150, width: 120, height: 120, xPosition: 550, yPosition: 50, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'M-201', name: 'Telemedicine Pavilion', category: StallCategory.PREMIUM, price: 8500.00, areaSqFt: 280, width: 140, height: 110, xPosition: 60, yPosition: 200, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-202', name: 'Lab Diagnostics Bay', category: StallCategory.STANDARD, price: 4500.00, areaSqFt: 150, width: 120, height: 110, xPosition: 220, yPosition: 200, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-203', name: 'Orthopedic Implants Zone', category: StallCategory.CORNER, price: 6500.00, areaSqFt: 200, width: 130, height: 110, xPosition: 360, yPosition: 200, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-204', name: 'Dental Equipment Booth', category: StallCategory.STANDARD, price: 4500.00, areaSqFt: 150, width: 120, height: 110, xPosition: 510, yPosition: 200, status: StallStatus.AVAILABLE },
+
+    { stallNumber: 'M-301', name: 'Biomedical Waste Tech', category: StallCategory.STANDARD, price: 4200.00, areaSqFt: 140, width: 120, height: 110, xPosition: 60, yPosition: 330, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-302', name: 'Oxygen & Gas Systems', category: StallCategory.CORNER, price: 6000.00, areaSqFt: 180, width: 130, height: 110, xPosition: 200, yPosition: 330, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-303', name: 'Robotic Surgery Arena', category: StallCategory.ISLAND, price: 13500.00, areaSqFt: 450, width: 180, height: 110, xPosition: 350, yPosition: 330, status: StallStatus.AVAILABLE },
+    { stallNumber: 'M-304', name: 'Ayush & Herbal Expo', category: StallCategory.STANDARD, price: 4200.00, areaSqFt: 140, width: 120, height: 110, xPosition: 550, yPosition: 330, status: StallStatus.AVAILABLE },
+  ];
+
+  for (const s of stallsData5) {
+    await prisma.stall.create({
+      data: { floorPlanId: floorPlan5.id, ...s },
+    });
+  }
+
   console.log('✅ Seeding completed successfully!');
 }
 
