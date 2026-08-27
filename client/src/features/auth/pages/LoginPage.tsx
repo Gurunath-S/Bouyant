@@ -73,18 +73,13 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans flex flex-col justify-between">
+    <div className="min-h-screen w-full bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 font-sans flex flex-col justify-between">
       {/* Top Header Bar */}
-      <header className="bg-white border-b border-slate-200 px-6 lg:px-12 py-4 flex items-center justify-between shadow-2xs">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 lg:px-12 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center font-extrabold text-xl shadow-xs">
-            B
-          </div>
-          <div>
-            <span className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-1">
-              BUOYANT <span className="text-blue-700 font-extrabold">MEDIA</span>
-            </span>
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <img src="/assets/logo.png" alt="BUOYANT Media" className="h-10 object-contain" />
+          <div className="hidden sm:block border-l border-slate-200 pl-3">
+            <span className="block text-[10px] font-bold text-[#012970] dark:text-slate-400 uppercase tracking-wider">
               Exhibition & Trade Fair Management
             </span>
           </div>
@@ -94,7 +89,7 @@ export const LoginPage: React.FC = () => {
           href="https://buoyantevents.com"
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-semibold text-slate-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
+          className="text-xs font-bold text-[#09539b] hover:text-[#012970] dark:text-blue-400 flex items-center gap-1.5 transition-colors bg-[#f6f9ff] px-3 py-1.5 rounded-lg border border-[#e1ecff]"
         >
           Official Website <ExternalLink className="w-3.5 h-3.5" />
         </a>
@@ -104,58 +99,58 @@ export const LoginPage: React.FC = () => {
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-12">
         {/* Left Information Section */}
         <div className="lg:w-1/2 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-800 text-xs font-bold">
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#9cc542]/15 border border-[#9cc542]/40 rounded-full text-[#012970] dark:text-emerald-300 text-xs font-extrabold">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#9cc542] animate-pulse" />
             Exhibitor Stall Reservation Portal
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-            Book Exhibition Stalls with <span className="text-blue-700">Buoyant Media</span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#012970] dark:text-white tracking-tight leading-tight">
+            Book Exhibition Stalls with <span className="text-[#09539b]">Buoyant Media</span>
           </h1>
 
-          <p className="text-slate-600 text-sm leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-medium">
             Welcome to the official stall booking platform for Buoyant Media trade shows. Select your stall layout, confirm company tax credentials, and manage invoices for upcoming industrial expos.
           </p>
 
           {/* Real Event Highlights */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-blue-700" /> Featured Upcoming Trade Fairs
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-[#012970] dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#09539b]" /> Featured Upcoming Trade Fairs
             </h3>
 
             <div className="space-y-2 text-xs">
-              <div className="flex items-start justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                 <div>
-                  <span className="font-bold text-slate-900">MEDICCON EXPO 2026</span>
+                  <span className="font-bold text-[#012970] dark:text-slate-100">MEDICCON EXPO 2026</span>
                   <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Trade Fair Centre, Coimbatore
                   </span>
                 </div>
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-md text-[10px]">
+                <span className="px-2.5 py-1 bg-[#9cc542]/20 text-[#012970] dark:text-emerald-300 border border-[#9cc542]/50 font-bold rounded-md text-[10px]">
                   Booking Open
                 </span>
               </div>
 
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="font-bold text-slate-900">INTERIO & EXTERIO EXPO 2026</span>
+                  <span className="font-bold text-[#012970] dark:text-slate-100">INTERIO & EXTERIO EXPO 2026</span>
                   <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Hall A & B, Coimbatore
                   </span>
                 </div>
-                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 font-bold rounded-md text-[10px]">
+                <span className="px-2.5 py-1 bg-blue-50 text-[#09539b] border border-blue-200 font-bold rounded-md text-[10px]">
                   Upcoming
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 text-xs font-semibold text-slate-500">
+          <div className="flex items-center gap-6 text-xs font-bold text-[#012970]/80 dark:text-slate-300">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-700" /> 1000+ Events Managed
+              <CheckCircle2 className="w-4 h-4 text-[#9cc542]" /> 1000+ Events Managed
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-700" /> GST Tax Compliant
+              <CheckCircle2 className="w-4 h-4 text-[#9cc542]" /> GST Tax Compliant
             </div>
           </div>
         </div>
@@ -223,7 +218,7 @@ export const LoginPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 size="lg"
-                className="w-full font-bold shadow-xs bg-blue-700 hover:bg-blue-800"
+                className="w-full font-bold shadow-sm bg-[#09539b] hover:bg-[#012970] border-[#09539b] text-white transition-all"
                 isLoading={isSubmitting}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >

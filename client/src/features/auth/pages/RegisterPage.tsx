@@ -53,18 +53,13 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans flex flex-col justify-between">
+    <div className="min-h-screen w-full bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 font-sans flex flex-col justify-between">
       {/* Top Header Bar */}
-      <header className="bg-white border-b border-slate-200 px-6 lg:px-12 py-4 flex items-center justify-between shadow-2xs">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 lg:px-12 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center font-extrabold text-xl shadow-xs">
-            B
-          </div>
-          <div>
-            <span className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-1">
-              BUOYANT <span className="text-blue-700 font-extrabold">MEDIA</span>
-            </span>
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <img src="/assets/logo.png" alt="BUOYANT Media" className="h-10 object-contain" />
+          <div className="hidden sm:block border-l border-slate-200 pl-3">
+            <span className="block text-[10px] font-bold text-[#012970] dark:text-slate-400 uppercase tracking-wider">
               Exhibition & Trade Fair Management
             </span>
           </div>
@@ -74,7 +69,7 @@ export const RegisterPage: React.FC = () => {
           href="https://buoyantevents.com"
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-semibold text-slate-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
+          className="text-xs font-bold text-[#09539b] hover:text-[#012970] dark:text-blue-400 flex items-center gap-1.5 transition-colors bg-[#f6f9ff] px-3 py-1.5 rounded-lg border border-[#e1ecff]"
         >
           Official Website <ExternalLink className="w-3.5 h-3.5" />
         </a>
@@ -84,30 +79,30 @@ export const RegisterPage: React.FC = () => {
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-12">
         {/* Left Information Section */}
         <div className="lg:w-1/2 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-800 text-xs font-bold">
-            <Building className="w-3.5 h-3.5 text-blue-700" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#9cc542]/15 border border-[#9cc542]/40 rounded-full text-[#012970] dark:text-emerald-300 text-xs font-extrabold">
+            <Building className="w-3.5 h-3.5 text-[#09539b]" />
             Exhibitor Registration
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-            Register for <span className="text-blue-700">Buoyant Expos</span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#012970] dark:text-white tracking-tight leading-tight">
+            Register for <span className="text-[#09539b]">Buoyant Expos</span>
           </h1>
 
-          <p className="text-slate-600 text-sm leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-medium">
             Create your account to browse interactive exhibition maps, reserve stall spaces, manage corporate GST billing details, and download venue entry credentials.
           </p>
 
-          <div className="space-y-3 bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-xs">
+            <div className="flex items-center gap-3 text-xs font-bold text-[#012970] dark:text-slate-200">
+              <CheckCircle2 className="w-4 h-4 text-[#9cc542] shrink-0" />
               <span>Interactive SVG Stall Map Selection (Mediccon & Interio Expos)</span>
             </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-3 text-xs font-bold text-[#012970] dark:text-slate-200">
+              <CheckCircle2 className="w-4 h-4 text-[#9cc542] shrink-0" />
               <span>Instant GST & Corporate Invoicing with Tax Calculations</span>
             </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-3 text-xs font-bold text-[#012970] dark:text-slate-200">
+              <CheckCircle2 className="w-4 h-4 text-[#9cc542] shrink-0" />
               <span>Direct Payment Integration & Downloadable Venue Pass Receipts</span>
             </div>
           </div>
@@ -115,9 +110,9 @@ export const RegisterPage: React.FC = () => {
 
         {/* Right Register Card */}
         <div className="lg:w-5/12 w-full">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Create Account</h2>
+              <h2 className="text-xl font-bold text-[#012970] dark:text-white">Create Account</h2>
               <p className="text-xs text-slate-500 mt-1">Enter representative details to get started</p>
             </div>
 
@@ -166,7 +161,7 @@ export const RegisterPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 size="lg"
-                className="w-full font-bold shadow-xs bg-blue-700 hover:bg-blue-800"
+                className="w-full font-bold shadow-sm bg-[#09539b] hover:bg-[#012970] border-[#09539b] text-white transition-all"
                 isLoading={isSubmitting}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
@@ -176,7 +171,7 @@ export const RegisterPage: React.FC = () => {
 
             <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
               Already registered?{' '}
-              <Link to="/login" className="text-blue-700 font-bold hover:underline">
+              <Link to="/login" className="text-[#09539b] font-bold hover:underline">
                 Sign In to Portal
               </Link>
             </div>

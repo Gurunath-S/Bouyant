@@ -4,6 +4,7 @@ import { Navbar } from '../components/layout/Navbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
 
+import { HomePage } from '../features/discovery/pages/HomePage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ClientDashboardPage } from '../features/dashboard/pages/ClientDashboardPage';
@@ -23,10 +24,12 @@ import { PaymentSuccessPage } from '../features/payments/pages/PaymentSuccessPag
 import { MyInvoicesPage } from '../features/invoices/pages/MyInvoicesPage';
 import { InvoiceDetailPage } from '../features/invoices/pages/InvoiceDetailPage';
 import { NotificationsPage } from '../features/notifications/pages/NotificationsPage';
+import { PublicNavbar } from '../components/layout/PublicNavbar';
+import { PublicFooter } from '../components/layout/PublicFooter';
 
-const RootLayout = () => {
+const DashboardLayout = () => {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
@@ -38,7 +41,24 @@ const RootLayout = () => {
   );
 };
 
+const PublicLayout = () => {
+  return (
+    <div className="min-h-screen bg-[#f6f9ff] text-[#012970] flex flex-col justify-between font-sans">
+      <PublicNavbar />
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8">
+        <Outlet />
+      </main>
+      <PublicFooter />
+    </div>
+  );
+};
+
 export const router = createBrowserRouter([
+  // Public Homepage & Exhibition Discovery Routes
+  {
+    path: '/',
+    element: <HomePage />,
+  },
   {
     path: '/login',
     element: <LoginPage />,
@@ -47,30 +67,40 @@ export const router = createBrowserRouter([
     path: '/register',
     element: <RegisterPage />,
   },
+
+  // Public Exhibition Discovery Routes
+  {
+    path: '/exhibitions',
+    element: <PublicLayout />,
+    children: [
+      { path: '', element: <ExhibitionsPage /> },
+      { path: ':slug', element: <ExhibitionDetailPage /> },
+      { path: ':slug/book', element: <BookingWizardPage /> },
+    ],
+  },
+
+  // Protected Exhibitor & Admin Workspace Routes
   {
     path: '/',
     element: (
       <ProtectedRoute>
-        <RootLayout />
+        <DashboardLayout />
       </ProtectedRoute>
     ),
     children: [
-      { path: '/', element: <Navigate to="/dashboard" replace /> },
-      { path: '/dashboard', element: <ClientDashboardPage /> },
-      { path: '/exhibitions', element: <ExhibitionsPage /> },
-      { path: '/exhibitions/:slug', element: <ExhibitionDetailPage /> },
-      { path: '/exhibitions/:slug/book', element: <BookingWizardPage /> },
-      { path: '/my-company', element: <CompanyProfilePage /> },
-      { path: '/checkout', element: <BookingCheckoutPage /> },
-      { path: '/my-bookings', element: <MyBookingsPage /> },
-      { path: '/payment-success', element: <PaymentSuccessPage /> },
-      { path: '/invoices', element: <MyInvoicesPage /> },
-      { path: '/invoices/:id', element: <InvoiceDetailPage /> },
-      { path: '/notifications', element: <NotificationsPage /> },
+      { path: 'dashboard', element: <ClientDashboardPage /> },
+      { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
+      { path: 'my-company', element: <CompanyProfilePage /> },
+      { path: 'checkout', element: <BookingCheckoutPage /> },
+      { path: 'my-bookings', element: <MyBookingsPage /> },
+      { path: 'payment-success', element: <PaymentSuccessPage /> },
+      { path: 'invoices', element: <MyInvoicesPage /> },
+      { path: 'invoices/:id', element: <InvoiceDetailPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
 
       // Admin Routes
       {
-        path: '/admin/dashboard',
+        path: 'admin/dashboard',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminDashboardPage />
@@ -78,7 +108,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/events',
+        path: 'admin/events',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminEventsPage />
@@ -86,7 +116,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/events/create',
+        path: 'admin/events/create',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminExhibitionBuilderPage />
@@ -94,7 +124,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/companies',
+        path: 'admin/companies',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminCompaniesPage />
@@ -102,7 +132,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/bookings',
+        path: 'admin/bookings',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminBookingsPage />
@@ -110,7 +140,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/payments',
+        path: 'admin/payments',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminPaymentsPage />
@@ -118,7 +148,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/admin/invoices',
+        path: 'admin/invoices',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <MyInvoicesPage />
