@@ -18,8 +18,8 @@ export const ExhibitionsPage: React.FC = () => {
   const fetchExhibitions = async () => {
     try {
       setLoading(true);
-      const data = await exhibitionService.getExhibitions('PUBLISHED');
-      setExhibitions(data);
+      const data = await exhibitionService.getExhibitions();
+      setExhibitions(data || []);
     } catch (err) {
       console.error('Failed to load exhibitions:', err);
     } finally {
