@@ -35,7 +35,7 @@ export const ExhibitionsPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-8 space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
