@@ -496,12 +496,12 @@ export const HomePage: React.FC = () => {
           
           <div className="max-w-[1600px] mx-auto space-y-12 relative z-10">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#E6EAF0] pb-8">
-              <div className="space-y-3 max-w-2xl">
-                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E4F5F2] text-[#0E8074] border border-[#0E8074]/30 font-extrabold text-xs uppercase tracking-wider">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-[#E6EAF0] pb-6">
+              <div className="space-y-2.5 max-w-3xl">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E4F5F2] text-[#0E8074] border border-[#0E8074]/30 font-extrabold text-xs uppercase tracking-wider">
                   <Trophy className="w-4 h-4 text-[#0E8074]" /> Historical Track Record
                 </span>
-                <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-[#1B37A0] leading-tight">
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[#1B37A0] leading-tight">
                   Past Event Highlights & Success Archives
                 </h2>
                 <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed">
@@ -509,15 +509,15 @@ export const HomePage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Verified Metrics Counter Strip */}
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 bg-white border-2 border-[#1E3FA0]/15 p-4 sm:p-5 rounded-2xl shrink-0 shadow-xs">
-                <div>
+              {/* Verified Metrics Counter Strip — Tight & Connected */}
+              <div className="flex items-center gap-6 sm:gap-8 bg-white border border-[#1E3FA0]/20 px-6 py-4 rounded-2xl shrink-0 shadow-xs">
+                <div className="pr-6 border-r border-slate-200">
                   <span className="text-2xl sm:text-3xl font-black text-[#1B37A0] block">150,000+</span>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">B2B Trade Visitors</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mt-0.5">B2B Trade Visitors</span>
                 </div>
                 <div>
                   <span className="text-2xl sm:text-3xl font-black text-[#0E8074] block">1,200+</span>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Exhibitors Served</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mt-0.5">Exhibitors Served</span>
                 </div>
               </div>
             </div>
