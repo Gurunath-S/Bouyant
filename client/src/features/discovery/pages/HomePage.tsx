@@ -14,17 +14,50 @@ import {
   Users,
   Award,
   ChevronRight,
-  Sparkles,
   LayoutGrid,
+  CheckCircle2,
+  Search,
+  MousePointerClick,
+  FileCheck2,
+  Compass,
+  Trophy,
+  TrendingUp,
 } from 'lucide-react';
+
+const HERO_SLIDES = [
+  {
+    url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
+    title: 'BuildinTec Trade Fair Floor',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200&auto=format&fit=crop',
+    title: 'B2B Trade Show Booths',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=1200&auto=format&fit=crop',
+    title: 'Industrial & Healthcare Summit',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop',
+    title: 'Engineering & Machinery Expo',
+  },
+];
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   useEffect(() => {
     fetchExhibitions();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % HERO_SLIDES.length);
+    }, 4000);
+    return () => clearInterval(timer);
   }, []);
 
   const fetchExhibitions = async () => {
@@ -47,12 +80,14 @@ export const HomePage: React.FC = () => {
     category: 'Medical & Healthcare',
     venue: 'CODISSIA Trade Fair Complex',
     city: 'Coimbatore, TN',
-    startDate: '2026-11-15',
-    endDate: '2026-11-18',
-    bannerUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop',
-    description: 'India premier medical equipment, healthcare technology, and surgical instruments exhibition hosted by Buoyant Media. Discover cutting-edge medical devices, hospital infrastructure, and diagnostic breakthroughs under one roof.',
-    status: 'UPCOMING',
-    totalStalls: 150,
+    startDate: '2026-03-15T09:00:00Z',
+    endDate: '2026-03-18T18:00:00Z',
+    description:
+      'South India’s largest international exhibition for medical devices, healthcare technology, and hospital equipment. Connect with 15,000+ healthcare leaders and trade buyers.',
+    bannerUrl:
+      'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
+    totalStalls: 180,
+    availableStalls: 42,
   };
 
   // Display ONLY the 3 next upcoming events on the main page/dashboard view
@@ -64,85 +99,112 @@ export const HomePage: React.FC = () => {
 
       <main className="flex-1">
         {/* ========================================================================= */}
-        {/* 1. HERO SECTION — FOCUSED STRICTLY ON THE NEXT UPCOMING EVENT (FULL-FLEDGED IMAGE) */}
+        {/* 1. HERO SECTION — SOFT BLUE BACKDROP WITH DOT MATRIX */}
         {/* ========================================================================= */}
-        <section className="bg-gradient-to-r from-[#EEF4FC] via-[#EEF4FC]/80 to-white py-12 sm:py-16 px-6 lg:px-12 relative overflow-hidden border-b border-[#E6EAF0]">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-            {/* Left Content (6 Spans) */}
-            <div className="lg:col-span-6 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#84CC16]/20 border border-[#84CC16]/50 text-[#121B3D] font-bold text-xs rounded-full uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-[#0E8074]" /> Next Flagship Event Launch
-              </div>
+        <section className="bg-[#F4F8FD] py-20 sm:py-28 px-6 lg:px-12 relative overflow-hidden border-b border-[#E6EAF0]">
+          {/* Architectural Dot Grid Pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.35] pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(#1E3FA0 1.2px, transparent 1.2px)',
+              backgroundSize: '28px 28px',
+            }}
+          />
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1B37A0] leading-[1.15] tracking-tight">
+          <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+            {/* Left Content (6 Spans) */}
+            <div className="lg:col-span-6 space-y-7">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-[#1B37A0] leading-[1.08] tracking-tight">
                 {featuredEvent.title}
               </h1>
 
-              <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-700 pt-1">
-                <div className="flex items-center gap-1.5 bg-white px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
+              <div className="flex flex-wrap gap-3 text-xs sm:text-sm font-semibold text-slate-700 pt-1">
+                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-[#E6EAF0] shadow-xs">
                   <Calendar className="w-4 h-4 text-[#0E8074]" />
                   <span>
                     {new Date(featuredEvent.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} -{' '}
                     {new Date(featuredEvent.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-white px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
+                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-[#E6EAF0] shadow-xs">
                   <MapPin className="w-4 h-4 text-[#0E8074]" />
                   <span>{featuredEvent.venue}, {featuredEvent.city}</span>
                 </div>
               </div>
 
-              <p className="text-slate-600 text-base leading-relaxed max-w-xl font-normal">
+              <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-2xl font-normal">
                 {featuredEvent.description}
               </p>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex flex-wrap items-center gap-4">
-                <Link to={`/exhibitions/${featuredEvent.slug}/book`}>
-                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
-                    Book Stall Now <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
+              {/* Modern Light Glass Countdown Timer Container */}
+              <div className="max-w-md bg-white p-4 sm:p-5 rounded-2xl shadow-xs border-2 border-[#1E3FA0]/15 space-y-3">
+                <EventCountdownTimer targetDate={featuredEvent.startDate} />
+              </div>
 
+              {/* Action Button */}
+              <div className="pt-2 flex flex-wrap items-center gap-4">
                 <Link to={`/exhibitions/${featuredEvent.slug}`}>
-                  <button className="inline-flex items-center gap-2 bg-white hover:bg-[#EEF4FC] text-[#1E3FA0] border-2 border-[#1E3FA0] font-bold text-sm px-6 py-3.5 rounded-xl transition-all">
-                    Explore Event Details
+                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-base px-8 py-4 rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5">
+                    Explore Event Details <ArrowRight className="w-5 h-5" />
                   </button>
                 </Link>
               </div>
+
+              {/* Trust & Guarantee Highlights Bar */}
+              <div className="pt-4 border-t border-slate-300/60 flex flex-wrap gap-5 text-xs sm:text-sm font-semibold text-slate-600">
+                <span className="flex items-center gap-1.5 text-[#0E8074]">
+                  <CheckCircle2 className="w-4 h-4 text-[#0E8074]" /> Official Buoyant Event
+                </span>
+                <span className="flex items-center gap-1.5 text-[#1E3FA0]">
+                  <CheckCircle2 className="w-4 h-4 text-[#1E3FA0]" /> Real-time Interactive Floor Plan
+                </span>
+                <span className="flex items-center gap-1.5 text-[#0E8074]">
+                  <CheckCircle2 className="w-4 h-4 text-[#0E8074]" /> Instant Online Reservation
+                </span>
+              </div>
             </div>
 
-            {/* Right Full-Fledged Visual Banner Card (6 Spans) */}
+            {/* Right Multi-Image Animated Exhibition Showcase (6 Spans) — Pure & Clear (No Inner Shadow) */}
             <div className="lg:col-span-6 relative">
-              {/* Full-Fledged High-Impact Image Container */}
-              <div className="w-full h-80 sm:h-[420px] rounded-3xl overflow-hidden shadow-2xl relative border-2 border-white/80 bg-slate-900 group">
-                <img
-                  src={featuredEvent.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop'}
-                  alt={featuredEvent.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
+              {/* Decorative Background Glow Plate */}
+              <div className="absolute -inset-3 bg-gradient-to-r from-[#1E3FA0]/15 to-[#0E8074]/15 rounded-3xl blur-2xl opacity-70 pointer-events-none" />
 
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0F294D] via-[#0F294D]/30 to-transparent" />
+              {/* Multi-Image Animated Container */}
+              <div className="w-full h-96 sm:h-[500px] lg:h-[540px] rounded-3xl overflow-hidden shadow-xl relative border-4 border-white bg-white group">
+                {HERO_SLIDES.map((slide, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                      index === currentSlideIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
+                  >
+                    <img
+                      src={slide.url}
+                      alt={slide.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+                ))}
 
-                {/* Category Badge Top Left */}
-                <div className="absolute top-4 left-4 z-10">
-                  <span className="px-3.5 py-1.5 bg-[#0E8074] text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-md backdrop-blur-md">
+                {/* Category Pill Tag Top Left */}
+                <div className="absolute top-5 left-5 z-20">
+                  <span className="px-4 py-2 bg-[#0E8074] text-white font-extrabold text-xs uppercase tracking-wider rounded-full shadow-md backdrop-blur-md">
                     {featuredEvent.category || 'Flagship Exhibition'}
                   </span>
                 </div>
 
-                {/* Live Countdown Timer Banner Floating at Bottom */}
-                <div className="absolute bottom-4 left-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-white/50 rounded-2xl p-4 shadow-2xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#121B3D]">
-                      Opening Ceremony Countdown
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                      Official Timer
-                    </span>
-                  </div>
-                  <EventCountdownTimer targetDate={featuredEvent.startDate} />
+                {/* Animated Pagination Indicators Bottom Right */}
+                <div className="absolute bottom-5 right-5 z-20 flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-2 rounded-full border border-white/60 shadow-md">
+                  {HERO_SLIDES.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentSlideIndex(index)}
+                      className={`h-2.5 rounded-full transition-all duration-300 ${
+                        index === currentSlideIndex ? 'w-7 bg-[#1E3FA0]' : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                      title={`Slide ${index + 1}`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -193,12 +255,12 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Event Imagery Grid & Details */}
+            {/* Event Authentic Photography Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
                 <img
                   src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop"
-                  alt="Inauguration & VIP"
+                  alt="Exhibition Shell Schemes"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
@@ -211,7 +273,7 @@ export const HomePage: React.FC = () => {
               <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
                 <img
                   src="https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=800&auto=format&fit=crop"
-                  alt="B2B Networking"
+                  alt="Verified Buyer Footfall"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
@@ -224,13 +286,77 @@ export const HomePage: React.FC = () => {
               <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
                 <img
                   src="https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=800&auto=format&fit=crop"
-                  alt="Live Demos"
+                  alt="Live Product Demos"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <span className="text-[10px] font-bold uppercase text-[#84CC16] block">Product Launches</span>
                   <h3 className="text-sm font-bold">Live Demos & Technical Seminars</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 2.5 INFOGRAPHIC SECTION — HOW ONLINE STALL BOOKING WORKS */}
+        {/* ========================================================================= */}
+        <section className="py-16 px-6 lg:px-12 bg-gradient-to-b from-white to-[#F4F8FD] border-b border-[#E6EAF0]">
+          <div className="max-w-7xl mx-auto space-y-12">
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#0E8074]">
+                Seamless Booking Experience
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1B37A0] tracking-tight">
+                How Online Stall Hold & Reservation Works
+              </h2>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Reserve your exhibition booth in 3 simple steps on Buoyant Media digital booking portal.
+              </p>
+            </div>
+
+            {/* Step Infographic Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+              {/* Step 1 */}
+              <div className="bg-white border border-[#E6EAF0] p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all space-y-4 text-center relative group">
+                <div className="w-16 h-16 bg-[#EEF4FC] text-[#1E3FA0] rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                  <Search className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-xs font-black text-[#0E8074] uppercase tracking-wider block">Step 01</span>
+                  <h3 className="text-lg font-bold text-[#121B3D]">Select Trade Fair</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    Browse upcoming exhibitions by sector, dates, and venue specs across major industrial hubs.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="bg-white border border-[#E6EAF0] p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all space-y-4 text-center relative group">
+                <div className="w-16 h-16 bg-[#E4F5F2] text-[#0E8074] rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                  <MousePointerClick className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-xs font-black text-[#0E8074] uppercase tracking-wider block">Step 02</span>
+                  <h3 className="text-lg font-bold text-[#121B3D]">Choose Stall on Live Map</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    View real-time stall availability, dimensions, premium corner slots, and shell scheme pricing.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-white border border-[#E6EAF0] p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all space-y-4 text-center relative group">
+                <div className="w-16 h-16 bg-[#F3FCE8] text-[#73b510] rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                  <FileCheck2 className="w-8 h-8 text-[#0E8074]" />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-xs font-black text-[#0E8074] uppercase tracking-wider block">Step 03</span>
+                  <h3 className="text-lg font-bold text-[#121B3D]">Instant Hold & Invoice</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    Lock your booth instantly with a 15-minute online hold, submit company details, and receive GST invoice.
+                  </p>
                 </div>
               </div>
             </div>
@@ -343,123 +469,155 @@ export const HomePage: React.FC = () => {
           )}
 
           {/* Bottom Banner to Separate All Events Page */}
-          <div className="bg-[#121B3D] text-white rounded-3xl p-8 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 mt-8">
-            <div className="space-y-1 text-center md:text-left">
-              <h3 className="text-xl font-bold text-white">Explore Full Exhibition Directory</h3>
-              <p className="text-xs text-slate-300">
-                Filter by sector, location, or search upcoming international B2B trade shows.
+          <div className="bg-gradient-to-r from-[#EEF4FC] via-[#F4F8FD] to-white border-2 border-[#1E3FA0]/20 rounded-3xl p-8 sm:p-10 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6 mt-10">
+            <div className="space-y-2 text-center md:text-left max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E4F5F2] text-[#0E8074] font-extrabold text-[11px] uppercase tracking-wider rounded-full">
+                <Compass className="w-3.5 h-3.5 text-[#0E8074]" /> Complete Exhibition Directory
+              </div>
+              <h3 className="text-2xl font-black text-[#1B37A0]">Explore Full Exhibition Directory</h3>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Filter by sector, location, or search upcoming international B2B trade shows across India.
               </p>
             </div>
             <Link to="/exhibitions">
-              <Button
-                variant="primary"
-                size="lg"
-                className="font-bold bg-[#84CC16] hover:bg-[#73b510] text-[#121B3D] border-none px-6"
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                Browse All Trade Fairs
-              </Button>
+              <button className="inline-flex items-center gap-2.5 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5 whitespace-nowrap">
+                Browse All Trade Fairs <ArrowRight className="w-4 h-4" />
+              </button>
             </Link>
           </div>
         </section>
 
         {/* ========================================================================= */}
-        {/* 4. PAST EVENTS HIGHLIGHTS & GALLERY SECTION */}
+        {/* 4. PAST EVENTS HIGHLIGHTS & GALLERY SECTION — LIGHT CORPORATE SHOWCASE */}
         {/* ========================================================================= */}
-        <section className="bg-[#EEF4FC]/80 border-t border-[#E6EAF0] py-16 px-6 lg:px-12">
-          <div className="max-w-7xl mx-auto space-y-10">
-            <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#0E8074]">
-                Past Event Highlights & Archives
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1B37A0] tracking-tight">
-                Our Track Record of Successful Trade Fairs
-              </h2>
-              <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                Over 40+ premier industrial trade shows hosted across Coimbatore, Chennai, and Bengaluru with verified B2B buyer turnout.
-              </p>
+        <section className="bg-gradient-to-br from-[#F4F8FD] via-[#EEF4FC] to-white border-t border-[#E6EAF0] py-20 px-6 lg:px-12 relative overflow-hidden">
+          {/* Subtle Ambient Background Accent */}
+          <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[#1E3FA0]/5 rounded-full blur-[120px] pointer-events-none" />
+          
+          <div className="max-w-[1600px] mx-auto space-y-12 relative z-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#E6EAF0] pb-8">
+              <div className="space-y-3 max-w-2xl">
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E4F5F2] text-[#0E8074] border border-[#0E8074]/30 font-extrabold text-xs uppercase tracking-wider">
+                  <Trophy className="w-4 h-4 text-[#0E8074]" /> Historical Track Record
+                </span>
+                <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-[#1B37A0] leading-tight">
+                  Past Event Highlights & Success Archives
+                </h2>
+                <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed">
+                  Over 40+ premier industrial trade fairs hosted across Coimbatore, Chennai, and Bengaluru with verified B2B buyer turnout.
+                </p>
+              </div>
+
+              {/* Verified Metrics Counter Strip */}
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 bg-white border-2 border-[#1E3FA0]/15 p-4 sm:p-5 rounded-2xl shrink-0 shadow-xs">
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-[#1B37A0] block">150,000+</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">B2B Trade Visitors</span>
+                </div>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-[#0E8074] block">1,200+</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Exhibitors Served</span>
+                </div>
+              </div>
             </div>
 
             {/* Gallery Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
-                <div className="h-48 overflow-hidden relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
+              {/* Event Card 1 */}
+              <div className="bg-white border border-[#E6EAF0] rounded-3xl overflow-hidden shadow-xs hover:shadow-2xl hover:border-[#1E3FA0] hover:-translate-y-2 transition-all duration-300 group">
+                <div className="h-56 overflow-hidden relative">
                   <img
                     src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop"
                     alt="BuildinTec 2025"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/75 via-[#121B3D]/20 to-transparent" />
+                  <span className="absolute top-3.5 left-3.5 bg-white/90 backdrop-blur-md text-[#1E3FA0] font-extrabold text-[11px] uppercase px-3 py-1 rounded-full border border-white/50 shadow-xs">
                     2025 Edition
                   </span>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-bold text-base text-[#121B3D]">BuildinTec 2025</h3>
-                  <p className="text-xs text-slate-500 font-medium">CODISSIA Complex, Coimbatore</p>
-                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <div className="p-6 space-y-3">
+                  <h3 className="font-extrabold text-lg text-[#121B3D] group-hover:text-[#1E3FA0] transition-colors">BuildinTec 2025</h3>
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#0E8074]" /> CODISSIA Complex, Coimbatore
+                  </p>
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                     <span className="font-bold text-[#0E8074]">18,500+ Visitors</span>
                     <span className="text-slate-400 font-medium">210 Exhibitors</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
-                <div className="h-48 overflow-hidden relative">
+              {/* Event Card 2 */}
+              <div className="bg-white border border-[#E6EAF0] rounded-3xl overflow-hidden shadow-xs hover:shadow-2xl hover:border-[#1E3FA0] hover:-translate-y-2 transition-all duration-300 group">
+                <div className="h-56 overflow-hidden relative">
                   <img
                     src="https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=800&auto=format&fit=crop"
                     alt="InterioTex Expo 2025"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/75 via-[#121B3D]/20 to-transparent" />
+                  <span className="absolute top-3.5 left-3.5 bg-white/90 backdrop-blur-md text-[#1E3FA0] font-extrabold text-[11px] uppercase px-3 py-1 rounded-full border border-white/50 shadow-xs">
                     2025 Edition
                   </span>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-bold text-base text-[#121B3D]">InterioTex Expo 2025</h3>
-                  <p className="text-xs text-slate-500 font-medium">Chennai Trade Centre</p>
-                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <div className="p-6 space-y-3">
+                  <h3 className="font-extrabold text-lg text-[#121B3D] group-hover:text-[#1E3FA0] transition-colors">InterioTex Expo 2025</h3>
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#0E8074]" /> Chennai Trade Centre
+                  </p>
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                     <span className="font-bold text-[#0E8074]">14,200+ Visitors</span>
                     <span className="text-slate-400 font-medium">160 Exhibitors</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
-                <div className="h-48 overflow-hidden relative">
+              {/* Event Card 3 */}
+              <div className="bg-white border border-[#E6EAF0] rounded-3xl overflow-hidden shadow-xs hover:shadow-2xl hover:border-[#1E3FA0] hover:-translate-y-2 transition-all duration-300 group">
+                <div className="h-56 overflow-hidden relative">
                   <img
                     src="https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=800&auto=format&fit=crop"
                     alt="MediTech Summit 2024"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/75 via-[#121B3D]/20 to-transparent" />
+                  <span className="absolute top-3.5 left-3.5 bg-white/90 backdrop-blur-md text-[#1E3FA0] font-extrabold text-[11px] uppercase px-3 py-1 rounded-full border border-white/50 shadow-xs">
                     2024 Edition
                   </span>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-bold text-base text-[#121B3D]">MediTech Summit 2024</h3>
-                  <p className="text-xs text-slate-500 font-medium">BIEC Centre, Bengaluru</p>
-                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <div className="p-6 space-y-3">
+                  <h3 className="font-extrabold text-lg text-[#121B3D] group-hover:text-[#1E3FA0] transition-colors">MediTech Summit 2024</h3>
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#0E8074]" /> BIEC Centre, Bengaluru
+                  </p>
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                     <span className="font-bold text-[#0E8074]">22,000+ Delegates</span>
                     <span className="text-slate-400 font-medium">290 Exhibitors</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
-                <div className="h-48 overflow-hidden relative">
+              {/* Event Card 4 */}
+              <div className="bg-white border border-[#E6EAF0] rounded-3xl overflow-hidden shadow-xs hover:shadow-2xl hover:border-[#1E3FA0] hover:-translate-y-2 transition-all duration-300 group">
+                <div className="h-56 overflow-hidden relative">
                   <img
                     src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=800&auto=format&fit=crop"
                     alt="AutoTech Expo 2024"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/75 via-[#121B3D]/20 to-transparent" />
+                  <span className="absolute top-3.5 left-3.5 bg-white/90 backdrop-blur-md text-[#1E3FA0] font-extrabold text-[11px] uppercase px-3 py-1 rounded-full border border-white/50 shadow-xs">
                     2024 Edition
                   </span>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-bold text-base text-[#121B3D]">AutoTech & Engineering 2024</h3>
-                  <p className="text-xs text-slate-500 font-medium">CODISSIA Complex, Coimbatore</p>
-                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <div className="p-6 space-y-3">
+                  <h3 className="font-extrabold text-lg text-[#121B3D] group-hover:text-[#1E3FA0] transition-colors">AutoTech & Engineering 2024</h3>
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#0E8074]" /> CODISSIA Complex, Coimbatore
+                  </p>
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                     <span className="font-bold text-[#0E8074]">19,800+ Visitors</span>
                     <span className="text-slate-400 font-medium">240 Exhibitors</span>
                   </div>
