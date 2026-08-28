@@ -11,12 +11,12 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  ShieldCheck,
-  Building2,
   Calendar,
   MapPin,
-  ExternalLink,
-  CheckCircle2,
+  ArrowLeft,
+  ShieldCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 const loginSchema = z.object({
@@ -30,12 +30,11 @@ export const LoginPage: React.FC = () => {
   const { setTokens, setUser } = useAuthStore();
   const navigate = useNavigate();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [portalMode, setPortalMode] = useState<'CLIENT' | 'ADMIN'>('CLIENT');
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -44,17 +43,6 @@ export const LoginPage: React.FC = () => {
       password: 'client123',
     },
   });
-
-  const handlePortalSwitch = (mode: 'CLIENT' | 'ADMIN') => {
-    setPortalMode(mode);
-    if (mode === 'ADMIN') {
-      setValue('email', 'admin@buoyantmedia.com');
-      setValue('password', 'admin123');
-    } else {
-      setValue('email', 'client@techcorp.com');
-      setValue('password', 'client123');
-    }
-  };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -73,204 +61,167 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 font-sans flex flex-col justify-between">
-      {/* Top Header Bar */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 lg:px-12 py-3 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3">
-          <img src="/assets/logo.png" alt="BUOYANT Media" className="h-10 object-contain" />
-          <div className="hidden sm:block border-l border-slate-200 pl-3">
-            <span className="block text-[10px] font-bold text-[#012970] dark:text-slate-400 uppercase tracking-wider">
-              Exhibition & Trade Fair Management
-            </span>
-          </div>
-        </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#F4F8FD] via-[#EEF4FC] to-white text-[#121B3D] font-sans flex flex-col justify-between relative overflow-hidden">
+      {/* Subtle Architectural Dot Grid Pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.25] pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(#1E3FA0 1.2px, transparent 1.2px)',
+          backgroundSize: '32px 32px',
+        }}
+      />
 
-        <a
-          href="https://buoyantevents.com"
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs font-bold text-[#09539b] hover:text-[#012970] dark:text-blue-400 flex items-center gap-1.5 transition-colors bg-[#f6f9ff] px-3 py-1.5 rounded-lg border border-[#e1ecff]"
-        >
-          Official Website <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+      {/* Top Header Bar — Original Clean White Header */}
+      <header className="relative z-10 w-full bg-white border-b border-slate-200 shadow-xs">
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-3.5 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain" />
+          </Link>
+
+          <Link
+            to="/"
+            className="text-xs font-bold text-[#1E3FA0] hover:text-[#152B75] flex items-center gap-2 transition-all bg-[#EEF4FC] px-4 py-2 rounded-xl border border-[#1E3FA0]/15 hover:shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+          </Link>
+        </div>
       </header>
 
       {/* Main Content Body */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-12">
-        {/* Left Information Section */}
-        <div className="lg:w-1/2 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#9cc542]/15 border border-[#9cc542]/40 rounded-full text-[#012970] dark:text-emerald-300 text-xs font-extrabold">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#9cc542] animate-pulse" />
-            Exhibitor Stall Reservation Portal
-          </div>
+      <main className="relative z-10 flex-1 max-w-[1600px] w-full mx-auto px-6 lg:px-12 py-6 sm:py-10 flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-14">
+        {/* Left Side: Featured Exhibition Showcase Card */}
+        <div className="w-full lg:w-1/2 max-w-xl lg:max-w-none">
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-white/80 bg-slate-900 group">
+            {/* Background Event Photo */}
+            <div className="h-[420px] sm:h-[480px] lg:h-[500px] relative overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop"
+                alt="BuildinTec Expo 2026"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              
+              {/* Gradient Vignette Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent" />
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#012970] dark:text-white tracking-tight leading-tight">
-            Book Exhibition Stalls with <span className="text-[#09539b]">Buoyant Media</span>
-          </h1>
-
-          <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-medium">
-            Welcome to the official stall booking platform for Buoyant Media trade shows. Select your stall layout, confirm company tax credentials, and manage invoices for upcoming industrial expos.
-          </p>
-
-          {/* Real Event Highlights */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-bold text-[#012970] dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#09539b]" /> Featured Upcoming Trade Fairs
-            </h3>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                <div>
-                  <span className="font-bold text-[#012970] dark:text-slate-100">MEDICCON EXPO 2026</span>
-                  <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Trade Fair Centre, Coimbatore
-                  </span>
-                </div>
-                <span className="px-2.5 py-1 bg-[#9cc542]/20 text-[#012970] dark:text-emerald-300 border border-[#9cc542]/50 font-bold rounded-md text-[10px]">
-                  Booking Open
+              {/* Floating Top Category Badge */}
+              <div className="absolute top-5 left-5 z-10">
+                <span className="px-3.5 py-1.5 bg-[#0E8074] text-white font-extrabold text-xs uppercase tracking-wider rounded-full shadow-lg backdrop-blur-md">
+                  Flagship Exhibition
                 </span>
               </div>
 
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="font-bold text-[#012970] dark:text-slate-100">INTERIO & EXTERIO EXPO 2026</span>
-                  <span className="text-slate-500 block text-[11px] flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3 h-3 text-slate-400" /> CODISSIA Hall A & B, Coimbatore
+              {/* Event Details Footer Overlay */}
+              <div className="absolute bottom-6 left-6 right-6 z-10 text-white space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/20 backdrop-blur-md text-emerald-300 border border-emerald-400/30 rounded-full text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Stall Reservations Open
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                  BuildinTec & Engineering Expo 2026
+                </h2>
+
+                <div className="flex flex-wrap gap-4 text-xs font-medium text-slate-200 pt-1">
+                  <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                    <Calendar className="w-3.5 h-3.5 text-[#2DD4BF]" /> Feb 12 – 15, 2026
+                  </span>
+                  <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                    <MapPin className="w-3.5 h-3.5 text-[#2DD4BF]" /> CODISSIA Complex, Coimbatore
                   </span>
                 </div>
-                <span className="px-2.5 py-1 bg-blue-50 text-[#09539b] border border-blue-200 font-bold rounded-md text-[10px]">
-                  Upcoming
-                </span>
               </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6 text-xs font-bold text-[#012970]/80 dark:text-slate-300">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#9cc542]" /> 1000+ Events Managed
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#9cc542]" /> GST Tax Compliant
             </div>
           </div>
         </div>
 
-        {/* Right Login Card */}
-        <div className="lg:w-5/12 w-full">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Sign In</h2>
-              <p className="text-xs text-slate-500 mt-1">Access your exhibitor or administrator dashboard</p>
-            </div>
-
-            {/* Role Mode Selector */}
-            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => handlePortalSwitch('CLIENT')}
-                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  portalMode === 'CLIENT'
-                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" /> Exhibitor Client
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePortalSwitch('ADMIN')}
-                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  portalMode === 'ADMIN'
-                    ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" /> Event Admin
-              </button>
+        {/* Right Side: Sleek Glassmorphic Sign In Card */}
+        <div className="w-full lg:w-5/12 max-w-md">
+          <div className="bg-white/90 backdrop-blur-xl border border-white rounded-3xl p-8 sm:p-10 shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="text-center">
+              <h2 className="text-3xl font-black text-[#1B37A0] tracking-tight">Sign In</h2>
+              <p className="text-xs text-slate-500 mt-1.5 font-medium">
+                Enter your credentials to access your account
+              </p>
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-semibold animate-in fade-in duration-200">
                 {errorMsg}
               </div>
             )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="name@company.com"
-                leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
-                error={errors.email?.message}
-                {...register('email')}
-              />
+              <div>
+                <Input
+                  label="Email Address"
+                  type="email"
+                  placeholder="name@company.com"
+                  leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
+                  error={errors.email?.message}
+                  {...register('email')}
+                />
+              </div>
 
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
-                error={errors.password?.message}
-                {...register('password')}
-              />
+              <div>
+                <Input
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-slate-400 hover:text-[#1E3FA0] focus:outline-none p-1 transition-colors"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                  error={errors.password?.message}
+                  {...register('password')}
+                />
+              </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full font-bold shadow-sm bg-[#09539b] hover:bg-[#012970] border-[#09539b] text-white transition-all"
-                isLoading={isSubmitting}
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                Sign In to {portalMode === 'ADMIN' ? 'Admin Studio' : 'Exhibitor Portal'}
-              </Button>
+              {/* Sleek & Professional Remember Me Checkbox */}
+              <div className="flex items-center justify-between text-xs pt-1">
+                <label className="inline-flex items-center gap-2.5 cursor-pointer group select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-[#1E3FA0] focus:ring-[#1E3FA0] focus:ring-2 focus:ring-offset-1 accent-[#1E3FA0] cursor-pointer transition-all group-hover:border-[#1E3FA0]"
+                  />
+                  <span className="font-semibold text-slate-700 text-xs group-hover:text-[#1E3FA0] transition-colors">
+                    Remember me
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="w-full font-extrabold shadow-lg bg-gradient-to-r from-[#1E3FA0] to-[#152B75] hover:from-[#152B75] hover:to-[#0F294D] text-white transition-all rounded-2xl py-3.5 text-sm flex items-center justify-center gap-2 group"
+                  isLoading={isSubmitting}
+                  rightIcon={<ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                >
+                  Sign In
+                </Button>
+              </div>
             </form>
 
-            {/* Quick Demo Credentials */}
-            <div className="pt-4 border-t border-slate-100 text-center space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Quick Demo Credentials
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handlePortalSwitch('CLIENT');
-                    onSubmit({ email: 'client@techcorp.com', password: 'client123' });
-                  }}
-                  className="p-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg font-semibold text-slate-700 text-left transition-colors"
-                >
-                  <span className="block text-blue-700 font-bold text-[11px]">Exhibitor Account</span>
-                  <span className="text-[10px] text-slate-500 font-mono">client@techcorp.com</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handlePortalSwitch('ADMIN');
-                    onSubmit({ email: 'admin@buoyantmedia.com', password: 'admin123' });
-                  }}
-                  className="p-2 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg font-semibold text-slate-700 text-left transition-colors"
-                >
-                  <span className="block text-purple-700 font-bold text-[11px]">Admin Account</span>
-                  <span className="text-[10px] text-slate-500 font-mono">admin@buoyantmedia.com</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="text-center text-xs text-slate-500 pt-2">
-              Need to register a company?{' '}
-              <Link to="/register" className="text-blue-700 font-bold hover:underline">
-                Create Exhibitor Account
-              </Link>
+            {/* Security Guarantee Badge */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400">
+              <ShieldCheck className="w-4 h-4 text-[#0E8074]" />
+              <span>256-Bit SSL Encrypted & Tax Compliant Portal</span>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-500">
-        © {new Date().getFullYear()} Buoyant Media. No.57A Ramasamy Street, KK Pudur, Coimbatore, Tamil Nadu.
+      {/* Footer — Corporate Blue */}
+      <footer className="relative z-10 w-full bg-[#121B3D] text-slate-300 border-t border-[#1E3FA0]/40 px-6 py-4 text-center text-xs font-medium">
+        © {new Date().getFullYear()} Buoyant Media. All rights reserved.
       </footer>
     </div>
   );

@@ -43,9 +43,9 @@ const DashboardLayout = () => {
 
 const PublicLayout = () => {
   return (
-    <div className="min-h-screen bg-[#f6f9ff] text-[#012970] flex flex-col justify-between font-sans">
+    <div className="min-h-screen bg-white text-[#121B3D] flex flex-col justify-between font-sans selection:bg-[#0E8074] selection:text-white">
       <PublicNavbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8">
+      <main className="flex-1 w-full">
         <Outlet />
       </main>
       <PublicFooter />
