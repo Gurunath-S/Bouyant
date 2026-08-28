@@ -101,7 +101,7 @@ export const HomePage: React.FC = () => {
         {/* ========================================================================= */}
         {/* 1. HERO SECTION — SOFT BLUE BACKDROP WITH DOT MATRIX */}
         {/* ========================================================================= */}
-        <section className="bg-[#F4F8FD] py-20 sm:py-28 px-6 lg:px-12 relative overflow-hidden border-b border-[#E6EAF0]">
+        <section className="bg-[#F4F8FD] py-12 sm:py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden border-b border-[#E6EAF0]">
           {/* Architectural Dot Grid Pattern */}
           <div
             className="absolute inset-0 opacity-[0.35] pointer-events-none"
@@ -111,47 +111,47 @@ export const HomePage: React.FC = () => {
             }}
           />
 
-          <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
             {/* Left Content (6 Spans) */}
-            <div className="lg:col-span-6 space-y-7">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-[#1B37A0] leading-[1.08] tracking-tight">
+            <div className="lg:col-span-6 space-y-6">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1B37A0] leading-[1.12] tracking-tight">
                 {featuredEvent.title}
               </h1>
 
-              <div className="flex flex-wrap gap-3 text-xs sm:text-sm font-semibold text-slate-700 pt-1">
-                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-[#E6EAF0] shadow-xs">
+              <div className="flex flex-wrap gap-2.5 text-xs font-semibold text-slate-700 pt-0.5">
+                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
                   <Calendar className="w-4 h-4 text-[#0E8074]" />
                   <span>
                     {new Date(featuredEvent.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} -{' '}
                     {new Date(featuredEvent.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-[#E6EAF0] shadow-xs">
+                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
                   <MapPin className="w-4 h-4 text-[#0E8074]" />
                   <span>{featuredEvent.venue}, {featuredEvent.city}</span>
                 </div>
               </div>
 
-              <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-2xl font-normal">
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-xl font-normal">
                 {featuredEvent.description}
               </p>
 
               {/* Modern Light Glass Countdown Timer Container */}
-              <div className="max-w-md bg-white p-4 sm:p-5 rounded-2xl shadow-xs border-2 border-[#1E3FA0]/15 space-y-3">
+              <div className="max-w-md bg-white p-3.5 sm:p-4 rounded-2xl shadow-xs border border-[#1E3FA0]/15 space-y-2.5">
                 <EventCountdownTimer targetDate={featuredEvent.startDate} />
               </div>
 
               {/* Action Button */}
-              <div className="pt-2 flex flex-wrap items-center gap-4">
+              <div className="pt-1 flex flex-wrap items-center gap-4">
                 <Link to={`/exhibitions/${featuredEvent.slug}`}>
-                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-base px-8 py-4 rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5">
-                    Explore Event Details <ArrowRight className="w-5 h-5" />
+                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
+                    Explore Event Details <ArrowRight className="w-4 h-4" />
                   </button>
                 </Link>
               </div>
 
               {/* Trust & Guarantee Highlights Bar */}
-              <div className="pt-4 border-t border-slate-300/60 flex flex-wrap gap-5 text-xs sm:text-sm font-semibold text-slate-600">
+              <div className="pt-3 border-t border-slate-300/60 flex flex-wrap gap-4 text-xs font-semibold text-slate-600">
                 <span className="flex items-center gap-1.5 text-[#0E8074]">
                   <CheckCircle2 className="w-4 h-4 text-[#0E8074]" /> Official Buoyant Event
                 </span>
@@ -164,13 +164,13 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Multi-Image Animated Exhibition Showcase (6 Spans) — Pure & Clear (No Inner Shadow) */}
+            {/* Right Multi-Image Animated Exhibition Showcase (6 Spans) — Proportional Height */}
             <div className="lg:col-span-6 relative">
               {/* Decorative Background Glow Plate */}
-              <div className="absolute -inset-3 bg-gradient-to-r from-[#1E3FA0]/15 to-[#0E8074]/15 rounded-3xl blur-2xl opacity-70 pointer-events-none" />
+              <div className="absolute -inset-2 bg-gradient-to-r from-[#1E3FA0]/15 to-[#0E8074]/15 rounded-3xl blur-xl opacity-70 pointer-events-none" />
 
               {/* Multi-Image Animated Container */}
-              <div className="w-full h-96 sm:h-[500px] lg:h-[540px] rounded-3xl overflow-hidden shadow-xl relative border-4 border-white bg-white group">
+              <div className="w-full h-72 sm:h-[380px] lg:h-[430px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg relative border-3 border-white bg-white group">
                 {HERO_SLIDES.map((slide, index) => (
                   <div
                     key={index}
@@ -187,20 +187,20 @@ export const HomePage: React.FC = () => {
                 ))}
 
                 {/* Category Pill Tag Top Left */}
-                <div className="absolute top-5 left-5 z-20">
-                  <span className="px-4 py-2 bg-[#0E8074] text-white font-extrabold text-xs uppercase tracking-wider rounded-full shadow-md backdrop-blur-md">
+                <div className="absolute top-4 left-4 z-20">
+                  <span className="px-3.5 py-1.5 bg-[#0E8074] text-white font-extrabold text-[11px] uppercase tracking-wider rounded-full shadow-xs backdrop-blur-md">
                     {featuredEvent.category || 'Flagship Exhibition'}
                   </span>
                 </div>
 
                 {/* Animated Pagination Indicators Bottom Right */}
-                <div className="absolute bottom-5 right-5 z-20 flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-2 rounded-full border border-white/60 shadow-md">
+                <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 bg-white/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/60 shadow-xs">
                   {HERO_SLIDES.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentSlideIndex(index)}
-                      className={`h-2.5 rounded-full transition-all duration-300 ${
-                        index === currentSlideIndex ? 'w-7 bg-[#1E3FA0]' : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        index === currentSlideIndex ? 'w-6 bg-[#1E3FA0]' : 'w-2 bg-slate-300 hover:bg-slate-400'
                       }`}
                       title={`Slide ${index + 1}`}
                     />

@@ -83,7 +83,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white text-[#121B3D] font-sans selection:bg-[#0E8074] selection:text-white">
       {/* Back Navigation Bar */}
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-12 pt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <Link
           to="/exhibitions"
           className="inline-flex items-center gap-2 text-slate-500 hover:text-[#121B3D] font-semibold text-sm transition-colors"
@@ -95,19 +95,19 @@ export const ExhibitionDetailPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* DETAILS HERO BANNER */}
       {/* ========================================================================= */}
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-12 mt-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         <div
-          className="h-80 sm:h-[420px] rounded-3xl bg-cover bg-center relative overflow-hidden flex items-end shadow-md border border-[#E6EAF0]"
+          className="h-64 sm:h-[340px] rounded-2xl sm:rounded-3xl bg-cover bg-center relative overflow-hidden flex items-end shadow-md border border-[#E6EAF0]"
           style={{ backgroundImage: `url(${bannerImg})` }}
         >
           {/* Banner Dark Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0F294D] via-[#0F294D]/40 to-transparent" />
 
-          <div className="relative z-10 p-6 sm:p-10 text-white space-y-3">
+          <div className="relative z-10 p-5 sm:p-8 text-white space-y-2.5">
             <span className="bg-[#0E8074] text-white font-bold text-xs px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-md">
               {exhibition.category || 'Exhibition'}
             </span>
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black leading-tight max-w-4xl drop-shadow-md">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold leading-tight max-w-3xl drop-shadow-md">
               {exhibition.title}
             </h1>
           </div>
@@ -117,7 +117,7 @@ export const ExhibitionDetailPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* DETAILS LAYOUT GRID (MAIN CONTENT + STICKY SIDEBAR) */}
       {/* ========================================================================= */}
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start pb-20">
         {/* Left Main Content (8 Spans) */}
         <div className="lg:col-span-8 space-y-8">
           {/* Quick Info Strip */}
