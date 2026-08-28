@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Radio } from 'lucide-react';
 
 interface EventCountdownTimerProps {
   targetDate: string | Date;
@@ -14,7 +14,10 @@ interface TimeRemaining {
   isExpired: boolean;
 }
 
-export const EventCountdownTimer: React.FC<EventCountdownTimerProps> = ({ targetDate, className = '' }) => {
+export const EventCountdownTimer: React.FC<EventCountdownTimerProps> = ({
+  targetDate,
+  className = '',
+}) => {
   const [time, setTime] = useState<TimeRemaining>({
     days: 0,
     hours: 0,
@@ -49,7 +52,7 @@ export const EventCountdownTimer: React.FC<EventCountdownTimerProps> = ({ target
 
   if (time.isExpired) {
     return (
-      <div className={`p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center font-bold text-xs text-emerald-800 flex items-center justify-center gap-2 ${className}`}>
+      <div className={`px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center font-bold text-xs text-emerald-800 flex items-center justify-center gap-2 ${className}`}>
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
         Exhibition is Live Now!
       </div>
@@ -57,43 +60,53 @@ export const EventCountdownTimer: React.FC<EventCountdownTimerProps> = ({ target
   }
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-        <span className="flex items-center gap-1 text-[#09539b]">
-          <Clock className="w-3.5 h-3.5" /> Event Starts In
+    <div className={`space-y-2.5 ${className}`}>
+      <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+        <span className="flex items-center gap-1.5 text-[#1B37A0]">
+          <Clock className="w-3.5 h-3.5 text-[#0E8074]" /> Official Event Countdown
         </span>
-        <span className="text-emerald-600 font-mono text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-          Live Timer
+        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#0E8074] bg-[#E4F5F2] px-2.5 py-0.5 rounded-full border border-[#0E8074]/20">
+          <Radio className="w-3 h-3 text-[#0E8074] animate-pulse" /> LIVE
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 text-center font-mono">
-        <div className="bg-[#121B3D] text-white p-2.5 rounded-xl border border-slate-700/50 shadow-xs flex flex-col justify-center">
-          <span className="text-lg sm:text-xl font-black text-[#84CC16]">
+      <div className="flex items-center justify-between gap-1.5 font-mono">
+        {/* Days */}
+        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
             {String(time.days).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-bold text-slate-300">Days</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Days</span>
         </div>
 
-        <div className="bg-[#121B3D] text-white p-2.5 rounded-xl border border-slate-700/50 shadow-xs flex flex-col justify-center">
-          <span className="text-lg sm:text-xl font-black text-white">
+        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+
+        {/* Hours */}
+        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
             {String(time.hours).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-bold text-slate-300">Hours</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Hours</span>
         </div>
 
-        <div className="bg-[#121B3D] text-white p-2.5 rounded-xl border border-slate-700/50 shadow-xs flex flex-col justify-center">
-          <span className="text-lg sm:text-xl font-black text-white">
+        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+
+        {/* Minutes */}
+        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
             {String(time.minutes).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-bold text-slate-300">Mins</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Mins</span>
         </div>
 
-        <div className="bg-[#121B3D] text-white p-2.5 rounded-xl border border-slate-700/50 shadow-xs flex flex-col justify-center">
-          <span className="text-lg sm:text-xl font-black text-[#84CC16] animate-pulse">
+        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+
+        {/* Seconds */}
+        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-xl sm:text-2xl font-black text-[#0E8074] tracking-tight animate-pulse">
             {String(time.seconds).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-bold text-slate-300">Secs</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Secs</span>
         </div>
       </div>
     </div>
