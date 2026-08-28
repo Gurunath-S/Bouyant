@@ -4,26 +4,22 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { stallService } from '../../../services/stalls/stallService';
 import { Exhibition, Stall } from '../../../types';
 import { Button } from '../../../components/ui/Button';
+import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import {
   Calendar,
+  Clock,
   MapPin,
   ArrowLeft,
   ArrowRight,
   Building,
   Award,
   ShieldCheck,
-  Tag,
   LayoutGrid,
-  CheckCircle,
   Users,
-  Clock,
-  Sparkles,
-  Phone,
-  Mail,
-  Download,
-  ExternalLink,
   Check,
+  Share2,
+  CheckCircle,
 } from 'lucide-react';
 
 export const ExhibitionDetailPage: React.FC = () => {
@@ -33,8 +29,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<'overview' | 'floorplan' | 'pricing' | 'schedule' | 'sponsors'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'floorplan' | 'pricing' | 'schedule'>('overview');
 
   useEffect(() => {
     if (slug) fetchEventData();
@@ -61,8 +56,8 @@ export const ExhibitionDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="p-16 text-center text-slate-500 font-medium animate-pulse space-y-3">
-        <div className="w-12 h-12 border-4 border-[#09539b] border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs font-bold uppercase tracking-wider text-[#012970]">Loading Exhibition Profile...</p>
+        <div className="w-12 h-12 border-4 border-[#1E3FA0] border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs font-bold uppercase tracking-wider text-[#121B3D]">Loading Event Profile...</p>
       </div>
     );
   }
@@ -70,384 +65,399 @@ export const ExhibitionDetailPage: React.FC = () => {
   if (!exhibition) {
     return (
       <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl space-y-4 max-w-xl mx-auto my-12">
-        <h3 className="text-lg font-bold text-[#012970]">Exhibition Event Not Found</h3>
-        <p className="text-xs text-slate-500">The requested trade fair could not be located in our directory.</p>
+        <h3 className="text-lg font-bold text-[#121B3D]">Event Not Found</h3>
+        <p className="text-xs text-slate-500">The requested exhibition could not be located in our directory.</p>
         <Button variant="outline" onClick={() => navigate('/exhibitions')}>
-          Back to All Exhibitions
+          Back to all events
         </Button>
       </div>
     );
   }
 
-  const galleryImages = [
-    exhibition.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?auto=format&fit=crop&w=1200&q=80',
-  ];
+  const availableCount = stalls.filter((s) => s.status === 'AVAILABLE').length || exhibition.totalStalls || 45;
+  const registeredCount = stalls.length > 0 ? stalls.length - availableCount : 120;
+  const totalSlots = stalls.length || (availableCount + registeredCount);
+  const fillPercentage = Math.min(100, Math.round((registeredCount / totalSlots) * 100));
 
-  const availableCount = stalls.filter((s) => s.status === 'AVAILABLE').length;
+  const bannerImg = exhibition.bannerUrl || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1200&auto=format&fit=crop';
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto font-sans pb-16">
-      {/* Back Navigation */}
-      <div>
-        <button
-          onClick={() => navigate('/exhibitions')}
-          className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1 mb-2"
+    <div className="min-h-screen bg-white text-[#121B3D] font-sans selection:bg-[#0E8074] selection:text-white">
+      {/* Back Navigation Bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Link
+          to="/exhibitions"
+          className="inline-flex items-center gap-2 text-slate-500 hover:text-[#121B3D] font-semibold text-sm transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Exhibition Catalog
-        </button>
+          <ArrowLeft className="w-4 h-4" /> Back to all events
+        </Link>
       </div>
 
       {/* ========================================================================= */}
-      {/* HERO BANNER & PRIMARY SUMMARY */}
+      {/* DETAILS HERO BANNER */}
       {/* ========================================================================= */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-md grid grid-cols-1 lg:grid-cols-12">
-        {/* Gallery Image (7 Spans) */}
-        <div className="lg:col-span-7 relative h-80 lg:h-auto bg-slate-900">
-          <img
-            src={galleryImages[activeImageIndex]}
-            alt={exhibition.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute top-4 left-4 flex gap-2">
-            <span className="px-3 py-1 bg-[#012970]/90 backdrop-blur-md text-white font-extrabold text-xs uppercase rounded-lg shadow-sm border border-white/20">
-              {exhibition.category || 'B2B Trade Fair'}
-            </span>
-            <span className="px-3 py-1 bg-[#9cc542] text-[#012970] font-black text-xs uppercase rounded-lg shadow-sm">
-              {exhibition.status}
-            </span>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div
+          className="h-80 sm:h-96 rounded-2xl bg-cover bg-center relative overflow-hidden flex items-end shadow-md"
+          style={{ backgroundImage: `url(${bannerImg})` }}
+        >
+          {/* Banner Dark Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F294D] via-[#0F294D]/40 to-transparent" />
 
-          {/* Gallery Thumbnails */}
-          <div className="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto p-1.5 bg-slate-950/50 backdrop-blur-md rounded-xl">
-            {galleryImages.map((img, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveImageIndex(idx)}
-                className={`w-16 h-12 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
-                  activeImageIndex === idx ? 'border-[#9cc542] scale-105' : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
-              </button>
-            ))}
+          <div className="relative z-10 p-6 sm:p-10 text-white space-y-3">
+            <span className="bg-[#0E8074] text-[#121B3D] font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider">
+              {exhibition.category || 'Exhibition'}
+            </span>
+            <h1 className="text-3xl sm:text-5xl font-black leading-tight max-w-3xl drop-shadow-md">
+              {exhibition.title}
+            </h1>
           </div>
         </div>
+      </div>
 
-        {/* Right Info & CTA (5 Spans) */}
-        <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6 bg-[#f6f9ff] border-t lg:border-t-0 lg:border-l border-slate-200">
-          <div className="space-y-4">
-            <h1 className="text-2xl sm:text-3xl font-black text-[#012970] leading-tight">{exhibition.title}</h1>
-
-            <div className="space-y-2.5 text-xs font-semibold text-slate-700">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#09539b] shrink-0" />
-                <span className="text-slate-900 font-bold">{exhibition.venue}, {exhibition.city}</span>
+      {/* ========================================================================= */}
+      {/* DETAILS LAYOUT GRID (MAIN CONTENT + STICKY SIDEBAR) */}
+      {/* ========================================================================= */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-24">
+        {/* Left Main Content (8 Spans) */}
+        <div className="lg:col-span-8 space-y-8">
+          {/* Quick Info Strip */}
+          <div className="bg-white border border-[#E6EAF0] rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] text-[#0E8074] flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#09539b] shrink-0" />
-                <span className="text-slate-900 font-bold">
-                  {new Date(exhibition.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} -{' '}
-                  {new Date(exhibition.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Date
+                </span>
+                <span className="text-sm font-bold text-[#121B3D] block mt-0.5">
+                  {new Date(exhibition.startDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })} –{' '}
+                  {new Date(exhibition.endDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-[#09539b] shrink-0" />
-                <span className="text-slate-900 font-bold">{availableCount} Shell Scheme Stalls Available</span>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] text-[#0E8074] flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Time
+                </span>
+                <span className="text-sm font-bold text-[#121B3D] block mt-0.5">
+                  9:00 AM – 6:00 PM
+                </span>
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-2xs">
-              <p className="text-xs font-extrabold text-[#09539b] uppercase tracking-wider">Stall Rental Rates Starting At</p>
-              <p className="text-2xl font-black text-[#012970] font-mono">₹1,00,000 GST / $1,200</p>
-              <p className="text-[11px] text-slate-500 font-medium">Includes 10×10 ft turnkey shell scheme, lighting, fascia printing & power.</p>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] text-[#0E8074] flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Location
+                </span>
+                <span className="text-sm font-bold text-[#121B3D] block mt-0.5">
+                  {exhibition.venue}, {exhibition.city}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <Link to={`/exhibitions/${slug}/book`}>
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full shadow-md py-3.5 text-sm font-extrabold bg-[#09539b] hover:bg-[#012970]"
-                rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
-              >
-                Become an Exhibitor & Book Stall
-              </Button>
-            </Link>
-            <p className="text-[11px] text-center text-slate-500 font-semibold flex items-center justify-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Instant GST Invoicing & Secured Stall Allocation
+          {/* Section: About Event */}
+          <div className="space-y-3">
+            <h3 className="text-xl font-bold text-[#121B3D]">About this event</h3>
+            <p className="text-slate-600 text-base leading-relaxed">
+              {exhibition.description}
             </p>
           </div>
-        </div>
-      </div>
 
-      {/* ========================================================================= */}
-      {/* KEY EVENT STATISTICS RIBBON */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-2xs">
-          <div className="flex items-center gap-2 text-[#09539b]">
-            <Users className="w-5 h-5 text-[#09539b]" />
-            <span className="text-xs font-extrabold uppercase text-slate-400">Trade Visitors</span>
-          </div>
-          <p className="text-2xl font-black text-[#012970]">15,000+</p>
-          <p className="text-[11px] text-slate-500 font-medium">Pre-registered B2B Buyers</p>
-        </div>
-
-        <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-2xs">
-          <div className="flex items-center gap-2 text-[#09539b]">
-            <Building className="w-5 h-5 text-[#09539b]" />
-            <span className="text-xs font-extrabold uppercase text-slate-400">Exhibitors</span>
-          </div>
-          <p className="text-2xl font-black text-[#012970]">{stalls.length > 0 ? stalls.length * 3 : '250+'}</p>
-          <p className="text-[11px] text-slate-500 font-medium">Leading Industry Brands</p>
-        </div>
-
-        <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-2xs">
-          <div className="flex items-center gap-2 text-[#09539b]">
-            <LayoutGrid className="w-5 h-5 text-[#09539b]" />
-            <span className="text-xs font-extrabold uppercase text-slate-400">Gross Space</span>
-          </div>
-          <p className="text-2xl font-black text-[#012970]">100,000</p>
-          <p className="text-[11px] text-slate-500 font-medium">Square Feet Air-Conditioned</p>
-        </div>
-
-        <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-2xs">
-          <div className="flex items-center gap-2 text-[#09539b]">
-            <Award className="w-5 h-5 text-[#9cc542]" />
-            <span className="text-xs font-extrabold uppercase text-slate-400">Venue Grade</span>
-          </div>
-          <p className="text-2xl font-black text-[#012970]">Grade A+</p>
-          <p className="text-[11px] text-slate-500 font-medium">International Standard Complex</p>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* NAVIGATION ANCHOR TABS */}
-      {/* ========================================================================= */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex overflow-x-auto gap-2 text-xs font-bold">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'overview' ? 'bg-[#012970] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          About Exhibition
-        </button>
-        <button
-          onClick={() => setActiveTab('floorplan')}
-          className={`px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'floorplan' ? 'bg-[#012970] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Interactive Floor Plan
-        </button>
-        <button
-          onClick={() => setActiveTab('pricing')}
-          className={`px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'pricing' ? 'bg-[#012970] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Stall Pricing & Amenities
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'schedule' ? 'bg-[#012970] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Important Schedule
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* TAB CONTENT SECTIONS */}
-      {/* ========================================================================= */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-2xs">
-              <h2 className="text-xl font-extrabold text-[#012970] border-b border-slate-100 pb-3 flex items-center gap-2">
-                <Award className="w-5 h-5 text-[#09539b]" /> Event Profile & Objectives
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">{exhibition.description}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 text-xs font-medium">
-                <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-1">
-                  <span className="font-bold text-[#012970] text-sm block">Focus Sectors</span>
-                  <p className="text-slate-600">Equipment Manufacturers, OEM Suppliers, Importers, Industrial Distributors.</p>
-                </div>
-                <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-1">
-                  <span className="font-bold text-[#012970] text-sm block">Target Visitor Profiles</span>
-                  <p className="text-slate-600">Managing Directors, Purchase Managers, Technical Engineers, Trade Dealers.</p>
-                </div>
+          {/* Section: Organizer Card */}
+          <div className="space-y-3">
+            <h3 className="text-xl font-bold text-[#121B3D]">Organizer</h3>
+            <div className="bg-white border border-[#E6EAF0] rounded-2xl p-5 flex items-center gap-4 shadow-xs">
+              <div className="w-12 h-12 rounded-full bg-[#121B3D] text-white flex items-center justify-center font-bold font-sora text-base shrink-0">
+                BM
+              </div>
+              <div>
+                <div className="font-bold text-[#121B3D] text-base">Buoyant Media & Trade Fairs</div>
+                <div className="text-xs text-slate-500 font-medium">Official Event Organizer · 40+ events hosted</div>
               </div>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs">
-              <h3 className="text-xs font-extrabold text-[#012970] uppercase tracking-wider border-b border-slate-100 pb-2">
-                Organizer Contacts
-              </h3>
-              <div className="space-y-3 text-xs text-slate-600 font-medium">
-                <div className="flex items-center gap-2">
-                  <Building className="w-4 h-4 text-[#09539b]" />
-                  <span>Buoyant Media & Trade Fairs Pvt Ltd</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-[#09539b]" />
-                  <span>+91 (0422) 4910-880</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-[#09539b]" />
-                  <span>support@buoyantevents.com</span>
+          {/* ========================================================================= */}
+          {/* UPSCALE TABBED SECTIONS (ABOUT, FLOOR MAP, PRICING, SCHEDULE) */}
+          {/* ========================================================================= */}
+          <div className="space-y-6 pt-4">
+            <div className="bg-[#EEF4FC] p-1.5 rounded-2xl flex overflow-x-auto gap-2 text-xs font-bold">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'overview'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                About Exhibition
+              </button>
+              <button
+                onClick={() => setActiveTab('floorplan')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'floorplan'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                Interactive Floor Map
+              </button>
+              <button
+                onClick={() => setActiveTab('pricing')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'pricing'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                Stall & Amenities
+              </button>
+              <button
+                onClick={() => setActiveTab('schedule')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'schedule'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                Important Schedule
+              </button>
+            </div>
+
+            {/* Tab 1: Overview & Focus Sectors */}
+            {activeTab === 'overview' && (
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
+                <h4 className="text-lg font-bold text-[#1B37A0] flex items-center gap-2">
+                  <Award className="w-5 h-5 text-[#0E8074]" /> Exhibition Focus & Target Sectors
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                    <span className="font-bold text-[#121B3D] text-sm block">Focus Sectors</span>
+                    <p className="text-slate-600 leading-relaxed">
+                      Equipment Manufacturers, OEM Suppliers, Importers, Industrial Distributors & Contractors.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                    <span className="font-bold text-[#121B3D] text-sm block">Target Visitor Profiles</span>
+                    <p className="text-slate-600 leading-relaxed">
+                      Managing Directors, Purchase Managers, Technical Engineers, Architects & Trade Dealers.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Tab 2: Interactive Floor Map */}
+            {activeTab === 'floorplan' && (
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-[#1B37A0]">Interactive Hall Floor Map</h4>
+                    <p className="text-xs text-slate-500">Real-time stall status and hall layout</p>
+                  </div>
+                  <Link to={`/exhibitions/${slug}/book`}>
+                    <Button variant="primary" size="sm" className="font-bold bg-[#1E3FA0]">
+                      Book Selected Stall
+                    </Button>
+                  </Link>
+                </div>
+
+                <FloorPlanCanvas
+                  stalls={stalls}
+                  onStallSelect={() => navigate(`/exhibitions/${slug}/book`)}
+                />
+              </div>
+            )}
+
+            {/* Tab 3: Stall Pricing & Amenities */}
+            {activeTab === 'pricing' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
+                  <span className="px-3 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] uppercase rounded-full">
+                    Standard Scheme
+                  </span>
+                  <h4 className="text-lg font-bold text-[#121B3D]">Standard Shell Stall</h4>
+                  <p className="text-2xl font-extrabold text-[#121B3D]">₹1,00,000 <span className="text-xs font-normal text-slate-500">+ GST</span></p>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2">
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 10 ft × 10 ft Turnkey Shell</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Fascia Name Printing</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 1 Table, 2 Chairs, 1 Wastebin</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 5A Power Point & 3 Lights</li>
+                  </ul>
+                  <Link to={`/exhibitions/${slug}/book`}>
+                    <Button variant="outline" className="w-full font-bold border-[#1E3FA0] text-[#1E3FA0] mt-2">
+                      Book Standard Stall
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="bg-white border-2 border-[#1E3FA0] rounded-2xl p-6 space-y-4 shadow-md relative">
+                  <span className="absolute -top-3 right-6 px-3 py-0.5 bg-[#84CC16] text-[#121B3D] font-bold text-[10px] uppercase rounded-full">
+                    Popular Choice
+                  </span>
+                  <span className="px-3 py-1 bg-[#EEF4FC] text-[#1E3FA0] font-bold text-[10px] uppercase rounded-full">
+                    Dual Open Corner
+                  </span>
+                  <h4 className="text-lg font-bold text-[#121B3D]">Premium Corner Stall</h4>
+                  <p className="text-2xl font-extrabold text-[#1E3FA0]">₹1,50,000 <span className="text-xs font-normal text-slate-500">+ GST</span></p>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2">
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 15 ft × 10 ft Dual Open Aisle</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Maximum Visitor Footfall</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Fascia Branding on 2 Sides</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 2 Tables, 4 Chairs & Spotlights</li>
+                  </ul>
+                  <Link to={`/exhibitions/${slug}/book`}>
+                    <Button variant="primary" className="w-full font-bold bg-[#1E3FA0] mt-2">
+                      Book Corner Stall
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
+                  <span className="px-3 py-1 bg-purple-50 text-purple-700 font-bold text-[10px] uppercase rounded-full">
+                    Custom Space
+                  </span>
+                  <h4 className="text-lg font-bold text-[#121B3D]">Island Pavilion Zone</h4>
+                  <p className="text-2xl font-extrabold text-[#121B3D]">₹3,00,000 <span className="text-xs font-normal text-slate-500">+ GST</span></p>
+                  <ul className="text-xs text-slate-600 space-y-2 pt-2">
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 20 ft × 20 ft Center Space</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 4-Side Open Footfall</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Heavy Power Connection</li>
+                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> VIP Badges Included</li>
+                  </ul>
+                  <Link to={`/exhibitions/${slug}/book`}>
+                    <Button variant="outline" className="w-full font-bold border-[#1E3FA0] text-[#1E3FA0] mt-2">
+                      Book Island Pavilion
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Important Schedule */}
+            {activeTab === 'schedule' && (
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-4 shadow-xs">
+                <h4 className="text-lg font-bold text-[#1B37A0]">Exhibition Schedule & Important Dates</h4>
+                <div className="space-y-3 text-xs font-medium">
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-[#121B3D] text-sm block">Stall Booking & Fascia Confirmation</span>
+                      <span className="text-slate-500">Early bird allocation phase</span>
+                    </div>
+                    <span className="px-3 py-1 bg-[#1E3FA0] text-white rounded-md font-mono font-bold">Active Now</span>
+                  </div>
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-[#121B3D] text-sm block">Exhibitor Move-In & Stall Setup</span>
+                      <span className="text-slate-500">Hall access for stall branding</span>
+                    </div>
+                    <span className="px-3 py-1 bg-slate-200 text-slate-800 rounded-md font-mono font-bold">1 Day Prior</span>
+                  </div>
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-[#121B3D] text-sm block">Official Inauguration & Trade Days</span>
+                      <span className="text-slate-500">9:00 AM – 6:00 PM</span>
+                    </div>
+                    <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] rounded-md font-mono font-bold">Expo Days</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {activeTab === 'floorplan' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        {/* Right Sticky Sidebar (4 Spans) */}
+        <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
+          {/* Register Card */}
+          <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 shadow-md space-y-5">
+            {/* Price Row */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-[#121B3D] font-sora">₹499</span>
+              <span className="text-xs text-slate-500 font-medium">per attendee / stall booking available</span>
+            </div>
+
+            {/* LIVE EVENT COUNTDOWN TIMER */}
+            <div className="pt-1">
+              <EventCountdownTimer targetDate={exhibition.startDate} />
+            </div>
+
+            {/* Slot Track */}
+            <div className="space-y-1.5 pt-1">
+              <div className="h-2 rounded-full bg-[#E6EAF0] overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#0E8074] to-[#1E3FA0] rounded-full transition-all duration-500"
+                  style={{ width: `${fillPercentage}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span><b className="text-[#121B3D]">{availableCount}</b> slots left</span>
+                <span>{registeredCount} registered</span>
+              </div>
+            </div>
+
+            {/* Register Action Button */}
+            <Link to={`/exhibitions/${slug}/book`}>
+              <button className="w-full bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-base py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                Register Event / Book Stall
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </Link>
+
+            <div className="text-center text-xs text-slate-500 font-normal">
+              Free cancellation up to 48 hours before the event
+            </div>
+
+            {/* Value Checklist */}
+            <ul className="space-y-2.5 pt-2 border-t border-slate-100 text-xs font-medium text-slate-700">
+              <li className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
+                <span>Instant e-ticket & GST invoice via email</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
+                <span>Access to all technical sessions</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
+                <span>B2B Networking lounge access</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Share Card */}
+          <div className="bg-[#121B3D] text-white rounded-2xl p-5 flex items-center justify-between gap-4 shadow-sm">
             <div>
-              <h2 className="text-xl font-extrabold text-[#012970]">Interactive Hall A Floor Map</h2>
-              <p className="text-xs text-slate-500">Preview stall positions, aisles, and main entrance zones</p>
+              <h4 className="font-bold text-sm">Know someone who'd love this?</h4>
+              <p className="text-xs text-slate-300 mt-0.5">Share this event with your network</p>
             </div>
-            <Link to={`/exhibitions/${slug}/book`}>
-              <Button variant="primary" size="sm" className="font-bold bg-[#09539b]">
-                Select Stall & Book
-              </Button>
-            </Link>
-          </div>
-
-          <FloorPlanCanvas
-            stalls={stalls}
-            onStallSelect={(stall) => {
-              navigate(`/exhibitions/${slug}/book`);
-            }}
-          />
-        </div>
-      )}
-
-      {activeTab === 'pricing' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs hover:border-[#09539b] transition-colors">
-            <span className="px-3 py-1 bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase rounded-md">
-              Standard Scheme
-            </span>
-            <h3 className="text-xl font-extrabold text-[#012970]">Standard Shell Stall</h3>
-            <p className="text-2xl font-black font-mono text-[#012970]">₹1,00,000 <span className="text-xs text-slate-500 font-normal">+ GST</span></p>
-            <ul className="text-xs text-slate-600 space-y-2 pt-2">
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 10 ft × 10 ft (100 Sq.Ft) Area</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> Octanorm Partition Panels</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> Fascia Board Name Printing</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 1 Table, 2 Chairs, 1 Wastebin</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 5A Power Outlet & 3 Spotlights</li>
-            </ul>
-            <Link to={`/exhibitions/${slug}/book`}>
-              <Button variant="outline" className="w-full font-bold border-[#012970] text-[#012970]">
-                Book Standard Stall
-              </Button>
-            </Link>
-          </div>
-
-          <div className="bg-white border-2 border-[#09539b] rounded-2xl p-6 space-y-4 shadow-md relative">
-            <span className="absolute -top-3 right-6 px-3 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded-md shadow-xs">
-              Most Popular
-            </span>
-            <span className="px-3 py-1 bg-[#09539b]/10 text-[#09539b] font-extrabold text-[10px] uppercase rounded-md">
-              Corner Position
-            </span>
-            <h3 className="text-xl font-extrabold text-[#012970]">Premium Corner Stall</h3>
-            <p className="text-2xl font-black font-mono text-[#09539b]">₹1,50,000 <span className="text-xs text-slate-500 font-normal">+ GST</span></p>
-            <ul className="text-xs text-slate-600 space-y-2 pt-2">
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 15 ft × 10 ft (150 Sq.Ft) Dual Open</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> Dual Side Open Footfall Visibility</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> Fascia Printing on Both Aisle Sides</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 2 Tables, 4 Chairs & 5 Spotlights</li>
-            </ul>
-            <Link to={`/exhibitions/${slug}/book`}>
-              <Button variant="primary" className="w-full font-bold bg-[#09539b]">
-                Book Corner Stall
-              </Button>
-            </Link>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs hover:border-[#09539b] transition-colors">
-            <span className="px-3 py-1 bg-purple-100 text-purple-800 font-extrabold text-[10px] uppercase rounded-md">
-              4-Side Open
-            </span>
-            <h3 className="text-xl font-extrabold text-[#012970]">Island Pavilion Zone</h3>
-            <p className="text-2xl font-black font-mono text-[#012970]">₹3,00,000 <span className="text-xs text-slate-500 font-normal">+ GST</span></p>
-            <ul className="text-xs text-slate-600 space-y-2 pt-2">
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 20 ft × 20 ft (400 Sq.Ft) Center Hall</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> Custom Fabrication Floor Space</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> 3-Phase Heavy Power Connection</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600" /> VIP Exhibitor Passes Included</li>
-            </ul>
-            <Link to={`/exhibitions/${slug}/book`}>
-              <Button variant="outline" className="w-full font-bold border-[#012970] text-[#012970]">
-                Book Island Pavilion
-              </Button>
-            </Link>
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({ title: exhibition.title, url: window.location.href });
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('Event link copied to clipboard!');
+                }
+              }}
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors shrink-0"
+              title="Share event"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
-      )}
-
-      {activeTab === 'schedule' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xs">
-          <h2 className="text-xl font-extrabold text-[#012970] border-b border-slate-100 pb-3">Exhibition Schedule & Key Dates</h2>
-          <div className="space-y-4 max-w-2xl text-xs font-semibold text-slate-700">
-            <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#012970] text-sm block">Stall Booking & Fascia Confirmation</span>
-                <span className="text-slate-500">Early bird priority allocation phase</span>
-              </div>
-              <span className="px-3 py-1 bg-[#09539b] text-white rounded-lg font-mono">Active Now</span>
-            </div>
-            <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#012970] text-sm block">Exhibitor Move-In & Stall Fabrication</span>
-                <span className="text-slate-500">Hall access for stall setup & branding</span>
-              </div>
-              <span className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg font-mono">1 Day Prior to Opening</span>
-            </div>
-            <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#012970] text-sm block">Official Expo Inauguration & Trade Days</span>
-                <span className="text-slate-500">Hall open for trade visitors (10:00 AM - 6:00 PM)</span>
-              </div>
-              <span className="px-3 py-1 bg-[#9cc542] text-[#012970] rounded-lg font-mono">Expo Days</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* INESCAPABLE BOTTOM CTA CONVERSION BANNER */}
-      {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-[#012970] via-[#09539b] to-[#012970] text-white rounded-3xl p-8 sm:p-10 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2 text-center md:text-left">
-          <h3 className="text-2xl font-black text-white">Ready to exhibit at {exhibition.title}?</h3>
-          <p className="text-slate-200 text-xs sm:text-sm">
-            Reserve your preferred stall location on our interactive SVG floor map today.
-          </p>
-        </div>
-        <Link to={`/exhibitions/${slug}/book`}>
-          <Button
-            variant="primary"
-            size="lg"
-            className="font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none px-8 py-3.5"
-            rightIcon={<ArrowRight className="w-4 h-4" />}
-          >
-            Book Your Stall Now
-          </Button>
-        </Link>
       </div>
     </div>
   );
