@@ -1,26 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { CountdownTimer } from '../../../components/ui/CountdownTimer';
 import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
+import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
 import {
-  Search,
   Calendar,
   MapPin,
   ArrowRight,
-  ShieldCheck,
   Building,
   Users,
-  ChevronRight,
-  ChevronLeft,
-  Image as ImageIcon,
-  CheckCircle,
-  Eye,
   Award,
-  Phone,
+  ChevronRight,
+  Sparkles,
   LayoutGrid,
 } from 'lucide-react';
 
@@ -28,53 +22,9 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
-
-  // Featured Hero Carousel Items (Full Width, Clear Images)
-  const heroEvents = [
-    {
-      title: 'Mediccon Expo 2026',
-      slug: 'mediccon-expo-2026',
-      category: 'Medical & Healthcare',
-      venue: 'CODISSIA Trade Fair Complex',
-      city: 'Coimbatore, TN',
-      dates: 'Nov 15 - Nov 18, 2026',
-      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1600&q=80',
-      description: 'India premier medical equipment, healthcare technology, and surgical instruments exhibition hosted by Buoyant Media.',
-      badge: 'Flagship Event • Booking Open',
-    },
-    {
-      title: 'BuildAsia Industrial & Robotics Summit 2026',
-      slug: 'buildasia-industrial-summit-2026',
-      category: 'Industrial & Engineering',
-      venue: 'Suntec International Centre',
-      city: 'Singapore',
-      dates: 'Nov 20 - Nov 23, 2026',
-      image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1600&q=80',
-      description: 'The premier exhibition for heavy machinery, smart automation, robotics, and industrial IoT solutions.',
-      badge: 'International Expo',
-    },
-    {
-      title: 'Global Tech Expo 2026',
-      slug: 'global-tech-expo-2026',
-      category: 'Software & Technology',
-      venue: 'Metropolitan Convention Center',
-      city: 'San Francisco, CA',
-      dates: 'Oct 12 - Oct 15, 2026',
-      image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1600&q=80',
-      description: 'The world premier B2B technology summit showcasing enterprise AI, SaaS innovations, and cloud infrastructure leaders.',
-      badge: 'Enterprise AI & Cloud',
-    },
-  ];
 
   useEffect(() => {
     fetchExhibitions();
-    const interval = setInterval(() => {
-      setHeroSlideIndex((prev) => (prev + 1) % heroEvents.length);
-    }, 6000);
-    return () => clearInterval(interval);
   }, []);
 
   const fetchExhibitions = async () => {
@@ -89,361 +39,430 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  const nextHeroSlide = () => {
-    setHeroSlideIndex((prev) => (prev + 1) % heroEvents.length);
+  // Flagship upcoming event (First in list or default Mediccon Expo 2026)
+  const featuredEvent: Exhibition = exhibitions[0] || {
+    id: 'mediccon-2026',
+    title: 'Mediccon Expo 2026',
+    slug: 'mediccon-expo-2026',
+    category: 'Medical & Healthcare',
+    venue: 'CODISSIA Trade Fair Complex',
+    city: 'Coimbatore, TN',
+    startDate: '2026-11-15',
+    endDate: '2026-11-18',
+    bannerUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop',
+    description: 'India premier medical equipment, healthcare technology, and surgical instruments exhibition hosted by Buoyant Media. Discover cutting-edge medical devices, hospital infrastructure, and diagnostic breakthroughs under one roof.',
+    status: 'UPCOMING',
+    totalStalls: 150,
   };
 
-  const prevHeroSlide = () => {
-    setHeroSlideIndex((prev) => (prev - 1 + heroEvents.length) % heroEvents.length);
-  };
-
-  const categories = ['ALL', 'Medical & Healthcare', 'Interiors & Architecture', 'Industrial & Engineering', 'Textiles'];
-
-  const filteredExhibitions = exhibitions.filter((expo) => {
-    const matchesCategory =
-      selectedCategory === 'ALL' ||
-      expo.category?.toLowerCase().includes(selectedCategory.toLowerCase()) ||
-      expo.title?.toLowerCase().includes(selectedCategory.toLowerCase());
-    const matchesSearch =
-      !searchQuery ||
-      expo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      expo.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      expo.venue.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const activeSlide = heroEvents[heroSlideIndex];
+  // Display ONLY the 3 next upcoming events on the main page/dashboard view
+  const nextThreeEvents = exhibitions.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-[#f6f9ff] text-[#012970] font-sans flex flex-col justify-between selection:bg-[#09539b] selection:text-white">
+    <div className="min-h-screen bg-white text-[#121B3D] font-sans flex flex-col justify-between selection:bg-[#0E8074] selection:text-white">
       <PublicNavbar />
 
       <main className="flex-1">
         {/* ========================================================================= */}
-        {/* FULL-WIDTH HERO CAROUSEL — CRYSTAL CLEAR IMAGES (NO OVERLAY COLORS) */}
+        {/* 1. HERO SECTION — FOCUSED STRICTLY ON THE NEXT UPCOMING EVENT (FULL-FLEDGED IMAGE) */}
         {/* ========================================================================= */}
-        <section className="relative bg-slate-950 text-white min-h-[540px] sm:min-h-[580px] flex items-center overflow-hidden border-b border-slate-800 group">
-          {/* Background Slides (Full Opacity, 100% Clear & Visible) */}
-          {heroEvents.map((event, idx) => (
-            <div
-              key={idx}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                heroSlideIndex === idx ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
-              }`}
-              style={{
-                backgroundImage: `url(${event.image})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                transitionProperty: 'opacity, transform',
-              }}
-            />
-          ))}
-
-          {/* Minimal Bottom & Side Dark Shadow for Text Legibility (No Full Overlay Tint) */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-12 flex flex-col justify-between min-h-[500px]">
-            {/* Top Carousel Bar */}
-            <div className="flex justify-between items-center">
-              <div className="inline-flex items-center px-3.5 py-1.5 bg-[#9cc542] text-[#012970] font-black text-xs uppercase tracking-wider rounded-lg shadow-xl">
-                {activeSlide.badge}
+        <section className="bg-gradient-to-r from-[#EEF4FC] via-[#EEF4FC]/80 to-white py-12 sm:py-16 px-6 lg:px-12 relative overflow-hidden border-b border-[#E6EAF0]">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            {/* Left Content (6 Spans) */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#84CC16]/20 border border-[#84CC16]/50 text-[#121B3D] font-bold text-xs rounded-full uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-[#0E8074]" /> Next Flagship Event Launch
               </div>
 
-              {/* Carousel Arrow Controls */}
-              <div className="flex items-center gap-3 bg-slate-950/70 backdrop-blur-md p-1.5 rounded-xl border border-white/30 shadow-2xl">
-                <button
-                  onClick={prevHeroSlide}
-                  className="p-2 text-white hover:text-[#9cc542] transition-colors rounded-lg hover:bg-white/10"
-                  aria-label="Previous Hero Event"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <span className="text-xs font-mono font-bold px-2 text-slate-100">
-                  {heroSlideIndex + 1} / {heroEvents.length}
-                </span>
-                <button
-                  onClick={nextHeroSlide}
-                  className="p-2 text-white hover:text-[#9cc542] transition-colors rounded-lg hover:bg-white/10"
-                  aria-label="Next Hero Event"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Main Carousel Event Content (Animated Transition) */}
-            <div key={heroSlideIndex} className="max-w-3xl space-y-5 my-auto animate-hero-text">
-              <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-100">
-                <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-white/20 shadow-md">
-                  <MapPin className="w-4 h-4 text-[#9cc542]" />
-                  <span>{activeSlide.venue}, {activeSlide.city}</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-white/20 shadow-md">
-                  <Calendar className="w-4 h-4 text-[#9cc542]" />
-                  <span>{activeSlide.dates}</span>
-                </div>
-              </div>
-
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight drop-shadow-lg">
-                {activeSlide.title}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1B37A0] leading-[1.15] tracking-tight">
+                {featuredEvent.title}
               </h1>
 
-              <p className="text-slate-100 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl font-semibold drop-shadow-md">
-                {activeSlide.description}
+              <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-700 pt-1">
+                <div className="flex items-center gap-1.5 bg-white px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
+                  <Calendar className="w-4 h-4 text-[#0E8074]" />
+                  <span>
+                    {new Date(featuredEvent.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} -{' '}
+                    {new Date(featuredEvent.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
+                  <MapPin className="w-4 h-4 text-[#0E8074]" />
+                  <span>{featuredEvent.venue}, {featuredEvent.city}</span>
+                </div>
+              </div>
+
+              <p className="text-slate-600 text-base leading-relaxed max-w-xl font-normal">
+                {featuredEvent.description}
               </p>
 
-              {/* Action Buttons: 1. Book Stall (Primary), 2. Explore Exhibition (Secondary) */}
+              {/* Action Buttons */}
               <div className="pt-2 flex flex-wrap items-center gap-4">
-                <Link to={`/exhibitions/${activeSlide.slug}/book`}>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] border-none shadow-2xl px-8 py-3.5"
-                    rightIcon={<ArrowRight className="w-5 h-5" />}
-                  >
-                    Book Stall / Register Now
-                  </Button>
+                <Link to={`/exhibitions/${featuredEvent.slug}/book`}>
+                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
+                    Book Stall Now <ArrowRight className="w-4 h-4" />
+                  </button>
                 </Link>
 
-                <Link to={`/exhibitions/${activeSlide.slug}`}>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="font-bold border-2 border-white bg-slate-950/50 backdrop-blur-md text-white hover:bg-white/20 px-7 py-3.5 shadow-xl"
-                    rightIcon={<ChevronRight className="w-4 h-4 text-[#9cc542]" />}
-                  >
-                    Explore Exhibition
-                  </Button>
+                <Link to={`/exhibitions/${featuredEvent.slug}`}>
+                  <button className="inline-flex items-center gap-2 bg-white hover:bg-[#EEF4FC] text-[#1E3FA0] border-2 border-[#1E3FA0] font-bold text-sm px-6 py-3.5 rounded-xl transition-all">
+                    Explore Event Details
+                  </button>
                 </Link>
               </div>
             </div>
 
-            {/* Bottom Indicators & Scroll Link */}
-            <div className="pt-6 border-t border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <button
-                onClick={() => {
-                  const el = document.getElementById('upcoming-grid');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-xs font-extrabold text-[#9cc542] hover:underline flex items-center gap-2 drop-shadow-sm"
-              >
-                <span>Explore All Scheduled Trade Shows & Fairs</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            {/* Right Full-Fledged Visual Banner Card (6 Spans) */}
+            <div className="lg:col-span-6 relative">
+              {/* Full-Fledged High-Impact Image Container */}
+              <div className="w-full h-80 sm:h-[420px] rounded-3xl overflow-hidden shadow-2xl relative border-2 border-white/80 bg-slate-900 group">
+                <img
+                  src={featuredEvent.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop'}
+                  alt={featuredEvent.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
 
-              {/* Slide Navigation Dots */}
-              <div className="flex gap-2 bg-slate-950/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                {heroEvents.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setHeroSlideIndex(i)}
-                    className={`h-2 rounded-full transition-all ${
-                      heroSlideIndex === i ? 'w-8 bg-[#9cc542]' : 'w-2.5 bg-white/50 hover:bg-white'
-                    }`}
-                    aria-label={`Go to slide ${i + 1}`}
-                  />
-                ))}
+                {/* Dark Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0F294D] via-[#0F294D]/30 to-transparent" />
+
+                {/* Category Badge Top Left */}
+                <div className="absolute top-4 left-4 z-10">
+                  <span className="px-3.5 py-1.5 bg-[#0E8074] text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-md backdrop-blur-md">
+                    {featuredEvent.category || 'Flagship Exhibition'}
+                  </span>
+                </div>
+
+                {/* Live Countdown Timer Banner Floating at Bottom */}
+                <div className="absolute bottom-4 left-4 right-4 z-10 bg-white/95 backdrop-blur-md border border-white/50 rounded-2xl p-4 shadow-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#121B3D]">
+                      Opening Ceremony Countdown
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Official Timer
+                    </span>
+                  </div>
+                  <EventCountdownTimer targetDate={featuredEvent.startDate} />
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* ========================================================================= */}
-        {/* BELOW HERO: IMAGE CONTAINER CARDS FOR UPCOMING EVENTS */}
+        {/* 2. SECTION BELOW HERO — MORE ABOUT THIS PARTICULAR EVENT */}
         {/* ========================================================================= */}
-        <section id="upcoming-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-2 text-xs font-bold text-[#09539b] uppercase tracking-wider mb-1">
-                <LayoutGrid className="w-4 h-4 text-[#9cc542]" /> Upcoming Exhibition Showcase
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#012970] tracking-tight">
-                Scheduled B2B Trade Fairs & Expos
+        <section className="py-16 px-6 lg:px-12 bg-white border-b border-[#E6EAF0]">
+          <div className="max-w-7xl mx-auto space-y-12">
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#0E8074]">
+                Event Spotlight
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1B37A0] tracking-tight">
+                About {featuredEvent.title}
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Explore rich event profiles, venue location details, and real-time stall layout maps.
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Get an exclusive glimpse into the venue infrastructure, expected trade footfall, and key sector highlights for our upcoming flagship exhibition.
               </p>
             </div>
 
-            {/* Sector Filter Tabs */}
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    selectedCategory === cat
-                      ? 'bg-[#09539b] text-white shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {cat === 'ALL' ? 'All Trade Fairs' : cat}
-                </button>
-              ))}
+            {/* Event Key Statistics Ribbon */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-6 bg-[#EEF4FC] rounded-2xl border border-[#E6EAF0] space-y-1 text-center">
+                <Users className="w-6 h-6 text-[#0E8074] mx-auto mb-2" />
+                <span className="text-2xl font-black text-[#121B3D] block">15,000+</span>
+                <span className="text-xs text-slate-500 font-medium">B2B Trade Buyers</span>
+              </div>
+
+              <div className="p-6 bg-[#EEF4FC] rounded-2xl border border-[#E6EAF0] space-y-1 text-center">
+                <Building className="w-6 h-6 text-[#1E3FA0] mx-auto mb-2" />
+                <span className="text-2xl font-black text-[#121B3D] block">250+</span>
+                <span className="text-xs text-slate-500 font-medium">Exhibiting Brands</span>
+              </div>
+
+              <div className="p-6 bg-[#EEF4FC] rounded-2xl border border-[#E6EAF0] space-y-1 text-center">
+                <LayoutGrid className="w-6 h-6 text-[#0E8074] mx-auto mb-2" />
+                <span className="text-2xl font-black text-[#121B3D] block">100,000</span>
+                <span className="text-xs text-slate-500 font-medium">Sq.Ft Air-Conditioned</span>
+              </div>
+
+              <div className="p-6 bg-[#EEF4FC] rounded-2xl border border-[#E6EAF0] space-y-1 text-center">
+                <Award className="w-6 h-6 text-[#84CC16] mx-auto mb-2" />
+                <span className="text-2xl font-black text-[#121B3D] block">Grade A+</span>
+                <span className="text-xs text-slate-500 font-medium">International Complex</span>
+              </div>
+            </div>
+
+            {/* Event Imagery Grid & Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop"
+                  alt="Inauguration & VIP"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <span className="text-[10px] font-bold uppercase text-[#84CC16] block">Exhibition Hall</span>
+                  <h3 className="text-sm font-bold">State-of-the-Art Shell Schemes</h3>
+                </div>
+              </div>
+
+              <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=800&auto=format&fit=crop"
+                  alt="B2B Networking"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <span className="text-[10px] font-bold uppercase text-[#84CC16] block">Trade Footfall</span>
+                  <h3 className="text-sm font-bold">Verified Buyer & Dealer Delegation</h3>
+                </div>
+              </div>
+
+              <div className="relative h-64 rounded-2xl overflow-hidden shadow-md group border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=800&auto=format&fit=crop"
+                  alt="Live Demos"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#121B3D]/90 via-[#121B3D]/30 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <span className="text-[10px] font-bold uppercase text-[#84CC16] block">Product Launches</span>
+                  <h3 className="text-sm font-bold">Live Demos & Technical Seminars</h3>
+                </div>
+              </div>
             </div>
           </div>
+        </section>
 
-          {/* Exhibition Image Container Cards Grid */}
+        {/* ========================================================================= */}
+        {/* 3. UPCOMING EVENTS SHOWCASE SECTION — SHOWING ONLY 3 NEXT EVENTS */}
+        {/* ========================================================================= */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-5">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#0E8074] block mb-1">
+                Upcoming Trade Shows
+              </span>
+              <h2 className="text-3xl font-extrabold text-[#1B37A0] tracking-tight">
+                Next 3 Scheduled Events
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 font-medium">
+                Explore upcoming industrial exhibitions, check stall availability, and reserve your booth.
+              </p>
+            </div>
+
+            {/* View All Events Link */}
+            <Link to="/exhibitions">
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-bold border-[#1E3FA0] text-[#1E3FA0] hover:bg-[#EEF4FC]"
+                rightIcon={<ChevronRight className="w-4 h-4" />}
+              >
+                View All Events ({exhibitions.length})
+              </Button>
+            </Link>
+          </div>
+
+          {/* Exhibition List Cards (Limited to 3) */}
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-96 bg-white rounded-2xl border border-slate-200 p-4 animate-pulse space-y-3">
-                  <div className="h-44 bg-slate-200 rounded-xl" />
-                  <div className="h-6 bg-slate-200 rounded w-3/4" />
-                </div>
+                <div key={i} className="h-40 bg-[#EEF4FC] rounded-2xl animate-pulse" />
               ))}
             </div>
-          ) : filteredExhibitions.length === 0 ? (
+          ) : nextThreeEvents.length === 0 ? (
             <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl space-y-3">
-              <h3 className="text-base font-bold text-[#012970]">No Exhibitions Found Matching Filter</h3>
-              <p className="text-xs text-slate-500">Try adjusting your search query or sector filters.</p>
-              <Button variant="outline" size="sm" onClick={() => { setSelectedCategory('ALL'); setSearchQuery(''); }}>
-                Reset Filters
-              </Button>
+              <h3 className="text-base font-bold text-[#121B3D]">No Events Scheduled</h3>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredExhibitions.map((expo) => (
+            <div className="flex flex-col gap-4">
+              {nextThreeEvents.map((expo) => (
                 <div
                   key={expo.id}
-                  className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
+                  onClick={() => navigate(`/exhibitions/${expo.slug}`)}
+                  className="bg-white border border-[#E6EAF0] rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch gap-5 shadow-xs hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
                 >
-                  {/* Large High-Res Image Container Header */}
-                  <div className="relative h-56 bg-slate-900 overflow-hidden">
+                  {/* Event Thumbnail */}
+                  <div className="w-full md:w-56 h-44 md:h-auto rounded-xl overflow-hidden relative shrink-0 bg-slate-900">
                     <img
-                      src={expo.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80'}
+                      src={expo.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop'}
                       alt={expo.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                    <span className="absolute top-2.5 left-2.5 bg-[#0F294D]/80 text-white font-bold text-[10px] uppercase px-2.5 py-1 rounded-full backdrop-blur-md">
+                      {expo.category || 'Exhibition'}
+                    </span>
+                  </div>
 
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      <span className="px-2.5 py-1 bg-[#012970]/90 backdrop-blur-md text-white font-extrabold text-[10px] uppercase rounded-lg shadow-xs">
-                        {expo.category || 'Trade Fair'}
+                  {/* Event Body */}
+                  <div className="flex-1 flex flex-col justify-center space-y-2.5 min-w-0">
+                    <h3 className="text-xl font-bold text-[#1B37A0] group-hover:text-[#1E3FA0] transition-colors leading-snug">
+                      {expo.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-normal">
+                      {expo.description}
+                    </p>
+
+                    <div className="flex flex-wrap gap-4 text-xs text-slate-700 font-medium pt-1">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#0E8074]" />
+                        {new Date(expo.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#0E8074]" />
+                        {expo.venue}, {expo.city}
                       </span>
                     </div>
 
-                    <div className="absolute top-3 right-3">
-                      <span className="px-2.5 py-1 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded-lg shadow-xs">
-                        {expo.status}
+                    <div className="pt-1">
+                      <span className="inline-flex items-center gap-1.5 bg-[#E4F5F2] text-[#0E8074] font-bold text-xs px-3 py-1 rounded-full">
+                        {expo.totalStalls || 45} slots left
                       </span>
-                    </div>
-
-                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                      <p className="text-xs font-bold text-slate-200 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#9cc542]" /> {expo.venue}, {expo.city}
-                      </p>
                     </div>
                   </div>
 
-                  {/* Card Details Body */}
-                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-extrabold text-[#012970] group-hover:text-[#09539b] transition-colors leading-snug">
-                        {expo.title}
-                      </h3>
-
-                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                        <Calendar className="w-3.5 h-3.5 text-[#09539b] shrink-0" />
-                        <span>
-                          {new Date(expo.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} -{' '}
-                          {new Date(expo.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed pt-1">
-                        {expo.description}
-                      </p>
-                    </div>
-
-                    {/* Action Bar */}
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-                        {expo.totalStalls || 24} Stalls
-                      </span>
-                      <div className="flex gap-2">
-                        <Link to={`/exhibitions/${expo.slug}/book`}>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] border-none"
-                          >
-                            Book Stall
-                          </Button>
-                        </Link>
-                        <Link to={`/exhibitions/${expo.slug}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="font-bold border-slate-300 text-[#012970]"
-                          >
-                            Explore
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
+                  {/* Action Button */}
+                  <div className="flex items-center justify-end md:pr-2 pt-2 md:pt-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/exhibitions/${expo.slug}`);
+                      }}
+                      className="inline-flex items-center gap-2 bg-transparent text-[#0E8074] border-1.5 border-[#0E8074] hover:bg-[#0E8074] hover:text-white font-bold text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap"
+                    >
+                      Know Event Details <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+
+          {/* Bottom Banner to Separate All Events Page */}
+          <div className="bg-[#121B3D] text-white rounded-3xl p-8 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 mt-8">
+            <div className="space-y-1 text-center md:text-left">
+              <h3 className="text-xl font-bold text-white">Explore Full Exhibition Directory</h3>
+              <p className="text-xs text-slate-300">
+                Filter by sector, location, or search upcoming international B2B trade shows.
+              </p>
+            </div>
+            <Link to="/exhibitions">
+              <Button
+                variant="primary"
+                size="lg"
+                className="font-bold bg-[#84CC16] hover:bg-[#73b510] text-[#121B3D] border-none px-6"
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Browse All Trade Fairs
+              </Button>
+            </Link>
+          </div>
         </section>
 
         {/* ========================================================================= */}
-        {/* RICH EVENT GALLERY SHOWCASE SECTION */}
+        {/* 4. PAST EVENTS HIGHLIGHTS & GALLERY SECTION */}
         {/* ========================================================================= */}
-        <section className="bg-white border-y border-slate-200 py-16 px-4 sm:px-6 lg:px-8">
+        <section className="bg-[#EEF4FC]/80 border-t border-[#E6EAF0] py-16 px-6 lg:px-12">
           <div className="max-w-7xl mx-auto space-y-10">
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="text-xs font-extrabold text-[#09539b] uppercase tracking-wider flex items-center justify-center gap-1">
-                <ImageIcon className="w-4 h-4 text-[#9cc542]" /> Exhibition Atmosphere & Footfall
+              <span className="text-xs font-bold uppercase tracking-widest text-[#0E8074]">
+                Past Event Highlights & Archives
               </span>
-              <h2 className="text-3xl font-black text-[#012970] tracking-tight">
-                Visual Highlights from Recent Expos
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1B37A0] tracking-tight">
+                Our Track Record of Successful Trade Fairs
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 font-medium">
-                Glimpse into high footfall trade shows, turnkey booth setups, and business networking sessions.
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Over 40+ premier industrial trade shows hosted across Coimbatore, Chennai, and Bengaluru with verified B2B buyer turnout.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="group relative h-64 rounded-2xl overflow-hidden shadow-md border border-slate-200 cursor-pointer">
-                <img
-                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"
-                  alt="VIP Inauguration"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#012970] via-[#012970]/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
-                <div className="absolute bottom-4 left-4 right-4 text-white space-y-1">
-                  <span className="px-2 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded">Grand Opening</span>
-                  <h3 className="text-base font-extrabold text-white">VIP Ribbon Cutting Ceremony</h3>
+            {/* Gallery Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
+                <div className="h-48 overflow-hidden relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop"
+                    alt="BuildinTec 2025"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                    2025 Edition
+                  </span>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="font-bold text-base text-[#121B3D]">BuildinTec 2025</h3>
+                  <p className="text-xs text-slate-500 font-medium">CODISSIA Complex, Coimbatore</p>
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#0E8074]">18,500+ Visitors</span>
+                    <span className="text-slate-400 font-medium">210 Exhibitors</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="group relative h-64 rounded-2xl overflow-hidden shadow-md border border-slate-200 cursor-pointer">
-                <img
-                  src="https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80"
-                  alt="Trade Footfall"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#012970] via-[#012970]/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
-                <div className="absolute bottom-4 left-4 right-4 text-white space-y-1">
-                  <span className="px-2 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded">Visitor Density</span>
-                  <h3 className="text-base font-extrabold text-white">Over 15,000 Verified B2B Buyers</h3>
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
+                <div className="h-48 overflow-hidden relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=800&auto=format&fit=crop"
+                    alt="InterioTex Expo 2025"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                    2025 Edition
+                  </span>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="font-bold text-base text-[#121B3D]">InterioTex Expo 2025</h3>
+                  <p className="text-xs text-slate-500 font-medium">Chennai Trade Centre</p>
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#0E8074]">14,200+ Visitors</span>
+                    <span className="text-slate-400 font-medium">160 Exhibitors</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="group relative h-64 rounded-2xl overflow-hidden shadow-md border border-slate-200 cursor-pointer">
-                <img
-                  src="https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?auto=format&fit=crop&w=800&q=80"
-                  alt="Shell Stalls"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#012970] via-[#012970]/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
-                <div className="absolute bottom-4 left-4 right-4 text-white space-y-1">
-                  <span className="px-2 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded">Shell Scheme</span>
-                  <h3 className="text-base font-extrabold text-white">Turnkey 10x10 ft Standard Stalls</h3>
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
+                <div className="h-48 overflow-hidden relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=800&auto=format&fit=crop"
+                    alt="MediTech Summit 2024"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                    2024 Edition
+                  </span>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="font-bold text-base text-[#121B3D]">MediTech Summit 2024</h3>
+                  <p className="text-xs text-slate-500 font-medium">BIEC Centre, Bengaluru</p>
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#0E8074]">22,000+ Delegates</span>
+                    <span className="text-slate-400 font-medium">290 Exhibitors</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all group">
+                <div className="h-48 overflow-hidden relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=800&auto=format&fit=crop"
+                    alt="AutoTech Expo 2024"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 bg-[#121B3D]/80 backdrop-blur-md text-[#84CC16] font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+                    2024 Edition
+                  </span>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="font-bold text-base text-[#121B3D]">AutoTech & Engineering 2024</h3>
+                  <p className="text-xs text-slate-500 font-medium">CODISSIA Complex, Coimbatore</p>
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#0E8074]">19,800+ Visitors</span>
+                    <span className="text-slate-400 font-medium">240 Exhibitors</span>
+                  </div>
                 </div>
               </div>
             </div>
