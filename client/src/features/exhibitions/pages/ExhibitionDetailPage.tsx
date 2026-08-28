@@ -5,7 +5,6 @@ import { stallService } from '../../../services/stalls/stallService';
 import { Exhibition, Stall } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
-import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import {
   Calendar,
   Clock,
@@ -29,7 +28,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'floorplan' | 'pricing' | 'schedule'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'pricing' | 'schedule'>('overview');
 
   useEffect(() => {
     if (slug) fetchEventData();
@@ -190,7 +189,7 @@ export const ExhibitionDetailPage: React.FC = () => {
           </div>
 
           {/* ========================================================================= */}
-          {/* UPSCALE TABBED SECTIONS (ABOUT, FLOOR MAP, PRICING, SCHEDULE) */}
+          {/* UPSCALE TABBED SECTIONS (ABOUT, PRICING, SCHEDULE) */}
           {/* ========================================================================= */}
           <div className="space-y-6 pt-4">
             <div className="bg-[#EEF4FC] p-1.5 rounded-2xl flex overflow-x-auto gap-2 text-xs font-bold">
@@ -203,16 +202,6 @@ export const ExhibitionDetailPage: React.FC = () => {
                 }`}
               >
                 About Exhibition
-              </button>
-              <button
-                onClick={() => setActiveTab('floorplan')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'floorplan'
-                    ? 'bg-[#1E3FA0] text-white shadow-xs'
-                    : 'text-slate-700 hover:text-[#121B3D]'
-                }`}
-              >
-                Interactive Floor Map
               </button>
               <button
                 onClick={() => setActiveTab('pricing')}
@@ -259,29 +248,7 @@ export const ExhibitionDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 2: Interactive Floor Map */}
-            {activeTab === 'floorplan' && (
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-[#1B37A0]">Interactive Hall Floor Map</h4>
-                    <p className="text-xs text-slate-500">Real-time stall status and hall layout</p>
-                  </div>
-                  <Link to={`/exhibitions/${slug}/book`}>
-                    <Button variant="primary" size="sm" className="font-bold bg-[#1E3FA0]">
-                      Book Selected Stall
-                    </Button>
-                  </Link>
-                </div>
-
-                <FloorPlanCanvas
-                  stalls={stalls}
-                  onStallSelect={() => navigate(`/exhibitions/${slug}/book`)}
-                />
-              </div>
-            )}
-
-            {/* Tab 3: Stall Pricing & Amenities */}
+            {/* Tab 2: Stall Pricing & Amenities */}
             {activeTab === 'pricing' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
@@ -346,7 +313,7 @@ export const ExhibitionDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 4: Important Schedule */}
+            {/* Tab 3: Important Schedule */}
             {activeTab === 'schedule' && (
               <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-4 shadow-xs">
                 <h4 className="text-lg font-bold text-[#1B37A0]">Exhibition Schedule & Important Dates</h4>
@@ -356,7 +323,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                       <span className="font-bold text-[#121B3D] text-sm block">Stall Booking & Fascia Confirmation</span>
                       <span className="text-slate-500">Early bird allocation phase</span>
                     </div>
-                    <span className="px-3 py-1 bg-[#1E3FA0] text-white rounded-md font-mono font-bold">Active Now</span>
+                    <span className="px-3 py-1 bg-[#1E3FA0] text-[#FFFFFF] rounded-md font-mono font-bold">Active Now</span>
                   </div>
                   <div className="p-4 bg-[#EEF4FC] rounded-xl flex items-center justify-between">
                     <div>
@@ -381,7 +348,7 @@ export const ExhibitionDetailPage: React.FC = () => {
         {/* Right Sticky Sidebar (4 Spans) */}
         <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
           {/* Register Card */}
-          <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 shadow-md space-y-5">
+          <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 shadow-md space-y-6">
             {/* Price Row */}
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-[#121B3D] font-sora">₹499</span>
@@ -393,30 +360,32 @@ export const ExhibitionDetailPage: React.FC = () => {
               <EventCountdownTimer targetDate={exhibition.startDate} />
             </div>
 
-            {/* Slot Track */}
-            <div className="space-y-1.5 pt-1">
-              <div className="h-2 rounded-full bg-[#E6EAF0] overflow-hidden">
+            {/* Slot Track with Clean Spacing Gap */}
+            <div className="space-y-2 pt-2 pb-1">
+              <div className="flex justify-between text-xs font-semibold text-slate-700">
+                <span>Stall Availability Status</span>
+                <span className="text-[#1E3FA0]"><b className="font-bold">{availableCount}</b> slots left</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-[#E6EAF0] overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-[#0E8074] to-[#1E3FA0] rounded-full transition-all duration-500"
                   style={{ width: `${fillPercentage}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-slate-500">
-                <span><b className="text-[#121B3D]">{availableCount}</b> slots left</span>
-                <span>{registeredCount} registered</span>
+              <div className="flex justify-between text-[11px] text-slate-500 font-medium">
+                <span>{registeredCount} stalls reserved</span>
+                <span>{totalSlots} total capacity</span>
               </div>
             </div>
 
-            {/* Register Action Button */}
-            <Link to={`/exhibitions/${slug}/book`}>
-              <button className="w-full bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-base py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                Register Event / Book Stall
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </Link>
-
-            <div className="text-center text-xs text-slate-500 font-normal">
-              Free cancellation up to 48 hours before the event
+            {/* Book Stall Action Button — Clear Gap Above & Below */}
+            <div className="pt-2">
+              <Link to={`/exhibitions/${slug}/book`}>
+                <button className="w-full bg-[#1E3FA0] hover:bg-[#152B75] text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                  Book Stall
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </Link>
             </div>
 
             {/* Value Checklist */}
