@@ -12,7 +12,7 @@ export const PublicNavbar: React.FC = () => {
 
   return (
     <header className="bg-white/95 backdrop-blur-md border-b border-[#E6EAF0] sticky top-0 z-40 shadow-xs transition-colors">
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-12 h-16 flex items-center justify-between gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
         {/* Left: Buoyant Media Logo */}
         <Link to="/" className="flex items-center gap-3 shrink-0">
           <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain" />

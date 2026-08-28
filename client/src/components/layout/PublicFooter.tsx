@@ -3,8 +3,8 @@ import { Mail, Phone, MapPin, Globe } from 'lucide-react';
 
 export const PublicFooter: React.FC = () => {
   return (
-    <footer className="bg-[#121B3D] text-slate-300 border-t border-[#1E3FA0]/40 pt-12 pb-6 px-6 lg:px-12">
-      <div className="max-w-[1600px] mx-auto space-y-10">
+    <footer className="bg-[#121B3D] text-slate-300 border-t border-[#1E3FA0]/40 pt-10 pb-6 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Upper Footer Columns */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-slate-800">
           {/* Brand Col */}
