@@ -19,7 +19,13 @@ import {
   Check,
   Share2,
   CheckCircle,
+  Layers,
+  Info,
 } from 'lucide-react';
+import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
+import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
+import { useFloorPlanStore } from '../../../stores/floorPlanStore';
+import { MEDICCON_188_STALLS } from '../../../data/medicconFloorPlanData';
 
 export const ExhibitionDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -28,7 +34,8 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'pricing' | 'schedule'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule'>('overview');
+  const { selectedStallId, setSelectedStallId, zoomLevel, setZoomLevel } = useFloorPlanStore();
 
   useEffect(() => {
     if (slug) fetchEventData();
@@ -43,10 +50,17 @@ export const ExhibitionDetailPage: React.FC = () => {
       if (expo.floorPlans && expo.floorPlans.length > 0) {
         const fp = expo.floorPlans[0];
         const stallsData = await stallService.getStallsByFloorPlan(fp.id);
-        setStalls(stallsData || []);
+        if (stallsData && stallsData.length > 0) {
+          setStalls(stallsData);
+        } else {
+          setStalls(MEDICCON_188_STALLS);
+        }
+      } else {
+        setStalls(MEDICCON_188_STALLS);
       }
     } catch (err) {
       console.error('Failed to load exhibition details:', err);
+      setStalls(MEDICCON_188_STALLS);
     } finally {
       setLoading(false);
     }
@@ -204,6 +218,16 @@ export const ExhibitionDetailPage: React.FC = () => {
                 About Exhibition
               </button>
               <button
+                onClick={() => setActiveTab('map')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'map'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                Interactive Stall Map
+              </button>
+              <button
                 onClick={() => setActiveTab('pricing')}
                 className={`px-4 py-2.5 rounded-xl transition-all ${
                   activeTab === 'pricing'
@@ -227,24 +251,103 @@ export const ExhibitionDetailPage: React.FC = () => {
 
             {/* Tab 1: Overview & Focus Sectors */}
             {activeTab === 'overview' && (
-              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
-                <h4 className="text-lg font-bold text-[#1B37A0] flex items-center gap-2">
-                  <Award className="w-5 h-5 text-[#0E8074]" /> Exhibition Focus & Target Sectors
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
-                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
-                    <span className="font-bold text-[#121B3D] text-sm block">Focus Sectors</span>
-                    <p className="text-slate-600 leading-relaxed">
-                      Equipment Manufacturers, OEM Suppliers, Importers, Industrial Distributors & Contractors.
-                    </p>
-                  </div>
-                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
-                    <span className="font-bold text-[#121B3D] text-sm block">Target Visitor Profiles</span>
-                    <p className="text-slate-600 leading-relaxed">
-                      Managing Directors, Purchase Managers, Technical Engineers, Architects & Trade Dealers.
-                    </p>
+              <div className="space-y-6">
+                <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
+                  <h4 className="text-lg font-bold text-[#1B37A0] flex items-center gap-2">
+                    <Award className="w-5 h-5 text-[#0E8074]" /> Exhibition Focus & Target Sectors
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
+                    <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                      <span className="font-bold text-[#121B3D] text-sm block">Focus Sectors</span>
+                      <p className="text-slate-600 leading-relaxed">
+                        Equipment Manufacturers, OEM Suppliers, Importers, Industrial Distributors & Contractors.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                      <span className="font-bold text-[#121B3D] text-sm block">Target Visitor Profiles</span>
+                      <p className="text-slate-600 leading-relaxed">
+                        Managing Directors, Purchase Managers, Technical Engineers, Architects & Trade Dealers.
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Quick Map Teaser in Overview */}
+                <div className="bg-gradient-to-r from-[#1E3FA0] to-[#0F294D] text-white rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
+                  <div className="space-y-1">
+                    <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] font-extrabold text-[10px] uppercase rounded-full">
+                      Real-time Floor Plan
+                    </span>
+                    <h4 className="text-lg font-black">View Interactive Stall Map & Floor Plan</h4>
+                    <p className="text-xs text-slate-200">
+                      Explore stall availability, corner locations, and reserve directly on the map.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setActiveTab('map')}
+                    className="bg-white text-[#1E3FA0] hover:bg-slate-100 font-extrabold shadow-sm shrink-0"
+                    rightIcon={<Layers className="w-4 h-4 text-[#0E8074]" />}
+                  >
+                    Open Stall Map
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Interactive Floor Plan Stall Map */}
+            {activeTab === 'map' && (
+              <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 space-y-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E6EAF0] pb-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-[#1B37A0] flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-[#0E8074]" /> Interactive Hall Floor Plan & Stall Availability
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Click any available green stall on the map to inspect position, price, and reserve immediately.
+                    </p>
+                  </div>
+                  <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} />
+                </div>
+
+                <div className="relative border border-slate-200 rounded-xl overflow-hidden shadow-inner p-2 bg-slate-50">
+                  <FloorPlanCanvas
+                    stalls={stalls}
+                    onStallSelect={(s) => setSelectedStallId(s.id)}
+                  />
+                </div>
+
+                {/* Selected Stall Quick Action Box */}
+                {selectedStallId && (() => {
+                  const selectedStallObj = stalls.find(s => s.id === selectedStallId);
+                  if (!selectedStallObj) return null;
+                  return (
+                    <div className="p-4 bg-[#EEF4FC] border-2 border-[#1E3FA0] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-[#121B3D] text-base font-mono">
+                            Stall #{selectedStallObj.stallNumber}
+                          </span>
+                          <span className="px-2.5 py-0.5 bg-[#0E8074] text-white text-[10px] font-bold rounded-full uppercase">
+                            {selectedStallObj.status}
+                          </span>
+                          <span className="px-2.5 py-0.5 bg-white text-[#1E3FA0] text-[10px] font-bold rounded-full border border-[#1E3FA0]/30">
+                            {selectedStallObj.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium">
+                          Area: {selectedStallObj.areaSqFt} Sq.Ft • Rental: <b className="text-[#1E3FA0] font-mono">₹{Number(selectedStallObj.price).toLocaleString()} + GST</b>
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => navigate(`/exhibitions/${slug}/book`)}
+                        className="bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0"
+                      >
+                        Book Stall #{selectedStallObj.stallNumber} <ArrowRight className="w-4 h-4 text-[#84CC16]" />
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

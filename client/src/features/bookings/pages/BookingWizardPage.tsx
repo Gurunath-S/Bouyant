@@ -14,6 +14,9 @@ import { Exhibition, Stall, Company, Booking } from '../../../types';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
 import { StallHoverCard } from '../../floor-plan/components/StallHoverCard';
+import { OfficialContractForm } from '../components/OfficialContractForm';
+import { TermsAndConditionsModal } from '../components/TermsAndConditionsModal';
+import { MEDICCON_188_STALLS } from '../../../data/medicconFloorPlanData';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import {
@@ -79,6 +82,13 @@ export const BookingWizardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stallHoldError, setStallHoldError] = useState('');
 
+  // Payment Plan Selection: Full (100%) or Partial (> 50%)
+  const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [partialPercentage, setPartialPercentage] = useState<number>(60);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(true);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [showContractPreview, setShowContractPreview] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -114,7 +124,13 @@ export const BookingWizardPage: React.FC = () => {
 
       if (expo.floorPlans && expo.floorPlans.length > 0) {
         const stallsData = await stallService.getStallsByFloorPlan(expo.floorPlans[0].id);
-        setStalls(stallsData || []);
+        if (stallsData && stallsData.length > 0) {
+          setStalls(stallsData);
+        } else {
+          setStalls(MEDICCON_188_STALLS);
+        }
+      } else {
+        setStalls(MEDICCON_188_STALLS);
       }
 
       if (user) {
@@ -268,6 +284,23 @@ export const BookingWizardPage: React.FC = () => {
   const basePrice = selectedStallObj ? Number(selectedStallObj.price) : 100000;
   const taxAmount = Math.round(basePrice * 0.18);
   const grandTotal = basePrice + taxAmount;
+
+  // Payment Option Calculations (> 50% for Partial)
+  const isPartial = paymentType === 'PARTIAL';
+  const effectivePartialPercent = Math.max(51, Math.min(99, partialPercentage));
+  const payableToday = isPartial
+    ? Math.round(grandTotal * (effectivePartialPercent / 100))
+    : grandTotal;
+  const remainingBalance = isPartial ? grandTotal - payableToday : 0;
+
+  // Calculate 15 days before event date
+  const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
+  const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+  const formattedDeadline = deadlineDate.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 font-sans pb-16">
@@ -496,7 +529,7 @@ export const BookingWizardPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* 2 Spans: Event & Corporate Details */}
+            {/* 2 Spans: Event & Corporate Details + Payment Mode Option */}
             <div className="md:col-span-2 space-y-4">
               <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
                 <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5">
@@ -534,6 +567,186 @@ export const BookingWizardPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* PAYMENT OPTION SELECTOR (FULL vs PARTIAL > 50%) */}
+              <div className="p-5 bg-white border-2 border-[#09539b]/30 rounded-xl space-y-4 shadow-xs">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                  <h4 className="font-extrabold text-[#012970] text-sm flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#09539b]" /> Select Payment Plan Option
+                  </h4>
+                  <span className="text-[10px] font-bold text-[#09539b] bg-[#EEF4FC] px-2.5 py-0.5 rounded-full uppercase">
+                    Flexible Terms
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Full Payment Option */}
+                  <div
+                    onClick={() => setPaymentType('FULL')}
+                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                      paymentType === 'FULL'
+                        ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#012970] text-xs">Full Payment (100%)</span>
+                      <input type="radio" checked={paymentType === 'FULL'} onChange={() => setPaymentType('FULL')} />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Pay complete booth rental today with zero pending balance.
+                    </p>
+                    <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-[#012970]">
+                      <span>Amount Today:</span>
+                      <span className="font-mono text-[#09539b]">₹{grandTotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Partial Payment Option */}
+                  <div
+                    onClick={() => setPaymentType('PARTIAL')}
+                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                      paymentType === 'PARTIAL'
+                        ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[#012970] text-xs">Partial Advance Payment</span>
+                        <span className="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded">
+                          &gt; 50% Required
+                        </span>
+                      </div>
+                      <input type="radio" checked={paymentType === 'PARTIAL'} onChange={() => setPaymentType('PARTIAL')} />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Pay advance today to lock booth; remaining balance due 15 days before event.
+                    </p>
+                    <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-[#012970]">
+                      <span>Advance Today ({effectivePartialPercent}%):</span>
+                      <span className="font-mono text-[#09539b]">₹{payableToday.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Partial Payment Configuration & 15-Day Deadline Notice */}
+                {paymentType === 'PARTIAL' && (
+                  <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl space-y-3 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <label className="text-xs font-bold text-slate-700">
+                        Select Advance Percentage (Must be &gt; 50%):
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {[60, 70, 80].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setPartialPercentage(pct)}
+                            className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                              partialPercentage === pct
+                                ? 'bg-[#09539b] text-white shadow-xs'
+                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-amber-200">
+                      <span className="text-xs font-bold text-slate-600">Custom Advance %:</span>
+                      <input
+                        type="number"
+                        min="51"
+                        max="99"
+                        value={partialPercentage}
+                        onChange={(e) => setPartialPercentage(Number(e.target.value))}
+                        className="w-20 px-2 py-1 border border-slate-300 rounded font-mono font-bold text-xs text-center"
+                      />
+                      <span className="text-xs text-slate-500 font-medium">
+                        (Payable Today: <b className="font-mono text-[#09539b]">₹{payableToday.toLocaleString()}</b> • Balance: <b className="font-mono text-slate-800">₹{remainingBalance.toLocaleString()}</b>)
+                      </span>
+                    </div>
+
+                    {/* Deadline Notice Banner */}
+                    <div className="p-3 bg-amber-100/70 border-l-4 border-amber-500 rounded-r-lg text-xs text-amber-900 font-medium flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-amber-950 block">15-Day Balance Deadline Notice:</span>
+                        The remaining balance of <b className="font-mono font-extrabold">₹{remainingBalance.toLocaleString()} INR</b> must be paid at least <b className="underline">15 days before the event</b> (on or before <b className="font-bold">{formattedDeadline}</b>).
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* OFFICIAL CONTRACT FORM & TERMS AGREEMENT SECTION */}
+              <div className="p-5 bg-slate-50 border-2 border-slate-200 rounded-xl space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                  <div>
+                    <h4 className="font-extrabold text-[#012970] text-sm flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#09539b]" /> Official Registration Contract Form & Terms
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Mediccon Expo 2026 CODISSIA Trade Centre Hall-A & Hall-B Contract Form
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowContractPreview(!showContractPreview)}
+                    className="px-3 py-1.5 bg-[#09539b]/10 hover:bg-[#09539b]/20 text-[#09539b] text-xs font-bold rounded-lg transition-colors border border-[#09539b]/20 flex items-center gap-1.5 self-start sm:self-auto"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    {showContractPreview ? 'Hide Official Form Preview' : 'View Official Form Preview'}
+                  </button>
+                </div>
+
+                {/* Contract Form Live Expandable Preview */}
+                {showContractPreview && selectedCompany && selectedStallObj && exhibition && (
+                  <div className="animate-in fade-in duration-200">
+                    <OfficialContractForm
+                      company={selectedCompany}
+                      exhibition={exhibition}
+                      stall={selectedStallObj}
+                      paymentType={paymentType}
+                      effectivePartialPercent={effectivePartialPercent}
+                      payableToday={payableToday}
+                      remainingBalance={remainingBalance}
+                      formattedDeadline={formattedDeadline}
+                      onPrint={() => window.print()}
+                    />
+                  </div>
+                )}
+
+                {/* Rules & Regulations Overleaf Agreement Checkbox */}
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="terms-check"
+                      checked={isTermsAccepted}
+                      onChange={(e) => setIsTermsAccepted(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-[#09539b] rounded border-slate-300 focus:ring-[#09539b]"
+                    />
+                    <label htmlFor="terms-check" className="text-xs text-slate-700 font-medium leading-relaxed cursor-pointer">
+                      We acknowledge explicitly that we have read and accepted in full the <button type="button" onClick={() => setIsTermsModalOpen(true)} className="text-[#09539b] font-bold underline hover:text-[#012970]">Rules and Regulations of the Exhibition printed overleaf</button> and by submitting this application, we undertake to comply with the same.
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Organizer Bank: <b>THE FEDERAL BANK LTD</b> (A/C: 18020200001046)</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsTermsModalOpen(true)}
+                      className="text-[#09539b] font-bold hover:underline flex items-center gap-1"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> View All 5 Contract Clauses
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 1 Span: Financial Card */}
@@ -552,21 +765,43 @@ export const BookingWizardPage: React.FC = () => {
                     <span>18% GST Tax</span>
                     <span className="font-mono font-bold text-white">₹{taxAmount.toLocaleString()}</span>
                   </div>
-                  <div className="pt-3 border-t border-white/20 flex justify-between items-center text-base font-black text-white">
+                  <div className="flex justify-between border-t border-white/10 pt-2 font-bold text-slate-100">
                     <span>Grand Total:</span>
-                    <span className="font-mono text-[#9cc542] text-lg">₹{grandTotal.toLocaleString()}</span>
+                    <span className="font-mono text-[#9cc542]">₹{grandTotal.toLocaleString()}</span>
                   </div>
+
+                  {paymentType === 'PARTIAL' ? (
+                    <>
+                      <div className="flex justify-between text-xs font-bold text-[#9cc542] pt-2 border-t border-white/20">
+                        <span>Advance Payable Today ({effectivePartialPercent}%):</span>
+                        <span className="font-mono text-base">₹{payableToday.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-amber-200 pt-1">
+                        <span>Remaining Balance Due:</span>
+                        <span className="font-mono">₹{remainingBalance.toLocaleString()}</span>
+                      </div>
+                      <p className="text-[10px] text-amber-300 font-medium italic pt-1">
+                        Due 15 days before event ({formattedDeadline})
+                      </p>
+                    </>
+                  ) : (
+                    <div className="pt-3 border-t border-white/20 flex justify-between items-center text-base font-black text-white">
+                      <span>Total Payable Today:</span>
+                      <span className="font-mono text-[#9cc542] text-lg">₹{payableToday.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <Button
                 variant="primary"
                 size="lg"
-                className="w-full font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none"
+                disabled={!isTermsAccepted}
+                className="w-full font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50"
                 onClick={handleProceedToPayment}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                Proceed to Payment
+                Proceed to Pay ₹{payableToday.toLocaleString()}
               </Button>
             </div>
           </div>
@@ -584,9 +819,18 @@ export const BookingWizardPage: React.FC = () => {
             <p className="text-xs text-slate-500">Booking Ref: <span className="font-mono font-bold text-slate-800">{createdBooking.bookingReference}</span></p>
           </div>
 
-          <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl flex justify-between items-center text-sm font-bold">
-            <span className="text-slate-600">Total Amount Payable:</span>
-            <span className="text-xl font-extrabold text-[#09539b] font-mono">₹{grandTotal.toLocaleString()} INR</span>
+          <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2">
+            <div className="flex justify-between items-center text-sm font-bold">
+              <span className="text-slate-600">
+                {paymentType === 'PARTIAL' ? `Advance Payment Today (${effectivePartialPercent}%):` : 'Total Amount Payable:'}
+              </span>
+              <span className="text-xl font-extrabold text-[#09539b] font-mono">₹{payableToday.toLocaleString()} INR</span>
+            </div>
+            {paymentType === 'PARTIAL' && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 font-medium">
+                <span className="font-bold">Partial Advance Selected:</span> Remaining balance of <b className="font-mono font-bold">₹{remainingBalance.toLocaleString()} INR</b> must be cleared at least 15 days before the event (on or before <b>{formattedDeadline}</b>).
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -607,7 +851,7 @@ export const BookingWizardPage: React.FC = () => {
               onClick={() => handleExecuteRazorpayPayment(false)}
               leftIcon={<CreditCard className="w-4 h-4 text-[#9cc542]" />}
             >
-              Pay ₹{grandTotal.toLocaleString()} via Razorpay (Simulate Success)
+              Pay ₹{payableToday.toLocaleString()} via Razorpay (Simulate Success)
             </Button>
             <button
               type="button"
@@ -622,7 +866,7 @@ export const BookingWizardPage: React.FC = () => {
 
       {/* STEP 5: SUCCESS & ONE-TIME PASSWORD CREDENTIALS */}
       {currentStep === 5 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-xl mx-auto space-y-6 shadow-xl">
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-2xl mx-auto space-y-6 shadow-xl">
           {paymentStatusState === 'PROCESSING' && (
             <div className="space-y-4 py-8">
               <RefreshCw className="w-12 h-12 text-[#09539b] animate-spin mx-auto" />
@@ -631,13 +875,12 @@ export const BookingWizardPage: React.FC = () => {
             </div>
           )}
 
-          {paymentStatusState === 'SUCCESS' && selectedCompany && (
-            <div className="space-y-6 py-2 animate-in fade-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-
-              <div className="space-y-1">
+          {paymentStatusState === 'SUCCESS' && selectedCompany && selectedStallObj && exhibition && (
+            <div className="space-y-6 py-2 animate-in fade-in zoom-in-95 duration-200 text-left">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
                 <h2 className="text-2xl font-black text-[#012970]">Stall Reservation Confirmed!</h2>
                 <p className="text-xs text-slate-600">
                   Your payment has been successfully processed and stall position allocated.
@@ -666,21 +909,18 @@ export const BookingWizardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Booking Details Summary */}
-              <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl text-left space-y-2 text-xs font-medium">
-                <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-500">Booking Reference:</span>
-                  <span className="font-mono font-bold text-[#012970]">{createdBooking?.bookingReference || 'BKG-2026-9021'}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-500">Allocated Stall:</span>
-                  <span className="font-bold text-[#09539b] font-mono">Stall {selectedStallObj?.stallNumber || 'M-101'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Total Paid (with GST):</span>
-                  <span className="font-mono font-black text-emerald-700">₹{grandTotal.toLocaleString()} INR</span>
-                </div>
-              </div>
+              {/* Render Official Contract Form Component */}
+              <OfficialContractForm
+                company={selectedCompany}
+                exhibition={exhibition}
+                stall={selectedStallObj}
+                paymentType={paymentType}
+                effectivePartialPercent={effectivePartialPercent}
+                payableToday={payableToday}
+                remainingBalance={remainingBalance}
+                formattedDeadline={formattedDeadline}
+                onPrint={() => window.print()}
+              />
 
               <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
                 <Link to="/login">
@@ -698,7 +938,7 @@ export const BookingWizardPage: React.FC = () => {
           )}
 
           {paymentStatusState === 'FAILED' && (
-            <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-200 text-center">
               <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                 <XCircle className="w-10 h-10" />
               </div>
@@ -720,6 +960,14 @@ export const BookingWizardPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* TERMS & CONDITIONS OVERLEAF MODAL */}
+      <TermsAndConditionsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
+        isAccepted={isTermsAccepted}
+        onAccept={() => setIsTermsAccepted(true)}
+      />
     </div>
   );
 };

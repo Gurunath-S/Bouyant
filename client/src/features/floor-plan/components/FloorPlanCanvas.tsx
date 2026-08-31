@@ -9,13 +9,22 @@ interface FloorPlanCanvasProps {
 }
 
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStallSelect }) => {
-  const { selectedStallId, zoomLevel, selectedCategory, selectedStatus } = useFloorPlanStore();
+  const { selectedStallId, zoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
   const filteredStalls = stalls.filter((stall) => {
     if (selectedCategory && stall.category !== selectedCategory) return false;
     if (selectedStatus && stall.status !== selectedStatus) return false;
+
+    // Hall A vs Hall B filtering based on stallNumber prefix or position
+    if (selectedHall === 'HALL_A') {
+      return stall.stallNumber.startsWith('A') || stall.xPosition < 480;
+    }
+    if (selectedHall === 'HALL_B') {
+      return stall.stallNumber.startsWith('B') || stall.stallNumber.startsWith('C') || stall.stallNumber.startsWith('F') || stall.xPosition >= 480;
+    }
+
     return true;
   });
 
@@ -79,35 +88,65 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
   };
 
   return (
-    <div className="relative w-full overflow-auto bg-slate-100/80 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-800 rounded-xl p-4 min-h-[550px] shadow-inner flex items-center justify-center bg-floor-grid transition-colors duration-200">
+    <div className="relative w-full overflow-auto bg-slate-100/80 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-800 rounded-xl p-4 min-h-[600px] shadow-inner flex items-center justify-center bg-floor-grid transition-colors duration-200">
       <div
         className="transition-transform duration-200 ease-out origin-top-left"
         style={{ transform: `scale(${zoomLevel / 100})` }}
       >
-        <svg width="1050" height="650" viewBox="0 0 1050 650" className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-          {/* Hall Outer Boundary */}
-          <rect x="20" y="20" width="1010" height="610" rx="12" fill="none" stroke={isDark ? '#334155' : '#cbd5e1'} strokeWidth="2" strokeDasharray="6 6" />
+        <svg width="1400" height="850" viewBox="0 0 1400 850" className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+          {/* Outer Boundary & Hall Split */}
+          <rect x="20" y="20" width="1360" height="810" rx="14" fill="none" stroke={isDark ? '#334155' : '#cbd5e1'} strokeWidth="2" strokeDasharray="6 6" />
 
-          {/* Entrance & Common Zones */}
+          {/* Pavilion - A Boundary (Left Hall) */}
+          <rect x="35" y="35" width="620" height="770" rx="10" fill={isDark ? '#0f172a' : '#f8fafc'} stroke={isDark ? '#1e293b' : '#e2e8f0'} strokeWidth="1.5" />
+          <text x="345" y="62" textAnchor="middle" fill="#012970" fontSize="15" fontWeight="900" letterSpacing="1">
+            PAVILION - A (HALL - A) • 47 STALLS (A1 - A48)
+          </text>
+          <text x="345" y="80" textAnchor="middle" fill="#09539b" fontSize="10" fontWeight="bold">
+            Regular Stalls: ₹6,500/Sqm • Corner Premium: ₹7,000/Sqm (+18% GST)
+          </text>
+
+          {/* Pavilion - B Boundary (Right Hall) */}
+          <rect x="690" y="35" width="670" height="770" rx="10" fill={isDark ? '#0f172a' : '#f8fafc'} stroke={isDark ? '#1e293b' : '#e2e8f0'} strokeWidth="1.5" />
+          <text x="1025" y="62" textAnchor="middle" fill="#012970" fontSize="15" fontWeight="900" letterSpacing="1">
+            PAVILION - B (HALL - B) • 141 STALLS (B1-B94, C1-C37, F1-F10)
+          </text>
+          <text x="1025" y="80" textAnchor="middle" fill="#09539b" fontSize="10" fontWeight="bold">
+            Regular Stalls: ₹6,500/Sqm • Corner Premium: ₹7,000/Sqm (+18% GST)
+          </text>
+
+          {/* Central Connecting Corridor */}
+          <line x1="665" y1="35" x2="665" y2="805" stroke="#09539b" strokeWidth="2.5" strokeDasharray="4 4" opacity="0.4" />
+          <text x="665" y="420" textAnchor="middle" fill="#09539b" fontSize="11" fontWeight="bold" transform="rotate(-90 665 420)" letterSpacing="2">
+            MAIN CENTRAL CONNECTING CORRIDOR
+          </text>
+
+          {/* Special Facility Zones from PDF */}
           <g>
-            {/* Main Entrance */}
-            <rect x="425" y="618" width="200" height="12" fill={isDark ? '#38bdf8' : '#0f172a'} rx="4" />
-            <text x="525" y="612" textAnchor="middle" fill={isDark ? '#38bdf8' : '#0f172a'} fontSize="11" fontWeight="bold" letterSpacing="1">
-              MAIN ENTRANCE / REGISTRATION
+            {/* Main Entry & Registration Desk */}
+            <rect x="520" y="808" width="290" height="28" fill="#012970" rx="6" />
+            <text x="665" y="826" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="900" letterSpacing="1">
+              MAIN ENTRY & REGISTRATION DESK
             </text>
 
-            {/* Stage / Keynote Zone */}
-            <rect x="375" y="32" width="300" height="40" fill={isDark ? '#1e293b' : '#f1f5f9'} stroke={isDark ? '#475569' : '#94a3b8'} strokeWidth="1.5" rx="6" />
-            <text x="525" y="56" textAnchor="middle" fill={isDark ? '#cbd5e1' : '#334155'} fontSize="12" fontWeight="bold">
-              CENTER STAGE & KEYNOTE AUDITORIUM
+            {/* Food Court & Dining Zone (Hall B Top Right) */}
+            <rect x="1140" y="95" width="200" height="55" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1.5" rx="8" />
+            <text x="1240" y="120" textAnchor="middle" fill="#92400e" fontSize="11" fontWeight="800">
+              FOOD COURT & DINING (F1-F10)
+            </text>
+            <text x="1240" y="136" textAnchor="middle" fill="#b45309" fontSize="9" fontWeight="bold">
+              Exhibitor Refreshment Area
             </text>
 
-            {/* Aisle Markers */}
-            <text x="70" y="320" textAnchor="middle" fill={isDark ? '#64748b' : '#94a3b8'} fontSize="11" fontWeight="bold" letterSpacing="2">
-              AISLE A
+            {/* Restrooms & Exit Shutters */}
+            <rect x="50" y="750" width="130" height="40" fill="#e0f2fe" stroke="#0284c7" strokeWidth="1" rx="6" />
+            <text x="115" y="774" textAnchor="middle" fill="#0369a1" fontSize="10" fontWeight="bold">
+              RESTROOMS & EXIT
             </text>
-            <text x="980" y="320" textAnchor="middle" fill={isDark ? '#64748b' : '#94a3b8'} fontSize="11" fontWeight="bold" letterSpacing="2">
-              AISLE B
+
+            <rect x="1220" y="750" width="120" height="40" fill="#f1f5f9" stroke="#64748b" strokeWidth="1" rx="6" />
+            <text x="1280" y="774" textAnchor="middle" fill="#334155" fontSize="10" fontWeight="bold">
+              SERVICE SHUTTER
             </text>
           </g>
 
@@ -115,6 +154,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
           <g>
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
+              const isLarge = stall.width > 60 || stall.height > 40;
               return (
                 <g
                   key={stall.id}
@@ -126,7 +166,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
                     y={stall.yPosition}
                     width={stall.width}
                     height={stall.height}
-                    rx="6"
+                    rx="5"
                     fill={styles.fill}
                     stroke={styles.stroke}
                     strokeWidth={styles.strokeWidth}
@@ -135,10 +175,10 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
                   {/* Stall Number Header */}
                   <text
                     x={stall.xPosition + stall.width / 2}
-                    y={stall.yPosition + stall.height / 2 - 8}
+                    y={stall.yPosition + stall.height / 2 - (isLarge ? 6 : 2)}
                     textAnchor="middle"
                     fill={styles.textColor}
-                    fontSize="13"
+                    fontSize={isLarge ? '12' : '10'}
                     fontWeight="800"
                     fontFamily="sans-serif"
                   >
@@ -146,30 +186,19 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
                   </text>
 
                   {/* Category / Dimensions */}
-                  <text
-                    x={stall.xPosition + stall.width / 2}
-                    y={stall.yPosition + stall.height / 2 + 8}
-                    textAnchor="middle"
-                    fill={styles.textColor}
-                    fontSize="9"
-                    fontWeight="600"
-                    opacity="0.85"
-                  >
-                    {stall.category}
-                  </text>
-
-                  {/* Price */}
-                  <text
-                    x={stall.xPosition + stall.width / 2}
-                    y={stall.yPosition + stall.height / 2 + 22}
-                    textAnchor="middle"
-                    fill={styles.textColor}
-                    fontSize="10"
-                    fontWeight="700"
-                    fontFamily="monospace"
-                  >
-                    ${Number(stall.price).toLocaleString()}
-                  </text>
+                  {isLarge && (
+                    <text
+                      x={stall.xPosition + stall.width / 2}
+                      y={stall.yPosition + stall.height / 2 + 8}
+                      textAnchor="middle"
+                      fill={styles.textColor}
+                      fontSize="8"
+                      fontWeight="600"
+                      opacity="0.85"
+                    >
+                      {stall.category}
+                    </text>
+                  )}
                 </g>
               );
             })}
