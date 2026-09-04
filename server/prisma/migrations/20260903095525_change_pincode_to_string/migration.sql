@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Company" ALTER COLUMN "pinCode" DROP DEFAULT,
+ALTER COLUMN "pinCode" SET DATA TYPE TEXT;

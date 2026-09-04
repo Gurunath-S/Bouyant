@@ -441,13 +441,13 @@ export const BookingWizardPage: React.FC = () => {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="GST Registration Number (GSTIN) *" error={errors.gstNumber?.message} {...register('gstNumber')} />
                 <Input label="Official Company Name *" error={errors.name?.message} {...register('name')} />
                 <Input label="Contact Person Name *" error={errors.contactPerson?.message} {...register('contactPerson')} />
                 <Input label="Designation *" error={errors.designation?.message} {...register('designation')} />
                 <Input label="Mobile Number *" error={errors.mobile?.message} {...register('mobile')} />
                 <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
                 <Input label="Industry Sector *" error={errors.industry?.message} {...register('industry')} />
-                <Input label="GST Registration Number (GSTIN) *" error={errors.gstNumber?.message} {...register('gstNumber')} />
                 <Input label="PAN Number *" error={errors.panNumber?.message} {...register('panNumber')} />
                 <Input label="Product / Service Category *" error={errors.category?.message} {...register('category')} />
                 <Input label="Official Website" placeholder="https://" error={errors.website?.message} {...register('website')} />

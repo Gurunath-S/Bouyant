@@ -1,34 +1,99 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { GstValidationProvider } from './providers/gstValidation.provider.js';
 import { CreateCompanyInput, UpdateCompanyInput } from './companies.schemas.js';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 export class CompaniesService {
-  static async createCompany(userId: string, input: CreateCompanyInput) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw ApiError.notFound('User not found.');
+
+   static async verifyGst(gstNumber: string) {
+
+    const gstData = await GstValidationProvider.verify(gstNumber);
+
+    return gstData;
+  }
+
+  static async createCompany(input: CreateCompanyInput) {
+
+   // Check whether company information already exists
+  const existingCompany = await prisma.company.findFirst({
+    where: {
+      OR: [
+        { email: input.email },
+        { mobile: input.mobile },
+        { gstNumber: input.gstNumber },
+        { panNumber: input.panNumber },
+        { tanNumber: input.tanNumber }
+      ],
+    },
+  });
+
+  if (existingCompany) {
+    if (existingCompany.email === input.email) {
+      throw ApiError.conflict(
+        'A company with this email already exists.'
+      );
     }
 
-    const count = await prisma.company.count();
-    const companyCode = `CMP-2026-${String(count + 1).padStart(3, '0')}`;
+    if (existingCompany.mobile === input.mobile) {
+      throw ApiError.conflict(
+        'A company with this mobile number already exists.'
+      );
+    }
 
-    const company = await prisma.company.create({
+    if (existingCompany.gstNumber === input.gstNumber) {
+      throw ApiError.conflict(
+        'A company with this GST number already exists.'
+      );
+    }
+
+    if (existingCompany.panNumber === input.panNumber) {
+      throw ApiError.conflict(
+        'A company with this PAN number already exists.'
+      );
+    }
+     if (existingCompany.tanNumber === input.tanNumber) {
+      throw ApiError.conflict(
+        'A company with this TAN number already exists.'
+      );
+    }
+
+  }
+     const count = await prisma.company.count();
+     const companyCode = `CMP-2026-${String(count + 1).padStart(3, '0')}`;
+     const temporaryPassword = crypto.randomBytes(8).toString('base64url');
+     const passwordHash = await bcrypt.hash(temporaryPassword,12);
+    
+     const result = await prisma.$transaction(async (tx) => {
+
+     const company = await tx.company.create({
       data: {
         ...input,
         companyCode,
-        users: {
-          connect: { id: userId },
-        },
       },
     });
 
-    // Update user's companyId link
-    await prisma.user.update({
-      where: { id: userId },
-      data: { companyId: company.id },
+    const user = await tx.user.create({
+      data: {
+        email: input.email.toLowerCase(),
+        passwordHash,
+        name: input.contactPerson,
+        phone: input.mobile,
+        role: 'CLIENT',
+        companyId: company.id,
+      },
     });
 
-    return company;
+    return {
+      company,
+      user
+    };
+  });
+   
+
+    return result;
+
   }
 
   static async updateCompany(companyId: string, input: UpdateCompanyInput) {
