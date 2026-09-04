@@ -28,7 +28,7 @@ export class ExhibitionsService {
         },
       },
     });
-
+   
     return exhibitions;
   }
 

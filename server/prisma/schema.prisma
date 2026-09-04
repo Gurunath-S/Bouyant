@@ -12,6 +12,7 @@ datasource db {
 enum UserRole {
   CLIENT
   ADMIN
+  SUPERADMIN
 }
 
 enum StallCategory {
@@ -83,28 +84,27 @@ model User {
 model Company {
   id             String      @id @default(uuid())
   companyCode    String      @unique
-  name           String
+  name           String      
   contactPerson  String
-  designation    String
-  mobile         String
-  email          String
+  mobile         String      @unique
+  email          String      @unique
   address        String
   city           String
   state          String
-  gstNumber      String?
-  panNumber      String?
-  industry       String
-  category       String
-  website        String?
+  pinCode        String     
+  country        String      @default("Not Provided")
+  gstNumber      String      @unique
+  panNumber      String      @unique
+  tanNumber      String      @unique
+  industry       String      
+  website        String?     
+  remarks        String?     @default("Not Provided")
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   users          User[]
   bookings       Booking[]
   invoices       Invoice[]
-
-  @@index([companyCode])
-  @@index([gstNumber])
 }
 
 model Exhibition {
