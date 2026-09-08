@@ -7,14 +7,54 @@ import bcrypt from 'bcryptjs';
 
 export class CompaniesService {
 
-   static async verifyGst(gstNumber: string) {
+ static async verifyGst(gstNumber: string) {
 
-    const gstData = await GstValidationProvider.verify(gstNumber);
+  const gstData = await GstValidationProvider.verify(gstNumber);
 
-    return gstData;
+  if (
+    gstData?.success !== true ||
+    gstData?.data?.status !== 'Active'
+  ) {
+    throw ApiError.badRequest(
+      'GST verification failed. Please provide a valid and active GST number.'
+    );
   }
 
+  const existingCompany = await prisma.company.findUnique({
+    where: {
+      gstNumber,
+    },
+  });
+ 
+  return {
+    gstVerified: true,
+    companyExists: !!existingCompany,
+    canCreate: !existingCompany,
+    gstDetails: {
+      gstin: gstData.data.gstin,
+      legalName: gstData.data.legal_name,
+      tradeName: gstData.data.trade_name,
+      status: gstData.data.status,
+      address: gstData.data.address,
+      city: gstData.data.city,
+      pincode: gstData.data.pincode,
+      blockStatus: gstData.data.block_status,
+    },
+  };
+  
+}
+
   static async createCompany(input: CreateCompanyInput) {
+  
+    // step 1: first we check the gst verification 
+  
+  const gstResult = await this.verifyGst(input.gstNumber);
+
+   if (!gstResult.canCreate) {
+    throw ApiError.conflict(
+      'A company with this GST number is already registered.'
+    );
+  }
 
    // Check whether company information already exists
   const existingCompany = await prisma.company.findFirst({
@@ -22,7 +62,6 @@ export class CompaniesService {
       OR: [
         { email: input.email },
         { mobile: input.mobile },
-        { gstNumber: input.gstNumber },
         { panNumber: input.panNumber },
         { tanNumber: input.tanNumber }
       ],
@@ -42,12 +81,6 @@ export class CompaniesService {
       );
     }
 
-    if (existingCompany.gstNumber === input.gstNumber) {
-      throw ApiError.conflict(
-        'A company with this GST number already exists.'
-      );
-    }
-
     if (existingCompany.panNumber === input.panNumber) {
       throw ApiError.conflict(
         'A company with this PAN number already exists.'
@@ -62,7 +95,9 @@ export class CompaniesService {
   }
      const count = await prisma.company.count();
      const companyCode = `CMP-2026-${String(count + 1).padStart(3, '0')}`;
+    //  const regNo=count
      const temporaryPassword = crypto.randomBytes(8).toString('base64url');
+     
      const passwordHash = await bcrypt.hash(temporaryPassword,12);
     
      const result = await prisma.$transaction(async (tx) => {
@@ -87,7 +122,8 @@ export class CompaniesService {
 
     return {
       company,
-      user
+      user,
+      temporaryPassword
     };
   });
    

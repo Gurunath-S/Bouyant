@@ -1,7 +1,8 @@
 import { env } from '../../../config/env.js';
+import { GstVerificationResponse } from '../types/gstTypes.js'
 
 export class GstValidationProvider {
-  static async verify(gstNumber: string) {
+  static async verify(gstNumber: string): Promise<GstVerificationResponse> {
 
     const response = await fetch(
       `https://www.gstinapi.in/v1/gstin/${gstNumber}`,
@@ -17,7 +18,7 @@ export class GstValidationProvider {
       throw new Error('GST provider request failed');
     }
 
-    const data = await response.json();
+  const data = (await response.json()) as GstVerificationResponse;
 
     return data;
   }
