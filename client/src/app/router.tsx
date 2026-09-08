@@ -29,14 +29,15 @@ import { PublicFooter } from '../components/layout/PublicFooter';
 
 const DashboardLayout = () => {
   return (
-    <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 flex flex-col justify-between font-sans transition-colors duration-200">
       <Navbar />
-      <div className="flex flex-1">
+      <div className="flex flex-1 items-start relative">
         <Sidebar />
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-3 sm:p-6 w-full min-w-0">
           <Outlet />
         </main>
       </div>
+      <PublicFooter />
     </div>
   );
 };
@@ -117,6 +118,22 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/events/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/events/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/events/:id/view',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminExhibitionBuilderPage />
