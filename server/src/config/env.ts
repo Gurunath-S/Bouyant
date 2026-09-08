@@ -14,4 +14,5 @@ export const env = {
   REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
   STALL_HOLD_DURATION_MINUTES: parseInt(process.env.STALL_HOLD_DURATION_MINUTES || '10', 10),
+  GSTIN_API_KEY: process.env.GSTIN_API_KEY || 'HSH34483HHJSJSJ77',
 };

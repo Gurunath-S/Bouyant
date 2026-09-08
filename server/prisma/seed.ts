@@ -23,7 +23,6 @@ async function main() {
       companyCode: 'CMP-2026-001',
       name: 'TechCorp Global Solutions',
       contactPerson: 'Alex Rivera',
-      designation: 'Director of Business Development',
       mobile: '+1-555-019-2834',
       email: 'alex.rivera@techcorp.com',
       address: '100 Innovation Way, Suite 400',
@@ -32,8 +31,11 @@ async function main() {
       gstNumber: '27AAACT1029F1Z5',
       panNumber: 'AAACT1029F',
       industry: 'Enterprise Software & Cloud AI',
-      category: 'Exhibitor - Technology Partner',
       website: 'https://techcorp-global.demo',
+      pinCode: "641664",
+      country: 'USA',
+      tanNumber: 'BOST12345B',
+      remarks: 'Healthcare and biotechnology company',
     },
   });
 
@@ -42,7 +44,6 @@ async function main() {
       companyCode: 'CMP-2026-002',
       name: 'Apex BioDynamics Inc.',
       contactPerson: 'Sarah Chen',
-      designation: 'Head of Operations',
       mobile: '+1-555-028-1190',
       email: 'sarah.chen@apexbio.demo',
       address: '450 BioTech Parkway',
@@ -51,8 +52,11 @@ async function main() {
       gstNumber: '07BBBCA8891G2Z8',
       panNumber: 'BBBCA8891G',
       industry: 'Healthcare & Biotechnology',
-      category: 'Exhibitor - Gold Sponsor',
       website: 'https://apexbio.demo',
+      pinCode: "641001",
+      country: 'USA',
+      tanNumber: 'SFTT12345A',
+      remarks: 'Technology partner',
     },
   });
 
@@ -418,7 +422,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error('❌ Seeding failed:', e);
-    process.exit(1);
+     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();

@@ -1,11 +1,29 @@
-import { Response } from 'express';
+import { Request,Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { CompaniesService } from './companies.service.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class CompaniesController {
+
+
+  static verifyGst = async (req: Request, res: Response) => {
+
+  const { gstNumber } = req.body;
+
+  const result =
+    await CompaniesService.verifyGst(gstNumber);
+
+  return sendResponse({
+    res,
+    statusCode: 200,
+    message: 'GST verification completed successfully.',
+    data: result,
+  });
+};
+
   static create = async (req: AuthenticatedRequest, res: Response) => {
-    const company = await CompaniesService.createCompany(req.user!.userId, req.body);
+    const company = await CompaniesService.createCompany(req.body);
+    
     return sendResponse({
       res,
       statusCode: 201,

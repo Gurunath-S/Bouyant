@@ -80,7 +80,7 @@ export const ExhibitionDetailPage: React.FC = () => {
       <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl space-y-4 max-w-xl mx-auto my-12">
         <h3 className="text-lg font-bold text-[#121B3D]">Event Not Found</h3>
         <p className="text-xs text-slate-500">The requested exhibition could not be located in our directory.</p>
-        <Button variant="outline" onClick={() => navigate('/exhibitions')}>
+        <Button variant="outline" onClick={() => navigate('/')}>
           Back to all events
         </Button>
       </div>
@@ -99,7 +99,7 @@ export const ExhibitionDetailPage: React.FC = () => {
       {/* Back Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <Link
-          to="/exhibitions"
+          to="/"
           className="inline-flex items-center gap-2 text-slate-500 hover:text-[#121B3D] font-semibold text-sm transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to all events
