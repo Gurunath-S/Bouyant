@@ -21,10 +21,21 @@ export class ExhibitionsService {
       orderBy: { startDate: 'asc' },
       include: {
         floorPlans: {
-          select: { id: true, name: true, isPublished: true },
+          select: { 
+            id: true, name: true, isPublished: true, _count: {
+          select: {
+            stalls: {
+              where: {
+                status: 'AVAILABLE',
+              },
+            },
+          },
+        }
+          },
+          
         },
         _count: {
-          select: { bookings: true },
+          select: { bookings: true},
         },
       },
     });
