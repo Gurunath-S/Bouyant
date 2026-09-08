@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useThemeStore } from '../../stores/themeStore';
-import { Bell, Search, LogOut, ChevronDown, Building, Sun, Moon } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Building, Sun, Moon } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -17,19 +17,18 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-14 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors duration-200">
-      {/* Mobile Logo & Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        <Link to="/dashboard" className="md:hidden shrink-0">
-          <img src="/assets/logo.png" alt="BUOYANT Media" className="h-7 object-contain" />
-        </Link>
-        <div className="relative w-full">
-          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search exhibitions, stalls, bookings..."
-            className="w-full bg-[#f6f9ff] dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-[#012970] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#09539b] dark:focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all font-medium"
+      {/* Brand Logo (Replaced Search Bar) */}
+      <div className="flex items-center gap-3">
+        <Link
+          to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}
+          className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
+        >
+          <img
+            src="/assets/logo.png"
+            alt="BUOYANT Media"
+            className="h-8 sm:h-9 object-contain"
           />
-        </div>
+        </Link>
       </div>
 
       {/* Right Controls */}

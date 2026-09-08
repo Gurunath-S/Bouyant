@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
 import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
+import { formatDisplayDate } from '../../../utils/date';
 import {
   Calendar,
   MapPin,
@@ -115,8 +116,7 @@ export const HomePage: React.FC = () => {
                 <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
                   <Calendar className="w-4 h-4 text-[#0E8074]" />
                   <span>
-                    {new Date(featuredEvent.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} -{' '}
-                    {new Date(featuredEvent.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDisplayDate(featuredEvent.startDate)} – {formatDisplayDate(featuredEvent.endDate)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] shadow-xs">
