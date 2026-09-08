@@ -318,9 +318,6 @@ export const BookingWizardPage: React.FC = () => {
               Stall Reservation — {exhibition.title}
             </h1>
           </div>
-          <span className="px-3 py-1 bg-[#9cc542]/20 text-[#012970] font-black text-xs uppercase rounded-md border border-[#9cc542]/40">
-            Frictionless Guest Booking Enabled
-          </span>
         </div>
 
         {/* Stepper Tabs */}
