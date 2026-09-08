@@ -4,8 +4,9 @@ import { useAuthStore } from '../../../stores/authStore';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Calendar, ArrowRight, Building, Sparkles, MapPin, Layers } from 'lucide-react';
+import { BookmarkCheck, Calendar, ArrowRight, Building, MapPin, Layers } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { formatDisplayDate } from '../../../utils/date';
 
 export const ClientDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -39,7 +40,7 @@ export const ClientDashboardPage: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 dark:from-slate-900 dark:via-blue-950 dark:to-slate-900 border border-slate-800 text-white rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden">
         <div className="relative z-10 max-w-2xl space-y-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 font-bold text-xs rounded-full">
-            <Sparkles className="w-3.5 h-3.5" /> Exhibitor Workspace
+            <Building className="w-3.5 h-3.5" /> Exhibitor Workspace
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
             Welcome back, {user?.name}!
@@ -137,7 +138,7 @@ export const ClientDashboardPage: React.FC = () => {
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                    {new Date(expo.startDate).toLocaleDateString()}
+                    {formatDisplayDate(expo.startDate)}
                   </span>
                 </div>
               </div>

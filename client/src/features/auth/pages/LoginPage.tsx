@@ -7,6 +7,7 @@ import { authService } from '../../../services/auth/authService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { PublicFooter } from '../../../components/layout/PublicFooter';
 import {
   Lock,
   Mail,
@@ -219,10 +220,8 @@ export const LoginPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer — Corporate Blue */}
-      <footer className="relative z-10 w-full bg-[#121B3D] text-slate-300 border-t border-[#1E3FA0]/40 px-6 py-4 text-center text-xs font-medium">
-        © {new Date().getFullYear()} Buoyant Media. All rights reserved.
-      </footer>
+      {/* Footer — Identical to Homepage */}
+      <PublicFooter />
     </div>
   );
 };

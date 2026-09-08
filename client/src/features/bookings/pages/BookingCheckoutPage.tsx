@@ -272,15 +272,15 @@ export const BookingCheckoutPage: React.FC = () => {
             <div className="space-y-2.5 text-xs text-slate-600">
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span>Stall Rental Fee ({stall.stallNumber})</span>
-                <span className="font-mono text-slate-900 font-semibold">${basePrice.toLocaleString()}</span>
+                <span className="font-mono text-slate-900 font-semibold">₹{basePrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span>Goods & Service Tax / GST (18%)</span>
-                <span className="font-mono text-slate-900 font-semibold">${taxAmount.toLocaleString()}</span>
+                <span className="font-mono text-slate-900 font-semibold">₹{taxAmount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-3 text-base font-extrabold text-slate-900 border-t border-slate-200">
                 <span>Grand Total:</span>
-                <span className="font-mono text-blue-700">${grandTotal.toLocaleString()} USD</span>
+                <span className="font-mono text-blue-700">₹{grandTotal.toLocaleString()} INR</span>
               </div>
             </div>
 
@@ -299,7 +299,7 @@ export const BookingCheckoutPage: React.FC = () => {
               isLoading={processing}
               leftIcon={<CreditCard className="w-4 h-4" />}
             >
-              Pay ${grandTotal.toLocaleString()} & Generate Invoice
+              Pay ₹{grandTotal.toLocaleString()} & Generate Invoice
             </Button>
           </div>
         </div>

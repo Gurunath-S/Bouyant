@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../../services/api/apiClient';
 import { CreditCard, ShieldCheck } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
+import { formatDisplayDateTime } from '../../../utils/date';
 
 export const AdminPaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
@@ -56,9 +57,9 @@ export const AdminPaymentsPage: React.FC = () => {
                 <td className="py-3.5 px-4">
                   <PaymentStatusBadge status={p.status} />
                 </td>
-                <td className="py-3.5 px-4 text-slate-500">{new Date(p.createdAt).toLocaleString()}</td>
+                <td className="py-3.5 px-4 text-slate-500">{formatDisplayDateTime(p.createdAt)}</td>
                 <td className="py-3.5 px-4 text-right font-mono font-extrabold text-emerald-600">
-                  ${Number(p.amount).toLocaleString()} USD
+                  ₹{Number(p.amount).toLocaleString()} INR
                 </td>
               </tr>
             ))}

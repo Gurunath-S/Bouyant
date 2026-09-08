@@ -1,6 +1,7 @@
 import React from 'react';
 import { Company, Exhibition, Stall } from '../../../types';
 import { Building2, Calendar, MapPin, Printer, ShieldCheck, CreditCard } from 'lucide-react';
+import { formatDisplayDate } from '../../../utils/date';
 
 interface OfficialContractFormProps {
   company: Company;
@@ -202,7 +203,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
           <div className="pt-2 text-[10px] text-slate-500 space-y-0.5">
             <p className="font-bold">Seal & Signature of the Exhibitor</p>
             <p>Authorized Signatory: {company.contactPerson}</p>
-            <p>Date: {new Date().toLocaleDateString()}</p>
+            <p>Date: {formatDisplayDate(new Date())}</p>
           </div>
         </div>
       </div>

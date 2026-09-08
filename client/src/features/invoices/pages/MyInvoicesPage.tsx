@@ -4,6 +4,7 @@ import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { FileText, Download, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { formatDisplayDate } from '../../../utils/date';
 
 export const MyInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -68,11 +69,11 @@ export const MyInvoicesPage: React.FC = () => {
                 <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{inv.invoiceNumber}</td>
                   <td className="py-3.5 px-4 font-semibold text-slate-900">{inv.company?.name}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{new Date(inv.issueDate).toLocaleDateString()}</td>
-                  <td className="py-3.5 px-4 text-right font-mono">${Number(inv.totalAmount).toLocaleString()}</td>
-                  <td className="py-3.5 px-4 text-right font-mono">${Number(inv.taxAmount).toLocaleString()}</td>
+                  <td className="py-3.5 px-4 text-slate-500">{formatDisplayDate(inv.issueDate)}</td>
+                  <td className="py-3.5 px-4 text-right font-mono">₹{Number(inv.totalAmount).toLocaleString()}</td>
+                  <td className="py-3.5 px-4 text-right font-mono">₹{Number(inv.taxAmount).toLocaleString()}</td>
                   <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900">
-                    ${Number(inv.grandTotal).toLocaleString()} USD
+                    ₹{Number(inv.grandTotal).toLocaleString()} INR
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     <Link to={`/invoices/${inv.id}`}>

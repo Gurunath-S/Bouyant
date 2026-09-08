@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
-import { ShieldCheck, Layers, Building, BookmarkCheck, DollarSign, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { ShieldCheck, Layers, Building, BookmarkCheck, IndianRupee, ArrowUpRight, TrendingUp, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [inspectedBooking, setInspectedBooking] = useState<any | null>(null);
 
   useEffect(() => {
     fetchAdminStats();
@@ -39,10 +41,7 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
         <div>
-          <span className="px-2.5 py-0.5 bg-purple-50 border border-purple-200 text-purple-700 font-extrabold text-[10px] rounded uppercase">
-            Platform Operations Console
-          </span>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-purple-600" />
             Admin Operations & Analytics
           </h1>
@@ -64,11 +63,11 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex justify-between items-start">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gross Platform Revenue</p>
             <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
-              <DollarSign className="w-4 h-4" />
+              <IndianRupee className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl font-extrabold font-mono text-slate-900 mt-2">
-            ${stats?.totalRevenue ? Number(stats.totalRevenue).toLocaleString() : '14,160'} USD
+            ₹{stats?.totalRevenue ? Number(stats.totalRevenue).toLocaleString() : '14,160'} INR
           </p>
           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-2">
             <TrendingUp className="w-3 h-3" /> +100% Confirmed Payments
@@ -130,22 +129,43 @@ export const AdminDashboardPage: React.FC = () => {
                 <th className="py-3 px-4">Company</th>
                 <th className="py-3 px-4 text-right">Amount</th>
                 <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
               {stats?.recentBookings?.map((b: any) => (
-                <tr key={b.id} className="hover:bg-slate-50">
-                  <td className="py-3 px-4 font-mono font-bold text-blue-700">{b.bookingReference}</td>
+                <tr
+                  key={b.id}
+                  onClick={() => setInspectedBooking(b)}
+                  className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                >
+                  <td className="py-3 px-4 font-mono font-bold text-blue-700 group-hover:underline">
+                    {b.bookingReference}
+                  </td>
                   <td className="py-3 px-4 font-semibold text-slate-900">{b.exhibition?.title}</td>
                   <td className="py-3 px-4 font-bold text-slate-700">Stall {b.stall?.stallNumber}</td>
                   <td className="py-3 px-4">{b.company?.name}</td>
                   <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                    ${Number(b.grandTotal).toLocaleString()}
+                    ₹{Number(b.grandTotal).toLocaleString()}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px] rounded">
                       {b.status}
                     </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInspectedBooking(b);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                      title="Inspect full booking details"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -153,6 +173,13 @@ export const AdminDashboardPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Booking Dossier Modal */}
+      <BookingDetailModal
+        booking={inspectedBooking}
+        isOpen={!!inspectedBooking}
+        onClose={() => setInspectedBooking(null)}
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { Calendar, MapPin, Search, ChevronRight } from 'lucide-react';
+import { formatDisplayDate } from '../../../utils/date';
 
 export const ExhibitionsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
@@ -102,8 +103,7 @@ export const ExhibitionsPage: React.FC = () => {
                   <p className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                     <span>
-                      {new Date(expo.startDate).toLocaleDateString()} -{' '}
-                      {new Date(expo.endDate).toLocaleDateString()}
+                      {formatDisplayDate(expo.startDate)} – {formatDisplayDate(expo.endDate)}
                     </span>
                   </p>
                 </div>

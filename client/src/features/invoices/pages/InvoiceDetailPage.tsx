@@ -4,6 +4,7 @@ import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Printer, ArrowLeft, Building2, ShieldCheck, Award } from 'lucide-react';
+import { formatDisplayDate } from '../../../utils/date';
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -85,7 +86,7 @@ export const InvoiceDetailPage: React.FC = () => {
               {invoice.invoiceNumber}
             </h3>
             <p className="text-xs text-slate-500 print:text-gray-600">
-              Date: {new Date(invoice.issueDate).toLocaleDateString()}
+              Date: {formatDisplayDate(invoice.issueDate)}
             </p>
           </div>
         </div>
@@ -123,7 +124,7 @@ export const InvoiceDetailPage: React.FC = () => {
                 <th className="py-3 px-4 font-semibold">Line Item Description</th>
                 <th className="py-3 px-4 font-semibold">Category</th>
                 <th className="py-3 px-4 font-semibold">Stall #</th>
-                <th className="py-3 px-4 font-semibold text-right">Amount (USD)</th>
+                <th className="py-3 px-4 font-semibold text-right">Amount (INR)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-gray-200 text-slate-800">
@@ -138,7 +139,7 @@ export const InvoiceDetailPage: React.FC = () => {
                   Stall {invoice.booking?.stall?.stallNumber}
                 </td>
                 <td className="py-4 px-4 text-right font-mono font-bold text-slate-900 print:text-black">
-                  ${Number(invoice.totalAmount).toLocaleString()}
+                  ₹{Number(invoice.totalAmount).toLocaleString()}
                 </td>
               </tr>
             </tbody>
@@ -155,15 +156,15 @@ export const InvoiceDetailPage: React.FC = () => {
           <div className="w-full sm:w-72 space-y-2 text-xs text-slate-700 print:text-gray-800">
             <div className="flex justify-between py-1 border-b border-slate-100 print:border-gray-200">
               <span>Subtotal:</span>
-              <span className="font-mono">${Number(invoice.totalAmount).toLocaleString()}</span>
+              <span className="font-mono">₹{Number(invoice.totalAmount).toLocaleString()}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100 print:border-gray-200">
               <span>Tax / GST (18%):</span>
-              <span className="font-mono">${Number(invoice.taxAmount).toLocaleString()}</span>
+              <span className="font-mono">₹{Number(invoice.taxAmount).toLocaleString()}</span>
             </div>
             <div className="flex justify-between py-2 text-base font-extrabold text-blue-700 print:text-black border-t border-slate-300 print:border-gray-300">
               <span>Grand Total:</span>
-              <span className="font-mono">${Number(invoice.grandTotal).toLocaleString()} USD</span>
+              <span className="font-mono">₹{Number(invoice.grandTotal).toLocaleString()} INR</span>
             </div>
           </div>
         </div>

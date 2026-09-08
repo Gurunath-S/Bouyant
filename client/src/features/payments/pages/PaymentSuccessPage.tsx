@@ -62,7 +62,7 @@ export const PaymentSuccessPage: React.FC = () => {
           </div>
           <div className="flex justify-between py-1 pt-2 text-sm font-bold text-slate-900">
             <span>Amount Verified & Paid:</span>
-            <span className="font-mono text-emerald-600">${Number(booking?.grandTotal).toLocaleString()} USD</span>
+            <span className="font-mono text-emerald-600">₹{Number(booking?.grandTotal).toLocaleString()} INR</span>
           </div>
         </div>
 

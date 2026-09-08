@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,9 +16,10 @@ import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
 import { StallHoverCard } from '../../floor-plan/components/StallHoverCard';
 import { OfficialContractForm } from '../components/OfficialContractForm';
 import { TermsAndConditionsModal } from '../components/TermsAndConditionsModal';
-import { MEDICCON_188_STALLS } from '../../../data/medicconFloorPlanData';
+import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { formatDisplayDate } from '../../../utils/date';
 import {
   Building,
   Layers,
@@ -37,7 +38,6 @@ import {
   Mail,
   Key,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 
 const companySchema = z.object({
@@ -60,11 +60,12 @@ type CompanyFormData = z.infer<typeof companySchema>;
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const { selectedStallId, setSelectedStallId, zoomLevel, setZoomLevel } = useFloorPlanStore();
 
-  // Booking Flow Steps: 1 = Company/Exhibitor Details, 2 = Stall Map Selection, 3 = Tax Bill Review, 4 = Razorpay Payment, 5 = Confirmation & OTP Credentials
+  // Booking Flow Steps: 1 = Stall Selection, 2 = Company Details, 3 = Tax Audit & Bill, 4 = Razorpay Payment, 5 = Confirmation & OTP Credentials
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
@@ -88,6 +89,7 @@ export const BookingWizardPage: React.FC = () => {
   const [isTermsAccepted, setIsTermsAccepted] = useState(true);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [showContractPreview, setShowContractPreview] = useState(false);
+  const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
 
   const {
     register,
@@ -116,6 +118,13 @@ export const BookingWizardPage: React.FC = () => {
     if (slug) loadInitialData();
   }, [slug]);
 
+  useEffect(() => {
+    const stallIdParam = searchParams.get('stallId');
+    if (stallIdParam) {
+      setSelectedStallId(stallIdParam);
+    }
+  }, [searchParams, setSelectedStallId]);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -123,14 +132,18 @@ export const BookingWizardPage: React.FC = () => {
       setExhibition(expo);
 
       if (expo.floorPlans && expo.floorPlans.length > 0) {
-        const stallsData = await stallService.getStallsByFloorPlan(expo.floorPlans[0].id);
-        if (stallsData && stallsData.length > 0) {
-          setStalls(stallsData);
-        } else {
-          setStalls(MEDICCON_188_STALLS);
+        const fp = expo.floorPlans[0];
+        if (fp.backgroundUrl) {
+          try {
+            setLayoutData(JSON.parse(fp.backgroundUrl));
+          } catch (e) {
+            console.warn('Failed to parse floor plan layout in booking wizard', e);
+          }
         }
+        const stallsData = await stallService.getStallsByFloorPlan(fp.id);
+        setStalls(stallsData || []);
       } else {
-        setStalls(MEDICCON_188_STALLS);
+        setStalls([]);
       }
 
       if (user) {
@@ -147,7 +160,22 @@ export const BookingWizardPage: React.FC = () => {
     }
   };
 
-  // Step 1: Submit Company Details (Supports Guest & Authenticated Users)
+  // Step 1: Confirm Stall Selection -> Proceed to Step 2 (Company Details)
+  const handleHoldSelectedStall = async () => {
+    if (!selectedStallId) return;
+    try {
+      setStallHoldError('');
+      if (user) {
+        await stallService.holdStall(selectedStallId);
+      }
+      setCurrentStep(2); // Proceed to Company Details
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'This stall is temporarily held. Please select another available green stall.';
+      setStallHoldError(msg);
+    }
+  };
+
+  // Step 2: Submit Company Details (Supports Guest & Authenticated Users) -> Proceed to Step 3 (Tax Bill Review)
   const onSubmitCompanyForm = async (data: CompanyFormData) => {
     setGuestFormData(data);
     if (user) {
@@ -181,26 +209,11 @@ export const BookingWizardPage: React.FC = () => {
       };
       setSelectedCompany(mockGuestComp);
     }
-    setCurrentStep(2); // Proceed to Stall Map Selection
+    setCurrentStep(3); // Proceed to Tax Audit & Review
   };
 
   const handleSelectExistingCompany = (comp: Company) => {
     setSelectedCompany(comp);
-  };
-
-  // Step 2: Confirm Stall Selection
-  const handleHoldSelectedStall = async () => {
-    if (!selectedStallId) return;
-    try {
-      setStallHoldError('');
-      if (user) {
-        await stallService.holdStall(selectedStallId);
-      }
-      setCurrentStep(3); // Proceed to Review/Bill
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'This stall is temporarily held. Please select another available green stall.';
-      setStallHoldError(msg);
-    }
   };
 
   // Step 3: Proceed to Payment
@@ -296,11 +309,7 @@ export const BookingWizardPage: React.FC = () => {
   // Calculate 15 days before event date
   const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
   const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
-  const formattedDeadline = deadlineDate.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const formattedDeadline = formatDisplayDate(deadlineDate);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 font-sans pb-16">
@@ -321,48 +330,158 @@ export const BookingWizardPage: React.FC = () => {
         </div>
 
         {/* Stepper Tabs */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between text-xs font-extrabold text-slate-600 shadow-2xs overflow-x-auto">
-          <div className={`flex items-center gap-2 ${currentStep >= 1 ? 'text-[#09539b]' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${currentStep >= 1 ? 'bg-[#09539b] text-white' : 'bg-slate-200 text-slate-600'}`}>1</span>
-            1. Company Details
-          </div>
-          <div className="h-px bg-slate-200 min-w-[20px] flex-1 mx-2" />
-
-          <div className={`flex items-center gap-2 ${currentStep >= 2 ? 'text-[#09539b]' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${currentStep >= 2 ? 'bg-[#09539b] text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
-            2. Stall Floor Plan
-          </div>
-          <div className="h-px bg-slate-200 min-w-[20px] flex-1 mx-2" />
-
-          <div className={`flex items-center gap-2 ${currentStep >= 3 ? 'text-[#09539b]' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${currentStep >= 3 ? 'bg-[#09539b] text-white' : 'bg-slate-200 text-slate-600'}`}>3</span>
-            3. Tax Audit & Bill
-          </div>
-          <div className="h-px bg-slate-200 min-w-[20px] flex-1 mx-2" />
-
-          <div className={`flex items-center gap-2 ${currentStep >= 4 ? 'text-[#09539b]' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${currentStep >= 4 ? 'bg-[#09539b] text-white' : 'bg-slate-200 text-slate-600'}`}>4</span>
-            4. Razorpay Payment
-          </div>
-          <div className="h-px bg-slate-200 min-w-[20px] flex-1 mx-2" />
-
-          <div className={`flex items-center gap-2 ${currentStep === 5 ? 'text-[#09539b]' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${currentStep === 5 ? 'bg-[#9cc542] text-[#012970]' : 'bg-slate-200 text-slate-600'}`}>5</span>
-            5. Pass & OTP Credentials
-          </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between text-xs font-extrabold text-slate-600 shadow-2xs overflow-x-auto gap-2">
+          {[
+            { num: 1, label: 'Stall Selection' },
+            { num: 2, label: 'Company Details' },
+            { num: 3, label: 'Tax Audit & Bill' },
+            { num: 4, label: 'Razorpay Payment' },
+            { num: 5, label: 'Pass & Credentials' },
+          ].map((step, idx, arr) => {
+            const isCompleted = currentStep > step.num;
+            const isCurrent = currentStep === step.num;
+            return (
+              <React.Fragment key={step.num}>
+                <div
+                  className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
+                    isCurrent
+                      ? 'text-[#09539b]'
+                      : isCompleted
+                      ? 'text-emerald-700'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
+                      isCompleted
+                        ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
+                        : isCurrent
+                        ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
+                        : 'bg-slate-100 text-slate-400 border border-slate-200'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    ) : (
+                      step.num
+                    )}
+                  </span>
+                  <span>{step.label}</span>
+                </div>
+                {idx < arr.length - 1 && (
+                  <div
+                    className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
+                      currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
 
-      {/* STEP 1: COMPANY / EXHIBITOR DETAILS */}
+      {/* STEP 1: STALL FLOOR PLAN SELECTION */}
       {currentStep === 1 && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#09539b]" /> Select Stall on Interactive Hall Floor Plan
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Click any available green stall to inspect dimensions and choose your booth position.
+              </p>
+            </div>
+            {selectedStallObj && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleHoldSelectedStall}
+                className="bg-[#09539b] hover:bg-[#012970] font-bold"
+                rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
+              >
+                Confirm Stall #{selectedStallObj.stallNumber} & Enter Details
+              </Button>
+            )}
+          </div>
+
+          {stallHoldError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              {stallHoldError}
+            </div>
+          )}
+
+          <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} />
+
+          <div className="relative flex flex-col lg:flex-row gap-6 items-start">
+            <div className="flex-1 w-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs p-4">
+              <FloorPlanCanvas
+                stalls={stalls}
+                layoutData={layoutData}
+                onStallSelect={(s) => setSelectedStallId(s.id)}
+              />
+            </div>
+
+            {selectedStallObj && (
+              <StallHoverCard
+                stall={selectedStallObj}
+                onClose={() => setSelectedStallId(null)}
+                onHold={handleHoldSelectedStall}
+              />
+            )}
+          </div>
+
+          {/* Sticky Bottom Bar when Stall is picked */}
+          {selectedStallObj && (
+            <div className="p-4 bg-[#012970] text-white rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 shadow-lg border border-[#09539b]">
+              <div>
+                <p className="text-xs text-[#9cc542] font-black uppercase tracking-wider">Booth Selected</p>
+                <h4 className="text-base font-extrabold flex items-center gap-2">
+                  Stall #{selectedStallObj.stallNumber} • {selectedStallObj.category} ({selectedStallObj.areaSqFt} Sq.Ft)
+                </h4>
+                <p className="text-xs text-slate-300 font-mono">
+                  Base Rental: ₹{Number(selectedStallObj.price).toLocaleString()} INR (+ 18% GST)
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleHoldSelectedStall}
+                className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black w-full sm:w-auto shadow-md"
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Proceed to Company Details
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STEP 2: COMPANY / EXHIBITOR DETAILS */}
+      {currentStep === 2 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#09539b]" /> Step 1: Corporate Exhibitor Information
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
-            </p>
+          <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-[#09539b]" /> Corporate Exhibitor Information
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                {selectedStallObj ? (
+                  <>Selected: <b className="text-[#09539b] font-mono">Stall #{selectedStallObj.stallNumber}</b> ({selectedStallObj.areaSqFt} Sq.Ft, ₹{Number(selectedStallObj.price).toLocaleString()}) • </>
+                ) : null}
+                Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentStep(1)}
+              leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+            >
+              Change Stall
+            </Button>
           </div>
 
           {/* Existing Registered Company Cards (If Logged In) */}
@@ -409,16 +528,19 @@ export const BookingWizardPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="pt-4 flex justify-end">
+              <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+                <Button variant="outline" onClick={() => setCurrentStep(1)} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                  Back to Stall Selection
+                </Button>
                 <Button
                   variant="primary"
                   size="lg"
                   disabled={!selectedCompany}
-                  onClick={() => setCurrentStep(2)}
+                  onClick={() => setCurrentStep(3)}
                   className="bg-[#09539b] hover:bg-[#012970] font-bold"
                   rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
                 >
-                  Continue to Stall Floor Plan
+                  Continue to Tax Review & Contract
                 </Button>
               </div>
             </div>
@@ -456,55 +578,16 @@ export const BookingWizardPage: React.FC = () => {
                 <Input label="State *" error={errors.state?.message} {...register('state')} />
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+              <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+                <Button type="button" variant="outline" onClick={() => setCurrentStep(1)} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                  Back to Stall Selection
+                </Button>
                 <Button type="submit" variant="primary" size="lg" className="bg-[#09539b] hover:bg-[#012970] font-bold" rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}>
-                  Save & Continue to Interactive Floor Map
+                  Save & Continue to Tax Review & Contract
                 </Button>
               </div>
             </form>
           )}
-        </div>
-      )}
-
-      {/* STEP 2: STALL FLOOR PLAN SELECTION */}
-      {currentStep === 2 && (
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#09539b]" /> Step 2: Select Stall on Interactive Hall Floor Plan
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Company: <span className="font-bold text-[#012970]">{selectedCompany?.name || 'Guest Exhibitor'}</span> • Click any available green stall to select position.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)}>
-              Edit Exhibitor Details
-            </Button>
-          </div>
-
-          {stallHoldError && (
-            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              {stallHoldError}
-            </div>
-          )}
-
-          <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} />
-
-          <div className="relative flex flex-col lg:flex-row gap-6 items-start">
-            <div className="flex-1 w-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs p-4">
-              <FloorPlanCanvas stalls={stalls} onStallSelect={(s) => setSelectedStallId(s.id)} />
-            </div>
-
-            {selectedStallObj && (
-              <StallHoverCard
-                stall={selectedStallObj}
-                onClose={() => setSelectedStallId(null)}
-                onHold={handleHoldSelectedStall}
-              />
-            )}
-          </div>
         </div>
       )}
 
@@ -521,7 +604,7 @@ export const BookingWizardPage: React.FC = () => {
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
-              Back to Floor Plan
+              Back to Company Details
             </Button>
           </div>
 
@@ -856,6 +939,13 @@ export const BookingWizardPage: React.FC = () => {
               className="w-full py-2 text-xs font-semibold text-rose-600 hover:underline text-center"
             >
               Simulate Razorpay Payment Failure
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentStep(3)}
+              className="w-full py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:underline text-center"
+            >
+              ← Back to Review & Contract
             </button>
           </div>
         </div>

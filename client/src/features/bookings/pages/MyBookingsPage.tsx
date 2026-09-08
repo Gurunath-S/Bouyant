@@ -87,7 +87,7 @@ export const MyBookingsPage: React.FC = () => {
                     <BookingStatusBadge status={b.status} />
                   </td>
                   <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                    ${Number(b.grandTotal).toLocaleString()}
+                    ₹{Number(b.grandTotal).toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     {b.invoice ? (

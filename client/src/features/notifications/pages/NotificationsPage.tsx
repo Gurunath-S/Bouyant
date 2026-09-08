@@ -3,6 +3,7 @@ import { apiClient } from '../../../services/api/apiClient';
 import { Notification } from '../../../types';
 import { Bell, CheckCircle2, Info, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { formatDisplayDate } from '../../../utils/date';
 
 export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -73,7 +74,7 @@ export const NotificationsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-slate-900">{n.title}</h4>
                   <span className="text-[10px] text-slate-400">
-                    {new Date(n.createdAt).toLocaleDateString()}
+                    {formatDisplayDate(n.createdAt)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600">{n.message}</p>

@@ -7,6 +7,7 @@ import { authService } from '../../../services/auth/authService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { PublicFooter } from '../../../components/layout/PublicFooter';
 import {
   Lock,
   Mail,
@@ -179,10 +180,8 @@ export const RegisterPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-500">
-        © {new Date().getFullYear()} Buoyant Media. No.57A Ramasamy Street, KK Pudur, Coimbatore, Tamil Nadu.
-      </footer>
+      {/* Footer — Identical to Homepage */}
+      <PublicFooter />
     </div>
   );
 };
