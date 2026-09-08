@@ -187,7 +187,7 @@ async function main() {
         bookingId: booking.id,
         userId: clientUser.id,
         amount: 14160.00,
-        currency: 'USD',
+        currency: 'INR',
         status: PaymentStatus.SUCCESS,
         provider: 'STRIPE_SIMULATOR',
         transactionId: 'txn_mock_883019284',

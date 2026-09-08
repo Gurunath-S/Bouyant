@@ -45,4 +45,14 @@ export class ExhibitionsController {
       data: exhibition,
     });
   };
+
+  static delete = async (req: Request, res: Response) => {
+    const result = await ExhibitionsService.deleteExhibition(req.params.id);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
 }

@@ -22,4 +22,14 @@ export class FloorPlansController {
       data: floorPlan,
     });
   };
+
+  static sync = async (req: Request, res: Response) => {
+    const floorPlan = await FloorPlansService.syncFloorPlan(req.params.id, req.body);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: 'Floor plan spatial layout and stalls synchronized successfully.',
+      data: floorPlan,
+    });
+  };
 }

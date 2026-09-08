@@ -112,7 +112,7 @@ export class BookingsService {
           bookingId: booking.id,
           userId,
           amount: grandTotal,
-          currency: 'USD',
+          currency: 'INR',
           status: 'PENDING',
           provider: 'STRIPE_SIMULATOR',
         },

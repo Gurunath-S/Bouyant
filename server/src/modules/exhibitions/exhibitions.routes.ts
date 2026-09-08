@@ -16,5 +16,6 @@ router.get('/:idOrSlug', asyncHandler(ExhibitionsController.getBySlug));
 // Admin routes
 router.post('/', authenticateToken, requireRole(UserRole.ADMIN), validateRequest(CreateExhibitionSchema), asyncHandler(ExhibitionsController.create));
 router.put('/:id', authenticateToken, requireRole(UserRole.ADMIN), validateRequest(UpdateExhibitionSchema), asyncHandler(ExhibitionsController.update));
+router.delete('/:id', authenticateToken, requireRole(UserRole.ADMIN), asyncHandler(ExhibitionsController.delete));
 
 export const exhibitionRoutes = router;

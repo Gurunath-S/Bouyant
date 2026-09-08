@@ -9,5 +9,7 @@ const router = Router();
 
 router.get('/:id', asyncHandler(FloorPlansController.getById));
 router.put('/:id', authenticateToken, requireRole(UserRole.ADMIN), asyncHandler(FloorPlansController.update));
+router.post('/:id/sync', authenticateToken, requireRole(UserRole.ADMIN), asyncHandler(FloorPlansController.sync));
+router.put('/:id/sync', authenticateToken, requireRole(UserRole.ADMIN), asyncHandler(FloorPlansController.sync));
 
 export const floorPlanRoutes = router;

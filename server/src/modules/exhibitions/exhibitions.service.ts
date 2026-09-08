@@ -91,18 +91,50 @@ export class ExhibitionsService {
       },
     });
 
-    // Create default primary FloorPlan canvas for this exhibition
-    await prisma.floorPlan.create({
+    const anyInput = input as any;
+    const initialFloorPlan = anyInput.floorPlans?.[0];
+    const initialLayoutData = initialFloorPlan?.layoutData || anyInput.layoutData;
+    const initialStalls: any[] = initialFloorPlan?.stalls || anyInput.stalls || [];
+
+    // Create primary FloorPlan canvas for this exhibition
+    const floorPlan = await prisma.floorPlan.create({
       data: {
         exhibitionId: exhibition.id,
-        name: `${exhibition.title} - Main Floor Canvas`,
-        width: 1200,
-        height: 700,
-        gridColumns: 6,
-        gridRows: 4,
+        name: initialFloorPlan?.name || `${exhibition.title} - Main Exhibition Canvas`,
+        width: initialFloorPlan?.width ? Math.round(initialFloorPlan.width) : 1400,
+        height: initialFloorPlan?.height ? Math.round(initialFloorPlan.height) : 850,
+        backgroundUrl: initialLayoutData ? (typeof initialLayoutData === 'string' ? initialLayoutData : JSON.stringify(initialLayoutData)) : null,
+        gridColumns: 20,
+        gridRows: 15,
         isPublished: true,
       },
     });
+
+    if (initialStalls.length > 0) {
+      const stallsToCreate = initialStalls.map((s, idx) => ({
+        floorPlanId: floorPlan.id,
+        stallNumber: (s.stallNumber || `S-${idx + 1}`).trim(),
+        name: s.name || `Stall ${s.stallNumber || idx + 1}`,
+        category: s.category || 'STANDARD',
+        price: Number(s.price) || 50000,
+        areaSqFt: s.areaSqFt || Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100),
+        width: Number(s.width) || 60,
+        height: Number(s.height) || 60,
+        xPosition: Number(s.xPosition) || 0,
+        yPosition: Number(s.yPosition) || 0,
+        status: s.status || 'AVAILABLE',
+      }));
+
+      await prisma.stall.createMany({
+        data: stallsToCreate,
+        skipDuplicates: true,
+      });
+
+      await prisma.exhibition.update({
+        where: { id: exhibition.id },
+        data: { totalStalls: stallsToCreate.length },
+      });
+    }
 
     return exhibition;
   }
@@ -121,5 +153,29 @@ export class ExhibitionsService {
       where: { id },
       data: dataToUpdate,
     });
+  }
+
+  static async deleteExhibition(id: string) {
+    const exhibition = await prisma.exhibition.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { bookings: true },
+        },
+      },
+    });
+
+    if (!exhibition) {
+      throw ApiError.notFound('Exhibition not found.');
+    }
+
+    if (exhibition._count.bookings > 0) {
+      throw ApiError.badRequest(
+        `Cannot delete exhibition because it has ${exhibition._count.bookings} active booking(s). Please change the event status to CANCELLED instead.`
+      );
+    }
+
+    await prisma.exhibition.delete({ where: { id } });
+    return { id, message: 'Exhibition deleted successfully.' };
   }
 }
