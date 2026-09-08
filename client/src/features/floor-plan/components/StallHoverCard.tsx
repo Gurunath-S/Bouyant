@@ -54,7 +54,7 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
             <Tag className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Rental Fee:
           </span>
           <span className="font-mono font-extrabold text-blue-700 dark:text-blue-400 text-sm">
-            ${Number(stall.price).toLocaleString()} USD
+            ₹{Number(stall.price).toLocaleString()} INR
           </span>
         </div>
       </div>

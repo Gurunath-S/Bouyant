@@ -7,7 +7,7 @@ interface FloorPlanState {
   categoryFilter: StallCategory | 'ALL';
   selectedCategory: StallCategory | null;
   selectedStatus: StallStatus | null;
-  selectedHall: 'ALL' | 'HALL_A' | 'HALL_B';
+  selectedHall: string;
   zoomLevel: number;
   activeHeldStall: {
     stall: Stall;
@@ -18,7 +18,7 @@ interface FloorPlanState {
   setCategoryFilter: (category: StallCategory | 'ALL') => void;
   setSelectedCategory: (category: StallCategory | null) => void;
   setSelectedStatus: (status: StallStatus | null) => void;
-  setSelectedHall: (hall: 'ALL' | 'HALL_A' | 'HALL_B') => void;
+  setSelectedHall: (hall: string) => void;
   setZoomLevel: (zoom: number | ((prev: number) => number)) => void;
   setActiveHeldStall: (holdData: { stall: Stall; heldUntil: string } | null) => void;
 }

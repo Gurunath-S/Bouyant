@@ -2,27 +2,45 @@ import React from 'react';
 import { Stall } from '../../../types';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useThemeStore } from '../../../stores/themeStore';
+import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 
 interface FloorPlanCanvasProps {
   stalls: Stall[];
   onStallSelect: (stall: Stall) => void;
+  layoutData?: FloorPlanLayoutData | null;
+  canvasWidth?: number;
+  canvasHeight?: number;
 }
 
-export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStallSelect }) => {
+export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
+  stalls,
+  onStallSelect,
+  layoutData,
+  canvasWidth: propWidth,
+  canvasHeight: propHeight,
+}) => {
   const { selectedStallId, zoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
+  const width = propWidth || layoutData?.canvasWidth || 1400;
+  const height = propHeight || layoutData?.canvasHeight || 850;
+  const pxPerMeter = layoutData?.gridSize || 20;
+
+  // Filter stalls based on category, status, and optional hall selection
   const filteredStalls = stalls.filter((stall) => {
     if (selectedCategory && stall.category !== selectedCategory) return false;
     if (selectedStatus && stall.status !== selectedStatus) return false;
 
-    // Hall A vs Hall B filtering based on stallNumber prefix or position
-    if (selectedHall === 'HALL_A') {
-      return stall.stallNumber.startsWith('A') || stall.xPosition < 480;
-    }
-    if (selectedHall === 'HALL_B') {
-      return stall.stallNumber.startsWith('B') || stall.stallNumber.startsWith('C') || stall.stallNumber.startsWith('F') || stall.xPosition >= 480;
+    if (selectedHall && layoutData?.halls) {
+      const targetHall = layoutData.halls.find(
+        (h) => h.id === selectedHall || h.name.toLowerCase().includes(selectedHall.toLowerCase())
+      );
+      if (targetHall) {
+        const inX = stall.xPosition >= targetHall.x && stall.xPosition <= targetHall.x + targetHall.width;
+        const inY = stall.yPosition >= targetHall.y && stall.yPosition <= targetHall.y + targetHall.height;
+        return inX && inY;
+      }
     }
 
     return true;
@@ -34,7 +52,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
     if (isSelected) {
       return {
         fill: isDark ? '#1e3a8a' : '#dbeafe',
-        stroke: '#3b82f6',
+        stroke: '#2563eb',
         strokeWidth: 3,
         textColor: isDark ? '#93c5fd' : '#1d4ed8',
       };
@@ -42,6 +60,28 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
 
     switch (stall.status) {
       case 'AVAILABLE':
+        if (stall.category === 'PREMIUM') {
+          return {
+            fill: isDark ? '#172554' : '#eff6ff',
+            stroke: '#3b82f6',
+            strokeWidth: 1.5,
+            textColor: isDark ? '#bfdbfe' : '#1d4ed8',
+          };
+        } else if (stall.category === 'CORNER') {
+          return {
+            fill: isDark ? '#451a03' : '#fffbeb',
+            stroke: '#f59e0b',
+            strokeWidth: 1.5,
+            textColor: isDark ? '#fde68a' : '#b45309',
+          };
+        } else if (stall.category === 'ISLAND') {
+          return {
+            fill: isDark ? '#3b0764' : '#faf5ff',
+            stroke: '#8b5cf6',
+            strokeWidth: 1.5,
+            textColor: isDark ? '#ddd6fe' : '#6d28d9',
+          };
+        }
         return {
           fill: isDark ? '#064e3b' : '#ecfdf5',
           stroke: '#10b981',
@@ -87,79 +127,185 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
     }
   };
 
+  // Derive dynamic halls list
+  const hallsList = layoutData?.halls && layoutData.halls.length > 0
+    ? layoutData.halls
+    : [
+        {
+          id: 'hall-main',
+          name: 'Main Exhibition Hall',
+          x: 30,
+          y: 30,
+          width: width - 60,
+          height: height - 60,
+          color: '#3b82f6',
+        },
+      ];
+
+  const facilitiesList = layoutData?.facilities || [];
+  const annotationsList = layoutData?.annotations || [];
+
   return (
     <div className="relative w-full overflow-auto bg-slate-100/80 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-800 rounded-xl p-4 min-h-[600px] shadow-inner flex items-center justify-center bg-floor-grid transition-colors duration-200">
       <div
         className="transition-transform duration-200 ease-out origin-top-left"
         style={{ transform: `scale(${zoomLevel / 100})` }}
       >
-        <svg width="1400" height="850" viewBox="0 0 1400 850" className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-          {/* Outer Boundary & Hall Split */}
-          <rect x="20" y="20" width="1360" height="810" rx="14" fill="none" stroke={isDark ? '#334155' : '#cbd5e1'} strokeWidth="2" strokeDasharray="6 6" />
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800"
+        >
+          {/* Dynamic Halls / Pavilions */}
+          <g id="halls-layer">
+            {hallsList.map((hall) => {
+              const strokeColor = hall.color || (isDark ? '#3b82f6' : '#2563eb');
+              const widthM = Math.round(hall.width / pxPerMeter);
+              const heightM = Math.round(hall.height / pxPerMeter);
 
-          {/* Pavilion - A Boundary (Left Hall) */}
-          <rect x="35" y="35" width="620" height="770" rx="10" fill={isDark ? '#0f172a' : '#f8fafc'} stroke={isDark ? '#1e293b' : '#e2e8f0'} strokeWidth="1.5" />
-          <text x="345" y="62" textAnchor="middle" fill="#012970" fontSize="15" fontWeight="900" letterSpacing="1">
-            PAVILION - A (HALL - A) • 47 STALLS (A1 - A48)
-          </text>
-          <text x="345" y="80" textAnchor="middle" fill="#09539b" fontSize="10" fontWeight="bold">
-            Regular Stalls: ₹6,500/Sqm • Corner Premium: ₹7,000/Sqm (+18% GST)
-          </text>
+              return (
+                <g key={hall.id}>
+                  <rect
+                    x={hall.x}
+                    y={hall.y}
+                    width={hall.width}
+                    height={hall.height}
+                    rx="12"
+                    fill={isDark ? '#0f172a' : '#f8fafc'}
+                    stroke={strokeColor}
+                    strokeWidth="1.5"
+                    strokeDasharray="6 6"
+                  />
+                  {/* Hall Name Header */}
+                  <rect
+                    x={hall.x + 16}
+                    y={hall.y + 12}
+                    width={Math.min(360, hall.width - 32)}
+                    height={26}
+                    rx="6"
+                    fill={strokeColor}
+                    fillOpacity={isDark ? '0.2' : '0.1'}
+                  />
+                  <text
+                    x={hall.x + 28}
+                    y={hall.y + 29}
+                    fill={strokeColor}
+                    fontSize="12"
+                    fontWeight="900"
+                    letterSpacing="1"
+                    className="uppercase select-none"
+                  >
+                    {hall.name} • {widthM}m × {heightM}m
+                  </text>
+                </g>
+              );
+            })}
+          </g>
 
-          {/* Pavilion - B Boundary (Right Hall) */}
-          <rect x="690" y="35" width="670" height="770" rx="10" fill={isDark ? '#0f172a' : '#f8fafc'} stroke={isDark ? '#1e293b' : '#e2e8f0'} strokeWidth="1.5" />
-          <text x="1025" y="62" textAnchor="middle" fill="#012970" fontSize="15" fontWeight="900" letterSpacing="1">
-            PAVILION - B (HALL - B) • 141 STALLS (B1-B94, C1-C37, F1-F10)
-          </text>
-          <text x="1025" y="80" textAnchor="middle" fill="#09539b" fontSize="10" fontWeight="bold">
-            Regular Stalls: ₹6,500/Sqm • Corner Premium: ₹7,000/Sqm (+18% GST)
-          </text>
+          {/* Dynamic Facilities & Special Zones */}
+          <g id="facilities-layer">
+            {facilitiesList.map((fac) => {
+              let bgFill = isDark ? '#1e293b' : '#f1f5f9';
+              let strokeCol = isDark ? '#475569' : '#64748b';
+              let textCol = isDark ? '#f1f5f9' : '#334155';
 
-          {/* Central Connecting Corridor */}
-          <line x1="665" y1="35" x2="665" y2="805" stroke="#09539b" strokeWidth="2.5" strokeDasharray="4 4" opacity="0.4" />
-          <text x="665" y="420" textAnchor="middle" fill="#09539b" fontSize="11" fontWeight="bold" transform="rotate(-90 665 420)" letterSpacing="2">
-            MAIN CENTRAL CONNECTING CORRIDOR
-          </text>
+              if (fac.type === 'entrance') {
+                bgFill = isDark ? '#064e3b' : '#047857';
+                strokeCol = '#059669';
+                textCol = '#ffffff';
+              } else if (fac.type === 'exit') {
+                bgFill = isDark ? '#881337' : '#be123c';
+                strokeCol = '#e11d48';
+                textCol = '#ffffff';
+              } else if (fac.type === 'registration') {
+                bgFill = isDark ? '#1e3a8a' : '#1d4ed8';
+                strokeCol = '#3b82f6';
+                textCol = '#ffffff';
+              } else if (fac.type === 'stage') {
+                bgFill = isDark ? '#4c1d95' : '#6d28d9';
+                strokeCol = '#8b5cf6';
+                textCol = '#ffffff';
+              } else if (fac.type === 'food-court' || fac.type === 'dining') {
+                bgFill = isDark ? '#78350f' : '#fef3c7';
+                strokeCol = '#f59e0b';
+                textCol = isDark ? '#fde68a' : '#92400e';
+              } else if (fac.type === 'restroom') {
+                bgFill = isDark ? '#0c4a6e' : '#e0f2fe';
+                strokeCol = '#0284c7';
+                textCol = isDark ? '#bae6fd' : '#0369a1';
+              } else if (fac.type === 'custom-zone') {
+                bgFill = isDark ? '#2e1065' : '#f5f3ff';
+                strokeCol = '#8b5cf6';
+                textCol = isDark ? '#ddd6fe' : '#6d28d9';
+              }
 
-          {/* Special Facility Zones from PDF */}
-          <g>
-            {/* Main Entry & Registration Desk */}
-            <rect x="520" y="808" width="290" height="28" fill="#012970" rx="6" />
-            <text x="665" y="826" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="900" letterSpacing="1">
-              MAIN ENTRY & REGISTRATION DESK
-            </text>
+              const transformAttr = fac.rotation
+                ? `rotate(${fac.rotation} ${fac.x + fac.width / 2} ${fac.y + fac.height / 2})`
+                : undefined;
 
-            {/* Food Court & Dining Zone (Hall B Top Right) */}
-            <rect x="1140" y="95" width="200" height="55" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1.5" rx="8" />
-            <text x="1240" y="120" textAnchor="middle" fill="#92400e" fontSize="11" fontWeight="800">
-              FOOD COURT & DINING (F1-F10)
-            </text>
-            <text x="1240" y="136" textAnchor="middle" fill="#b45309" fontSize="9" fontWeight="bold">
-              Exhibitor Refreshment Area
-            </text>
+              return (
+                <g key={fac.id} transform={transformAttr}>
+                  <rect
+                    x={fac.x}
+                    y={fac.y}
+                    width={fac.width}
+                    height={fac.height}
+                    rx="6"
+                    fill={bgFill}
+                    stroke={strokeCol}
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x={fac.x + fac.width / 2}
+                    y={fac.y + fac.height / 2 + 4}
+                    textAnchor="middle"
+                    fill={textCol}
+                    fontSize="10"
+                    fontWeight="bold"
+                    letterSpacing="0.8"
+                    className="select-none pointer-events-none uppercase"
+                  >
+                    {fac.label}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
 
-            {/* Restrooms & Exit Shutters */}
-            <rect x="50" y="750" width="130" height="40" fill="#e0f2fe" stroke="#0284c7" strokeWidth="1" rx="6" />
-            <text x="115" y="774" textAnchor="middle" fill="#0369a1" fontSize="10" fontWeight="bold">
-              RESTROOMS & EXIT
-            </text>
-
-            <rect x="1220" y="750" width="120" height="40" fill="#f1f5f9" stroke="#64748b" strokeWidth="1" rx="6" />
-            <text x="1280" y="774" textAnchor="middle" fill="#334155" fontSize="10" fontWeight="bold">
-              SERVICE SHUTTER
-            </text>
+          {/* Dynamic Annotations */}
+          <g id="annotations-layer">
+            {annotationsList.map((ann) => (
+              <text
+                key={ann.id}
+                x={ann.x}
+                y={ann.y}
+                fill={isDark ? '#94a3b8' : ann.color || '#475569'}
+                fontSize={ann.fontSize || 12}
+                fontWeight="bold"
+                className="select-none"
+              >
+                {ann.text}
+              </text>
+            ))}
           </g>
 
           {/* Stalls Render Grid */}
-          <g>
+          <g id="stalls-layer">
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
-              const isLarge = stall.width > 60 || stall.height > 40;
+              const isSelected = stall.id === selectedStallId;
+              const isBlocked = stall.status === 'BLOCKED';
+              const isBooked = stall.status === 'BOOKED_CONFIRMED';
+              const isAvailable = stall.status === 'AVAILABLE';
+
               return (
                 <g
                   key={stall.id}
                   onClick={() => onStallSelect(stall)}
-                  className="cursor-pointer transition-transform duration-150 hover:opacity-90"
+                  className={`transition-transform duration-150 ${
+                    isAvailable ? 'cursor-pointer hover:opacity-85' : 'cursor-pointer opacity-95'
+                  }`}
                 >
                   <rect
                     x={stall.xPosition}
@@ -170,33 +316,35 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ stalls, onStal
                     fill={styles.fill}
                     stroke={styles.stroke}
                     strokeWidth={styles.strokeWidth}
+                    strokeDasharray={isBlocked ? '4 3' : 'none'}
+                    className="transition-colors"
                   />
 
                   {/* Stall Number Header */}
                   <text
                     x={stall.xPosition + stall.width / 2}
-                    y={stall.yPosition + stall.height / 2 - (isLarge ? 6 : 2)}
+                    y={stall.yPosition + stall.height / 2 - (stall.height > 45 ? 5 : 0)}
                     textAnchor="middle"
                     fill={styles.textColor}
-                    fontSize={isLarge ? '12' : '10'}
-                    fontWeight="800"
-                    fontFamily="sans-serif"
+                    fontSize={stall.width < 50 ? '9' : '11'}
+                    fontWeight="bold"
+                    className="select-none pointer-events-none font-mono"
                   >
                     {stall.stallNumber}
                   </text>
 
-                  {/* Category / Dimensions */}
-                  {isLarge && (
+                  {/* Price / Status Tag */}
+                  {stall.height > 45 && (
                     <text
                       x={stall.xPosition + stall.width / 2}
-                      y={stall.yPosition + stall.height / 2 + 8}
+                      y={stall.yPosition + stall.height / 2 + 11}
                       textAnchor="middle"
                       fill={styles.textColor}
                       fontSize="8"
-                      fontWeight="600"
-                      opacity="0.85"
+                      fontWeight="700"
+                      className="select-none pointer-events-none font-mono opacity-90"
                     >
-                      {stall.category}
+                      {isBooked ? 'BOOKED' : isBlocked ? 'BLOCKED' : `₹${Number(stall.price).toLocaleString()}`}
                     </text>
                   )}
                 </g>
