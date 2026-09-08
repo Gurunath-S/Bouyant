@@ -23,4 +23,9 @@ export const exhibitionService = {
     const res: any = await apiClient.put(`/exhibitions/${id}`, data);
     return res.data;
   },
+
+  deleteExhibition: async (id: string): Promise<{ id: string; message: string }> => {
+    const res: any = await apiClient.delete(`/exhibitions/${id}`);
+    return res.data;
+  },
 };

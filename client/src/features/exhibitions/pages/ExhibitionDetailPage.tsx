@@ -25,7 +25,9 @@ import {
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
-import { MEDICCON_188_STALLS } from '../../../data/medicconFloorPlanData';
+import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
+import { formatDisplayDate } from '../../../utils/date';
+import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 
 export const ExhibitionDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -33,8 +35,9 @@ export const ExhibitionDetailPage: React.FC = () => {
 
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
+  const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
   const { selectedStallId, setSelectedStallId, zoomLevel, setZoomLevel } = useFloorPlanStore();
 
   useEffect(() => {
@@ -49,18 +52,21 @@ export const ExhibitionDetailPage: React.FC = () => {
 
       if (expo.floorPlans && expo.floorPlans.length > 0) {
         const fp = expo.floorPlans[0];
-        const stallsData = await stallService.getStallsByFloorPlan(fp.id);
-        if (stallsData && stallsData.length > 0) {
-          setStalls(stallsData);
-        } else {
-          setStalls(MEDICCON_188_STALLS);
+        if (fp.backgroundUrl) {
+          try {
+            setLayoutData(JSON.parse(fp.backgroundUrl));
+          } catch (e) {
+            console.warn('Failed to parse floor plan layout', e);
+          }
         }
+        const stallsData = await stallService.getStallsByFloorPlan(fp.id);
+        setStalls(stallsData || []);
       } else {
-        setStalls(MEDICCON_188_STALLS);
+        setStalls([]);
       }
     } catch (err) {
       console.error('Failed to load exhibition details:', err);
-      setStalls(MEDICCON_188_STALLS);
+      setStalls([]);
     } finally {
       setLoading(false);
     }
@@ -145,8 +151,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                   Date
                 </span>
                 <span className="text-sm font-bold text-[#121B3D] block mt-0.5">
-                  {new Date(exhibition.startDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })} –{' '}
-                  {new Date(exhibition.endDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}
+                  {formatDisplayDate(exhibition.startDate)} – {formatDisplayDate(exhibition.endDate)}
                 </span>
               </div>
             </div>
@@ -238,6 +243,16 @@ export const ExhibitionDetailPage: React.FC = () => {
                 Stall & Amenities
               </button>
               <button
+                onClick={() => setActiveTab('location')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'location'
+                    ? 'bg-[#1E3FA0] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-[#121B3D]'
+                }`}
+              >
+                Venue & Location Map
+              </button>
+              <button
                 onClick={() => setActiveTab('schedule')}
                 className={`px-4 py-2.5 rounded-xl transition-all ${
                   activeTab === 'schedule'
@@ -271,6 +286,16 @@ export const ExhibitionDetailPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Interactive Venue Location Map */}
+                <InteractivePinMap
+                  venueName={exhibition.venue}
+                  cityName={exhibition.city}
+                  address={`${exhibition.venue}, ${exhibition.city}`}
+                  readOnly={true}
+                  title={`Exhibition Venue Location — ${exhibition.venue}, ${exhibition.city}`}
+                  heightClass="h-72"
+                />
 
                 {/* Quick Map Teaser in Overview */}
                 <div className="bg-gradient-to-r from-[#1E3FA0] to-[#0F294D] text-white rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
@@ -312,6 +337,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                 <div className="relative border border-slate-200 rounded-xl overflow-hidden shadow-inner p-2 bg-slate-50">
                   <FloorPlanCanvas
                     stalls={stalls}
+                    layoutData={layoutData}
                     onStallSelect={(s) => setSelectedStallId(s.id)}
                   />
                 </div>
@@ -340,7 +366,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => navigate(`/exhibitions/${slug}/book`)}
+                        onClick={() => navigate(`/exhibitions/${slug}/book?stallId=${selectedStallObj.id}`)}
                         className="bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0"
                       >
                         Book Stall #{selectedStallObj.stallNumber} <ArrowRight className="w-4 h-4 text-[#84CC16]" />
@@ -441,6 +467,35 @@ export const ExhibitionDetailPage: React.FC = () => {
                       <span className="text-slate-500">9:00 AM – 6:00 PM</span>
                     </div>
                     <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] rounded-md font-mono font-bold">Expo Days</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Venue & Location Map */}
+            {activeTab === 'location' && (
+              <div className="space-y-6">
+                <InteractivePinMap
+                  venueName={exhibition.venue}
+                  cityName={exhibition.city}
+                  address={`${exhibition.venue}, ${exhibition.city}`}
+                  readOnly={true}
+                  title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
+                  heightClass="h-96"
+                />
+
+                <div className="bg-white border border-[#E6EAF0] rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs shadow-xs">
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                    <span className="font-bold text-[#121B3D] text-sm block">Convention Centre</span>
+                    <p className="text-slate-600">{exhibition.venue}</p>
+                  </div>
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                    <span className="font-bold text-[#121B3D] text-sm block">Host City</span>
+                    <p className="text-slate-600">{exhibition.city}</p>
+                  </div>
+                  <div className="p-4 bg-[#EEF4FC] rounded-xl space-y-1">
+                    <span className="font-bold text-[#121B3D] text-sm block">Parking & Transit</span>
+                    <p className="text-slate-600">On-site visitor parking & VIP delegate drop-off zones available.</p>
                   </div>
                 </div>
               </div>
