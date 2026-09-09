@@ -67,14 +67,16 @@ export class ExhibitionsService {
   }
 
   static async createExhibition(input: CreateExhibitionInput) {
-    const slug = input.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
+    let baseSlug = (input as any).slug
+      ? (input as any).slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+      : input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
+    if (!baseSlug) baseSlug = `exhibition-${Date.now().toString().slice(-4)}`;
+
+    let slug = baseSlug;
     const existing = await prisma.exhibition.findUnique({ where: { slug } });
     if (existing) {
-      throw ApiError.conflict('An exhibition with this title/slug already exists.');
+      slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
     const exhibition = await prisma.exhibition.create({
@@ -111,19 +113,27 @@ export class ExhibitionsService {
     });
 
     if (initialStalls.length > 0) {
-      const stallsToCreate = initialStalls.map((s, idx) => ({
-        floorPlanId: floorPlan.id,
-        stallNumber: (s.stallNumber || `S-${idx + 1}`).trim(),
-        name: s.name || `Stall ${s.stallNumber || idx + 1}`,
-        category: s.category || 'STANDARD',
-        price: Number(s.price) || 50000,
-        areaSqFt: s.areaSqFt || Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100),
-        width: Number(s.width) || 60,
-        height: Number(s.height) || 60,
-        xPosition: Number(s.xPosition) || 0,
-        yPosition: Number(s.yPosition) || 0,
-        status: s.status || 'AVAILABLE',
-      }));
+      const seenNumbers = new Set<string>();
+      const stallsToCreate = initialStalls.map((s, idx) => {
+        let stallNum = (s.stallNumber || `S-${idx + 1}`).trim();
+        if (seenNumbers.has(stallNum)) {
+          stallNum = `${stallNum}-${idx + 1}`;
+        }
+        seenNumbers.add(stallNum);
+        return {
+          floorPlanId: floorPlan.id,
+          stallNumber: stallNum,
+          name: s.name || `Stall ${stallNum}`,
+          category: s.category || 'STANDARD',
+          price: Number(s.price) || 50000,
+          areaSqFt: s.areaSqFt || Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100),
+          width: Number(s.width) || 60,
+          height: Number(s.height) || 60,
+          xPosition: Number(s.xPosition) || 0,
+          yPosition: Number(s.yPosition) || 0,
+          status: s.status || 'AVAILABLE',
+        };
+      });
 
       await prisma.stall.createMany({
         data: stallsToCreate,
@@ -136,7 +146,14 @@ export class ExhibitionsService {
       });
     }
 
-    return exhibition;
+    return await prisma.exhibition.findUnique({
+      where: { id: exhibition.id },
+      include: {
+        floorPlans: {
+          include: { stalls: true },
+        },
+      },
+    });
   }
 
   static async updateExhibition(id: string, input: UpdateExhibitionInput) {
