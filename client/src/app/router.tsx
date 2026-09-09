@@ -141,6 +141,30 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'admin/exhibitions/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/exhibitions/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/exhibitions/:id/view',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'admin/companies',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>

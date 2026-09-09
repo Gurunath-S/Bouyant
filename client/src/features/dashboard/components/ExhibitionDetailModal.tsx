@@ -108,7 +108,7 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
               </code>
             </div>
             <p className="text-[11px] text-purple-700 dark:text-purple-300 leading-relaxed">
-              A <strong>slug</strong> is the human-readable, URL-safe version of the event title. It is used in web addresses to create clean, search-engine-friendly URLs (e.g., <span className="font-mono text-purple-900 dark:text-purple-200">/events/{exhibition.slug}</span>) and for sharing direct booking links with exhibitors.
+              A <strong>slug</strong> is the human-readable, URL-safe version of the event title. It is used in web addresses to create clean, search-engine-friendly URLs (e.g., <span className="font-mono text-purple-900 dark:text-purple-200">/exhibitions/{exhibition.slug}</span>) and for sharing direct booking links with exhibitors.
             </p>
           </div>
         </div>
@@ -221,7 +221,7 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
             )}
 
             <Link
-              to={`/events/${exhibition.slug}`}
+              to={`/exhibitions/${exhibition.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-xs transition-colors shadow-xs"
