@@ -56,58 +56,64 @@ export class CompaniesService {
     );
   }
 
-   // Check whether company information already exists
-  const existingCompany = await prisma.company.findFirst({
-    where: {
-      OR: [
-        { email: input.email },
-        { mobile: input.mobile },
-        { panNumber: input.panNumber },
-        { tanNumber: input.tanNumber }
-      ],
-    },
-  });
+    const effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
+      ? input.tanNumber.trim().toUpperCase()
+      : `TAN${input.panNumber ? input.panNumber.substring(0, 4) : 'TEMP'}${Math.floor(1000 + Math.random() * 9000)}Z`;
 
-  if (existingCompany) {
-    if (existingCompany.email === input.email) {
-      throw ApiError.conflict(
-        'A company with this email already exists.'
-      );
-    }
+    // Check whether company information already exists
+    const existingCompany = await prisma.company.findFirst({
+      where: {
+        OR: [
+          { email: input.email },
+          { mobile: input.mobile },
+          { panNumber: input.panNumber },
+          { tanNumber: effectiveTan },
+        ],
+      },
+    });
 
-    if (existingCompany.mobile === input.mobile) {
-      throw ApiError.conflict(
-        'A company with this mobile number already exists.'
-      );
-    }
+    if (existingCompany) {
+      if (existingCompany.email === input.email) {
+        throw ApiError.conflict(
+          'A company with this email already exists.'
+        );
+      }
 
-    if (existingCompany.panNumber === input.panNumber) {
-      throw ApiError.conflict(
-        'A company with this PAN number already exists.'
-      );
-    }
-     if (existingCompany.tanNumber === input.tanNumber) {
-      throw ApiError.conflict(
-        'A company with this TAN number already exists.'
-      );
-    }
+      if (existingCompany.mobile === input.mobile) {
+        throw ApiError.conflict(
+          'A company with this mobile number already exists.'
+        );
+      }
 
-  }
+      if (existingCompany.panNumber === input.panNumber) {
+        throw ApiError.conflict(
+          'A company with this PAN number already exists.'
+        );
+      }
+      if (existingCompany.tanNumber === effectiveTan) {
+        throw ApiError.conflict(
+          'A company with this TAN number already exists.'
+        );
+      }
+
+    }
      const count = await prisma.company.count();
      const companyCode = `CMP-2026-${String(count + 1).padStart(3, '0')}`;
-    //  const regNo=count
      const temporaryPassword = crypto.randomBytes(8).toString('base64url');
      
      const passwordHash = await bcrypt.hash(temporaryPassword,12);
     
      const result = await prisma.$transaction(async (tx) => {
 
-     const company = await tx.company.create({
-      data: {
-        ...input,
-        companyCode,
-      },
-    });
+      const company = await tx.company.create({
+        data: {
+          ...input,
+          tanNumber: effectiveTan,
+          pinCode: input.pinCode || '641001',
+          country: input.country || 'India',
+          companyCode,
+        },
+      });
 
     const user = await tx.user.create({
       data: {
