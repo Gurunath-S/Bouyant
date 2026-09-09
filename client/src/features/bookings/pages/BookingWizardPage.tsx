@@ -49,8 +49,10 @@ const companySchema = z.object({
   address: z.string().min(5, 'Corporate address is required'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
-  gstNumber: z.string().min(5, 'GST Registration Number is required'),
-  panNumber: z.string().min(5, 'PAN Number is required'),
+  pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits').optional().default('641001'),
+  country: z.string().optional().default('India'),
+  gstNumber: z.string().min(15, 'GST Registration Number must be 15 characters'),
+  panNumber: z.string().min(10, 'PAN Number must be 10 characters'),
   industry: z.string().min(2, 'Industry sector is required'),
   category: z.string().min(2, 'Product/Service Category is required'),
   website: z.string().optional(),
@@ -91,28 +93,102 @@ export const BookingWizardPage: React.FC = () => {
   const [showContractPreview, setShowContractPreview] = useState(false);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
 
+  const [isVerifyingGst, setIsVerifyingGst] = useState(false);
+  const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
+  const [gstVerifiedDetails, setGstVerifiedDetails] = useState<any>(null);
+  const [gstError, setGstError] = useState('');
+
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
     defaultValues: {
-      name: user?.company?.name || 'Apex MedTech Solutions',
-      contactPerson: user?.name || 'Dr. Rajesh Kumar',
-      designation: 'Managing Director / Exhibitor',
-      mobile: user?.phone || '+91 98421 88900',
-      email: user?.email || 'contact@apexmedtech.demo',
-      address: '45 Industrial Estate, Hopes College',
-      city: 'Coimbatore',
-      state: 'Tamil Nadu',
-      gstNumber: '33AAACA9810J1Z4',
-      panNumber: 'AAACA9810J',
-      industry: 'Medical Devices & Healthcare',
-      category: 'Diagnostic & ICU Equipment',
-      website: 'https://apexmedtech.demo',
+      name: user?.company?.name || '',
+      contactPerson: user?.name || '',
+      designation: 'Exhibitor Representative',
+      mobile: user?.phone || '',
+      email: user?.email || '',
+      address: '',
+      city: '',
+      state: '',
+      pinCode: '641001',
+      country: 'India',
+      gstNumber: '',
+      panNumber: '',
+      industry: 'Technology & Manufacturing',
+      category: 'Exhibitor / Booth',
+      website: '',
     },
   });
+
+  const handleVerifyGst = async (overrideGst?: string) => {
+    const rawGst = overrideGst || watch('gstNumber') || '';
+    const cleanGst = rawGst.trim().toUpperCase();
+
+    if (!cleanGst || cleanGst.length !== 15) {
+      setGstError('Please enter a full 15-character GSTIN (e.g. 27AAACT1029F1Z5).');
+      return;
+    }
+
+    try {
+      setIsVerifyingGst(true);
+      setGstError('');
+      setGstVerificationSuccess(false);
+
+      const res = await companyService.verifyGst(cleanGst);
+
+      if (res && res.gstVerified) {
+        setGstVerificationSuccess(true);
+        setGstVerifiedDetails(res.gstDetails);
+
+        // Auto-populate form fields from verified official GST data
+        if (res.gstDetails) {
+          const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
+          if (officialName) setValue('name', officialName);
+          if (res.gstDetails.address) setValue('address', res.gstDetails.address);
+          if (res.gstDetails.city) setValue('city', res.gstDetails.city);
+          if (res.gstDetails.pincode) setValue('pinCode', res.gstDetails.pincode);
+
+          // Auto-derive PAN from characters 3-12 of GSTIN
+          const extractedPan = cleanGst.substring(2, 12);
+          setValue('panNumber', extractedPan);
+
+          // Map state from 2-digit GST state code
+          const stateCode = cleanGst.substring(0, 2);
+          const stateMap: Record<string, string> = {
+            '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
+            '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan',
+            '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh',
+            '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura',
+            '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand',
+            '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
+            '26': 'Dadra and Nagar Haveli', '27': 'Maharashtra', '29': 'Karnataka', '30': 'Goa',
+            '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '36': 'Telangana',
+            '37': 'Andhra Pradesh', '38': 'Ladakh',
+          };
+          if (stateMap[stateCode]) {
+            setValue('state', stateMap[stateCode]);
+          }
+        }
+
+        if (res.companyExists) {
+          setGstError('Notice: A profile with this GSTIN is already registered. You can select your existing company profile above or continue with updated details.');
+        }
+      } else {
+        setGstError('GST verification failed. Please check the 15-character GST number.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'GST verification request failed.';
+      setGstError(msg);
+      setGstVerificationSuccess(false);
+    } finally {
+      setIsVerifyingGst(false);
+    }
+  };
 
   useEffect(() => {
     if (slug) loadInitialData();
@@ -140,7 +216,9 @@ export const BookingWizardPage: React.FC = () => {
             console.warn('Failed to parse floor plan layout in booking wizard', e);
           }
         }
-        const stallsData = await stallService.getStallsByFloorPlan(fp.id);
+        const stallsData = fp.stalls && fp.stalls.length > 0
+          ? fp.stalls
+          : await stallService.getStallsByFloorPlan(fp.id);
         setStalls(stallsData || []);
       } else {
         setStalls([]);
@@ -180,12 +258,18 @@ export const BookingWizardPage: React.FC = () => {
     setGuestFormData(data);
     if (user) {
       try {
-        const created = await companyService.createCompany(data as any);
-        setCompanies([...companies, created]);
-        setSelectedCompany(created);
-        setUser({ ...user, companyId: created.id, company: created });
-      } catch (err) {
-        console.warn('Backend company save deferred to checkout for guest session');
+        const created = await companyService.createCompany({
+          ...data,
+          pinCode: data.pinCode || '641001',
+          country: data.country || 'India',
+        } as any);
+        if (created && created.id) {
+          setCompanies((prev) => [...prev.filter((c) => c.id !== created.id), created]);
+          setSelectedCompany(created);
+          setUser({ ...user, companyId: created.id, company: created });
+        }
+      } catch (err: any) {
+        console.warn('Backend company save note:', err.response?.data?.message || err);
       }
     } else {
       // For Guest Users: Create temporary mock company object for wizard progression
@@ -200,6 +284,8 @@ export const BookingWizardPage: React.FC = () => {
         address: data.address,
         city: data.city,
         state: data.state,
+        pinCode: data.pinCode || '641001',
+        country: data.country || 'India',
         gstNumber: data.gstNumber,
         panNumber: data.panNumber,
         industry: data.industry,
@@ -413,7 +499,7 @@ export const BookingWizardPage: React.FC = () => {
             </div>
           )}
 
-          <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} />
+          <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} halls={layoutData?.halls} />
 
           <div className="relative flex flex-col lg:flex-row gap-6 items-start">
             <div className="flex-1 w-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs p-4">
@@ -548,7 +634,7 @@ export const BookingWizardPage: React.FC = () => {
 
           {/* Guest / New Company Details Form */}
           {(companies.length === 0 || isAddingNewCompany) && (
-            <form onSubmit={handleSubmit(onSubmitCompanyForm)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmitCompanyForm)} className="space-y-5">
               {companies.length > 0 && (
                 <button
                   type="button"
@@ -559,30 +645,173 @@ export const BookingWizardPage: React.FC = () => {
                 </button>
               )}
 
+              {/* GSTIN Verification & Auto-Fill Header Card */}
+              <div className="bg-[#f6f9ff] border-2 border-blue-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-[#09539b]" />
+                      <h4 className="text-sm font-bold text-[#012970]">
+                        GSTIN Verification & Auto-Fill
+                      </h4>
+                      <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Official Tax Entity
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Enter your 15-character GSTIN to auto-fetch legal company name, PAN, and tax address.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="e.g. 27AAACT1029F1Z5"
+                        maxLength={15}
+                        {...register('gstNumber')}
+                        className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white shadow-xs"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleVerifyGst()}
+                      isLoading={isVerifyingGst}
+                      className="bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" />
+                      Verify GST
+                    </Button>
+                  </div>
+                </div>
+
+                {errors.gstNumber && (
+                  <p className="text-xs text-red-600 font-medium">{errors.gstNumber.message}</p>
+                )}
+
+                {/* Verified Details Success Card */}
+                {gstVerificationSuccess && gstVerifiedDetails && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs space-y-1.5 animate-fadeIn">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 font-bold text-emerald-900">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Verified Entity: {gstVerifiedDetails.legalName || gstVerifiedDetails.tradeName}</span>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-200 text-emerald-900 border border-emerald-300">
+                        Status: {gstVerifiedDetails.status || 'Active'}
+                      </span>
+                    </div>
+                    <p className="text-emerald-800 text-[11px] pl-6">
+                      <span className="font-semibold">Registered Location:</span> {gstVerifiedDetails.address}, {gstVerifiedDetails.city} - {gstVerifiedDetails.pincode}
+                    </p>
+                  </div>
+                )}
+
+                {/* GST Warning / Notice Alert */}
+                {gstError && (
+                  <div className="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="font-medium">{gstError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Fields Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="GST Registration Number (GSTIN) *" error={errors.gstNumber?.message} {...register('gstNumber')} />
-                <Input label="Official Company Name *" error={errors.name?.message} {...register('name')} />
-                <Input label="Contact Person Name *" error={errors.contactPerson?.message} {...register('contactPerson')} />
-                <Input label="Designation *" error={errors.designation?.message} {...register('designation')} />
-                <Input label="Mobile Number *" error={errors.mobile?.message} {...register('mobile')} />
-                <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
-                <Input label="Industry Sector *" error={errors.industry?.message} {...register('industry')} />
-                <Input label="PAN Number *" error={errors.panNumber?.message} {...register('panNumber')} />
-                <Input label="Product / Service Category *" error={errors.category?.message} {...register('category')} />
-                <Input label="Official Website" placeholder="https://" error={errors.website?.message} {...register('website')} />
+                <Input
+                  label="Official Legal / Trade Name *"
+                  error={errors.name?.message}
+                  {...register('name')}
+                />
+                <Input
+                  label="Permanent Account Number (PAN) *"
+                  placeholder="e.g. AAACT1029F"
+                  maxLength={10}
+                  error={errors.panNumber?.message}
+                  {...register('panNumber')}
+                />
+                <Input
+                  label="Authorized Contact Person *"
+                  error={errors.contactPerson?.message}
+                  {...register('contactPerson')}
+                />
+                <Input
+                  label="Designation / Role *"
+                  error={errors.designation?.message}
+                  {...register('designation')}
+                />
+                <Input
+                  label="Mobile Number (10 digits) *"
+                  placeholder="9876543210"
+                  error={errors.mobile?.message}
+                  {...register('mobile')}
+                />
+                <Input
+                  label="Corporate Email Address *"
+                  type="email"
+                  error={errors.email?.message}
+                  {...register('email')}
+                />
+                <Input
+                  label="Industry Sector *"
+                  error={errors.industry?.message}
+                  {...register('industry')}
+                />
+                <Input
+                  label="Product / Service Category *"
+                  error={errors.category?.message}
+                  {...register('category')}
+                />
+                <Input
+                  label="Official Corporate Website"
+                  placeholder="https://"
+                  error={errors.website?.message}
+                  {...register('website')}
+                />
+                <Input
+                  label="PIN Code (6 digits) *"
+                  maxLength={6}
+                  placeholder="641001"
+                  error={errors.pinCode?.message}
+                  {...register('pinCode')}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="Corporate Address *" error={errors.address?.message} {...register('address')} />
-                <Input label="City *" error={errors.city?.message} {...register('city')} />
-                <Input label="State *" error={errors.state?.message} {...register('state')} />
+                <Input
+                  label="Registered Corporate Address *"
+                  error={errors.address?.message}
+                  {...register('address')}
+                />
+                <Input
+                  label="City *"
+                  error={errors.city?.message}
+                  {...register('city')}
+                />
+                <Input
+                  label="State / Province *"
+                  error={errors.state?.message}
+                  {...register('state')}
+                />
               </div>
 
               <div className="pt-4 flex justify-between items-center border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={() => setCurrentStep(1)} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(1)}
+                  leftIcon={<ArrowLeft className="w-4 h-4" />}
+                >
                   Back to Stall Selection
                 </Button>
-                <Button type="submit" variant="primary" size="lg" className="bg-[#09539b] hover:bg-[#012970] font-bold" rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="bg-[#09539b] hover:bg-[#012970] font-bold"
+                  rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
+                >
                   Save & Continue to Tax Review & Contract
                 </Button>
               </div>

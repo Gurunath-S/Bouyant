@@ -44,6 +44,8 @@ export interface Company {
   address: string;
   city: string;
   state: string;
+  pinCode?: string;
+  country?: string;
   gstNumber?: string;
   panNumber?: string;
   industry: string;

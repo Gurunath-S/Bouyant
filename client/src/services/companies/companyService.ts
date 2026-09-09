@@ -23,6 +23,11 @@ export const companyService = {
 
   createCompany: async (data: any): Promise<Company> => {
     const res: any = await apiClient.post('/companies', data);
+    return (res.data?.company || res.data) as Company;
+  },
+
+  verifyGst: async (gstNumber: string) => {
+    const res: any = await apiClient.post('/companies/verify-gst', { gstNumber });
     return res.data;
   },
 
