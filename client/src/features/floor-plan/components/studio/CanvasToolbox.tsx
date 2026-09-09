@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   MousePointer,
+  BoxSelect,
   Hand,
   Square,
   LayoutGrid,
@@ -19,6 +20,8 @@ import {
   Building,
   ChevronLeft,
   ChevronRight,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { StudioTool, FacilityType } from '../../../../types/floorPlanStudio';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
@@ -33,6 +36,9 @@ interface CanvasToolboxProps {
   onAddZone: () => void;
   onAddText: () => void;
   onApplyTemplate: (templateId: string) => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetZoom?: () => void;
   readOnly?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -48,6 +54,9 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   onAddZone,
   onAddText,
   onApplyTemplate,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
   readOnly = false,
   isCollapsed = false,
   onToggleCollapse,
@@ -73,11 +82,11 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         <button
           onClick={() => onSelectTool('select')}
           className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-            activeTool === 'select'
+            activeTool === 'select' || activeTool === 'marquee'
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
-          title="Pointer / Select (V)"
+          title="Select & Drag Box (V) — Click item or drag box to select"
         >
           <MousePointer className="w-4 h-4" />
         </button>
@@ -88,10 +97,35 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
-          title="Pan Canvas (H)"
+          title="Move Map / Pan (H) — Drag anywhere to move canvas"
         >
           <Hand className="w-4 h-4" />
         </button>
+
+        {/* Quick Common Zoom Controls (Available across all tools) */}
+        {(onZoomIn || onZoomOut) && (
+          <>
+            <div className="w-8 h-px bg-slate-200 my-0.5" />
+            {onZoomIn && (
+              <button
+                onClick={onZoomIn}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="w-4 h-4 text-blue-600" />
+              </button>
+            )}
+            {onZoomOut && (
+              <button
+                onClick={onZoomOut}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="w-4 h-4 text-blue-600" />
+              </button>
+            )}
+          </>
+        )}
 
         <div className="w-8 h-px bg-slate-200 my-1" />
 
@@ -269,30 +303,66 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       {/* Navigation Tools */}
       <div className="p-3 border-b border-slate-100 space-y-1">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-          Navigation & Controls
+          Navigation & Selection Tools
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={() => onSelectTool('select')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTool === 'select'
+            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+              activeTool === 'select' || activeTool === 'marquee'
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
             }`}
+            title="Single Select, Move, or Drag-Select Box (V)"
           >
-            <MousePointer className="w-3.5 h-3.5" /> Select (V)
+            <div className="flex items-center gap-1">
+              <MousePointer className="w-3.5 h-3.5" />
+              <BoxSelect className="w-3 h-3 opacity-80" />
+            </div>
+            <span>Select & Box (V)</span>
           </button>
           <button
             onClick={() => onSelectTool('pan')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
               activeTool === 'pan'
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
             }`}
+            title="Pan / Move Canvas (H)"
           >
-            <Hand className="w-3.5 h-3.5" /> Pan (H)
+            <Hand className="w-3.5 h-3.5" />
+            <span>Move Map (H)</span>
           </button>
         </div>
+        <p className="text-[10px] text-slate-400 leading-tight pt-0.5">
+          Drag empty canvas to marquee-select stalls & items. Use wheel / trackpad to move around map.
+        </p>
+
+        {/* Common Zoom Controls across all tools */}
+        {(onZoomIn || onZoomOut) && (
+          <div className="grid grid-cols-2 gap-1 mt-2 pt-2 border-t border-slate-100">
+            {onZoomIn && (
+              <button
+                onClick={onZoomIn}
+                type="button"
+                className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="w-3.5 h-3.5 text-blue-600" /> Zoom In (+)
+              </button>
+            )}
+            {onZoomOut && (
+              <button
+                onClick={onZoomOut}
+                type="button"
+                className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="w-3.5 h-3.5 text-blue-600" /> Zoom Out (-)
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Structure Tools */}
@@ -304,11 +374,12 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         <button
           onClick={onAddHall}
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-blue-50/60 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"
+          title="+ Add Hall / Pavilion (e.g. Hall A, Hall B) with freehand drag-resizing"
         >
           <span className="flex items-center gap-2">
             <Maximize2 className="w-3.5 h-3.5 text-blue-600" /> + Hall / Pavilion
           </span>
-          <span className="text-[10px] text-slate-400">Container</span>
+          <span className="text-[10px] text-blue-600 font-bold">Hall A, B</span>
         </button>
 
         <button

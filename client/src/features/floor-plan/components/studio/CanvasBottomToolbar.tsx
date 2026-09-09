@@ -8,6 +8,7 @@ import {
   Magnet,
   Undo2,
   Redo2,
+  Expand,
 } from 'lucide-react';
 
 interface CanvasBottomToolbarProps {
@@ -26,6 +27,9 @@ interface CanvasBottomToolbarProps {
   onRedo: () => void;
   stallsCount: number;
   hallsCount: number;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  onExpandCanvas?: () => void;
 }
 
 export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
@@ -44,6 +48,9 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
   onRedo,
   stallsCount,
   hallsCount,
+  canvasWidth,
+  canvasHeight,
+  onExpandCanvas,
 }) => {
   return (
     <footer className="h-12 bg-white border-t border-slate-200 px-4 flex items-center justify-between select-none shadow-xs z-20 shrink-0">
@@ -115,24 +122,38 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
         </div>
       </div>
 
-      {/* Center: Live Overview Pill */}
+      {/* Center: Live Overview Pill & Expand Canvas */}
       <div className="hidden md:flex items-center gap-3 text-xs text-slate-500 font-medium">
         <span>
           <strong className="text-slate-900">{hallsCount}</strong> {hallsCount === 1 ? 'Hall' : 'Halls'}
         </span>
         <span>•</span>
         <span>
-          <strong className="text-slate-900">{stallsCount}</strong> Stalls Configured
+          <strong className="text-slate-900">{stallsCount}</strong> Stalls
         </span>
+        {onExpandCanvas && canvasWidth && canvasHeight && (
+          <>
+            <span>•</span>
+            <button
+              onClick={onExpandCanvas}
+              type="button"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 transition-colors cursor-pointer text-[11px]"
+              title="Expand Canvas Area (+600px width, +400px height for boundless layout)"
+            >
+              <Expand className="w-3 h-3" />
+              <span>Canvas: {canvasWidth}×{canvasHeight}px (+ Expand)</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Right: Zoom Controls */}
       <div className="flex items-center gap-2">
         <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
           <button
-            onClick={() => onZoomChange(Math.max(40, zoomLevel - 15))}
+            onClick={() => onZoomChange(Math.max(25, zoomLevel - 15))}
             className="p-1 text-slate-600 hover:text-slate-900 rounded"
-            title="Zoom Out"
+            title="Zoom Out (Down to 25% for high-level floor view)"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>

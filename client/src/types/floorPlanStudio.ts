@@ -52,6 +52,8 @@ export interface FloorPlanLayoutData {
   halls: HallZone[];
   facilities: FacilityObject[];
   annotations: AnnotationObject[];
+  backgroundImageUrl?: string;
+  backgroundOpacity?: number;
 }
 
 export interface DraftStallItem {
@@ -71,6 +73,7 @@ export interface DraftStallItem {
 
 export type StudioTool =
   | 'select'
+  | 'marquee'
   | 'pan'
   | 'hall'
   | 'stall'
