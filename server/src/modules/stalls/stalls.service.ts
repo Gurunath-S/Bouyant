@@ -53,7 +53,13 @@ export class StallsService {
     });
 
     if (existing) {
-      throw ApiError.conflict(`Stall number ${input.stallNumber} already exists on this floor plan.`);
+      return await prisma.stall.update({
+        where: { id: existing.id },
+        data: {
+          ...input,
+          price: input.price,
+        },
+      });
     }
 
     return await prisma.stall.create({
