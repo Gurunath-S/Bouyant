@@ -172,7 +172,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
   // Step 2: Hall Configuration
   const [hallConfig, setHallConfig] = useState({
-    hallName: 'Grand Pavilion Hall 1',
+    hallName: 'Hall A',
     widthFt: 100,
     heightFt: 80,
   });
@@ -180,31 +180,102 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   // Derived Usable Area
   const totalUsableArea = hallConfig.widthFt * hallConfig.heightFt;
 
-  // Step 3: Visual Floor Plan Stalls
-  const [stalls, setStalls] = useState<DraftStall[]>([
-    { id: '1', stallNumber: 'A-01', xPosition: 70, yPosition: 100, width: 80, height: 80, areaSqFt: 100, category: 'STANDARD', price: 1200, status: 'AVAILABLE' },
-    { id: '2', stallNumber: 'A-02', xPosition: 170, yPosition: 100, width: 80, height: 80, areaSqFt: 100, category: 'STANDARD', price: 1200, status: 'AVAILABLE' },
-    { id: '3', stallNumber: 'A-03', xPosition: 270, yPosition: 100, width: 80, height: 80, areaSqFt: 100, category: 'PREMIUM', price: 1800, status: 'AVAILABLE' },
-    { id: '4', stallNumber: 'A-04', xPosition: 370, yPosition: 100, width: 80, height: 80, areaSqFt: 100, category: 'PREMIUM', price: 1800, status: 'AVAILABLE' },
+  // Step 3: Visual Floor Plan Stalls (Always created from scratch by user)
+  const [stalls, setStalls] = useState<DraftStall[]>([]);
 
-    { id: '5', stallNumber: 'B-01', xPosition: 70, yPosition: 220, width: 80, height: 80, areaSqFt: 100, category: 'CORNER', price: 2000, status: 'AVAILABLE' },
-    { id: '6', stallNumber: 'B-02', xPosition: 170, yPosition: 220, width: 80, height: 80, areaSqFt: 100, category: 'STANDARD', price: 1200, status: 'AVAILABLE' },
-    { id: '7', stallNumber: 'B-03', xPosition: 270, yPosition: 220, width: 80, height: 80, areaSqFt: 100, category: 'STANDARD', price: 1200, status: 'AVAILABLE' },
-    { id: '8', stallNumber: 'B-04', xPosition: 370, yPosition: 220, width: 80, height: 80, areaSqFt: 100, category: 'CORNER', price: 2000, status: 'AVAILABLE' },
-
-    { id: '9', stallNumber: 'C-01', xPosition: 700, yPosition: 100, width: 140, height: 140, areaSqFt: 400, category: 'ISLAND', price: 4500, status: 'AVAILABLE' },
-    { id: '10', stallNumber: 'VIP-1', xPosition: 700, yPosition: 300, width: 140, height: 100, areaSqFt: 250, category: 'PREMIUM', price: 3000, status: 'BLOCKED' },
-  ]);
-
-  const [selectedStallId, setSelectedStallId] = useState<string | null>('1');
+  const [selectedStallId, setSelectedStallId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+
+  // Crash Recovery & Auto-Save
+  const DRAFT_STORAGE_KEY = id ? `buoyant_exhibition_draft_${id}` : 'buoyant_exhibition_draft_new';
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
+
+  // Crash Recovery: Auto-restore if session crashed or tab was closed
+  useEffect(() => {
+    if (!id) {
+      try {
+        const saved = localStorage.getItem('buoyant_exhibition_draft_new');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (
+            parsed &&
+            (parsed.basicInfo?.title ||
+              parsed.stalls?.length > 0 ||
+              parsed.layoutData?.halls?.length > 0)
+          ) {
+            if (parsed.basicInfo) setBasicInfo(parsed.basicInfo);
+            if (parsed.hallConfig) setHallConfig(parsed.hallConfig);
+            if (parsed.stalls) setStalls(parsed.stalls);
+            if (parsed.layoutData) setLayoutData(parsed.layoutData);
+            if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+            setHasRestoredDraft(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not restore draft from localStorage', e);
+      }
+    }
+  }, [id]);
+
+  // Continuously auto-save to localStorage on every change to protect work
+  useEffect(() => {
+    if (isLoadingEvent) return;
+    try {
+      const draft = {
+        basicInfo,
+        hallConfig,
+        stalls,
+        layoutData,
+        currentStep,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('Auto-save failed', e);
+    }
+  }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY, isLoadingEvent]);
+
+  // Window beforeunload listener
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        const draft = {
+          basicInfo,
+          hallConfig,
+          stalls,
+          layoutData,
+          currentStep,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } catch (e) {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY]);
+
+  const handleDiscardDraft = () => {
+    if (window.confirm('Discard the restored draft and start completely clean from scratch?')) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setHasRestoredDraft(false);
+      setStalls([]);
+      setLayoutData(null);
+      setCurrentStep(1);
+    }
+  };
 
   // Add Stall Helper
   const handleAddStall = () => {
-    const nextNum = stalls.length + 1;
+    const existingNums = new Set(stalls.map((s) => s.stallNumber.toUpperCase()));
+    let nextNum = stalls.length + 1;
+    let numStr = nextNum < 10 ? '0' + nextNum : `${nextNum}`;
+    while (existingNums.has(`S-${numStr}`.toUpperCase())) {
+      nextNum++;
+      numStr = nextNum < 10 ? '0' + nextNum : `${nextNum}`;
+    }
     const newStall: DraftStall = {
       id: Date.now().toString(),
-      stallNumber: `S-${nextNum < 10 ? '0' + nextNum : nextNum}`,
+      stallNumber: `S-${numStr}`,
       xPosition: 100 + (nextNum % 5) * 90,
       yPosition: 360 + Math.floor(nextNum / 5) * 90,
       width: 80,
@@ -311,6 +382,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         };
         await exhibitionService.createExhibition(payload as any);
       }
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
       navigate('/admin/events');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to save exhibition event.');
@@ -322,7 +394,33 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const selectedStall = stalls.find((s) => s.id === selectedStallId);
 
   return (
-    <div className={`space-y-6 w-full transition-all ${currentStep === 3 ? 'max-w-none px-0' : 'max-w-6xl mx-auto'}`}>
+    <div className={`space-y-6 w-full transition-all ${currentStep === 2 ? 'max-w-none px-0' : 'max-w-6xl mx-auto'}`}>
+      {/* Auto-Save & Crash Recovery Banner */}
+      {hasRestoredDraft && (
+        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-900 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>
+              <strong>Draft Restored:</strong> We recovered your unsaved floor plan and event details from your previous session. You can continue right where you left off.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setHasRestoredDraft(false)}
+              className="px-2.5 py-1 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer"
+            >
+              Continue Working
+            </button>
+            <button
+              onClick={handleDiscardDraft}
+              className="px-2.5 py-1 bg-white text-emerald-800 border border-emerald-300 font-bold rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              Start Clean (Discard)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header & Stepper */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
@@ -428,7 +526,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           </div>
         )}
 
-        {/* Stepper Header */}
+        {/* Stepper Header (Streamlined 3 Steps) */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs font-bold text-slate-600 shadow-xs overflow-x-auto">
           <button
             type="button"
@@ -462,7 +560,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             >
               2
             </span>
-            <span>Hall Setup & Templates</span>
+            <span>Exhibition Studio (CAD Canvas)</span>
           </button>
           <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
 
@@ -480,24 +578,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             >
               3
             </span>
-            <span>Exhibition Studio (CAD)</span>
-          </button>
-          <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
-
-          <button
-            type="button"
-            onClick={() => setCurrentStep(4)}
-            className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
-              currentStep === 4 ? 'text-purple-700' : 'text-slate-500'
-            }`}
-          >
-            <span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
-                currentStep === 4 ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-600'
-              }`}
-            >
-              4
-            </span>
             <span>Preview & Publish</span>
           </button>
         </div>
@@ -511,7 +591,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 mb-2">
                 <Building className="w-3.5 h-3.5 text-purple-600" />
-                <span>Step 1 of 4: Exhibition Event Profile</span>
+                <span>Step 1 of 3: Exhibition Event Profile</span>
               </div>
               <h2 className="text-xl font-extrabold text-slate-900">
                 Exhibition Event Profile & Location Setup
@@ -526,7 +606,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               onClick={() => setCurrentStep(2)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Continue to Step 2
+              Continue to Floor Plan Studio
             </Button>
           </div>
 
@@ -570,7 +650,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
                   <span className="font-semibold text-slate-400">Live Web Address (Slug):</span>
                   <code className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono text-[11px] border border-purple-200">
-                    /events/{basicInfo.slug || 'event-slug'}
+                    /exhibitions/{basicInfo.slug || 'event-slug'}
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
                     (automatically synchronized with event title)
@@ -764,7 +844,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           {/* Step 1 Footer Action */}
           <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-xs">
             <span className="text-xs text-slate-500 font-medium">
-              Next step: Define physical hall dimensions & grid scale.
+              Next step: Open visual studio canvas and build halls & stalls from scratch.
             </span>
             <Button
               variant="primary"
@@ -772,134 +852,107 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               onClick={() => setCurrentStep(2)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Continue to Hall Configuration
+              Continue to Visual Studio Canvas
             </Button>
           </div>
         </div>
       )}
 
-      {/* STEP 2: HALL SETUP & STARTER TEMPLATES */}
+      {/* STEP 2: INTERACTIVE VISUAL EXHIBITION STUDIO (Direct from Step 1) */}
       {currentStep === 2 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Maximize2 className="w-5 h-5 text-purple-600" /> Step 2: Choose Starter Layout or Hall Dimensions
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Select a starter venue template to begin with, or define custom dimensions and build your layout visually.
-            </p>
-          </div>
-
-          {/* Starter Templates Grid */}
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              Curated Starter Layouts
-            </span>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {STARTER_TEMPLATES.map((tmpl) => (
-                <div
-                  key={tmpl.id}
-                  onClick={() => {
-                    setLayoutData(tmpl.layoutData);
-                    setStalls(tmpl.stalls as any);
-                    setCurrentStep(3);
-                  }}
-                  className="p-4 border-2 border-slate-200 hover:border-purple-500 hover:bg-purple-50/40 rounded-xl cursor-pointer transition-all space-y-2 group shadow-2xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-purple-700">
-                      {tmpl.name}
-                    </span>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2">{tmpl.description}</p>
-                  <div className="flex items-center gap-2 pt-1 text-[10px] font-semibold text-slate-600">
-                    <span className="bg-slate-100 px-2 py-0.5 rounded">{tmpl.previewHallsCount} Hall(s)</span>
-                    <span className="bg-slate-100 px-2 py-0.5 rounded">{tmpl.previewStallsCount} Stalls</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom Hall Settings */}
-          <div className="pt-4 border-t border-slate-100 space-y-4 max-w-xl">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              Or Customize Primary Hall Identifier
-            </span>
-            <Input
-              label="Primary Hall Identifier / Name"
-              value={hallConfig.hallName}
-              onChange={(e) => setHallConfig({ ...hallConfig, hallName: e.target.value })}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Hall Width (Meters / Scale)"
-                type="number"
-                value={hallConfig.widthFt}
-                onChange={(e) => setHallConfig({ ...hallConfig, widthFt: Number(e.target.value) })}
-              />
-              <Input
-                label="Hall Height / Length"
-                type="number"
-                value={hallConfig.heightFt}
-                onChange={(e) => setHallConfig({ ...hallConfig, heightFt: Number(e.target.value) })}
-              />
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-between">
-            <Button variant="outline" size="lg" onClick={() => setCurrentStep(1)}>
-              Back to Basic Info
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => setCurrentStep(3)}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Open Exhibition Studio Canvas
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: INTERACTIVE VISUAL EXHIBITION STUDIO */}
-      {currentStep === 3 && (
         <div className="space-y-4">
           <GenericVisualStudio
             exhibitionTitle={basicInfo.title || 'Untitled Exhibition'}
             initialLayoutData={layoutData}
             initialStalls={stalls as any}
             isViewOnly={isViewMode}
+            onChangeLayout={({ layoutData: currentLayout, stalls: currentStalls }) => {
+              setLayoutData(currentLayout);
+              setStalls(currentStalls as any);
+            }}
             onSaveLayout={async ({ layoutData: savedLayout, stalls: savedStalls }) => {
               setLayoutData(savedLayout);
               setStalls(savedStalls as any);
-              if (id && floorPlanId) {
-                await floorPlanService.syncFloorPlan(floorPlanId, {
-                  name: hallConfig.hallName,
-                  width: savedLayout.canvasWidth,
-                  height: savedLayout.canvasHeight,
-                  layoutData: savedLayout,
-                  stalls: savedStalls,
-                });
-                alert('Floor plan layout saved successfully to database!');
-              } else {
-                alert('Floor plan draft updated! Click "Proceed to Final Preview" to review and publish.');
+              try {
+                if (id && floorPlanId) {
+                  await floorPlanService.syncFloorPlan(floorPlanId, {
+                    name: hallConfig.hallName,
+                    width: savedLayout.canvasWidth,
+                    height: savedLayout.canvasHeight,
+                    layoutData: savedLayout,
+                    stalls: savedStalls,
+                  });
+                  alert('Floor plan layout saved successfully to database!');
+                } else if (id && !floorPlanId) {
+                  const ev = await exhibitionService.getExhibitionBySlug(id);
+                  const fp = ev?.floorPlans?.[0];
+                  if (fp) {
+                    setFloorPlanId(fp.id);
+                    await floorPlanService.syncFloorPlan(fp.id, {
+                      name: hallConfig.hallName,
+                      width: savedLayout.canvasWidth,
+                      height: savedLayout.canvasHeight,
+                      layoutData: savedLayout,
+                      stalls: savedStalls,
+                    });
+                    alert('Floor plan layout saved successfully to database!');
+                  }
+                } else {
+                  const payload = {
+                    title: basicInfo.title || 'Untitled Exhibition',
+                    description: basicInfo.description,
+                    venue: basicInfo.venue || 'Exhibition Venue',
+                    city: basicInfo.city || 'City',
+                    startDate: basicInfo.startDate ? new Date(basicInfo.startDate).toISOString() : new Date().toISOString(),
+                    endDate: basicInfo.endDate ? new Date(basicInfo.endDate).toISOString() : new Date(Date.now() + 86400000 * 3).toISOString(),
+                    bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+                    status: 'DRAFT',
+                    totalStalls: savedStalls.length,
+                    floorPlans: [
+                      {
+                        name: hallConfig.hallName || 'Hall A',
+                        width: savedLayout.canvasWidth || 1400,
+                        height: savedLayout.canvasHeight || 850,
+                        layoutData: savedLayout,
+                        stalls: savedStalls.map((s) => ({
+                          stallNumber: s.stallNumber,
+                          xPosition: s.xPosition,
+                          yPosition: s.yPosition,
+                          width: s.width,
+                          height: s.height,
+                          areaSqFt: s.areaSqFt,
+                          category: s.category,
+                          price: s.price,
+                          status: s.status,
+                        })),
+                      },
+                    ],
+                  };
+                  const created = await exhibitionService.createExhibition(payload as any);
+                  if (created?.floorPlans?.[0]?.id) {
+                    setFloorPlanId(created.floorPlans[0].id);
+                  }
+                  if (created?.slug) {
+                    navigate(`/admin/events/${created.slug}/edit`, { replace: true });
+                  }
+                  alert('Exhibition draft and floor plan saved successfully to database!');
+                }
+              } catch (err: any) {
+                console.error('Failed to save layout:', err);
+                alert(err?.response?.data?.message || err?.message || 'Failed to save floor plan layout to database.');
               }
             }}
-            onBack={() => setCurrentStep(2)}
+            onBack={() => setCurrentStep(1)}
           />
 
           <div className="pt-2 flex justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <Button variant="outline" size="lg" onClick={() => setCurrentStep(2)}>
-              Back to Hall Setup
+            <Button variant="outline" size="lg" onClick={() => setCurrentStep(1)}>
+              Back to Event Info
             </Button>
             <Button
               variant="primary"
               size="lg"
-              onClick={() => setCurrentStep(4)}
+              onClick={() => setCurrentStep(3)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               Proceed to Final Preview & Launch
@@ -908,17 +961,17 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         </div>
       )}
 
-      {/* STEP 4: PREVIEW & PUBLISH */}
-      {currentStep === 4 && (
+      {/* STEP 3: PREVIEW & PUBLISH */}
+      {currentStep === 3 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
           <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600" /> Step 4: Final Exhibition Read-Only Preview
+                <Eye className="w-5 h-5 text-purple-600" /> Step 3: Final Exhibition Read-Only Preview
               </h2>
               <p className="text-xs text-slate-500 mt-1">Review event parameters and stall inventory before publishing to live production.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentStep(3)}>
+            <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
               Back to Canvas Editor
             </Button>
           </div>
@@ -933,7 +986,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   </div>
                 )}
                 <p><span className="font-semibold text-slate-500">Title:</span> {basicInfo.title}</p>
-                <p><span className="font-semibold text-slate-500">Public Slug:</span> <code className="text-purple-700 font-mono font-bold">/events/{basicInfo.slug}</code></p>
+                <p><span className="font-semibold text-slate-500">Public Slug:</span> <code className="text-purple-700 font-mono font-bold">/exhibitions/{basicInfo.slug}</code></p>
                 <p><span className="font-semibold text-slate-500">Category:</span> {basicInfo.category}</p>
                 <p><span className="font-semibold text-slate-500">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
                 <p><span className="font-semibold text-slate-500">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
@@ -942,9 +995,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
 
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-bold text-slate-900 text-sm uppercase text-purple-700">Hall Specifications</h4>
-                <p><span className="font-semibold text-slate-500">Hall Name:</span> {hallConfig.hallName}</p>
-                <p><span className="font-semibold text-slate-500">Dimensions:</span> {hallConfig.widthFt} ft × {hallConfig.heightFt} ft ({totalUsableArea.toLocaleString()} Sq.Ft)</p>
+                <h4 className="font-bold text-slate-900 text-sm uppercase text-purple-700">Hall Layout</h4>
+                <p><span className="font-semibold text-slate-500">Primary Hall:</span> {hallConfig.hallName}</p>
+                <p><span className="font-semibold text-slate-500">Halls / Pavilions:</span> {layoutData?.halls?.length || 1} Configured (Dynamic Canvas Scale)</p>
                 <p><span className="font-semibold text-slate-500">Total Configured Stalls:</span> {stalls.length} Stalls</p>
               </div>
             </div>

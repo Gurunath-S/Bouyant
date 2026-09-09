@@ -59,7 +59,9 @@ export const ExhibitionDetailPage: React.FC = () => {
             console.warn('Failed to parse floor plan layout', e);
           }
         }
-        const stallsData = await stallService.getStallsByFloorPlan(fp.id);
+        const stallsData = fp.stalls && fp.stalls.length > 0
+          ? fp.stalls
+          : await stallService.getStallsByFloorPlan(fp.id);
         setStalls(stallsData || []);
       } else {
         setStalls([]);
@@ -331,7 +333,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                       Click any available green stall on the map to inspect position, price, and reserve immediately.
                     </p>
                   </div>
-                  <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} />
+                  <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} halls={layoutData?.halls} />
                 </div>
 
                 <div className="relative border border-slate-200 rounded-xl overflow-hidden shadow-inner p-2 bg-slate-50">
