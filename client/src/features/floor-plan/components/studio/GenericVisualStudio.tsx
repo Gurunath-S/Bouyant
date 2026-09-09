@@ -11,6 +11,18 @@ import {
   Minimize2,
   Sliders,
   Sparkles,
+  BoxSelect,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Image as ImageIcon,
+  Hand,
+  Upload,
+  Trash2,
+  X,
+  Undo2,
+  Redo2,
+  Loader2,
 } from 'lucide-react';
 import {
   HallZone,
@@ -32,7 +44,8 @@ interface GenericVisualStudioProps {
   exhibitionTitle: string;
   initialLayoutData?: FloorPlanLayoutData | null;
   initialStalls?: DraftStallItem[];
-  onSaveLayout: (data: { layoutData: FloorPlanLayoutData; stalls: DraftStallItem[] }) => Promise<void>;
+  onSaveLayout: (data: { layoutData: FloorPlanLayoutData; stalls: DraftStallItem[] }) => Promise<void> | void;
+  onChangeLayout?: (data: { layoutData: FloorPlanLayoutData; stalls: DraftStallItem[] }) => void;
   onBack?: () => void;
   isViewOnly?: boolean;
 }
@@ -42,15 +55,27 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   initialLayoutData,
   initialStalls = [],
   onSaveLayout,
+  onChangeLayout,
   onBack,
   isViewOnly = false,
 }) => {
   // Unit conversion: 20 pixels = 1 meter
   const pxPerMeter = 20;
 
-  // Canvas View Dimensions
-  const canvasWidth = initialLayoutData?.canvasWidth || 1400;
-  const canvasHeight = initialLayoutData?.canvasHeight || 850;
+  // Canvas View Dimensions (Default expansive size: 3200x2000 for spacious "no-end" CAD workspace)
+  const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({
+    width: initialLayoutData?.canvasWidth && initialLayoutData.canvasWidth >= 2000 ? initialLayoutData.canvasWidth : 3200,
+    height: initialLayoutData?.canvasHeight && initialLayoutData.canvasHeight >= 1400 ? initialLayoutData.canvasHeight : 2000,
+  });
+  const canvasWidth = canvasDimensions.width;
+  const canvasHeight = canvasDimensions.height;
+
+  const handleExpandCanvas = () => {
+    setCanvasDimensions((prev) => ({
+      width: prev.width + 600,
+      height: prev.height + 400,
+    }));
+  };
 
   // Active Tool & Mode
   const [activeTool, setActiveTool] = useState<StudioTool>('select');
@@ -83,86 +108,135 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
   const [snapInterval, setSnapInterval] = useState<number>(initialLayoutData?.snapInterval || 1);
 
-  // Core Floor Plan Model
-  const [halls, setHalls] = useState<HallZone[]>(
-    initialLayoutData?.halls && initialLayoutData.halls.length > 0
-      ? initialLayoutData.halls
-      : [
-          {
-            id: 'hall-main',
-            name: 'Grand Pavilion Hall',
-            x: 40,
-            y: 40,
-            width: 1320,
-            height: 770,
-            color: '#3b82f6',
-          },
-        ]
-  );
+  // Core Floor Plan Model (Always created by user from scratch)
+  const [halls, setHalls] = useState<HallZone[]>(initialLayoutData?.halls || []);
+  const [facilities, setFacilities] = useState<FacilityObject[]>(initialLayoutData?.facilities || []);
+  const [annotations, setAnnotations] = useState<AnnotationObject[]>(initialLayoutData?.annotations || []);
+  const [stalls, setStalls] = useState<DraftStallItem[]>(initialStalls || []);
 
-  const [facilities, setFacilities] = useState<FacilityObject[]>(
-    initialLayoutData?.facilities || [
-      {
-        id: 'fac-ent-default',
-        type: 'entrance',
-        label: 'MAIN ENTRY & REGISTRATION',
-        x: 550,
-        y: 790,
-        width: 300,
-        height: 28,
-      },
-    ]
+  // Full Background Image / Blueprint
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>(
+    initialLayoutData?.backgroundImageUrl
   );
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(
+    initialLayoutData?.backgroundOpacity ?? 0.85
+  );
+  const [isBgModalOpen, setIsBgModalOpen] = useState<boolean>(false);
 
-  const [annotations, setAnnotations] = useState<AnnotationObject[]>(
-    initialLayoutData?.annotations || []
-  );
+  // Map Movement State (Spacebar held or Pan mode)
+  const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
 
-  const [stalls, setStalls] = useState<DraftStallItem[]>(
-    initialStalls.length > 0
-      ? initialStalls
-      : [
-          {
-            id: 'stall-1',
-            stallNumber: 'A-01',
-            name: 'Stall A-01',
-            category: 'STANDARD',
-            price: 50000,
-            areaSqFt: 100,
-            width: 60,
-            height: 60,
-            xPosition: 100,
-            yPosition: 140,
-            status: 'AVAILABLE',
-          },
-          {
-            id: 'stall-2',
-            stallNumber: 'A-02',
-            name: 'Stall A-02',
-            category: 'STANDARD',
-            price: 50000,
-            areaSqFt: 100,
-            width: 60,
-            height: 60,
-            xPosition: 180,
-            yPosition: 140,
-            status: 'AVAILABLE',
-          },
-          {
-            id: 'stall-3',
-            stallNumber: 'A-03',
-            name: 'Stall A-03',
-            category: 'PREMIUM',
-            price: 65000,
-            areaSqFt: 100,
-            width: 60,
-            height: 60,
-            xPosition: 260,
-            yPosition: 140,
-            status: 'AVAILABLE',
-          },
-        ]
-  );
+  // Auto-Save Key for Crash Protection
+  const autoSaveKey = `buoyant_studio_autosave_${exhibitionTitle.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+  const [restoredFromBackup, setRestoredFromBackup] = useState<boolean>(false);
+
+  // Crash Recovery: Auto-restore if session crashed or tab was closed
+  useEffect(() => {
+    if (
+      (!initialLayoutData?.halls || initialLayoutData.halls.length === 0) &&
+      (!initialStalls || initialStalls.length === 0)
+    ) {
+      try {
+        const saved = localStorage.getItem(autoSaveKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (
+            parsed &&
+            (parsed.halls?.length > 0 ||
+              parsed.stalls?.length > 0 ||
+              parsed.facilities?.length > 0 ||
+              parsed.backgroundImageUrl)
+          ) {
+            if (parsed.halls) setHalls(parsed.halls);
+            if (parsed.stalls) setStalls(parsed.stalls);
+            if (parsed.facilities) setFacilities(parsed.facilities);
+            if (parsed.annotations) setAnnotations(parsed.annotations);
+            if (parsed.backgroundImageUrl) setBackgroundImageUrl(parsed.backgroundImageUrl);
+            if (parsed.backgroundOpacity !== undefined) setBackgroundOpacity(parsed.backgroundOpacity);
+            if (parsed.canvasWidth && parsed.canvasHeight) {
+              setCanvasDimensions({ width: parsed.canvasWidth, height: parsed.canvasHeight });
+            }
+            setRestoredFromBackup(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not restore studio draft from localStorage', e);
+      }
+    }
+  }, [autoSaveKey, initialLayoutData, initialStalls]);
+
+  // Continuously persist state to localStorage on every change
+  useEffect(() => {
+    try {
+      const draft = {
+        halls,
+        facilities,
+        annotations,
+        stalls,
+        canvasWidth,
+        canvasHeight,
+        backgroundImageUrl,
+        backgroundOpacity,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(autoSaveKey, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('Auto-save failed', e);
+    }
+  }, [halls, facilities, annotations, stalls, canvasWidth, canvasHeight, backgroundImageUrl, backgroundOpacity, autoSaveKey]);
+
+  // Window beforeunload listener
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        const draft = {
+          halls,
+          facilities,
+          annotations,
+          stalls,
+          canvasWidth,
+          canvasHeight,
+          backgroundImageUrl,
+          backgroundOpacity,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(autoSaveKey, JSON.stringify(draft));
+      } catch (e) {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [halls, facilities, annotations, stalls, canvasWidth, canvasHeight, backgroundImageUrl, backgroundOpacity, autoSaveKey]);
+
+  // Real-time bidirectional layout synchronizer with parent wizard
+  const onChangeLayoutRef = useRef(onChangeLayout);
+  onChangeLayoutRef.current = onChangeLayout;
+  useEffect(() => {
+    if (onChangeLayoutRef.current) {
+      const currentLayout: FloorPlanLayoutData = {
+        canvasWidth,
+        canvasHeight,
+        gridSize: pxPerMeter,
+        snapInterval,
+        halls,
+        facilities,
+        annotations,
+        backgroundImageUrl,
+        backgroundOpacity,
+      };
+      onChangeLayoutRef.current({ layoutData: currentLayout, stalls });
+    }
+  }, [
+    halls,
+    facilities,
+    annotations,
+    stalls,
+    canvasWidth,
+    canvasHeight,
+    pxPerMeter,
+    snapInterval,
+    backgroundImageUrl,
+    backgroundOpacity,
+  ]);
 
   // Selection
   const [selectedRefs, setSelectedRefs] = useState<SelectedItemReference[]>([]);
@@ -184,6 +258,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     width: number;
     height: number;
   } | null>(null);
+  const [resizeNeighbors, setResizeNeighbors] = useState<Array<{ id: string; origX: number; origY: number }>>([]);
 
   // Marquee Selection Box
   const [marqueeBox, setMarqueeBox] = useState<{
@@ -191,7 +266,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     startY: number;
     currX: number;
     currY: number;
+    startInsideHallId?: string | null;
   } | null>(null);
+
+  // Track last canvas click coordinates for viewport-aware smart element placement
+  const lastCanvasClickPos = useRef<{ x: number; y: number } | null>(null);
 
   // Undo / Redo History Stack
   const [history, setHistory] = useState<
@@ -289,6 +368,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     []
   );
 
+  // Fit to screen calculation
+  const handleFitToScreen = useCallback(() => {
+    if (!containerRef.current) return;
+    const containerW = containerRef.current.clientWidth - 40;
+    const containerH = containerRef.current.clientHeight - 40;
+    const scaleX = containerW / canvasWidth;
+    const scaleY = containerH / canvasHeight;
+    const optimalScale = Math.min(scaleX, scaleY);
+    setZoomLevel(Math.max(25, Math.min(150, Math.round(optimalScale * 100))));
+    setPanOffset({ x: 0, y: 0 });
+  }, [canvasWidth, canvasHeight]);
+
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -298,8 +389,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         return;
       }
 
-      if (e.key === 'v' || e.key === 'V') {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      } else if (e.key === 'v' || e.key === 'V') {
         setActiveTool('select');
+      } else if (e.key === 'm' || e.key === 'M') {
+        setActiveTool('marquee');
       } else if (e.key === 'h' || e.key === 'H') {
         setActiveTool('pan');
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -327,6 +423,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       } else if (e.key === ']') {
         e.preventDefault();
         setIsRightCollapsed((prev) => !prev);
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        setZoomLevel((prev) => Math.min(200, prev + 10));
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        setZoomLevel((prev) => Math.max(25, prev - 10));
+      } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setZoomLevel(100);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        handleFitToScreen();
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Nudge selected items
         if (!isReadOnly && selectedRefs.length > 0) {
@@ -339,9 +447,20 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsSpacePressed(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedRefs, isReadOnly, handleUndo, handleRedo, snapToGrid, snapInterval, pxPerMeter]);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [selectedRefs, isReadOnly, handleUndo, handleRedo, snapToGrid, snapInterval, pxPerMeter, handleFitToScreen]);
 
   // Nudge selected items by (dx, dy)
   const nudgeSelected = (dx: number, dy: number) => {
@@ -377,17 +496,70 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     pushHistory(nextHalls, nextFacs, nextAnns, nextStalls);
   };
 
-  // Add Handlers
+  // Helper to compute smart spawn coordinates:
+  // Spawns items centered in the current visible screen viewport (or at last clicked spot if visible)
+  const getNewItemSpawnCoordinates = (itemWidth = 60, itemHeight = 60) => {
+    if (containerRef.current && svgRef.current) {
+      const contRect = containerRef.current.getBoundingClientRect();
+      const svgRect = svgRef.current.getBoundingClientRect();
+      const scale = zoomLevel / 100;
+
+      // Screen center of the visible workspace container
+      const centerScreenX = contRect.left + contRect.width / 2;
+      const centerScreenY = contRect.top + contRect.height / 2;
+
+      const canvasCenterX = (centerScreenX - svgRect.left) / scale;
+      const canvasCenterY = (centerScreenY - svgRect.top) / scale;
+
+      let targetX = canvasCenterX - itemWidth / 2;
+      let targetY = canvasCenterY - itemHeight / 2;
+
+      // If last clicked canvas position is currently visible on screen, prioritize placing there!
+      if (lastCanvasClickPos.current) {
+        const screenX = svgRect.left + lastCanvasClickPos.current.x * scale;
+        const screenY = svgRect.top + lastCanvasClickPos.current.y * scale;
+        const isVisible =
+          screenX >= contRect.left + 30 &&
+          screenX <= contRect.right - 30 &&
+          screenY >= contRect.top + 30 &&
+          screenY <= contRect.bottom - 30;
+
+        if (isVisible) {
+          targetX = lastCanvasClickPos.current.x - itemWidth / 2;
+          targetY = lastCanvasClickPos.current.y - itemHeight / 2;
+        }
+      }
+
+      // Clamp within canvas boundaries with safe margin
+      const clampedX = Math.max(20, Math.min(canvasWidth - itemWidth - 20, targetX));
+      const clampedY = Math.max(20, Math.min(canvasHeight - itemHeight - 20, targetY));
+
+      return {
+        x: snapCoord(clampedX),
+        y: snapCoord(clampedY),
+      };
+    }
+
+    return { x: snapCoord(140), y: snapCoord(160) };
+  };
+
+  // Add Handlers (Spawn right where the user is looking or last clicked)
   const handleAddHall = () => {
+    const hallLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nextLetter = hallLetters[halls.length % hallLetters.length] || `${halls.length + 1}`;
     const nextNum = halls.length + 1;
+    const hallW = Math.min(1100, canvasWidth - 60);
+    const hallH = Math.min(750, canvasHeight - 60);
+    const spawnPos = getNewItemSpawnCoordinates(hallW, hallH);
+
     const newHall: HallZone = {
       id: `hall-${Date.now()}`,
-      name: `Pavilion Hall ${nextNum}`,
-      x: snapCoord(60 + (nextNum - 1) * 40),
-      y: snapCoord(60 + (nextNum - 1) * 40),
-      width: snapCoord(500),
-      height: snapCoord(400),
-      color: nextNum % 2 === 0 ? '#8b5cf6' : '#3b82f6',
+      name: `Hall ${nextLetter}`,
+      x: spawnPos.x,
+      y: spawnPos.y,
+      width: snapCoord(hallW),
+      height: snapCoord(hallH),
+      color: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][(nextNum - 1) % 6],
     };
     const nextHalls = [...halls, newHall];
     setHalls(nextHalls);
@@ -396,8 +568,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   };
 
   const handleAddStall = () => {
-    const nextNum = stalls.length + 1;
-    const numStr = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+    const existingNums = new Set(stalls.map((s) => s.stallNumber.toUpperCase()));
+    let nextNum = stalls.length + 1;
+    let numStr = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+    while (existingNums.has(`S-${numStr}`.toUpperCase())) {
+      nextNum++;
+      numStr = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+    }
+    const spawnPos = getNewItemSpawnCoordinates(60, 60);
+    const cascade = (nextNum % 6) * 16;
+
     const newStall: DraftStallItem = {
       id: `stall-${Date.now()}`,
       stallNumber: `S-${numStr}`,
@@ -407,8 +587,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       areaSqFt: 100,
       width: 60, // 3m
       height: 60, // 3m
-      xPosition: snapCoord(140 + (nextNum % 6) * 80),
-      yPosition: snapCoord(160 + Math.floor(nextNum / 6) * 80),
+      xPosition: snapCoord(Math.min(canvasWidth - 70, spawnPos.x + cascade)),
+      yPosition: snapCoord(Math.min(canvasHeight - 70, spawnPos.y + cascade)),
       status: 'AVAILABLE',
     };
     const nextStalls = [...stalls, newStall];
@@ -431,14 +611,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       corridor: 'CONNECTING AISLE',
     };
 
+    const facW = snapCoord(type === 'stage' ? 300 : type === 'entrance' ? 240 : 180);
+    const facH = snapCoord(type === 'stage' ? 60 : 36);
+    const spawnPos = getNewItemSpawnCoordinates(facW, facH);
+
     const newFac: FacilityObject = {
       id: `fac-${Date.now()}`,
       type,
       label: defaultLabels[type] || 'FACILITY',
-      x: snapCoord(400),
-      y: snapCoord(type === 'entrance' ? 760 : 100),
-      width: snapCoord(type === 'stage' ? 300 : type === 'entrance' ? 240 : 180),
-      height: snapCoord(type === 'stage' ? 60 : 36),
+      x: spawnPos.x,
+      y: spawnPos.y,
+      width: facW,
+      height: facH,
       rotation: 0,
     };
 
@@ -449,12 +633,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   };
 
   const handleAddZone = () => {
+    const spawnPos = getNewItemSpawnCoordinates(240, 140);
     const newZone: FacilityObject = {
       id: `zone-${Date.now()}`,
       type: 'custom-zone',
       label: 'VIP & MEDIA NETWORKING ZONE',
-      x: snapCoord(100),
-      y: snapCoord(100),
+      x: spawnPos.x,
+      y: spawnPos.y,
       width: snapCoord(240),
       height: snapCoord(140),
     };
@@ -465,11 +650,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   };
 
   const handleAddText = () => {
+    const spawnPos = getNewItemSpawnCoordinates(140, 30);
     const newAnn: AnnotationObject = {
       id: `ann-${Date.now()}`,
       text: 'Exhibition Hall Notice',
-      x: snapCoord(200),
-      y: snapCoord(200),
+      x: spawnPos.x,
+      y: spawnPos.y,
       fontSize: 14,
     };
     const nextAnns = [...annotations, newAnn];
@@ -499,9 +685,94 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     pushHistory(tmpl.layoutData.halls, tmpl.layoutData.facilities, tmpl.layoutData.annotations, tmpl.stalls);
   };
 
-  // Property Update Handlers
-  const handleUpdateStall = (id: string, updates: Partial<DraftStallItem>) => {
-    const nextStalls = stalls.map((s) => (s.id === id ? { ...s, ...updates } : s));
+  // Property Update Handlers (with Single Stall Push / Pull Adjacent Row Neighbors)
+  const handleUpdateStall = (
+    id: string,
+    updates: Partial<DraftStallItem>,
+    options?: { pushNeighbors?: boolean }
+  ) => {
+    const target = stalls.find((s) => s.id === id);
+    if (!target) return;
+
+    const deltaW = updates.width !== undefined ? updates.width - target.width : 0;
+    const deltaH = updates.height !== undefined ? updates.height - target.height : 0;
+
+    let nextStalls = stalls.map((s) => (s.id === id ? { ...s, ...updates } : s));
+
+    if (options?.pushNeighbors !== false && (deltaW !== 0 || deltaH !== 0)) {
+      // 1. Shift contiguous row neighbors to the right
+      if (deltaW !== 0) {
+        const rowNeighbors = stalls.filter((s) => {
+          if (s.id === id) return false;
+          const verticalOverlap =
+            Math.max(target.yPosition, s.yPosition) <
+            Math.min(target.yPosition + target.height, s.yPosition + s.height) - 5;
+          const isToRight = s.xPosition >= target.xPosition + target.width - 16;
+          return verticalOverlap && isToRight;
+        });
+
+        rowNeighbors.sort((a, b) => a.xPosition - b.xPosition);
+
+        const shiftedIds = new Set<string>();
+        let currentRightEdge = target.xPosition + target.width;
+
+        for (const neighbor of rowNeighbors) {
+          if (neighbor.xPosition <= currentRightEdge + 16) {
+            shiftedIds.add(neighbor.id);
+            currentRightEdge = neighbor.xPosition + neighbor.width;
+          }
+        }
+
+        if (shiftedIds.size > 0) {
+          nextStalls = nextStalls.map((s) => {
+            if (shiftedIds.has(s.id)) {
+              return {
+                ...s,
+                xPosition: snapCoord(Math.max(0, Math.min(canvasWidth - s.width, s.xPosition + deltaW))),
+              };
+            }
+            return s;
+          });
+        }
+      }
+
+      // 2. Shift contiguous column neighbors below
+      if (deltaH !== 0) {
+        const colNeighbors = stalls.filter((s) => {
+          if (s.id === id) return false;
+          const horizontalOverlap =
+            Math.max(target.xPosition, s.xPosition) <
+            Math.min(target.xPosition + target.width, s.xPosition + s.width) - 5;
+          const isBelow = s.yPosition >= target.yPosition + target.height - 16;
+          return horizontalOverlap && isBelow;
+        });
+
+        colNeighbors.sort((a, b) => a.yPosition - b.yPosition);
+
+        const shiftedIds = new Set<string>();
+        let currentBottomEdge = target.yPosition + target.height;
+
+        for (const neighbor of colNeighbors) {
+          if (neighbor.yPosition <= currentBottomEdge + 16) {
+            shiftedIds.add(neighbor.id);
+            currentBottomEdge = neighbor.yPosition + neighbor.height;
+          }
+        }
+
+        if (shiftedIds.size > 0) {
+          nextStalls = nextStalls.map((s) => {
+            if (shiftedIds.has(s.id)) {
+              return {
+                ...s,
+                yPosition: snapCoord(Math.max(0, Math.min(canvasHeight - s.height, s.yPosition + deltaH))),
+              };
+            }
+            return s;
+          });
+        }
+      }
+    }
+
     setStalls(nextStalls);
     pushHistory(halls, facilities, annotations, nextStalls);
   };
@@ -528,6 +799,232 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const handleBulkUpdateStalls = (updates: Partial<DraftStallItem>) => {
     const selectedIds = new Set(selectedRefs.filter((r) => r.type === 'stall').map((r) => r.id));
     const nextStalls = stalls.map((s) => (selectedIds.has(s.id) ? { ...s, ...updates } : s));
+    setStalls(nextStalls);
+    pushHistory(halls, facilities, annotations, nextStalls);
+  };
+
+  // Bulk Stalls Resize (Reduce / Enlarge / Preset Dimensions with Flush Row & Column Reflow)
+  const handleBulkResizeStalls = (params: {
+    width?: number;
+    height?: number;
+    scaleMultiplier?: number;
+    deltaPx?: number;
+    keepFlush?: boolean;
+  }) => {
+    const selectedIds = new Set(selectedRefs.filter((r) => r.type === 'stall').map((r) => r.id));
+    if (selectedIds.size === 0) return;
+
+    const keepFlush = params.keepFlush !== false; // Default: maintain flush contact with no gaps
+
+    // 1. Calculate new dimensions for all selected stalls
+    const newDims = new Map<string, { width: number; height: number; areaSqFt: number }>();
+    stalls.forEach((s) => {
+      if (!selectedIds.has(s.id)) return;
+
+      let newW = s.width;
+      let newH = s.height;
+
+      if (params.width !== undefined) newW = params.width;
+      if (params.height !== undefined) newH = params.height;
+
+      if (params.scaleMultiplier !== undefined) {
+        newW = Math.max(30, Math.round(s.width * params.scaleMultiplier));
+        newH = Math.max(30, Math.round(s.height * params.scaleMultiplier));
+      }
+
+      if (params.deltaPx !== undefined) {
+        newW = Math.max(30, s.width + params.deltaPx);
+        newH = Math.max(30, s.height + params.deltaPx);
+      }
+
+      newW = snapCoord(newW);
+      newH = snapCoord(newH);
+      const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
+      newDims.set(s.id, { width: newW, height: newH, areaSqFt });
+    });
+
+    // 2. Reflow positions so adjacent stalls keep 0 gap
+    const posUpdates = new Map<string, { x: number; y: number }>();
+
+    if (keepFlush) {
+      const selectedList = stalls.filter((s) => selectedIds.has(s.id));
+
+      // Partition stalls into rows:
+      const rows: DraftStallItem[][] = [];
+      const sortedByY = [...selectedList].sort((a, b) => a.yPosition - b.yPosition);
+
+      sortedByY.forEach((stall) => {
+        const matchingRow = rows.find((row) => {
+          const first = row[0];
+          const overlap =
+            Math.max(stall.yPosition, first.yPosition) <
+            Math.min(stall.yPosition + stall.height, first.yPosition + first.height) - 5;
+          const closeY = Math.abs(stall.yPosition - first.yPosition) <= 16;
+          return overlap || closeY;
+        });
+
+        if (matchingRow) {
+          matchingRow.push(stall);
+        } else {
+          rows.push([stall]);
+        }
+      });
+
+      // Sort rows by vertical position
+      rows.sort((r1, r2) => {
+        const y1 = r1.reduce((acc, s) => acc + s.yPosition, 0) / r1.length;
+        const y2 = r2.reduce((acc, s) => acc + s.yPosition, 0) / r2.length;
+        return y1 - y2;
+      });
+
+      let prevRowEndY: number | null = null;
+      let prevRowOrigEndY: number | null = null;
+
+      rows.forEach((row, rowIndex) => {
+        // Sort stalls in this row from left to right
+        row.sort((a, b) => a.xPosition - b.xPosition);
+
+        const firstInRow = row[0];
+        let rowY = firstInRow.yPosition;
+
+        if (rowIndex > 0 && prevRowEndY !== null && prevRowOrigEndY !== null) {
+          const origRowGap = firstInRow.yPosition - prevRowOrigEndY;
+          // If rows were touching back-to-back:
+          if (origRowGap <= 16) {
+            rowY = prevRowEndY;
+          } else {
+            rowY = prevRowEndY + origRowGap;
+          }
+        }
+
+        let currentX = row[0].xPosition;
+        let maxRowH = 0;
+        let maxOrigRowH = 0;
+
+        row.forEach((stall, idx) => {
+          const dims = newDims.get(stall.id)!;
+          maxRowH = Math.max(maxRowH, dims.height);
+          maxOrigRowH = Math.max(maxOrigRowH, stall.height);
+
+          let newX = stall.xPosition;
+          if (idx === 0) {
+            newX = stall.xPosition;
+            currentX = newX + dims.width;
+          } else {
+            const prevStall = row[idx - 1];
+            const origGap = stall.xPosition - (prevStall.xPosition + prevStall.width);
+            if (origGap <= 16) {
+              // Touching / Flush: NO GAP!
+              newX = currentX;
+            } else {
+              // Preserve intentional aisle distance
+              newX = currentX + origGap;
+            }
+            currentX = newX + dims.width;
+          }
+
+          posUpdates.set(stall.id, {
+            x: snapCoord(Math.max(0, Math.min(canvasWidth - dims.width, newX))),
+            y: snapCoord(Math.max(0, Math.min(canvasHeight - dims.height, rowY))),
+          });
+        });
+
+        prevRowEndY = rowY + maxRowH;
+        prevRowOrigEndY = firstInRow.yPosition + maxOrigRowH;
+      });
+    }
+
+    const nextStalls = stalls.map((s) => {
+      if (!selectedIds.has(s.id)) return s;
+      const dims = newDims.get(s.id);
+      if (!dims) return s;
+      const pos = posUpdates.get(s.id);
+      return {
+        ...s,
+        width: dims.width,
+        height: dims.height,
+        areaSqFt: dims.areaSqFt,
+        xPosition: pos ? pos.x : s.xPosition,
+        yPosition: pos ? pos.y : s.yPosition,
+      };
+    });
+
+    setStalls(nextStalls);
+    pushHistory(halls, facilities, annotations, nextStalls);
+  };
+
+  // Pack Selected Stalls 100% Flush (Remove all gaps)
+  const handlePackFlushStalls = () => {
+    const selectedStallIds = selectedRefs.filter((r) => r.type === 'stall').map((r) => r.id);
+    const targetStalls = stalls.filter((s) => selectedStallIds.includes(s.id));
+    if (targetStalls.length < 2) return;
+
+    // Group into horizontal rows
+    const rows: DraftStallItem[][] = [];
+    const sortedByY = [...targetStalls].sort((a, b) => a.yPosition - b.yPosition);
+
+    sortedByY.forEach((stall) => {
+      const matchingRow = rows.find((row) => {
+        const first = row[0];
+        const overlap =
+          Math.max(stall.yPosition, first.yPosition) <
+          Math.min(stall.yPosition + stall.height, first.yPosition + first.height) - 5;
+        const closeY = Math.abs(stall.yPosition - first.yPosition) <= 20;
+        return overlap || closeY;
+      });
+
+      if (matchingRow) {
+        matchingRow.push(stall);
+      } else {
+        rows.push([stall]);
+      }
+    });
+
+    rows.sort((r1, r2) => {
+      const y1 = r1.reduce((acc, s) => acc + s.yPosition, 0) / r1.length;
+      const y2 = r2.reduce((acc, s) => acc + s.yPosition, 0) / r2.length;
+      return y1 - y2;
+    });
+
+    const posUpdates = new Map<string, { x: number; y: number }>();
+    let prevRowEndY: number | null = null;
+
+    rows.forEach((row, rowIndex) => {
+      row.sort((a, b) => a.xPosition - b.xPosition);
+
+      let rowY = row[0].yPosition;
+      if (rowIndex > 0 && prevRowEndY !== null) {
+        if (Math.abs(row[0].yPosition - prevRowEndY) <= 30) {
+          rowY = prevRowEndY;
+        }
+      }
+
+      let currentX = row[0].xPosition;
+      let maxH = 0;
+
+      row.forEach((stall, idx) => {
+        maxH = Math.max(maxH, stall.height);
+        if (idx === 0) {
+          currentX = stall.xPosition + stall.width;
+          posUpdates.set(stall.id, { x: stall.xPosition, y: rowY });
+        } else {
+          const newX = snapCoord(currentX);
+          posUpdates.set(stall.id, { x: newX, y: rowY });
+          currentX = newX + stall.width;
+        }
+      });
+
+      prevRowEndY = rowY + maxH;
+    });
+
+    const nextStalls = stalls.map((s) => {
+      const update = posUpdates.get(s.id);
+      if (update) {
+        return { ...s, xPosition: update.x, yPosition: update.y };
+      }
+      return s;
+    });
+
     setStalls(nextStalls);
     pushHistory(halls, facilities, annotations, nextStalls);
   };
@@ -625,8 +1122,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             if (match) {
               const prefix = match[1];
               const digits = match[2];
-              const nextVal = parseInt(digits, 10) + c;
+              let nextVal = parseInt(digits, 10) + c;
               nextStallNum = `${prefix}${nextVal.toString().padStart(digits.length, '0')}`;
+              while (
+                stalls.some((s) => s.stallNumber.toUpperCase() === nextStallNum.toUpperCase()) ||
+                newStallsToAdd.some((s) => s.stallNumber.toUpperCase() === nextStallNum.toUpperCase())
+              ) {
+                nextVal++;
+                nextStallNum = `${prefix}${nextVal.toString().padStart(digits.length, '0')}`;
+              }
             }
 
             const cloned: DraftStallItem = {
@@ -683,37 +1187,36 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     pushHistory(nextHalls, nextFacs, nextAnns, nextStalls);
   };
 
-  // Fit to screen calculation
-  const handleFitToScreen = () => {
-    if (!containerRef.current) return;
-    const containerW = containerRef.current.clientWidth - 40;
-    const containerH = containerRef.current.clientHeight - 40;
-    const scaleX = containerW / canvasWidth;
-    const scaleY = containerH / canvasHeight;
-    const optimalScale = Math.min(scaleX, scaleY);
-    setZoomLevel(Math.max(40, Math.min(150, Math.round(optimalScale * 100))));
-    setPanOffset({ x: 0, y: 0 });
+  // Delete Hall Directly
+  const handleDeleteHall = (hallId: string) => {
+    if (isReadOnly) return;
+    const nextHalls = halls.filter((h) => h.id !== hallId);
+    setHalls(nextHalls);
+    setSelectedRefs((prev) => prev.filter((r) => !(r.type === 'hall' && r.id === hallId)));
+    pushHistory(nextHalls, facilities, annotations, stalls);
   };
 
   // Canvas Mouse Down (Selection, Dragging, Pan, Marquee)
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    // If pan tool or middle click or space key held: start canvas panning
-    if (activeTool === 'pan' || e.button === 1) {
+    // In preview mode, pan tool, middle click (1), right click (2), or Space key held: pan around canvas like in Google Maps!
+    if (isReadOnly || activeTool === 'pan' || e.button === 1 || e.button === 2 || isSpacePressed) {
+      e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
       return;
     }
 
     if (e.button !== 0) return; // Only primary button
+    e.preventDefault(); // Stop browser native selection or drag
 
     const pt = getSVGCoordinates(e);
+    lastCanvasClickPos.current = { x: pt.x, y: pt.y };
 
     // If clicked on canvas background:
-    // If shift key held or select tool: start marquee selection box
     if (!e.shiftKey) {
       setSelectedRefs([]);
     }
-    setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y });
+    setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y, startInsideHallId: null });
   };
 
   // Item Click & Drag Initiation
@@ -724,13 +1227,19 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   ) => {
     e.stopPropagation();
 
-    if (activeTool === 'pan') {
+    // In preview mode or if panning/space/right-click: pan map instead of dragging item
+    if (isReadOnly || activeTool === 'pan' || e.button === 1 || e.button === 2 || isSpacePressed) {
+      e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
       return;
     }
 
     if (e.button !== 0) return;
+    e.preventDefault();
+
+    const pt = getSVGCoordinates(e);
+    lastCanvasClickPos.current = { x: pt.x, y: pt.y };
 
     // Shift-click toggles selection
     if (e.shiftKey) {
@@ -753,7 +1262,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     if (isReadOnly) return;
 
     // Start object drag
-    const pt = getSVGCoordinates(e);
     setIsDraggingObj(true);
     setDragStartPos({ x: pt.x, y: pt.y });
 
@@ -789,6 +1297,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     height: number
   ) => {
     e.stopPropagation();
+    e.preventDefault();
     if (isReadOnly) return;
 
     setIsResizing(true);
@@ -796,11 +1305,63 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     setResizeInitial({ id, type, x, y, width, height });
     const pt = getSVGCoordinates(e);
     setDragStartPos({ x: pt.x, y: pt.y });
+
+    if (type === 'stall') {
+      const targetStall = stalls.find((s) => s.id === id);
+      if (targetStall) {
+        const neighborCoords: Array<{ id: string; origX: number; origY: number }> = [];
+        if (handle.includes('e')) {
+          // Chain of contiguous stalls in same row to the right
+          const rowNeighbors = stalls.filter((s) => {
+            if (s.id === id) return false;
+            const verticalOverlap =
+              Math.max(targetStall.yPosition, s.yPosition) <
+              Math.min(targetStall.yPosition + targetStall.height, s.yPosition + s.height) - 5;
+            const isToRight = s.xPosition >= targetStall.xPosition + targetStall.width - 16;
+            return verticalOverlap && isToRight;
+          });
+          rowNeighbors.sort((a, b) => a.xPosition - b.xPosition);
+          let currentRight = targetStall.xPosition + targetStall.width;
+          for (const nb of rowNeighbors) {
+            if (nb.xPosition <= currentRight + 16) {
+              neighborCoords.push({ id: nb.id, origX: nb.xPosition, origY: nb.yPosition });
+              currentRight = nb.xPosition + nb.width;
+            }
+          }
+        } else if (handle.includes('s')) {
+          // Chain of contiguous stalls in same column below
+          const colNeighbors = stalls.filter((s) => {
+            if (s.id === id) return false;
+            const horizontalOverlap =
+              Math.max(targetStall.xPosition, s.xPosition) <
+              Math.min(targetStall.xPosition + targetStall.width, s.xPosition + s.width) - 5;
+            const isBelow = s.yPosition >= targetStall.yPosition + targetStall.height - 16;
+            return horizontalOverlap && isBelow;
+          });
+          colNeighbors.sort((a, b) => a.yPosition - b.yPosition);
+          let currentBottom = targetStall.yPosition + targetStall.height;
+          for (const nb of colNeighbors) {
+            if (nb.yPosition <= currentBottom + 16) {
+              neighborCoords.push({ id: nb.id, origX: nb.xPosition, origY: nb.yPosition });
+              currentBottom = nb.yPosition + nb.height;
+            }
+          }
+        }
+        setResizeNeighbors(neighborCoords);
+      } else {
+        setResizeNeighbors([]);
+      }
+    } else {
+      setResizeNeighbors([]);
+    }
   };
 
   // Canvas Mouse Move
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+  const handleCanvasMouseMove = (e: React.MouseEvent | MouseEvent) => {
     if (isPanning) {
+      if ('preventDefault' in e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+      }
       setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
       return;
     }
@@ -841,15 +1402,34 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
       if (resizeInitial.type === 'stall') {
         const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
+        const deltaW = newW - resizeInitial.width;
+        const deltaH = newH - resizeInitial.height;
+        const neighborMap = new Map(resizeNeighbors.map((n) => [n.id, n]));
+
         setStalls((prev) =>
-          prev.map((s) =>
-            s.id === resizeInitial.id ? { ...s, xPosition: newX, yPosition: newY, width: newW, height: newH, areaSqFt } : s
-          )
+          prev.map((s) => {
+            if (s.id === resizeInitial.id) {
+              return { ...s, xPosition: newX, yPosition: newY, width: newW, height: newH, areaSqFt };
+            }
+            if (neighborMap.has(s.id)) {
+              const orig = neighborMap.get(s.id)!;
+              const nx = resizeHandle.includes('e') ? snapCoord(orig.origX + deltaW) : s.xPosition;
+              const ny = resizeHandle.includes('s') ? snapCoord(orig.origY + deltaH) : s.yPosition;
+              return { ...s, xPosition: nx, yPosition: ny };
+            }
+            return s;
+          })
         );
       } else if (resizeInitial.type === 'hall') {
         setHalls((prev) =>
           prev.map((h) =>
             h.id === resizeInitial.id ? { ...h, x: newX, y: newY, width: newW, height: newH } : h
+          )
+        );
+      } else if (resizeInitial.type === 'facility') {
+        setFacilities((prev) =>
+          prev.map((f) =>
+            f.id === resizeInitial.id ? { ...f, x: newX, y: newY, width: newW, height: newH } : f
           )
         );
       }
@@ -917,28 +1497,95 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       setIsResizing(false);
       setResizeHandle(null);
       setResizeInitial(null);
+      setResizeNeighbors([]);
       pushHistory(halls, facilities, annotations, stalls);
     }
 
     if (marqueeBox) {
-      // Find objects enclosed in marquee box
+      // Find objects enclosed or intersecting marquee box
       const minX = Math.min(marqueeBox.startX, marqueeBox.currX);
       const maxX = Math.max(marqueeBox.startX, marqueeBox.currX);
       const minY = Math.min(marqueeBox.startY, marqueeBox.currY);
       const maxY = Math.max(marqueeBox.startY, marqueeBox.currY);
 
-      // Only perform marquee selection if dragged more than 5px
-      if (maxX - minX > 5 || maxY - minY > 5) {
+      // Check if dragged more than 4px (marquee selection box)
+      const isDrag = maxX - minX > 4 || maxY - minY > 4;
+
+      if (isDrag) {
         const foundRefs: SelectedItemReference[] = [];
+
+        // 1. Multi-select Stalls
         stalls.forEach((s) => {
-          if (s.xPosition >= minX && s.xPosition + s.width <= maxX && s.yPosition >= minY && s.yPosition + s.height <= maxY) {
+          const overlaps = !(
+            s.xPosition > maxX ||
+            s.xPosition + s.width < minX ||
+            s.yPosition > maxY ||
+            s.yPosition + s.height < minY
+          );
+          if (overlaps) {
             foundRefs.push({ type: 'stall', id: s.id });
           }
         });
-        if (foundRefs.length > 0) {
-          setSelectedRefs(foundRefs);
+
+        // 2. Multi-select Facilities & Amenities
+        facilities.forEach((f) => {
+          const fW = f.width || 60;
+          const fH = f.height || 60;
+          const overlaps = !(
+            f.x > maxX ||
+            f.x + fW < minX ||
+            f.y > maxY ||
+            f.y + fH < minY
+          );
+          if (overlaps) {
+            foundRefs.push({ type: 'facility', id: f.id });
+          }
+        });
+
+        // 3. Multi-select Annotations & Labels
+        annotations.forEach((a) => {
+          const fontSize = a.fontSize || 12;
+          const aW = Math.max(60, a.text.length * fontSize * 0.65);
+          const aH = fontSize * 1.5;
+          const overlaps = !(
+            a.x > maxX ||
+            a.x + aW < minX ||
+            a.y - aH > maxY ||
+            a.y + aH < minY
+          );
+          if (overlaps) {
+            foundRefs.push({ type: 'annotation', id: a.id });
+          }
+        });
+
+        // 4. Halls:
+        // Rule: If user started drag INSIDE this hall, DO NOT select the hall (prevents accidental deletion of the container)
+        // If user started drag OUTSIDE this hall, DO select the hall if it overlaps
+        halls.forEach((h) => {
+          if (marqueeBox.startInsideHallId === h.id) return;
+          const overlaps = !(
+            h.x > maxX ||
+            h.x + h.width < minX ||
+            h.y > maxY ||
+            h.y + h.height < minY
+          );
+          if (overlaps) {
+            foundRefs.push({ type: 'hall', id: h.id });
+          }
+        });
+
+        setSelectedRefs(foundRefs);
+      } else {
+        // Single click without drag (>4px)
+        if (marqueeBox.startInsideHallId) {
+          // User clicked inside a hall: select the hall!
+          setSelectedRefs([{ type: 'hall', id: marqueeBox.startInsideHallId }]);
+        } else {
+          // User clicked empty canvas background: deselect
+          setSelectedRefs([]);
         }
       }
+
       setMarqueeBox(null);
     }
   };
@@ -955,20 +1602,80 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         halls,
         facilities,
         annotations,
+        backgroundImageUrl,
+        backgroundOpacity,
       };
       await onSaveLayout({ layoutData, stalls });
+      // Keep autoSaveKey active so unexpected network drops or wizard step changes never erase user work
     } catch (err: any) {
-      alert(err.message || 'Failed to save floor plan layout.');
+      console.error('Failed to save layout:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to save floor plan layout.');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const mouseMoveRef = useRef(handleCanvasMouseMove);
+  mouseMoveRef.current = handleCanvasMouseMove;
+  const mouseUpRef = useRef(handleCanvasMouseUp);
+  mouseUpRef.current = handleCanvasMouseUp;
+
+  // Window-level mouse move & mouse up so dragging/panning/marquee never gets stuck or interrupted by browser
+  useEffect(() => {
+    if (!isPanning && !isDraggingObj && !isResizing && !marqueeBox) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      mouseMoveRef.current(e);
+    };
+
+    const onGlobalMouseUp = () => {
+      mouseUpRef.current();
+    };
+
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+    };
+  }, [isPanning, isDraggingObj, isResizing, !!marqueeBox]);
+
+  // Native non-passive wheel listener on containerRef to prevent browser zoom & page scroll
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      // Prevent browser webpage zoom, outer page scroll, and swipe navigation
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.ctrlKey || e.metaKey) {
+        // Pinch-to-zoom on trackpad or Ctrl+Wheel: smoothly adjust studio zoom
+        const zoomStep = 8;
+        const delta = e.deltaY < 0 ? zoomStep : -zoomStep;
+        setZoomLevel((prev) => Math.max(25, Math.min(200, prev + delta)));
+      } else {
+        // 2-finger trackpad scroll or mouse wheel: smoothly pan canvas
+        setPanOffset((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
+      }
+    };
+
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheelNative);
+    };
+  }, []);
+
   const selectedSingleRef = selectedRefs.length === 1 ? selectedRefs[0] : null;
 
   return (
     <div
-      className={`relative flex flex-col bg-slate-900 text-slate-100 select-none overflow-hidden ${
+      className={`relative flex flex-col bg-slate-100 text-slate-900 select-none overflow-hidden ${
         isFullscreen ? 'fixed inset-0 z-50' : 'h-[calc(100vh-4.5rem)] rounded-2xl border border-slate-200'
       }`}
     >
@@ -1001,6 +1708,19 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Background Blueprint Image Modal Trigger */}
+          <button
+            onClick={() => setIsBgModalOpen(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+              backgroundImageUrl
+                ? 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+            <span>{backgroundImageUrl ? 'Blueprint Set' : 'Add Blueprint Image'}</span>
+          </button>
+
           {/* Mode Switch: Edit vs Preview */}
           <button
             onClick={() => setIsReadOnly(!isReadOnly)}
@@ -1014,51 +1734,51 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             {isReadOnly ? 'Switch to Edit' : 'Preview Floor Plan'}
           </button>
 
-          {/* Max Canvas Space Mode (Sideways expansion) */}
-          <button
-            onClick={handleToggleMaxCanvas}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-              isMaxCanvas
-                ? 'bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-            }`}
-            title={
-              isMaxCanvas
-                ? 'Restore sidebars (Toolbox & Inspector)'
-                : 'Full View Mode: Maximize sideways canvas drawing area'
-            }
-          >
-            {isMaxCanvas ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5 text-purple-700" />
-                <span>Sidebars Minimized</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5 text-slate-600" />
-                <span>Max Canvas Space</span>
-              </>
-            )}
-          </button>
-
           {/* Fullscreen Toggle */}
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Studio'}
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
+
+          {/* Undo / Redo */}
+          {!isReadOnly && (
+            <div className="flex items-center border-l border-slate-200 pl-2 ml-1 gap-1">
+              <button
+                onClick={handleUndo}
+                disabled={historyIndex <= 0}
+                className={`p-2 rounded-lg transition-colors ${
+                  historyIndex <= 0
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+                className={`p-2 rounded-lg transition-colors ${
+                  historyIndex >= history.length - 1
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Save Action */}
           {!isReadOnly && (
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all disabled:opacity-50"
+              className="ml-2 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" />
-              {isSaving ? 'Saving...' : 'Save & Publish'}
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              <span>Save Floor Plan</span>
             </button>
           )}
         </div>
@@ -1077,21 +1797,76 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           onAddZone={handleAddZone}
           onAddText={handleAddText}
           onApplyTemplate={handleApplyTemplate}
+          onZoomIn={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
+          onZoomOut={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
+          onResetZoom={() => setZoomLevel(100)}
           readOnly={isReadOnly}
           isCollapsed={isLeftCollapsed}
           onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
         />
 
-        {/* Center Dominant Canvas Workspace */}
+        {/* Center Dominant Canvas Workspace - Complete Light Graph (No Black) */}
         <div
           ref={containerRef}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
-          className={`flex-1 relative overflow-hidden bg-slate-950 flex items-center justify-center ${
-            activeTool === 'pan' ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+          onContextMenu={(e) => e.preventDefault()}
+          className={`flex-1 relative overflow-hidden bg-slate-50 flex items-center justify-center select-none ${
+            isPanning || isSpacePressed || activeTool === 'pan'
+              ? (isPanning ? 'cursor-grabbing' : 'cursor-grab')
+              : activeTool === 'marquee'
+              ? 'cursor-crosshair'
+              : 'cursor-default'
           }`}
+          style={{
+            backgroundColor: '#f8fafc',
+            touchAction: 'none',
+            overscrollBehavior: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            backgroundImage: `
+              linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px),
+              linear-gradient(to right, #cbd5e1 1.5px, transparent 1.5px),
+              linear-gradient(to bottom, #cbd5e1 1.5px, transparent 1.5px)
+            `,
+            backgroundSize: '20px 20px, 20px 20px, 100px 100px, 100px 100px',
+          }}
         >
+          {/* Local Auto-Save Restoration Banner */}
+          {restoredFromBackup && (
+            <div className="absolute top-4 left-4 z-30 bg-emerald-900/90 text-white px-3 py-1.5 rounded-xl shadow-xl border border-emerald-400 text-xs font-medium flex items-center gap-2 backdrop-blur-md animate-in fade-in">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Restored from auto-saved session</span>
+              <button
+                onClick={() => {
+                  if (window.confirm('Clear auto-saved draft and reset to empty canvas?')) {
+                    localStorage.removeItem(autoSaveKey);
+                    setHalls([]);
+                    setFacilities([]);
+                    setAnnotations([]);
+                    setStalls([]);
+                    setBackgroundImageUrl(undefined);
+                    setRestoredFromBackup(false);
+                  }
+                }}
+                className="ml-2 text-emerald-300 hover:text-white underline font-bold cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Multi-Select Floating Action Pill */}
+          {selectedRefs.filter((r) => r.type === 'stall').length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border border-purple-400 text-xs font-bold flex items-center gap-2.5 pointer-events-none backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+              <BoxSelect className="w-4 h-4 text-purple-400 animate-pulse" />
+              <span>
+                {selectedRefs.filter((r) => r.type === 'stall').length} Stalls Selected • Drag any stall to move together
+              </span>
+            </div>
+          )}
           {/* Zoom & Pan Container */}
           <div
             style={{
@@ -1106,37 +1881,52 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               width={canvasWidth}
               height={canvasHeight}
               viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-              className="bg-white rounded-xl shadow-2xl border border-slate-300 select-none"
-              style={{ minWidth: canvasWidth, minHeight: canvasHeight }}
+              className="select-none shadow-md border border-slate-300 rounded-xl"
+              style={{
+                minWidth: canvasWidth,
+                minHeight: canvasHeight,
+                backgroundColor: backgroundImageUrl ? 'transparent' : '#ffffff',
+              }}
             >
               {/* SVG Definitions for Grid & Patterns */}
               <defs>
                 {/* 1-Meter Small Grid Pattern (20px) */}
                 <pattern id="smallGrid" width={pxPerMeter} height={pxPerMeter} patternUnits="userSpaceOnUse">
-                  <path d={`M ${pxPerMeter} 0 L 0 0 0 ${pxPerMeter}`} fill="none" stroke="#f1f5f9" strokeWidth="1" />
+                  <path d={`M ${pxPerMeter} 0 L 0 0 0 ${pxPerMeter}`} fill="none" stroke="#e2e8f0" strokeWidth="1" />
                 </pattern>
                 {/* 5-Meter Major Grid Pattern (100px) */}
                 <pattern id="grid" width={pxPerMeter * 5} height={pxPerMeter * 5} patternUnits="userSpaceOnUse">
                   <rect width={pxPerMeter * 5} height={pxPerMeter * 5} fill="url(#smallGrid)" />
-                  <path d={`M ${pxPerMeter * 5} 0 L 0 0 0 ${pxPerMeter * 5}`} fill="none" stroke="#e2e8f0" strokeWidth="1.5" />
+                  <path d={`M ${pxPerMeter * 5} 0 L 0 0 0 ${pxPerMeter * 5}`} fill="none" stroke="#cbd5e1" strokeWidth="1.5" />
                 </pattern>
               </defs>
 
-              {/* Grid Background */}
-              {showGrid && <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />}
+              {/* Single Full Background Image / Blueprint, or Unified Grid Surface */}
+              {backgroundImageUrl ? (
+                <image
+                  href={backgroundImageUrl}
+                  x="0"
+                  y="0"
+                  width={canvasWidth}
+                  height={canvasHeight}
+                  preserveAspectRatio="none"
+                  opacity={backgroundOpacity}
+                  className="pointer-events-none"
+                />
+              ) : (
+                showGrid && <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+              )}
 
               {/* 1. RENDER HALLS (Containers) */}
               <g id="halls-layer">
                 {halls.map((hall) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'hall' && r.id === hall.id);
                   const strokeColor = hall.color || '#3b82f6';
+                  const bannerWidth = Math.min(320, Math.max(170, hall.name.length * 10 + 90));
+
                   return (
-                    <g
-                      key={hall.id}
-                      onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
-                      className="cursor-move"
-                    >
-                      {/* Hall boundary rectangle */}
+                    <g key={hall.id}>
+                      {/* Hall boundary rectangle - clicking/dragging interior allows marquee drag-select or single-click select */}
                       <rect
                         x={hall.x}
                         y={hall.y}
@@ -1145,49 +1935,282 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         rx="14"
                         fill="#fafafa"
                         stroke={strokeColor}
-                        strokeWidth={isSelected ? 3 : 2}
+                        strokeWidth={isSelected ? 3.5 : 2}
                         strokeDasharray={isSelected ? 'none' : '8 6'}
-                        className="transition-all"
+                        className="transition-all cursor-default"
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return;
+                          if (activeTool === 'pan') {
+                            setIsPanning(true);
+                            setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+                            return;
+                          }
+                          // Allow drag-select or click-select over hall interior
+                          const pt = getSVGCoordinates(e);
+                          lastCanvasClickPos.current = { x: pt.x, y: pt.y };
+                          setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y, startInsideHallId: hall.id });
+                          e.stopPropagation();
+                        }}
                       />
 
-                      {/* Hall Title Banner */}
+                      {/* Border stroke hit-area for easy clicking/dragging hall boundary directly */}
                       <rect
-                        x={hall.x + 16}
-                        y={hall.y + 12}
-                        width={Math.min(320, hall.width - 32)}
-                        height={26}
-                        rx="6"
-                        fill={strokeColor}
-                        fillOpacity="0.12"
+                        x={hall.x - 4}
+                        y={hall.y - 4}
+                        width={hall.width + 8}
+                        height={hall.height + 8}
+                        rx="16"
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth="14"
+                        className="cursor-move"
+                        onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
                       />
-                      <text
-                        x={hall.x + 28}
-                        y={hall.y + 29}
-                        fill={strokeColor}
-                        fontSize="12"
-                        fontWeight="900"
-                        letterSpacing="1"
-                        className="uppercase select-none"
-                      >
-                        {hall.name} • {Math.round(hall.width / pxPerMeter)}m × {Math.round(hall.height / pxPerMeter)}m
-                      </text>
 
-                      {/* Hall Resize Handles when selected */}
+                      {/* Hall Title Banner (Dedicated drag handle to move Hall + Direct Delete Button) */}
+                      <g className="group select-none">
+                        <rect
+                          x={hall.x + 16}
+                          y={hall.y + 12}
+                          width={bannerWidth}
+                          height={32}
+                          rx="8"
+                          fill={strokeColor}
+                          fillOpacity={isSelected ? 0.25 : 0.15}
+                          stroke={strokeColor}
+                          strokeWidth={isSelected ? 2 : 1.5}
+                          className="cursor-move"
+                          onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
+                        />
+                        <text
+                          x={hall.x + 28}
+                          y={hall.y + 33}
+                          fill={strokeColor}
+                          fontSize="13"
+                          fontWeight="900"
+                          letterSpacing="1"
+                          className="uppercase select-none font-sans pointer-events-none cursor-move"
+                        >
+                          {hall.name}
+                        </text>
+
+                        {/* Direct Delete Hall Trash Button right on header banner */}
+                        {!isReadOnly && (
+                          <g
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteHall(hall.id);
+                            }}
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                          >
+                            <rect
+                              x={hall.x + bannerWidth - 28}
+                              y={hall.y + 17}
+                              width={22}
+                              height={22}
+                              rx="6"
+                              fill="#fee2e2"
+                              stroke="#f87171"
+                              strokeWidth="1"
+                            />
+                            <path
+                              d={`M ${hall.x + bannerWidth - 23} ${hall.y + 23} h 12 m -10 0 v 8 a 1 1 0 0 0 1 1 h 6 a 1 1 0 0 0 1 -1 v -8 m -5 0 v -2 a 1 1 0 0 1 1 -1 h 2 a 1 1 0 0 1 1 1 v 2`}
+                              fill="none"
+                              stroke="#dc2626"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </g>
+                        )}
+                      </g>
+
+                      {/* Hall Resize Handles when selected (All 8 Cardinal & Diagonal Handles) */}
                       {isSelected && !isReadOnly && (
                         <>
+                          {/* SE Corner Handle */}
                           <rect
-                            x={hall.x + hall.width - 8}
-                            y={hall.y + hall.height - 8}
-                            width="16"
-                            height="16"
+                            x={hall.x + hall.width - 9}
+                            y={hall.y + hall.height - 9}
+                            width="18"
+                            height="18"
+                            rx="3"
                             fill="#ffffff"
                             stroke={strokeColor}
                             strokeWidth="3"
-                            className="cursor-se-resize"
+                            className="cursor-se-resize shadow-md"
                             onMouseDown={(e) =>
                               handleResizeHandleMouseDown(
                                 e,
                                 'se',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* SW Corner Handle */}
+                          <rect
+                            x={hall.x - 9}
+                            y={hall.y + hall.height - 9}
+                            width="18"
+                            height="18"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="3"
+                            className="cursor-sw-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'sw',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* NE Corner Handle */}
+                          <rect
+                            x={hall.x + hall.width - 9}
+                            y={hall.y - 9}
+                            width="18"
+                            height="18"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="3"
+                            className="cursor-ne-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'ne',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* NW Corner Handle */}
+                          <rect
+                            x={hall.x - 9}
+                            y={hall.y - 9}
+                            width="18"
+                            height="18"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="3"
+                            className="cursor-nw-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'nw',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* E Edge Handle */}
+                          <rect
+                            x={hall.x + hall.width - 6}
+                            y={hall.y + hall.height / 2 - 14}
+                            width="12"
+                            height="28"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="2.5"
+                            className="cursor-e-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'e',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* W Edge Handle */}
+                          <rect
+                            x={hall.x - 6}
+                            y={hall.y + hall.height / 2 - 14}
+                            width="12"
+                            height="28"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="2.5"
+                            className="cursor-w-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'w',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* S Edge Handle */}
+                          <rect
+                            x={hall.x + hall.width / 2 - 14}
+                            y={hall.y + hall.height - 6}
+                            width="28"
+                            height="12"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="2.5"
+                            className="cursor-s-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                's',
+                                'hall',
+                                hall.id,
+                                hall.x,
+                                hall.y,
+                                hall.width,
+                                hall.height
+                              )
+                            }
+                          />
+                          {/* N Edge Handle */}
+                          <rect
+                            x={hall.x + hall.width / 2 - 14}
+                            y={hall.y - 6}
+                            width="28"
+                            height="12"
+                            rx="3"
+                            fill="#ffffff"
+                            stroke={strokeColor}
+                            strokeWidth="2.5"
+                            className="cursor-n-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'n',
                                 'hall',
                                 hall.id,
                                 hall.x,
@@ -1274,6 +2297,199 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                       >
                         {fac.label}
                       </text>
+
+                      {/* Facility Resize Handles when selected (All 8 Cardinal & Diagonal Handles) */}
+                      {isSelected && !isReadOnly && (
+                        <>
+                          {/* Corner Handles */}
+                          <rect
+                            x={fac.x + fac.width - 6}
+                            y={fac.y + fac.height - 6}
+                            width="12"
+                            height="12"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-se-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'se',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x - 6}
+                            y={fac.y + fac.height - 6}
+                            width="12"
+                            height="12"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-sw-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'sw',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x + fac.width - 6}
+                            y={fac.y - 6}
+                            width="12"
+                            height="12"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-ne-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'ne',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x - 6}
+                            y={fac.y - 6}
+                            width="12"
+                            height="12"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-nw-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'nw',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+
+                          {/* Edge Handles */}
+                          <rect
+                            x={fac.x + fac.width - 5}
+                            y={fac.y + fac.height / 2 - 8}
+                            width="10"
+                            height="16"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-e-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'e',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x - 5}
+                            y={fac.y + fac.height / 2 - 8}
+                            width="10"
+                            height="16"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-w-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'w',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x + fac.width / 2 - 8}
+                            y={fac.y + fac.height - 5}
+                            width="16"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-s-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                's',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                          <rect
+                            x={fac.x + fac.width / 2 - 8}
+                            y={fac.y - 5}
+                            width="16"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-n-resize shadow-md"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'n',
+                                'facility',
+                                fac.id,
+                                fac.x,
+                                fac.y,
+                                fac.width,
+                                fac.height
+                              )
+                            }
+                          />
+                        </>
+                      )}
                     </g>
                   );
                 })}
@@ -1364,33 +2580,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         className="transition-colors"
                       />
 
-                      {/* Stall Number Header */}
+                      {/* Clean Centered Stall Number (No inside price clutter) */}
                       <text
                         x={stall.xPosition + stall.width / 2}
-                        y={stall.yPosition + stall.height / 2 - (stall.height > 45 ? 5 : 0)}
+                        y={stall.yPosition + stall.height / 2 + 4}
                         textAnchor="middle"
                         fill={textCol}
-                        fontSize={stall.width < 50 ? '9' : '11'}
+                        fontSize={stall.width < 50 ? '10' : '12'}
                         fontWeight="bold"
                         className="select-none pointer-events-none font-mono"
                       >
                         {stall.stallNumber}
                       </text>
-
-                      {/* Price Tag if sufficient height */}
-                      {stall.height > 45 && (
-                        <text
-                          x={stall.xPosition + stall.width / 2}
-                          y={stall.yPosition + stall.height / 2 + 11}
-                          textAnchor="middle"
-                          fill={textCol}
-                          fontSize="8"
-                          fontWeight="700"
-                          className="select-none pointer-events-none font-mono opacity-90"
-                        >
-                          ₹{(stall.price / 1000).toFixed(0)}k
-                        </text>
-                      )}
 
                       {/* Resize Handles (Only when single stall is selected) */}
                       {isSelected && selectedRefs.length === 1 && !isReadOnly && (
@@ -1440,6 +2641,76 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               )}
             </svg>
           </div>
+
+          {/* Common Floating Canvas Zoom & Map Navigation Controller HUD */}
+          <div className="absolute bottom-4 right-4 z-30 flex items-center bg-white/95 backdrop-blur-md shadow-lg border border-slate-200/90 rounded-xl p-1 gap-1 text-slate-700 select-none">
+            {/* Quick Map Pan Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTool === 'pan'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+              title="Toggle Map Move Mode (H / Space+Drag / Right-Click Drag)"
+            >
+              <Hand className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{activeTool === 'pan' ? 'Moving Map' : 'Move Map'}</span>
+            </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
+              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              title="Zoom Out (-)"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setZoomLevel(100)}
+              className="px-2 py-1 text-xs font-mono font-bold text-slate-700 hover:bg-slate-100 rounded-md transition-colors min-w-[54px] text-center cursor-pointer"
+              title="Click to reset zoom to 100% (Ctrl+0)"
+            >
+              {zoomLevel}%
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
+              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              title="Zoom In (+)"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={handleFitToScreen}
+              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              title="Fit Floor Plan to Screen (F)"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPanOffset({ x: 0, y: 0 });
+                setZoomLevel(100);
+              }}
+              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              title="Reset Map Position & Zoom"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Right Dynamic Property Inspector */}
@@ -1457,6 +2728,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             onDeleteSelected={handleDeleteSelected}
             onDuplicateSelected={handleDuplicateSelected}
             onBulkUpdateStalls={handleBulkUpdateStalls}
+            onBulkResizeStalls={handleBulkResizeStalls}
+            onPackFlushStalls={handlePackFlushStalls}
             onAlignStalls={handleAlignStalls}
             onDistributeStalls={handleDistributeStalls}
             canvasWidth={canvasWidth}
@@ -1485,6 +2758,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         onRedo={handleRedo}
         stallsCount={stalls.length}
         hallsCount={halls.length}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+        onExpandCanvas={handleExpandCanvas}
       />
 
       {/* Bulk Stall Row Creation Wizard Modal */}
@@ -1495,6 +2771,111 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
       />
+
+      {/* Background Blueprint Image Modal */}
+      {isBgModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Venue Blueprint / Background Image</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Keep one full background image to trace and draw your floor plan over
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBgModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Image URL</label>
+                <input
+                  type="text"
+                  value={backgroundImageUrl || ''}
+                  onChange={(e) => setBackgroundImageUrl(e.target.value)}
+                  placeholder="https://example.com/venue-blueprint.png"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Or Upload Local Image (PNG, JPG, SVG)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        if (ev.target?.result) {
+                          setBackgroundImageUrl(ev.target.result as string);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+              </div>
+
+              {backgroundImageUrl && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
+                    <span>Background Opacity</span>
+                    <span>{Math.round(backgroundOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.05"
+                    value={backgroundOpacity}
+                    onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+              )}
+
+              {backgroundImageUrl && (
+                <div className="h-36 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative flex items-center justify-center">
+                  <img
+                    src={backgroundImageUrl}
+                    alt="Blueprint Preview"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                  <button
+                    onClick={() => setBackgroundImageUrl(undefined)}
+                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 text-xs flex items-center gap-1 font-bold cursor-pointer"
+                    title="Remove Background Image"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Remove Image
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setIsBgModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
