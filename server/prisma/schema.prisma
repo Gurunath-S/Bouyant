@@ -117,17 +117,21 @@ model Exhibition {
   description String
   venue       String
   city        String
-  startDate   DateTime
+  startDate   DateTime 
   endDate     DateTime
   status      ExhibitionStatus @default(DRAFT)
   bannerUrl   String?
   totalStalls Int              @default(0)
+  edition     String?          @default("10")
+  eventCode   String?          @default("GG")
+  spcode      String?          @default("ZE05")
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
   floorPlans  FloorPlan[]
   bookings    Booking[]
 
+  @@unique([edition, eventCode])
   @@index([slug])
   @@index([status])
 }
