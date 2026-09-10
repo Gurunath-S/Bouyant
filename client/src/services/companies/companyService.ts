@@ -26,8 +26,8 @@ export const companyService = {
     return (res.data?.company || res.data) as Company;
   },
 
-  verifyGst: async (gstNumber: string) => {
-    const res: any = await apiClient.post('/companies/verify-gst', { gstNumber });
+  verifyGst: async (gstNumber: string, edition?: string, eventCode?: string, spcode?: string, year?: string) => {
+    const res: any = await apiClient.post('/companies/verify-gst', { gstNumber, edition, eventCode, spcode, year });
     return res.data;
   },
 

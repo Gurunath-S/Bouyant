@@ -49,7 +49,7 @@ const companySchema = z.object({
   address: z.string().min(5, 'Corporate address is required'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
-  pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits').optional().default('641001'),
+  pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
   country: z.string().optional().default('India'),
   gstNumber: z.string().min(15, 'GST Registration Number must be 15 characters'),
   panNumber: z.string().min(10, 'PAN Number must be 10 characters'),
@@ -97,6 +97,8 @@ export const BookingWizardPage: React.FC = () => {
   const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
   const [gstVerifiedDetails, setGstVerifiedDetails] = useState<any>(null);
   const [gstError, setGstError] = useState('');
+  const [gstNotice, setGstNotice] = useState('');
+  const [assignedRegNo, setAssignedRegNo] = useState<string>('');
 
   const {
     register,
@@ -115,7 +117,7 @@ export const BookingWizardPage: React.FC = () => {
       address: '',
       city: '',
       state: '',
-      pinCode: '641001',
+      pinCode: user?.company?.pinCode || '',
       country: 'India',
       gstNumber: '',
       panNumber: '',
@@ -131,52 +133,61 @@ export const BookingWizardPage: React.FC = () => {
 
     if (!cleanGst || cleanGst.length !== 15) {
       setGstError('Please enter a full 15-character GSTIN (e.g. 27AAACT1029F1Z5).');
+      setGstNotice('');
       return;
     }
 
     try {
       setIsVerifyingGst(true);
       setGstError('');
+      setGstNotice('');
       setGstVerificationSuccess(false);
 
-      const res = await companyService.verifyGst(cleanGst);
+      const edition = exhibition?.edition;
+      const eventCode = exhibition?.eventCode;
+      const spcode = exhibition?.spcode;
+      const year = exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : undefined;
+      const res = await companyService.verifyGst(cleanGst, edition || undefined, eventCode || undefined, spcode || undefined, year);
 
       if (res && res.gstVerified) {
         setGstVerificationSuccess(true);
         setGstVerifiedDetails(res.gstDetails);
 
-        // Auto-populate form fields from verified official GST data
-        if (res.gstDetails) {
-          const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
-          if (officialName) setValue('name', officialName);
-          if (res.gstDetails.address) setValue('address', res.gstDetails.address);
-          if (res.gstDetails.city) setValue('city', res.gstDetails.city);
-          if (res.gstDetails.pincode) setValue('pinCode', res.gstDetails.pincode);
-
-          // Auto-derive PAN from characters 3-12 of GSTIN
-          const extractedPan = cleanGst.substring(2, 12);
-          setValue('panNumber', extractedPan);
-
-          // Map state from 2-digit GST state code
-          const stateCode = cleanGst.substring(0, 2);
-          const stateMap: Record<string, string> = {
-            '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
-            '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan',
-            '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh',
-            '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura',
-            '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand',
-            '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
-            '26': 'Dadra and Nagar Haveli', '27': 'Maharashtra', '29': 'Karnataka', '30': 'Goa',
-            '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '36': 'Telangana',
-            '37': 'Andhra Pradesh', '38': 'Ladakh',
-          };
-          if (stateMap[stateCode]) {
-            setValue('state', stateMap[stateCode]);
-          }
+        if (res.gstDetails?.regNo) {
+          setAssignedRegNo(res.gstDetails.regNo);
         }
 
-        if (res.companyExists) {
-          setGstError('Notice: A profile with this GSTIN is already registered. You can select your existing company profile above or continue with updated details.');
+        // Scenario 1: Company is already registered in Buoyant database
+        if (res.companyExists && res.existingCompany) {
+          const comp = res.existingCompany;
+          setValue('name', comp.name);
+          if (comp.panNumber) setValue('panNumber', comp.panNumber);
+          if (comp.contactPerson) setValue('contactPerson', comp.contactPerson);
+          if (comp.mobile) setValue('mobile', comp.mobile);
+          if (comp.email) setValue('email', comp.email);
+          if (comp.address) setValue('address', comp.address);
+          if (comp.city) setValue('city', comp.city);
+          if (comp.state) setValue('state', comp.state);
+          if (comp.pinCode) setValue('pinCode', comp.pinCode);
+          if (comp.country) setValue('country', comp.country || 'India');
+          if (comp.industry) setValue('industry', comp.industry);
+          if (comp.website) setValue('website', comp.website || '');
+          if (comp.regNo) setAssignedRegNo(comp.regNo);
+
+          setSelectedCompany(comp);
+          setGstNotice('Existing Registered Profile: Company details verified and loaded from database.');
+        } else if (res.gstDetails) {
+          // Scenario 2: New verified GSTIN from official registry / accurate validator
+          const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
+          if (officialName) setValue('name', officialName);
+          if (res.gstDetails.pan) setValue('panNumber', res.gstDetails.pan);
+          if (res.gstDetails.address) setValue('address', res.gstDetails.address);
+          if (res.gstDetails.city) setValue('city', res.gstDetails.city);
+          if (res.gstDetails.state) setValue('state', res.gstDetails.state);
+          if (res.gstDetails.pincode) setValue('pinCode', res.gstDetails.pincode);
+          setValue('country', 'India');
+
+          setGstNotice('');
         }
       } else {
         setGstError('GST verification failed. Please check the 15-character GST number.');
@@ -229,6 +240,9 @@ export const BookingWizardPage: React.FC = () => {
         setCompanies(comps || []);
         if (comps && comps.length > 0 && !selectedCompany) {
           setSelectedCompany(comps[0]);
+          if (comps[0].regNo) {
+            setAssignedRegNo(comps[0].regNo);
+          }
         }
       }
     } catch (err) {
@@ -256,14 +270,27 @@ export const BookingWizardPage: React.FC = () => {
   // Step 2: Submit Company Details (Supports Guest & Authenticated Users) -> Proceed to Step 3 (Tax Bill Review)
   const onSubmitCompanyForm = async (data: CompanyFormData) => {
     setGuestFormData(data);
+    const eventYear = exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26';
     if (user) {
       try {
+        if (selectedCompany && selectedCompany.gstNumber === data.gstNumber) {
+          if (selectedCompany.regNo) setAssignedRegNo(selectedCompany.regNo);
+          setCurrentStep(3);
+          return;
+        }
+
         const created = await companyService.createCompany({
           ...data,
-          pinCode: data.pinCode || '641001',
+          regNo: assignedRegNo || undefined,
+          edition: exhibition?.edition,
+          eventCode: exhibition?.eventCode,
+          spcode: exhibition?.spcode,
+          year: eventYear,
+          pinCode: data.pinCode,
           country: data.country || 'India',
         } as any);
         if (created && created.id) {
+          if (created.regNo) setAssignedRegNo(created.regNo);
           setCompanies((prev) => [...prev.filter((c) => c.id !== created.id), created]);
           setSelectedCompany(created);
           setUser({ ...user, companyId: created.id, company: created });
@@ -272,10 +299,12 @@ export const BookingWizardPage: React.FC = () => {
         console.warn('Backend company save note:', err.response?.data?.message || err);
       }
     } else {
-      // For Guest Users: Create temporary mock company object for wizard progression
+      // For Guest Users: Create temporary company object for wizard progression
+      const regToUse = assignedRegNo || `${exhibition?.edition || '01'}/${eventYear}/${exhibition?.eventCode || 'EX'}/01`;
       const mockGuestComp: Company = {
         id: 'guest_comp_' + Date.now(),
         companyCode: 'CMP-GUEST-' + Math.floor(1000 + Math.random() * 9000),
+        regNo: regToUse,
         name: data.name,
         contactPerson: data.contactPerson,
         designation: data.designation,
@@ -284,7 +313,7 @@ export const BookingWizardPage: React.FC = () => {
         address: data.address,
         city: data.city,
         state: data.state,
-        pinCode: data.pinCode || '641001',
+        pinCode: data.pinCode,
         country: data.country || 'India',
         gstNumber: data.gstNumber,
         panNumber: data.panNumber,
@@ -293,6 +322,7 @@ export const BookingWizardPage: React.FC = () => {
         website: data.website,
         createdAt: new Date().toISOString(),
       };
+      setAssignedRegNo(regToUse);
       setSelectedCompany(mockGuestComp);
     }
     setCurrentStep(3); // Proceed to Tax Audit & Review
@@ -300,6 +330,7 @@ export const BookingWizardPage: React.FC = () => {
 
   const handleSelectExistingCompany = (comp: Company) => {
     setSelectedCompany(comp);
+    if (comp.regNo) setAssignedRegNo(comp.regNo);
   };
 
   // Step 3: Proceed to Payment
@@ -607,6 +638,7 @@ export const BookingWizardPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-1 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                      <p><span className="font-semibold text-slate-500">Reg No:</span> <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px]">{c.regNo || assignedRegNo || 'Pending'}</span></p>
                       <p><span className="font-semibold text-slate-500">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
                       <p><span className="font-semibold text-slate-500">Contact:</span> {c.contactPerson} ({c.email})</p>
                     </div>
@@ -702,9 +734,31 @@ export const BookingWizardPage: React.FC = () => {
                         Status: {gstVerifiedDetails.status || 'Active'}
                       </span>
                     </div>
+                    {assignedRegNo && (
+                      <div className="flex items-center gap-2 pl-6 py-1">
+                        <span className="font-bold text-emerald-900">Assigned Reg No:</span>
+                        <span className="font-mono font-extrabold bg-white border border-emerald-400 text-indigo-800 px-2 py-0.5 rounded text-[11px] shadow-xs">
+                          {assignedRegNo}
+                        </span>
+                        <span className="text-[10px] text-emerald-700 italic font-medium">
+                          (Format: {exhibition?.edition || '01'}/{exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/{exhibition?.eventCode || 'EX'}/xx)
+                        </span>
+                      </div>
+                    )}
                     <p className="text-emerald-800 text-[11px] pl-6">
-                      <span className="font-semibold">Registered Location:</span> {gstVerifiedDetails.address}, {gstVerifiedDetails.city} - {gstVerifiedDetails.pincode}
+                      <span className="font-semibold">Registered Location:</span> {gstVerifiedDetails.address}, {gstVerifiedDetails.city}, {gstVerifiedDetails.state} - {gstVerifiedDetails.pincode}
                     </p>
+                    <p className="text-emerald-700 text-[10px] pl-6">
+                      <span className="font-semibold">PAN:</span> {gstVerifiedDetails.pan} • <span className="font-semibold">State:</span> {gstVerifiedDetails.state} ({gstVerifiedDetails.stateCode})
+                    </p>
+                  </div>
+                )}
+
+                {/* GST Info / Notice Banner */}
+                {gstNotice && (
+                  <div className="p-3 bg-blue-50 border border-blue-300 text-blue-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <span className="font-medium">{gstNotice}</span>
                   </div>
                 )}
 
@@ -772,7 +826,7 @@ export const BookingWizardPage: React.FC = () => {
                 <Input
                   label="PIN Code (6 digits) *"
                   maxLength={6}
-                  placeholder="641001"
+                  placeholder="e.g. 400051"
                   error={errors.pinCode?.message}
                   {...register('pinCode')}
                 />
@@ -849,10 +903,16 @@ export const BookingWizardPage: React.FC = () => {
               </div>
 
               <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                  Exhibitor GSTIN Entity
+                <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5 flex items-center justify-between">
+                  <span>Exhibitor GSTIN Entity</span>
+                  {(selectedCompany.regNo || assignedRegNo) && (
+                    <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                      Reg No: {selectedCompany.regNo || assignedRegNo}
+                    </span>
+                  )}
                 </h4>
                 <p><span className="font-semibold text-slate-500">Company Name:</span> {selectedCompany.name}</p>
+                <p><span className="font-semibold text-slate-500">Official Reg No:</span> <strong className="font-mono text-indigo-700">{selectedCompany.regNo || assignedRegNo || `${exhibition?.edition || '01'}/${exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/${exhibition?.eventCode || 'EX'}/01`}</strong></p>
                 <p><span className="font-semibold text-slate-500">GSTIN:</span> {selectedCompany.gstNumber || 'N/A'}</p>
                 <p><span className="font-semibold text-slate-500">Contact Email:</span> {selectedCompany.email}</p>
               </div>

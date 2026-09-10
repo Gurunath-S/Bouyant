@@ -54,10 +54,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
 
         <div className="text-right sm:text-right flex flex-col items-start sm:items-end gap-1 shrink-0">
           <div className="text-xs font-mono font-bold text-slate-500">
-            REG NO: <span className="text-[#012970] font-black">01/26/ME</span>
-          </div>
-          <div className="text-xs font-mono font-bold text-slate-500">
-            SP CODE: <span className="text-[#09539b] font-black">BM-CB-2026</span>
+            REG NO: <span className="text-[#012970] font-black">{company.regNo || `${exhibition.edition || '01'}/${new Date(exhibition.startDate || Date.now()).getFullYear().toString().slice(-2)}/${exhibition.eventCode || 'EX'}/01`}</span>
           </div>
           <span className="px-3 py-1 bg-[#9cc542]/20 text-[#012970] font-black text-[10px] uppercase rounded-md border border-[#9cc542]/50">
             ORGANIZER: BUOYANT MEDIA
