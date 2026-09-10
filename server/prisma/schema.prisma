@@ -174,7 +174,7 @@ model Stall {
   updatedAt     DateTime      @updatedAt
 
   floorPlan     FloorPlan     @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
-  bookings      Booking[]
+  bookingStalls BookingStall[]
 
   @@unique([floorPlanId, stallNumber])
   @@index([floorPlanId])
@@ -188,7 +188,6 @@ model Booking {
   userId           String
   companyId        String
   exhibitionId     String
-  stallId          String
   status           BookingStatus @default(INITIATED)
   totalAmount      Decimal       @db.Decimal(12, 2)
   taxAmount        Decimal       @db.Decimal(12, 2)
@@ -200,15 +199,28 @@ model Booking {
   user             User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   exhibition       Exhibition    @relation(fields: [exhibitionId], references: [id], onDelete: Restrict)
-  stall            Stall         @relation(fields: [stallId], references: [id], onDelete: Restrict)
+  stalls           BookingStall[]
   payment          Payment?
   invoice          Invoice?
 
   @@index([bookingReference])
   @@index([userId])
   @@index([companyId])
-  @@index([stallId])
   @@index([status])
+}
+
+model BookingStall {
+  id        String  @id @default(uuid())
+  bookingId String
+  stallId   String
+  price     Decimal @db.Decimal(12, 2)
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  stall     Stall   @relation(fields: [stallId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, stallId])
+  @@index([bookingId])
+  @@index([stallId])
 }
 
 model Payment {
