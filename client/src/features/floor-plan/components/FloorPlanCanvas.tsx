@@ -20,7 +20,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   canvasWidth: propWidth,
   canvasHeight: propHeight,
 }) => {
-  const { selectedStallId, zoomLevel, setZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
+  const { selectedStallIds, zoomLevel, setZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -145,7 +145,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   });
 
   const getStallStyles = (stall: Stall) => {
-    const isSelected = stall.id === selectedStallId;
+    const isSelected = selectedStallIds.includes(stall.id);
 
     if (isSelected) {
       return {
@@ -523,7 +523,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <g id="stalls-layer">
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
-              const isSelected = stall.id === selectedStallId;
+              const isSelected = selectedStallIds.includes(stall.id);
               const isBlocked = stall.status === 'BLOCKED';
               const isBooked = stall.status === 'BOOKED_CONFIRMED';
               const isAvailable = stall.status === 'AVAILABLE';

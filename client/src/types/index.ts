@@ -108,20 +108,27 @@ export interface Stall {
   heldByUserId?: string | null;
 }
 
+export interface BookingStall {
+  id: string;
+  stallId: string;
+  bookingId: string;
+  price: number | string;
+  stall?: Stall;
+}
+
 export interface Booking {
   id: string;
   bookingReference: string;
   userId: string;
   companyId: string;
   exhibitionId: string;
-  stallId: string;
   status: BookingStatus;
   totalAmount: number | string;
   taxAmount: number | string;
   grandTotal: number | string;
   expiresAt?: string;
   createdAt: string;
-  stall?: Stall;
+  stalls?: BookingStall[];
   exhibition?: Exhibition;
   company?: Company;
   payment?: Payment;

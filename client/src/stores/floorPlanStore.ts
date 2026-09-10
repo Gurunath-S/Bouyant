@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { Stall, StallCategory, StallStatus } from '../types';
 
 interface FloorPlanState {
-  selectedStall: Stall | null;
-  selectedStallId: string | null;
+  selectedStalls: Stall[];
+  selectedStallIds: string[];
   categoryFilter: StallCategory | 'ALL';
   selectedCategory: StallCategory | null;
   selectedStatus: StallStatus | null;
@@ -13,8 +13,8 @@ interface FloorPlanState {
     stall: Stall;
     heldUntil: string;
   } | null;
-  setSelectedStall: (stall: Stall | null) => void;
-  setSelectedStallId: (id: string | null) => void;
+  toggleStallSelection: (stall: Stall) => void;
+  clearStallSelection: () => void;
   setCategoryFilter: (category: StallCategory | 'ALL') => void;
   setSelectedCategory: (category: StallCategory | null) => void;
   setSelectedStatus: (status: StallStatus | null) => void;
@@ -24,8 +24,8 @@ interface FloorPlanState {
 }
 
 export const useFloorPlanStore = create<FloorPlanState>((set) => ({
-  selectedStall: null,
-  selectedStallId: null,
+  selectedStalls: [],
+  selectedStallIds: [],
   categoryFilter: 'ALL',
   selectedCategory: null,
   selectedStatus: null,
@@ -33,8 +33,21 @@ export const useFloorPlanStore = create<FloorPlanState>((set) => ({
   zoomLevel: 100,
   activeHeldStall: null,
 
-  setSelectedStall: (stall) => set({ selectedStall: stall, selectedStallId: stall ? stall.id : null }),
-  setSelectedStallId: (id) => set({ selectedStallId: id }),
+  toggleStallSelection: (stall) =>
+    set((state) => {
+      const isSelected = state.selectedStallIds.includes(stall.id);
+      if (isSelected) {
+        return {
+          selectedStalls: state.selectedStalls.filter((s) => s.id !== stall.id),
+          selectedStallIds: state.selectedStallIds.filter((id) => id !== stall.id),
+        };
+      }
+      return {
+        selectedStalls: [...state.selectedStalls, stall],
+        selectedStallIds: [...state.selectedStallIds, stall.id],
+      };
+    }),
+  clearStallSelection: () => set({ selectedStalls: [], selectedStallIds: [] }),
   setCategoryFilter: (categoryFilter) => set({ categoryFilter, selectedCategory: categoryFilter === 'ALL' ? null : categoryFilter }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, categoryFilter: selectedCategory || 'ALL' }),
   setSelectedStatus: (selectedStatus) => set({ selectedStatus }),
