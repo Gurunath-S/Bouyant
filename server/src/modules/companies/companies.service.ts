@@ -317,7 +317,7 @@ export class CompaniesService {
         bookings: {
           include: {
             exhibition: { select: { title: true, startDate: true, edition: true, eventCode: true, spcode: true } },
-            stall: { select: { stallNumber: true, category: true } },
+            stalls: { include: { stall: { select: { stallNumber: true, category: true } } } },
           },
         },
       },

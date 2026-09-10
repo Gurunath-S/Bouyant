@@ -10,7 +10,7 @@ export class InvoicesService {
         payment: true,
         booking: {
           include: {
-            stall: true,
+            stalls: { include: { stall: true } },
             exhibition: true,
             user: { select: { name: true, email: true, phone: true } },
           },
@@ -36,7 +36,7 @@ export class InvoicesService {
         company: { select: { name: true } },
         booking: {
           include: {
-            stall: { select: { stallNumber: true, category: true } },
+            stalls: { include: { stall: { select: { stallNumber: true, category: true } } } },
             exhibition: { select: { title: true } },
           },
         },
@@ -51,7 +51,7 @@ export class InvoicesService {
         company: { select: { name: true, companyCode: true } },
         booking: {
           include: {
-            stall: { select: { stallNumber: true } },
+            stalls: { include: { stall: { select: { stallNumber: true } } } },
             exhibition: { select: { title: true } },
           },
         },

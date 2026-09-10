@@ -25,28 +25,30 @@ export class BookingsService {
       throw ApiError.badRequest('Please complete your Company Profile before making a stall booking.');
     }
 
-    // 3. Verify Stall & Exhibition
-    const stall = await prisma.stall.findUnique({
-      where: { id: input.stallId },
+    // 3. Verify Stalls & Exhibition
+    const stalls = await prisma.stall.findMany({
+      where: { id: { in: input.stallIds } },
       include: { floorPlan: true },
     });
 
-    if (!stall) throw ApiError.notFound('Target stall not found.');
-    if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
-      throw ApiError.badRequest('The requested stall does not belong to this exhibition event.');
+    if (stalls.length !== input.stallIds.length) {
+      throw ApiError.notFound('One or more target stalls not found.');
     }
 
-    // Check status prior to transaction
-    if (stall.status === 'BOOKED_CONFIRMED' || stall.status === 'BLOCKED') {
-      throw ApiError.conflict('This stall is no longer available for booking.');
-    }
-
-    if (stall.status === 'TEMPORARILY_HELD' && stall.heldByUserId && stall.heldByUserId !== userId) {
-      throw ApiError.conflict('This stall is currently held by another user. Please select another stall.');
+    for (const stall of stalls) {
+      if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
+        throw ApiError.badRequest(`Stall ${stall.stallNumber} does not belong to this exhibition event.`);
+      }
+      if (stall.status === 'BOOKED_CONFIRMED' || stall.status === 'BLOCKED') {
+        throw ApiError.conflict(`Stall ${stall.stallNumber} is no longer available for booking.`);
+      }
+      if (stall.status === 'TEMPORARILY_HELD' && stall.heldByUserId && stall.heldByUserId !== userId) {
+        throw ApiError.conflict(`Stall ${stall.stallNumber} is currently held by another user. Please select another stall.`);
+      }
     }
 
     // 4. Server-calculated Authoritative Pricing
-    const basePrice = new Prisma.Decimal(stall.price.toString());
+    const basePrice = stalls.reduce((sum, stall) => sum.add(new Prisma.Decimal(stall.price.toString())), new Prisma.Decimal(0));
     const taxRate = new Prisma.Decimal('0.18'); // 18% Tax / GST
     const taxAmount = basePrice.mul(taxRate);
     const grandTotal = basePrice.add(taxAmount);
@@ -55,26 +57,27 @@ export class BookingsService {
 
     // 5. ATOMIC POSTGRESQL TRANSACTION (DOUBLE-BOOKING PROTECTION)
     return await prisma.$transaction(async (tx) => {
-      // Re-verify and lock stall status atomically within transaction
-      const currentStall = await tx.stall.findUnique({
-        where: { id: input.stallId },
+      // Re-verify and lock stalls atomically within transaction
+      const currentStalls = await tx.stall.findMany({
+        where: { id: { in: input.stallIds } },
       });
 
-      if (!currentStall || currentStall.status === 'BOOKED_CONFIRMED' || currentStall.status === 'BLOCKED') {
-        throw ApiError.conflict('Double Booking Conflict: This stall was confirmed by another client moments ago.');
+      for (const currentStall of currentStalls) {
+        if (currentStall.status === 'BOOKED_CONFIRMED' || currentStall.status === 'BLOCKED') {
+          throw ApiError.conflict(`Double Booking Conflict: Stall ${currentStall.stallNumber} was confirmed by another client moments ago.`);
+        }
+        if (
+          currentStall.status === 'TEMPORARILY_HELD' &&
+          currentStall.heldByUserId &&
+          currentStall.heldByUserId !== userId
+        ) {
+          throw ApiError.conflict(`Stall Hold Conflict: Another client has held Stall ${currentStall.stallNumber}.`);
+        }
       }
 
-      if (
-        currentStall.status === 'TEMPORARILY_HELD' &&
-        currentStall.heldByUserId &&
-        currentStall.heldByUserId !== userId
-      ) {
-        throw ApiError.conflict('Stall Hold Conflict: Another client has held this stall.');
-      }
-
-      // Update stall status to PAYMENT_PENDING
-      await tx.stall.update({
-        where: { id: input.stallId },
+      // Update stall statuses to PAYMENT_PENDING
+      await tx.stall.updateMany({
+        where: { id: { in: input.stallIds } },
         data: {
           status: 'PAYMENT_PENDING',
           heldUntil: new Date(Date.now() + 15 * 60 * 1000), // 15 mins to complete payment
@@ -89,15 +92,20 @@ export class BookingsService {
           userId,
           companyId: targetCompanyId,
           exhibitionId: input.exhibitionId,
-          stallId: input.stallId,
           status: 'PENDING_PAYMENT',
           totalAmount: basePrice,
           taxAmount,
           grandTotal,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          stalls: {
+            create: stalls.map((s) => ({
+              stallId: s.id,
+              price: new Prisma.Decimal(s.price.toString())
+            }))
+          }
         },
         include: {
-          stall: true,
+          stalls: { include: { stall: true } },
           exhibition: true,
           company: true,
           user: { select: { name: true, email: true } },
@@ -127,7 +135,7 @@ export class BookingsService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
-        stall: true,
+        stalls: { include: { stall: true } },
         exhibition: true,
         company: true,
         payment: true,
@@ -140,7 +148,7 @@ export class BookingsService {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        stall: true,
+        stalls: { include: { stall: true } },
         exhibition: true,
         company: true,
         payment: true,
@@ -168,7 +176,7 @@ export class BookingsService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          stall: true,
+          stalls: { include: { stall: true } },
           exhibition: { select: { title: true } },
           company: { select: { name: true, companyCode: true } },
           payment: { select: { status: true, paymentReference: true } },

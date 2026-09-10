@@ -16,7 +16,7 @@ export class PaymentsService {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        stall: true,
+        stalls: { include: { stall: true } },
         company: true,
         payment: true,
       },
@@ -58,9 +58,10 @@ export class PaymentsService {
           data: { status: 'CONFIRMED' },
         });
 
-        // 3. Mark Stall as BOOKED_CONFIRMED
-        await tx.stall.update({
-          where: { id: booking.stallId },
+        // 3. Mark ALL stalls as BOOKED_CONFIRMED
+        const stallIds = booking.stalls.map((s: any) => s.stallId);
+        await tx.stall.updateMany({
+          where: { id: { in: stallIds } },
           data: {
             status: 'BOOKED_CONFIRMED',
             heldUntil: null,
@@ -88,8 +89,8 @@ export class PaymentsService {
         await tx.notification.create({
           data: {
             userId,
-            title: 'Stall Booking Confirmed!',
-            message: `Your booking for Stall ${booking.stall.stallNumber} has been successfully paid and confirmed. Invoice #${invoiceNum} generated.`,
+            title: 'Booking Confirmed!',
+            message: `Your booking for ${booking.stalls.length} stall(s) has been successfully paid and confirmed. Invoice #${invoiceNum} generated.`,
             type: 'SUCCESS',
           },
         });
@@ -118,9 +119,9 @@ export class PaymentsService {
       await prisma.notification.create({
         data: {
           userId,
-          title: 'Payment Unsuccessful',
-          message: `Payment attempt for Stall ${booking.stall.stallNumber} failed. You may retry payment before session expires.`,
-          type: 'DANGER',
+          title: 'Payment Failed',
+          message: `Payment attempt for your stall booking failed. You may retry payment before the session expires.`,
+          type: 'ERROR',
         },
       });
 
@@ -134,7 +135,7 @@ export class PaymentsService {
       include: {
         booking: {
           include: {
-            stall: true,
+            stalls: { include: { stall: true } },
             company: true,
           },
         },

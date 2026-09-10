@@ -82,7 +82,7 @@ export class FloorPlansService {
       if (Array.isArray(stalls)) {
         const existingStalls = await tx.stall.findMany({
           where: { floorPlanId },
-          include: { bookings: true },
+          include: { bookingStalls: true },
         });
 
         // Deduplicate incoming stalls by stallNumber to ensure intra-batch uniqueness
@@ -104,7 +104,7 @@ export class FloorPlansService {
         for (const existing of existingStalls) {
           const isRetained = newStallIds.has(existing.id) || newStallNumbers.has(existing.stallNumber.toUpperCase());
           if (!isRetained) {
-            if (existing.bookings && existing.bookings.length > 0) {
+            if (existing.bookingStalls && existing.bookingStalls.length > 0) {
               // Preserve stalls with active bookings
               continue;
             }
