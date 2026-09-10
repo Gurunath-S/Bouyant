@@ -27,6 +27,7 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
+  spcode?: string | null;
   role: UserRole;
   companyId?: string | null;
   company?: Company | null;
@@ -36,6 +37,8 @@ export interface User {
 export interface Company {
   id: string;
   companyCode: string;
+  regNo?: string | null;
+  spcode?: string | null;
   name: string;
   contactPerson: string;
   designation: string;
@@ -59,6 +62,9 @@ export interface Exhibition {
   title: string;
   slug: string;
   description: string;
+  edition?: string | null;
+  eventCode?: string | null;
+  spcode?: string | null;
   venue: string;
   city: string;
   startDate: string;

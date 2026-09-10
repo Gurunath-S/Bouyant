@@ -14,6 +14,16 @@ export class AuthService {
       throw ApiError.conflict('An account with this email address already exists.');
     }
 
+    if (input.spcode) {
+      const cleanSp = input.spcode.toUpperCase().trim();
+      const existingSp = await prisma.user.findUnique({
+        where: { spcode: cleanSp },
+      });
+      if (existingSp) {
+        throw ApiError.conflict(`A user with Staff SP Code '${cleanSp}' already exists.`);
+      }
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     const user = await prisma.user.create({
@@ -23,6 +33,7 @@ export class AuthService {
         name: input.name,
         phone: input.phone,
         role: 'CLIENT',
+        spcode: input.spcode ? input.spcode.toUpperCase().trim() : null,
       },
       select: {
         id: true,
@@ -46,8 +57,14 @@ export class AuthService {
   }
 
   static async login(input: LoginInput) {
-    const user = await prisma.user.findUnique({
-      where: { email: input.email.toLowerCase() },
+    const identifier = input.email.trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: identifier, mode: 'insensitive' } },
+          { spcode: { equals: identifier, mode: 'insensitive' } },
+        ],
+      },
       include: { company: true },
     });
 
