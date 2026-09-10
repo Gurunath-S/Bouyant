@@ -62,7 +62,7 @@ export const AdminBookingsPage: React.FC = () => {
                   {b.bookingReference}
                 </td>
                 <td className="py-3.5 px-4 font-semibold text-slate-900">{b.exhibition?.title}</td>
-                <td className="py-3.5 px-4 font-bold text-slate-700">Stall {b.stall?.stallNumber}</td>
+                <td className="py-3.5 px-4 font-bold text-slate-700">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
                 <td className="py-3.5 px-4">{b.company?.name}</td>
                 <td className="py-3.5 px-4">
                   <BookingStatusBadge status={b.status} />

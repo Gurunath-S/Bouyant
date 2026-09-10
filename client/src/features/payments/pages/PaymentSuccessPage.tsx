@@ -58,7 +58,7 @@ export const PaymentSuccessPage: React.FC = () => {
           </div>
           <div className="flex justify-between py-1 border-b border-slate-200/60">
             <span className="text-slate-500 font-medium">Reserved Stall:</span>
-            <span className="font-bold text-slate-900">Stall {booking?.stall?.stallNumber}</span>
+            <span className="font-bold text-slate-900">Stall(s) {booking?.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</span>
           </div>
           <div className="flex justify-between py-1 pt-2 text-sm font-bold text-slate-900">
             <span>Amount Verified & Paid:</span>

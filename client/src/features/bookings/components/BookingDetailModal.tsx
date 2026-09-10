@@ -147,17 +147,17 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
             <div className="p-3 bg-[#f6f9ff] dark:bg-slate-900/60 border border-blue-100 dark:border-blue-900/40 rounded-xl space-y-1.5">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-[#09539b] dark:text-blue-400 text-sm font-mono flex items-center gap-1">
-                  <Tag className="w-3.5 h-3.5" /> Stall {booking.stall?.stallNumber || 'N/A'}
+                  <Tag className="w-3.5 h-3.5" /> Stall(s) {booking.stalls?.map(bs => bs.stall?.stallNumber).join(', ') || 'N/A'}
                 </span>
                 <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-extrabold text-[10px] rounded uppercase">
-                  {booking.stall?.category || 'STANDARD'}
+                  {booking.stalls && booking.stalls.length > 0 ? Array.from(new Set(booking.stalls.map(bs => bs.stall?.category))).join(', ') : 'STANDARD'}
                 </span>
               </div>
               <div className="flex justify-between text-[11px] text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1">
-                  <Maximize2 className="w-3 h-3 text-slate-400" /> Carpet Area:
+                  <Maximize2 className="w-3 h-3 text-slate-400" /> Total Carpet Area:
                 </span>
-                <span className="font-bold">{booking.stall?.areaSqFt || 100} Sq.Ft</span>
+                <span className="font-bold">{booking.stalls?.reduce((sum, bs) => sum + (bs.stall?.areaSqFt || 0), 0) || 100} Sq.Ft</span>
               </div>
             </div>
           </div>

@@ -81,7 +81,7 @@ export const MyBookingsPage: React.FC = () => {
                 <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{b.bookingReference}</td>
                   <td className="py-3.5 px-4 font-semibold text-slate-900">{b.exhibition?.title}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-700">Stall {b.stall?.stallNumber}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-700">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
                   <td className="py-3.5 px-4">{b.company?.name}</td>
                   <td className="py-3.5 px-4">
                     <BookingStatusBadge status={b.status} />

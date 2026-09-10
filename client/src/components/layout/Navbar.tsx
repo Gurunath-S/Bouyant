@@ -72,9 +72,16 @@ export const Navbar: React.FC = () => {
             </div>
             <div className="hidden sm:block text-left">
               <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{user?.name}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                {user?.role === 'ADMIN' ? 'Platform Administrator' : user?.company?.name || 'Exhibitor Client'}
-              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  {user?.role === 'ADMIN' ? 'Platform Admin' : user?.company?.name || 'Exhibitor Client'}
+                </span>
+                {user?.role === 'ADMIN' && user?.spcode && (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded font-mono text-[9px] font-bold shadow-xs">
+                    {user.spcode}
+                  </span>
+                )}
+              </div>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
@@ -85,9 +92,16 @@ export const Navbar: React.FC = () => {
               <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                 <p className="font-bold text-slate-900 dark:text-slate-100">{user?.name}</p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
-                <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold text-[10px] rounded">
-                  {user?.role} ACCOUNT
-                </span>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="inline-block px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold text-[10px] rounded">
+                    {user?.role} ACCOUNT
+                  </span>
+                  {user?.role === 'ADMIN' && user?.spcode && (
+                    <span className="inline-block px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-mono font-bold text-[10px] rounded">
+                      SP CODE: {user.spcode}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="py-1">

@@ -135,10 +135,9 @@ export const AdminEventsPage: React.FC = () => {
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
-              <th className="py-3.5 px-4">Event Title</th>
               <th className="py-3.5 px-4">
                 <div className="flex items-center gap-1 group relative cursor-help">
-                  <span>Slug</span>
+                  <span>Event Title & Slug</span>
                   <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 transition-colors" />
                   {/* Tooltip explanation */}
                   <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">

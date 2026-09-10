@@ -128,20 +128,22 @@ export const InvoiceDetailPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-gray-200 text-slate-800">
-              <tr>
-                <td className="py-4 px-4 font-semibold text-slate-900 print:text-black">
-                  Exhibition Stall Rental Fee
-                </td>
-                <td className="py-4 px-4 text-slate-600 print:text-gray-700 uppercase font-medium">
-                  {invoice.booking?.stall?.category}
-                </td>
-                <td className="py-4 px-4 font-bold text-blue-700 print:text-blue-800">
-                  Stall {invoice.booking?.stall?.stallNumber}
-                </td>
-                <td className="py-4 px-4 text-right font-mono font-bold text-slate-900 print:text-black">
-                  ₹{Number(invoice.totalAmount).toLocaleString()}
-                </td>
-              </tr>
+              {invoice.booking?.stalls?.map(bs => (
+                <tr key={bs.id}>
+                  <td className="py-4 px-4 font-semibold text-slate-900 print:text-black">
+                    Exhibition Stall Rental Fee
+                  </td>
+                  <td className="py-4 px-4 text-slate-600 print:text-gray-700 uppercase font-medium">
+                    {bs.stall?.category}
+                  </td>
+                  <td className="py-4 px-4 font-bold text-blue-700 print:text-blue-800">
+                    Stall {bs.stall?.stallNumber}
+                  </td>
+                  <td className="py-4 px-4 text-right font-mono font-bold text-slate-900 print:text-black">
+                    ₹{Number(bs.price).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
