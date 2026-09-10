@@ -161,13 +161,14 @@ export class CompaniesService {
       }
     }
 
-    // step 1: check gst verification 
-    const gstResult = await this.verifyGst(input.gstNumber, edition, eventCode, spcode, anyInput.year);
+    if (input.gstNumber) {
+      const gstResult = await this.verifyGst(input.gstNumber, edition, eventCode, spcode, anyInput.year);
 
-    if (!gstResult.canCreate) {
-      throw ApiError.conflict(
-        'A company with this GST number is already registered.'
-      );
+      if (!gstResult.canCreate) {
+        throw ApiError.conflict(
+          'A company with this GST number is already registered.'
+        );
+      }
     }
 
     let effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
@@ -238,8 +239,8 @@ export class CompaniesService {
           state: input.state,
           pinCode: input.pinCode || '400051',
           country: input.country || 'India',
-          gstNumber: input.gstNumber,
-          panNumber: input.panNumber,
+          gstNumber: input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber : null,
+          panNumber: input.panNumber && input.panNumber.trim() !== '' ? input.panNumber : null,
           tanNumber: effectiveTan,
           industry: input.industry,
           website: input.website,
@@ -289,9 +290,20 @@ export class CompaniesService {
       throw ApiError.notFound('Company not found.');
     }
 
+    const updateData: any = { ...input };
+    if (input.gstNumber !== undefined) {
+      updateData.gstNumber = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber : null;
+    }
+    if (input.panNumber !== undefined) {
+      updateData.panNumber = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber : null;
+    }
+    if (input.tanNumber !== undefined) {
+      updateData.tanNumber = input.tanNumber && input.tanNumber.trim() !== '' ? input.tanNumber : null;
+    }
+
     return await prisma.company.update({
       where: { id: companyId },
-      data: input,
+      data: updateData,
     });
   }
 

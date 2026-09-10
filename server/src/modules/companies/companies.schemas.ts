@@ -6,6 +6,7 @@ const gstNumberSchema = z
   .trim()
   .toUpperCase()
   .superRefine((val, ctx) => {
+    if (!val) return;
     const res = validateGstinStructure(val);
     if (!res.isValid) {
       ctx.addIssue({
@@ -26,8 +27,8 @@ export const CreateCompanySchema = z
     state: z.string().trim().min(2, 'State is required'),
     pinCode: z.string().trim().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits').optional().default('641001'),
     country: z.string().trim().optional().default('India'),
-    gstNumber: gstNumberSchema,
-    panNumber: z.string().trim().toUpperCase().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN number'),
+    gstNumber: gstNumberSchema.optional().or(z.literal('')),
+    panNumber: z.string().trim().toUpperCase().refine((val) => !val || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(val), 'Invalid PAN number').optional().or(z.literal('')),
     tanNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     industry: z.string().trim().min(2, 'Industry is required'),
     website: z.string().trim().url('Invalid website URL').or(z.literal('')).optional(),
@@ -42,6 +43,7 @@ export const CreateCompanySchema = z
   .refine(
     (data) => {
       // Security check: PAN must match the PAN embedded inside the 15-character GSTIN (characters 3-12)
+      if (!data.gstNumber || !data.panNumber) return true;
       const cleanGst = data.gstNumber.trim().toUpperCase();
       const panFromGst = cleanGst.substring(2, 12);
       return data.panNumber.trim().toUpperCase() === panFromGst;

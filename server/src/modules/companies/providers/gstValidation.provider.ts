@@ -1,7 +1,7 @@
 import { env } from '../../../config/env.js';
 import { GstVerificationResponse } from '../types/gstTypes.js';
 import { ApiError } from '../../../utils/apiError.js';
-import { generateRealisticGstDetails, GST_STATE_CODES } from '../utils/gstUtils.js';
+import { GST_STATE_CODES } from '../utils/gstUtils.js';
 
 export class GstValidationProvider {
   static async verify(gstNumber: string): Promise<GstVerificationResponse> {
@@ -64,13 +64,6 @@ export class GstValidationProvider {
         response.status === 403 ||
         response.status === 429
       ) {
-        if (env.NODE_ENV === 'development') {
-          console.warn(
-            `[GST API Notice] gstinapi.in returned ${response.status} (${errorMsg || errorBody?.code}). ` +
-            `Synthesizing accurate GST details for ${cleanGst}.`
-          );
-          return this.getAccurateFallback(cleanGst);
-        }
 
         if (errorBody?.code === 'email_unverified_credits_held') {
           throw ApiError.badRequest('Your GST lookup credits are waiting. Please confirm your email address on gstinapi.in to unlock them.');
@@ -83,34 +76,9 @@ export class GstValidationProvider {
     } catch (err: any) {
       if (err instanceof ApiError) throw err;
 
-      if (env.NODE_ENV === 'development') {
-        console.warn(`[GST API Notice] Provider error: ${err.message}. Synthesizing accurate GST details for ${cleanGst}.`);
-        return this.getAccurateFallback(cleanGst);
-      }
-
       throw ApiError.badRequest(`GST verification failed: ${err.message}`);
     }
   }
 
-  private static getAccurateFallback(gstNumber: string): GstVerificationResponse {
-    const realistic = generateRealisticGstDetails(gstNumber);
-    return {
-      success: true,
-      gstin: realistic.gstin,
-      data: {
-        gstin: realistic.gstin,
-        legal_name: realistic.legalName,
-        trade_name: realistic.tradeName,
-        status: realistic.status,
-        pincode: realistic.pincode,
-        block_status: realistic.blockStatus,
-        city: realistic.city,
-        state: realistic.state,
-        state_code: realistic.stateCode,
-        address: realistic.address,
-        pan: realistic.pan,
-        taxpayer_type: realistic.taxpayerType,
-      },
-    };
-  }
+
 }
