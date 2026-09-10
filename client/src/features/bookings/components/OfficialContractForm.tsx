@@ -6,7 +6,7 @@ import { formatDisplayDate } from '../../../utils/date';
 interface OfficialContractFormProps {
   company: Company;
   exhibition: Exhibition;
-  stall: Stall;
+  stalls: Stall[];
   paymentType: 'FULL' | 'PARTIAL';
   effectivePartialPercent: number;
   payableToday: number;
@@ -18,7 +18,7 @@ interface OfficialContractFormProps {
 export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
   company,
   exhibition,
-  stall,
+  stalls,
   paymentType,
   effectivePartialPercent,
   payableToday,
@@ -26,12 +26,9 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
   formattedDeadline,
   onPrint,
 }) => {
-  const isHallA = stall.stallNumber.startsWith('A');
-  const hallName = isHallA ? 'HALL - A (PAVILION A)' : 'HALL - B (PAVILION B)';
-  const ratePerSqm = stall.category === 'CORNER' || stall.category === 'ISLAND' ? 7000 : 6500;
-  const baseRental = Number(stall.price) || 100000;
-  const taxAmount = Math.round(baseRental * 0.18);
-  const grandTotal = baseRental + taxAmount;
+  const totalBaseRental = stalls.reduce((sum, s) => sum + (Number(s.price) || 100000), 0);
+  const totalTaxAmount = Math.round(totalBaseRental * 0.18);
+  const totalGrandTotal = totalBaseRental + totalTaxAmount;
 
   return (
     <div className="bg-white border-2 border-[#012970] rounded-2xl p-6 sm:p-8 space-y-6 shadow-md text-slate-800 font-sans print:border-none print:shadow-none">
@@ -120,16 +117,26 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
-              <tr className="bg-white hover:bg-slate-50">
-                <td className="p-3 font-mono font-black text-[#09539b]">Stall {stall.stallNumber}</td>
-                <td className="p-3 font-bold text-slate-700">{hallName}</td>
-                <td className="p-3 font-semibold text-emerald-700">Shell Scheme (Modular)</td>
-                <td className="p-3 font-mono font-bold">{stall.areaSqFt ? Math.round(stall.areaSqFt / 10.764) : 9} Sqm</td>
-                <td className="p-3 font-mono">₹{ratePerSqm.toLocaleString()} / Sqm</td>
-                <td className="p-3 font-mono">₹{baseRental.toLocaleString()}</td>
-                <td className="p-3 font-mono">₹{taxAmount.toLocaleString()}</td>
-                <td className="p-3 font-mono font-black text-[#012970] text-right">₹{grandTotal.toLocaleString()}</td>
-              </tr>
+              {stalls.map(s => {
+                const isA = s.stallNumber.startsWith('A');
+                const hName = isA ? 'HALL - A (PAVILION A)' : 'HALL - B (PAVILION B)';
+                const rSqm = s.category === 'CORNER' || s.category === 'ISLAND' ? 7000 : 6500;
+                const bRental = Number(s.price) || 100000;
+                const tAmount = Math.round(bRental * 0.18);
+                const gTotal = bRental + tAmount;
+                return (
+                  <tr key={s.id} className="bg-white hover:bg-slate-50">
+                    <td className="p-3 font-mono font-black text-[#09539b]">Stall {s.stallNumber}</td>
+                    <td className="p-3 font-bold text-slate-700">{hName}</td>
+                    <td className="p-3 font-semibold text-emerald-700">Shell Scheme (Modular)</td>
+                    <td className="p-3 font-mono font-bold">{s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} Sqm</td>
+                    <td className="p-3 font-mono">₹{rSqm.toLocaleString()} / Sqm</td>
+                    <td className="p-3 font-mono">₹{bRental.toLocaleString()}</td>
+                    <td className="p-3 font-mono">₹{tAmount.toLocaleString()}</td>
+                    <td className="p-3 font-mono font-black text-[#012970] text-right">₹{gTotal.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

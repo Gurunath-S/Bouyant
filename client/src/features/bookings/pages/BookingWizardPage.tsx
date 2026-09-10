@@ -66,7 +66,7 @@ export const BookingWizardPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
-  const { selectedStallId, setSelectedStallId, zoomLevel, setZoomLevel } = useFloorPlanStore();
+  const { selectedStallIds, clearStallSelection, toggleStallSelection, zoomLevel, setZoomLevel } = useFloorPlanStore();
 
   // Booking Flow Steps: 1 = Stall Selection, 2 = Company Details, 3 = Tax Audit & Bill, 4 = Razorpay Payment, 5 = Confirmation & OTP Credentials
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -208,11 +208,15 @@ export const BookingWizardPage: React.FC = () => {
   }, [slug]);
 
   useEffect(() => {
-    const stallIdParam = searchParams.get('stallId');
-    if (stallIdParam) {
-      setSelectedStallId(stallIdParam);
+    const stallIdsParam = searchParams.get('stallIds');
+    if (stallIdsParam) {
+      clearStallSelection();
+      stallIdsParam.split(',').forEach((id) => {
+        const stallObj = stalls.find((s) => s.id === id);
+        if (stallObj) toggleStallSelection(stallObj);
+      });
     }
-  }, [searchParams, setSelectedStallId]);
+  }, [searchParams, stalls, clearStallSelection, toggleStallSelection]);
 
   const loadInitialData = async () => {
     try {
@@ -256,11 +260,11 @@ export const BookingWizardPage: React.FC = () => {
 
   // Step 1: Confirm Stall Selection -> Proceed to Step 2 (Company Details)
   const handleHoldSelectedStall = async () => {
-    if (!selectedStallId) return;
+    if (selectedStallIds.length === 0) return;
     try {
       setStallHoldError('');
       if (user) {
-        await stallService.holdStall(selectedStallId);
+        await Promise.all(selectedStallIds.map(id => stallService.holdStall(id)));
       }
       setCurrentStep(2); // Proceed to Company Details
     } catch (err: any) {
@@ -338,9 +342,14 @@ export const BookingWizardPage: React.FC = () => {
 
   // Step 3: Proceed to Payment
   const handleProceedToPayment = async () => {
-    if (!selectedStallId || !selectedCompany) return;
+    if (selectedStallIds.length === 0 || !selectedCompany) return;
     try {
       setLoading(true);
+      const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+      const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+      const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
+      const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
+
       // For guest/demo flow, construct a valid booking object
       const mockBooking: Booking = {
         id: 'bkg_' + Date.now(),
@@ -348,13 +357,18 @@ export const BookingWizardPage: React.FC = () => {
         userId: user?.id || 'guest_user_id',
         companyId: selectedCompany.id,
         exhibitionId: exhibition?.id || 'expo_id',
-        stallId: selectedStallId,
         status: 'HELD',
-        totalAmount: basePrice,
-        taxAmount: taxAmount,
-        grandTotal: grandTotal,
+        totalAmount: calculatedBasePrice,
+        taxAmount: calculatedTaxAmount,
+        grandTotal: calculatedGrandTotal,
         createdAt: new Date().toISOString(),
-        stall: selectedStallObj,
+        stalls: selectedStallsObj.map((s) => ({
+          id: 'ms_' + Math.random(),
+          bookingId: 'bkg_mock',
+          stallId: s.id,
+          price: s.price,
+          stall: s,
+        })),
         company: selectedCompany,
         exhibition: exhibition || undefined,
       };
@@ -413,8 +427,8 @@ export const BookingWizardPage: React.FC = () => {
     );
   }
 
-  const selectedStallObj = stalls.find((s) => s.id === selectedStallId);
-  const basePrice = selectedStallObj ? Number(selectedStallObj.price) : 100000;
+  const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+  const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
   const taxAmount = Math.round(basePrice * 0.18);
   const grandTotal = basePrice + taxAmount;
 
@@ -513,16 +527,29 @@ export const BookingWizardPage: React.FC = () => {
                 Click any available green stall to inspect dimensions and choose your booth position.
               </p>
             </div>
-            {selectedStallObj && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleHoldSelectedStall}
-                className="bg-[#09539b] hover:bg-[#012970] font-bold"
-                rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
-              >
-                Confirm Stall #{selectedStallObj.stallNumber} & Enter Details
-              </Button>
+            {selectedStallsObj.length > 0 && (
+              <div className="flex justify-between items-center bg-[#f6f9ff] p-4 rounded-xl border border-[#09539b]/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#09539b] text-white flex items-center justify-center font-bold">
+                    <Check className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-[#012970] uppercase tracking-wide text-sm">
+                      Confirm {selectedStallsObj.length} Stall(s) & Enter Details
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Stall {selectedStallsObj.map(s => '#' + s.stallNumber).join(', ')}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleHoldSelectedStall}
+                  className="bg-[#09539b] hover:bg-[#012970] font-bold"
+                  rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
+                >
+                  Proceed
+                </Button>
+              </div>
             )}
           </div>
 
@@ -540,29 +567,38 @@ export const BookingWizardPage: React.FC = () => {
               <FloorPlanCanvas
                 stalls={stalls}
                 layoutData={layoutData}
-                onStallSelect={(s) => setSelectedStallId(s.id)}
+                onStallSelect={(s) => {
+                  if (s.status === 'AVAILABLE') toggleStallSelection(s);
+                }}
               />
             </div>
 
-            {selectedStallObj && (
-              <StallHoverCard
-                stall={selectedStallObj}
-                onClose={() => setSelectedStallId(null)}
-                onHold={handleHoldSelectedStall}
-              />
+            {selectedStallsObj.length > 0 && (
+              <div className="hidden lg:block lg:col-span-1 pl-4 border-l border-slate-200 space-y-4 max-h-[700px] overflow-y-auto">
+                <h4 className="text-xs font-bold text-slate-500 uppercase">Selected Stalls ({selectedStallsObj.length})</h4>
+                {selectedStallsObj.map((s) => (
+                  <StallHoverCard
+                    key={s.id}
+                    stall={s}
+                    onClose={() => toggleStallSelection(s)}
+                    onHold={handleHoldSelectedStall}
+                  />
+                ))}
+              </div>
             )}
           </div>
 
           {/* Sticky Bottom Bar when Stall is picked */}
-          {selectedStallObj && (
-            <div className="p-4 bg-[#012970] text-white rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4 shadow-lg border border-[#09539b]">
+          {selectedStallsObj.length > 0 && (
+            <div className="bg-gradient-to-r from-[#012970] to-[#09539b] text-white p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-lg gap-4">
               <div>
-                <p className="text-xs text-[#9cc542] font-black uppercase tracking-wider">Booth Selected</p>
-                <h4 className="text-base font-extrabold flex items-center gap-2">
-                  Stall #{selectedStallObj.stallNumber} • {selectedStallObj.category} ({selectedStallObj.areaSqFt} Sq.Ft)
-                </h4>
-                <p className="text-xs text-slate-300 font-mono">
-                  Base Rental: ₹{Number(selectedStallObj.price).toLocaleString()} INR (+ 18% GST)
+                <p className="text-xs font-semibold text-blue-200 uppercase tracking-wider mb-1">Reservation Hold</p>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-[#9cc542]" />
+                  {selectedStallsObj.length} Stall(s) Selected • ({selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft Total)
+                </h3>
+                <p className="text-xs text-blue-100 mt-1">
+                  Base Rental: ₹{basePrice.toLocaleString()} INR (+ 18% GST)
                 </p>
               </div>
               <Button
@@ -588,8 +624,8 @@ export const BookingWizardPage: React.FC = () => {
                 <Building2 className="w-5 h-5 text-[#09539b]" /> Corporate Exhibitor Information
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                {selectedStallObj ? (
-                  <>Selected: <b className="text-[#09539b] font-mono">Stall #{selectedStallObj.stallNumber}</b> ({selectedStallObj.areaSqFt} Sq.Ft, ₹{Number(selectedStallObj.price).toLocaleString()}) • </>
+                {selectedStallsObj.length > 0 ? (
+                  <>Selected: <b className="text-[#09539b] font-mono">Stall {selectedStallsObj.map(s => '#' + s.stallNumber).join(', ')}</b> ({selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft, ₹{selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) • </>
                 ) : null}
                 Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
               </p>
@@ -885,8 +921,8 @@ export const BookingWizardPage: React.FC = () => {
       )}
 
       {/* STEP 3: TAX BILL & SUMMARY */}
-      {currentStep === 3 && selectedStallObj && selectedCompany && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+      {currentStep === 3 && selectedStallsObj.length > 0 && selectedCompany && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
           <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
@@ -932,19 +968,25 @@ export const BookingWizardPage: React.FC = () => {
                   Reserved Booth Configuration
                 </h4>
                 <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <span className="text-slate-400 block font-semibold text-[10px]">Stall Number</span>
-                    <span className="font-bold text-[#012970] text-sm font-mono">Stall {selectedStallObj.stallNumber}</span>
+                      {/* Overview Box */}
+                <div className="bg-[#f6f9ff] p-4 rounded-xl border border-blue-100 space-y-2">
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span className="text-sm">Exhibition Event</span>
+                    <span className="font-bold text-[#012970] text-sm text-right">{exhibition?.title}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block font-semibold text-[10px]">Category</span>
-                    <span className="font-bold text-[#09539b] text-sm uppercase">{selectedStallObj.category}</span>
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span className="text-sm">Stall Numbers</span>
+                    <span className="font-bold text-[#012970] text-sm font-mono">{selectedStallsObj.map(s => s.stallNumber).join(', ')}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block font-semibold text-[10px]">Area</span>
-                    <span className="font-bold text-[#012970] text-sm">{selectedStallObj.areaSqFt} Sq.Ft</span>
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span className="text-sm">Categories</span>
+                    <span className="font-bold text-[#09539b] text-sm uppercase">{Array.from(new Set(selectedStallsObj.map(s => s.category))).join(', ')}</span>
                   </div>
-                </div>
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span className="text-sm">Total Area</span>
+                    <span className="font-bold text-[#012970] text-sm">{selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft</span>
+                  </div>
+                </div>          </div>
               </div>
 
               {/* PAYMENT OPTION SELECTOR (FULL vs PARTIAL > 50%) */}
@@ -1083,12 +1125,12 @@ export const BookingWizardPage: React.FC = () => {
                 </div>
 
                 {/* Contract Form Live Expandable Preview */}
-                {showContractPreview && selectedCompany && selectedStallObj && exhibition && (
-                  <div className="animate-in fade-in duration-200">
+                {showContractPreview && selectedCompany && selectedStallsObj.length > 0 && exhibition && (
+                  <div className="print:block" id="contract-printable-area">
                     <OfficialContractForm
                       company={selectedCompany}
                       exhibition={exhibition}
-                      stall={selectedStallObj}
+                      stalls={selectedStallsObj}
                       paymentType={paymentType}
                       effectivePartialPercent={effectivePartialPercent}
                       payableToday={payableToday}
@@ -1252,24 +1294,26 @@ export const BookingWizardPage: React.FC = () => {
 
       {/* STEP 5: SUCCESS & ONE-TIME PASSWORD CREDENTIALS */}
       {currentStep === 5 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-2xl mx-auto space-y-6 shadow-xl">
+        <div className="pt-6 sm:pt-8 max-w-5xl mx-auto space-y-8">
           {paymentStatusState === 'PROCESSING' && (
-            <div className="space-y-4 py-8">
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-2xl mx-auto space-y-6 shadow-xl">
               <RefreshCw className="w-12 h-12 text-[#09539b] animate-spin mx-auto" />
               <h2 className="text-xl font-bold text-[#012970]">Authorizing payment with Razorpay...</h2>
               <p className="text-xs text-slate-500">Please do not refresh or close the browser window.</p>
             </div>
           )}
 
-          {paymentStatusState === 'SUCCESS' && selectedCompany && selectedStallObj && exhibition && (
-            <div className="space-y-6 py-2 animate-in fade-in zoom-in-95 duration-200 text-left">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                  <CheckCircle2 className="w-10 h-10" />
+          {paymentStatusState === 'SUCCESS' && selectedCompany && selectedStallsObj.length > 0 && exhibition && (
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+              {/* SUCCESS BANNER */}
+              <div className="bg-[#f2faf5] border-2 border-[#9cc542] rounded-3xl p-8 sm:p-12 text-center shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#9cc542] to-[#0E8074]" />
+                <div className="w-20 h-20 bg-[#9cc542]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle2 className="w-12 h-12 text-[#0E8074]" />
                 </div>
-                <h2 className="text-2xl font-black text-[#012970]">Stall Reservation Confirmed!</h2>
-                <p className="text-xs text-slate-600">
-                  Your payment has been successfully processed and stall position allocated.
+                <h2 className="text-3xl sm:text-4xl font-black text-[#012970] mb-3">Booking Confirmed!</h2>
+                <p className="text-sm sm:text-base text-emerald-800 font-medium max-w-lg mx-auto">
+                  Your reservation for {selectedStallsObj.length} Stall(s) at {exhibition.title} is successful.
                 </p>
               </div>
 
@@ -1296,10 +1340,11 @@ export const BookingWizardPage: React.FC = () => {
               </div>
 
               {/* Render Official Contract Form Component */}
+              <div className="max-w-4xl mx-auto print:block">
               <OfficialContractForm
                 company={selectedCompany}
                 exhibition={exhibition}
-                stall={selectedStallObj}
+                stalls={selectedStallsObj}
                 paymentType={paymentType}
                 effectivePartialPercent={effectivePartialPercent}
                 payableToday={payableToday}
@@ -1307,6 +1352,7 @@ export const BookingWizardPage: React.FC = () => {
                 formattedDeadline={formattedDeadline}
                 onPrint={() => window.print()}
               />
+              </div>
 
               <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
                 <Link to="/login">

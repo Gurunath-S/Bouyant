@@ -38,7 +38,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
-  const { selectedStallId, setSelectedStallId, zoomLevel, setZoomLevel } = useFloorPlanStore();
+  const { selectedStallIds, toggleStallSelection, zoomLevel, setZoomLevel } = useFloorPlanStore();
 
   useEffect(() => {
     if (slug) fetchEventData();
@@ -340,38 +340,42 @@ export const ExhibitionDetailPage: React.FC = () => {
                   <FloorPlanCanvas
                     stalls={stalls}
                     layoutData={layoutData}
-                    onStallSelect={(s) => setSelectedStallId(s.id)}
+                    onStallSelect={(s) => {
+                      if (s.status === 'AVAILABLE') toggleStallSelection(s);
+                    }}
                   />
                 </div>
 
                 {/* Selected Stall Quick Action Box */}
-                {selectedStallId && (() => {
-                  const selectedStallObj = stalls.find(s => s.id === selectedStallId);
-                  if (!selectedStallObj) return null;
+                {selectedStallIds.length > 0 && (() => {
+                  const selectedStallsObj = stalls.filter(s => selectedStallIds.includes(s.id));
+                  if (selectedStallsObj.length === 0) return null;
+                  
+                  const totalArea = selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0);
+                  const totalPrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+                  const stallNumbers = selectedStallsObj.map(s => s.stallNumber).join(', ');
+
                   return (
                     <div className="p-4 bg-[#EEF4FC] border-2 border-[#1E3FA0] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-extrabold text-[#121B3D] text-base font-mono">
-                            Stall #{selectedStallObj.stallNumber}
+                            Stalls: {stallNumbers}
                           </span>
                           <span className="px-2.5 py-0.5 bg-[#0E8074] text-white text-[10px] font-bold rounded-full uppercase">
-                            {selectedStallObj.status}
-                          </span>
-                          <span className="px-2.5 py-0.5 bg-white text-[#1E3FA0] text-[10px] font-bold rounded-full border border-[#1E3FA0]/30">
-                            {selectedStallObj.category}
+                            {selectedStallsObj.length} Selected
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 font-medium">
-                          Area: {selectedStallObj.areaSqFt} Sq.Ft • Rental: <b className="text-[#1E3FA0] font-mono">₹{Number(selectedStallObj.price).toLocaleString()} + GST</b>
+                          Total Area: {totalArea} Sq.Ft • Total Rental: <b className="text-[#1E3FA0] font-mono">₹{totalPrice.toLocaleString()} + GST</b>
                         </p>
                       </div>
 
                       <button
-                        onClick={() => navigate(`/exhibitions/${slug}/book?stallId=${selectedStallObj.id}`)}
+                        onClick={() => navigate(`/exhibitions/${slug}/book?stallIds=${selectedStallIds.join(',')}`)}
                         className="bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0"
                       >
-                        Book Stall #{selectedStallObj.stallNumber} <ArrowRight className="w-4 h-4 text-[#84CC16]" />
+                        Book Selected Stalls <ArrowRight className="w-4 h-4 text-[#84CC16]" />
                       </button>
                     </div>
                   );
