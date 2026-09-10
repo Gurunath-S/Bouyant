@@ -4,6 +4,9 @@ export const CreateExhibitionSchema = z
   .object({
     title: z.string().min(1, 'Title is required'),
     slug: z.string().optional(),
+    edition: z.string().trim().optional(),
+    eventCode: z.string().trim().optional(),
+    spcode: z.string().trim().optional(),
     description: z.string().optional().default('Exhibition Event Details'),
     venue: z.string().optional().default('Exhibition Center'),
     city: z.string().optional().default('Mumbai'),
@@ -11,7 +14,12 @@ export const CreateExhibitionSchema = z
     endDate: z.string(),
     bannerUrl: z.string().optional().or(z.literal('')),
     totalStalls: z.number().optional(),
-    status: z.enum(['DRAFT', 'PUBLISHED', 'COMPLETED', 'CANCELLED']).optional(),
+    status: z
+      .preprocess(
+        (val) => (typeof val === 'string' ? val.trim().toUpperCase() : val),
+        z.enum(['DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'ARCHIVED'])
+      )
+      .optional(),
     floorPlans: z.array(z.any()).optional(),
     layoutData: z.any().optional(),
     stalls: z.array(z.any()).optional(),

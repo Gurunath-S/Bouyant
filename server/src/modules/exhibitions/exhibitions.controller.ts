@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ExhibitionsService } from './exhibitions.service.js';
+import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class ExhibitionsController {
@@ -26,8 +27,8 @@ export class ExhibitionsController {
     });
   };
 
-  static create = async (req: Request, res: Response) => {
-    const exhibition = await ExhibitionsService.createExhibition(req.body);
+  static create = async (req: AuthenticatedRequest, res: Response) => {
+    const exhibition = await ExhibitionsService.createExhibition(req.body, req.user?.userId);
     return sendResponse({
       res,
       statusCode: 201,

@@ -118,17 +118,24 @@ export class FloorPlansService {
           });
         }
 
+        const validCategories = ['STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
+        const validStatuses = ['AVAILABLE', 'TEMPORARILY_HELD', 'BOOKING_IN_PROGRESS', 'PAYMENT_PENDING', 'BOOKED_CONFIRMED', 'BLOCKED'];
+
         // Upsert stalls: if a record with (floorPlanId, stallNumber) exists, update it!
         for (const s of sanitizedStalls) {
           const stallNum = s.stallNumber.trim();
-          const category = s.category || 'STANDARD';
+          const rawCat = s.category ? String(s.category).toUpperCase() : 'STANDARD';
+          const category = (validCategories.includes(rawCat) ? rawCat : 'STANDARD') as any;
+
+          const rawStat = s.status ? String(s.status).toUpperCase() : 'AVAILABLE';
+          const status = (validStatuses.includes(rawStat) ? rawStat : 'AVAILABLE') as any;
+
           const price = Number(s.price) || 50000;
-          const areaSqFt = s.areaSqFt || Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100);
+          const areaSqFt = s.areaSqFt ? Number(s.areaSqFt) : Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100);
           const width = Number(s.width) || 60;
           const height = Number(s.height) || 60;
           const xPosition = Number(s.xPosition) || 0;
           const yPosition = Number(s.yPosition) || 0;
-          const status = s.status || 'AVAILABLE';
 
           try {
             // Check if record already exists by unique (floorPlanId, stallNumber)
