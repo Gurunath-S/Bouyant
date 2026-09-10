@@ -94,9 +94,9 @@ model Company {
   state          String
   pinCode        String     
   country        String      @default("Not Provided")
-  gstNumber      String      @unique
-  panNumber      String      @unique
-  tanNumber      String      @unique
+  gstNumber      String?     @unique
+  panNumber      String?     @unique
+  tanNumber      String?     @unique
   industry       String      
   website        String?     
   remarks        String?     @default("Not Provided")
