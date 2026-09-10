@@ -51,6 +51,7 @@ export interface Company {
   country?: string;
   gstNumber?: string;
   panNumber?: string;
+  tanNumber?: string;
   industry: string;
   category: string;
   website?: string;

@@ -51,8 +51,9 @@ const companySchema = z.object({
   state: z.string().min(2, 'State is required'),
   pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
   country: z.string().optional().default('India'),
-  gstNumber: z.string().min(15, 'GST Registration Number must be 15 characters'),
-  panNumber: z.string().min(10, 'PAN Number must be 10 characters'),
+  gstNumber: z.string().trim().refine((val) => !val || val.length === 15, { message: 'GST Registration Number must be 15 characters' }).optional().or(z.literal('')),
+  panNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'PAN Number must be 10 characters' }).optional().or(z.literal('')),
+  tanNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'TAN Number must be 10 characters' }).optional().or(z.literal('')),
   industry: z.string().min(2, 'Industry sector is required'),
   category: z.string().min(2, 'Product/Service Category is required'),
   website: z.string().optional(),
@@ -121,6 +122,7 @@ export const BookingWizardPage: React.FC = () => {
       country: 'India',
       gstNumber: '',
       panNumber: '',
+      tanNumber: '',
       industry: 'Technology & Manufacturing',
       category: 'Exhibitor / Booth',
       website: '',
@@ -317,6 +319,7 @@ export const BookingWizardPage: React.FC = () => {
         country: data.country || 'India',
         gstNumber: data.gstNumber,
         panNumber: data.panNumber,
+        tanNumber: data.tanNumber,
         industry: data.industry,
         category: data.category,
         website: data.website,
@@ -784,6 +787,13 @@ export const BookingWizardPage: React.FC = () => {
                   maxLength={10}
                   error={errors.panNumber?.message}
                   {...register('panNumber')}
+                />
+                <Input
+                  label="Tax Deduction Account Number (TAN) (Optional)"
+                  placeholder="e.g. DELT12345E"
+                  maxLength={10}
+                  error={errors.tanNumber?.message}
+                  {...register('tanNumber')}
                 />
                 <Input
                   label="Authorized Contact Person *"
