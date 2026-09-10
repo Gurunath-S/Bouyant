@@ -83,6 +83,32 @@ export const CompanyProfilePage: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
+        {/* Registration & System Badges */}
+        {user?.company && (
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-slate-500">Official Registration Number:</span>
+              <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded text-xs">
+                {user.company.regNo || 'Not Assigned'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-slate-500">Internal Company Code:</span>
+              <span className="font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded text-xs">
+                {user.company.companyCode}
+              </span>
+            </div>
+            {user?.role === 'ADMIN' && (user.spcode || user.company.spcode) && (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-500">Staff SP Code:</span>
+                <span className="font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded text-xs">
+                  {user.spcode || user.company.spcode}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Section 1: Business Identity */}
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 uppercase tracking-wider text-blue-600">

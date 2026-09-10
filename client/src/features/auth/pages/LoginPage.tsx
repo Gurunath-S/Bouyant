@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().min(1, 'Email address or Staff SP Code is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -154,9 +154,9 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Input
-                  label="Email Address"
-                  type="email"
-                  placeholder="name@company.com"
+                  label="Corporate Email or Staff SP Code"
+                  type="text"
+                  placeholder="name@company.com or B001"
                   leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
                   error={errors.email?.message}
                   {...register('email')}
