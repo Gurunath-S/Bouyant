@@ -7,19 +7,17 @@ export class CompaniesController {
 
 
   static verifyGst = async (req: Request, res: Response) => {
+    const { gstNumber, edition, eventCode, spcode, year } = req.body;
 
-  const { gstNumber } = req.body;
+    const result = await CompaniesService.verifyGst(gstNumber, edition, eventCode, spcode, year);
 
-  const result =
-    await CompaniesService.verifyGst(gstNumber);
-
-  return sendResponse({
-    res,
-    statusCode: 200,
-    message: 'GST verification completed successfully.',
-    data: result,
-  });
-};
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: 'GST verification completed successfully.',
+      data: result,
+    });
+  };
 
   static create = async (req: AuthenticatedRequest, res: Response) => {
     const company = await CompaniesService.createCompany(req.body);

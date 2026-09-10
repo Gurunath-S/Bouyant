@@ -32,7 +32,13 @@ export const CreateCompanySchema = z
     industry: z.string().trim().min(2, 'Industry is required'),
     website: z.string().trim().url('Invalid website URL').or(z.literal('')).optional(),
     remarks: z.string().trim().optional(),
+    regNo: z.string().trim().optional(),
+    spcode: z.string().trim().optional(),
+    edition: z.string().trim().optional(),
+    eventCode: z.string().trim().optional(),
+    year: z.string().trim().optional(),
   })
+  .passthrough()
   .refine(
     (data) => {
       // Security check: PAN must match the PAN embedded inside the 15-character GSTIN (characters 3-12)
@@ -46,9 +52,14 @@ export const CreateCompanySchema = z
     }
   );
 
-export const GstVerificationSchema = z.object({
-  gstNumber: gstNumberSchema,
-});
+export const GstVerificationSchema = z
+  .object({
+    gstNumber: gstNumberSchema,
+    edition: z.string().trim().optional(),
+    eventCode: z.string().trim().optional(),
+    spcode: z.string().trim().optional(),
+  })
+  .passthrough();
 
 export const UpdateCompanySchema = z.object({
   name: z.string().trim().min(2).optional(),
