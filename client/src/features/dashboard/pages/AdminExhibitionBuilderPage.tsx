@@ -71,6 +71,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [basicInfo, setBasicInfo] = useState({
     title: 'India Industrial & Automation Expo 2026',
     slug: 'india-industrial-expo-2026',
+    edition: '01',
+    eventCode: 'II',
+    spcode: 'B003',
     category: 'Industrial & Automation',
     description: 'Premier trade fair for industrial machinery, robotics automation, IoT sensors, and smart manufacturing technologies.',
     startDate: '2026-11-10',
@@ -101,6 +104,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         setBasicInfo({
           title: data.title || '',
           slug: data.slug || '',
+          edition: (data as any).edition || '',
+          eventCode: (data as any).eventCode || '',
+          spcode: (data as any).spcode || '',
           category: 'Industrial & Automation',
           description: data.description || '',
           startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
@@ -317,6 +323,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         const updatePayload = {
           title: basicInfo.title,
           description: basicInfo.description,
+          edition: basicInfo.edition,
+          eventCode: basicInfo.eventCode,
+          spcode: basicInfo.spcode,
           venue: basicInfo.venue,
           city: basicInfo.city,
           startDate: new Date(basicInfo.startDate).toISOString(),
@@ -353,6 +362,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         const payload = {
           title: basicInfo.title,
           description: basicInfo.description,
+          edition: basicInfo.edition,
+          eventCode: basicInfo.eventCode,
+          spcode: basicInfo.spcode,
           venue: basicInfo.venue,
           city: basicInfo.city,
           startDate: new Date(basicInfo.startDate).toISOString(),
@@ -638,10 +650,20 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .trim()
                       .replace(/[^a-z0-9]+/g, '-')
                       .replace(/(^-|-$)+/g, '');
+
+                    const words = title.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/);
+                    let suggestedCode = basicInfo.eventCode;
+                    if (!id && words.length >= 2 && words[0] && words[1]) {
+                      suggestedCode = (words[0][0] + words[1][0]).toUpperCase();
+                    } else if (!id && words.length === 1 && words[0].length >= 2) {
+                      suggestedCode = words[0].substring(0, 2).toUpperCase();
+                    }
+
                     setBasicInfo({
                       ...basicInfo,
                       title,
                       slug: autoSlug,
+                      eventCode: suggestedCode || basicInfo.eventCode,
                     });
                   }}
                   placeholder="e.g. India Industrial & Automation Expo 2026"
@@ -693,7 +715,95 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Dates & Exhibition Schedule */}
+          {/* Card: Event Codes & Client Registration Number Configuration */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-mono font-black text-xs">
+                  SP
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                    2. Event Codes, SP Code & Registration Numbering
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Official edition, shortcode, internal staff SP Code, and automated client registration format
+                  </p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                SP Code: Internal Staff Only
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Input
+                  label="Edition Code *"
+                  value={basicInfo.edition}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, edition: e.target.value.toUpperCase().slice(0, 4) })}
+                  placeholder="e.g. 04"
+                  helperText="Exhibition edition (e.g. 04)"
+                  required
+                />
+              </div>
+              <div>
+                <Input
+                  label="Event Short Code *"
+                  value={basicInfo.eventCode}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, eventCode: e.target.value.toUpperCase().slice(0, 6) })}
+                  placeholder="e.g. ME"
+                  helperText="e.g. ME (Mediccon Expo)"
+                  required
+                />
+              </div>
+              <div>
+                <Input
+                  label="SP Code (Admin / Staff Allocation) *"
+                  value={basicInfo.spcode}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, spcode: e.target.value.toUpperCase().slice(0, 10) })}
+                  placeholder="e.g. B001"
+                  helperText="Staff authentication code (hidden from client form)"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Registration Format Live Preview */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-xl shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-900/60 pb-2">
+                <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">
+                  Client Registration Number Format Template
+                </div>
+                <div className="font-mono text-xs text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                  Sequential Auto-Increment: 01, 02, 03...
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="text-2xl sm:text-3xl font-mono font-extrabold tracking-widest text-white bg-black/40 px-4 py-2 rounded-lg border border-indigo-500/30">
+                  <span className="text-amber-400">{basicInfo.edition || '04'}</span>/
+                  <span className="text-cyan-400">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>/
+                  <span className="text-indigo-400">{basicInfo.eventCode || 'ME'}</span>/
+                  <span className="text-emerald-400">01</span>
+                </div>
+                <div className="text-xs text-slate-300 space-y-0.5">
+                  <div><span className="font-bold text-amber-400">{basicInfo.edition || '04'}</span> = Edition (2-digit)</div>
+                  <div><span className="font-bold text-cyan-400">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span> = Year (2-digit)</div>
+                  <div><span className="font-bold text-indigo-400">{basicInfo.eventCode || 'ME'}</span> = Event Short Code (e.g. Mediccon Expo)</div>
+                  <div><span className="font-bold text-emerald-400">01</span> = Series Number (auto-increments sequentially for each registered client)</div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-indigo-200/80 pt-1 flex items-center gap-1.5 border-t border-indigo-900/40">
+                <span className="text-amber-300 font-bold">Important Constraint:</span>
+                <span>SP Code <strong>({basicInfo.spcode || 'B001'})</strong> is strictly for Admin/Staff authentication & event management. It is never displayed on the client-facing registration form.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Dates & Exhibition Schedule */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
               <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
@@ -701,7 +811,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  2. Dates & Exhibition Schedule
+                  3. Dates & Exhibition Schedule
                 </h3>
                 <p className="text-xs text-slate-500">
                   Enter dates in DD/MM/YYYY format. Date badges display in standard Indian business format.
@@ -901,6 +1011,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   const payload = {
                     title: basicInfo.title || 'Untitled Exhibition',
                     description: basicInfo.description,
+                    edition: basicInfo.edition || undefined,
+                    eventCode: basicInfo.eventCode || undefined,
+                    spcode: basicInfo.spcode || undefined,
                     venue: basicInfo.venue || 'Exhibition Venue',
                     city: basicInfo.city || 'City',
                     startDate: basicInfo.startDate ? new Date(basicInfo.startDate).toISOString() : new Date().toISOString(),
@@ -990,6 +1103,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <p><span className="font-semibold text-slate-500">Category:</span> {basicInfo.category}</p>
                 <p><span className="font-semibold text-slate-500">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
                 <p><span className="font-semibold text-slate-500">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
+                <p><span className="font-semibold text-slate-500">SP Code (Admin/Staff):</span> <span className="font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[11px]">{basicInfo.spcode || 'B001'}</span></p>
+                <p><span className="font-semibold text-slate-500">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700">{basicInfo.edition || '04'}</span> / <span className="font-mono font-bold text-indigo-700">{basicInfo.eventCode || 'ME'}</span></p>
+                <p><span className="font-semibold text-slate-500">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '04'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'ME'}/01</code></p>
                 <p><span className="font-semibold text-slate-500">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
                 <p><span className="font-semibold text-slate-500">Dates:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)}</p>
               </div>

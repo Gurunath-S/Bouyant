@@ -149,6 +149,7 @@ export const AdminEventsPage: React.FC = () => {
                   </div>
                 </div>
               </th>
+              <th className="py-3.5 px-4">Codes (SP / Edition)</th>
               <th className="py-3.5 px-4">Venue & Location</th>
               <th className="py-3.5 px-4">Event Dates</th>
               <th className="py-3.5 px-4 text-center">Capacity</th>
@@ -164,12 +165,24 @@ export const AdminEventsPage: React.FC = () => {
                 className="hover:bg-purple-50/40 cursor-pointer transition-colors group"
               >
                 <td className="py-3.5 px-4 font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
-                  {e.title}
+                  <div>{e.title}</div>
+                  <div className="text-[10px] text-slate-400 font-normal font-mono">{e.slug}</div>
                 </td>
-                <td className="py-3.5 px-4 font-mono text-slate-500">
-                  <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] border border-slate-200">
-                    {e.slug}
-                  </span>
+                <td className="py-3.5 px-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase">SP:</span>
+                      <span className="bg-amber-50 text-amber-800 font-mono font-bold text-[11px] px-1.5 py-0.2 rounded border border-amber-200">
+                        {e.spcode || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase">Reg:</span>
+                      <span className="bg-indigo-50 text-indigo-700 font-mono font-semibold text-[10px] px-1.5 py-0.2 rounded border border-indigo-200">
+                        {e.edition && e.eventCode ? `${e.edition}/${e.startDate ? new Date(e.startDate).getFullYear().toString().slice(-2) : '26'}/${e.eventCode}/*` : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
                 </td>
                 <td className="py-3.5 px-4">{e.venue}, {e.city}</td>
                 <td className="py-3.5 px-4 text-slate-500">
