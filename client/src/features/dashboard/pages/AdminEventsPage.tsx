@@ -148,7 +148,7 @@ export const AdminEventsPage: React.FC = () => {
                   </div>
                 </div>
               </th>
-              <th className="py-3.5 px-4">Codes (SP / Edition)</th>
+              <th className="py-3.5 px-4">SP Code</th>
               <th className="py-3.5 px-4">Venue & Location</th>
               <th className="py-3.5 px-4">Event Dates</th>
               <th className="py-3.5 px-4 text-center">Capacity</th>
@@ -163,25 +163,40 @@ export const AdminEventsPage: React.FC = () => {
                 onClick={() => navigate(`/admin/events/${e.id}/view`)}
                 className="hover:bg-purple-50/40 cursor-pointer transition-colors group"
               >
-                <td className="py-3.5 px-4 font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
-                  <div>{e.title}</div>
-                  <div className="text-[10px] text-slate-400 font-normal font-mono">{e.slug}</div>
-                </td>
-                <td className="py-3.5 px-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase">SP:</span>
-                      <span className="bg-amber-50 text-amber-800 font-mono font-bold text-[11px] px-1.5 py-0.2 rounded border border-amber-200">
-                        {e.spcode || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase">Reg:</span>
-                      <span className="bg-indigo-50 text-indigo-700 font-mono font-semibold text-[10px] px-1.5 py-0.2 rounded border border-indigo-200">
-                        {e.edition && e.eventCode ? `${e.edition}/${e.startDate ? new Date(e.startDate).getFullYear().toString().slice(-2) : '26'}/${e.eventCode}/*` : 'N/A'}
-                      </span>
+                <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {e.bannerUrl ? (
+                      <img
+                        src={e.bannerUrl}
+                        alt={e.title}
+                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
+                        onError={(err) => {
+                          (err.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900 leading-snug group-hover:text-purple-700 transition-colors">
+                        {e.title}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-normal font-mono truncate mt-0.5">
+                        {e.slug}
+                      </div>
                     </div>
                   </div>
+                </td>
+                <td className="py-3.5 px-4">
+                  {e.spcode ? (
+                    <span className="bg-amber-50 text-amber-800 font-mono font-bold text-[11px] px-2 py-0.5 rounded border border-amber-200 inline-block">
+                      {e.spcode}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 text-xs font-mono">—</span>
+                  )}
                 </td>
                 <td className="py-3.5 px-4">{e.venue}, {e.city}</td>
                 <td className="py-3.5 px-4 text-slate-500">

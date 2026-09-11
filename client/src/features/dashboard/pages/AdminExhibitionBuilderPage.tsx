@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { floorPlanService } from '../../../services/floor-plans/floorPlanService';
@@ -195,25 +195,24 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   // Crash Recovery & Auto-Save
   const DRAFT_STORAGE_KEY = id ? `buoyant_exhibition_draft_${id}` : 'buoyant_exhibition_draft_new';
   const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
+  const hasAttemptedRestoreRef = useRef(false);
 
-  // Crash Recovery: Auto-restore if session crashed or tab was closed
+  // Crash Recovery: Auto-restore if session crashed or tab was closed (run only once on mount)
   useEffect(() => {
-    if (!id) {
+    if (!id && !hasAttemptedRestoreRef.current) {
+      hasAttemptedRestoreRef.current = true;
       try {
         const saved = localStorage.getItem('buoyant_exhibition_draft_new');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (
             parsed &&
-            (parsed.basicInfo?.title ||
-              parsed.stalls?.length > 0 ||
-              parsed.layoutData?.halls?.length > 0)
+            (parsed.stalls?.length > 0 || parsed.layoutData?.halls?.length > 0)
           ) {
             if (parsed.basicInfo) setBasicInfo(parsed.basicInfo);
             if (parsed.hallConfig) setHallConfig(parsed.hallConfig);
             if (parsed.stalls) setStalls(parsed.stalls);
             if (parsed.layoutData) setLayoutData(parsed.layoutData);
-            if (parsed.currentStep) setCurrentStep(parsed.currentStep);
             setHasRestoredDraft(true);
           }
         }
@@ -223,22 +222,27 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     }
   }, [id]);
 
-  // Continuously auto-save to localStorage on every change to protect work
+  // Debounced auto-save to localStorage
   useEffect(() => {
     if (isLoadingEvent) return;
-    try {
-      const draft = {
-        basicInfo,
-        hallConfig,
-        stalls,
-        layoutData,
-        currentStep,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    } catch (e) {
-      console.warn('Auto-save failed', e);
-    }
+
+    const timer = setTimeout(() => {
+      try {
+        const draft = {
+          basicInfo,
+          hallConfig,
+          stalls,
+          layoutData,
+          currentStep,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } catch (e) {
+        console.warn('Auto-save failed', e);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY, isLoadingEvent]);
 
   // Window beforeunload listener
@@ -263,6 +267,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const handleDiscardDraft = () => {
     if (window.confirm('Discard the restored draft and start completely clean from scratch?')) {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem('buoyant_exhibition_draft_new');
       setHasRestoredDraft(false);
       setStalls([]);
       setLayoutData(null);
@@ -652,19 +657,21 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .replace(/(^-|-$)+/g, '');
 
                     const words = title.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/);
-                    let suggestedCode = basicInfo.eventCode;
-                    if (!id && words.length >= 2 && words[0] && words[1]) {
-                      suggestedCode = (words[0][0] + words[1][0]).toUpperCase();
-                    } else if (!id && words.length === 1 && words[0].length >= 2) {
-                      suggestedCode = words[0].substring(0, 2).toUpperCase();
+                    let newEventCode = basicInfo.eventCode;
+                    if (!id && (!basicInfo.eventCode || basicInfo.eventCode.length <= 2)) {
+                      if (words.length >= 2 && words[0] && words[1]) {
+                        newEventCode = (words[0][0] + words[1][0]).toUpperCase();
+                      } else if (words.length === 1 && words[0].length >= 2) {
+                        newEventCode = words[0].substring(0, 2).toUpperCase();
+                      }
                     }
 
-                    setBasicInfo({
-                      ...basicInfo,
+                    setBasicInfo((prev) => ({
+                      ...prev,
                       title,
                       slug: autoSlug,
-                      eventCode: suggestedCode || basicInfo.eventCode,
-                    });
+                      eventCode: newEventCode || prev.eventCode,
+                    }));
                   }}
                   placeholder="e.g. India Industrial & Automation Expo 2026"
                   required
@@ -731,10 +738,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                SP Code: Internal Staff Only
-              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -771,34 +774,46 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </div>
 
             {/* Registration Format Live Preview */}
-            <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-xl shadow-xs space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-900/60 pb-2">
-                <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">
+            <div className="p-4 sm:p-5 bg-purple-50/50 border border-purple-100 rounded-xl space-y-3.5">
+              <div className="border-b border-purple-100 pb-2.5">
+                <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">
                   Client Registration Number Format Template
                 </div>
-                <div className="font-mono text-xs text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-500/30">
-                  Sequential Auto-Increment: 01, 02, 03...
+              </div>
+
+              <div className="flex flex-wrap items-center gap-5">
+                <div className="text-2xl sm:text-3xl font-mono font-extrabold tracking-widest text-slate-800 bg-white px-4 py-2.5 rounded-lg border border-purple-200/80 shadow-xs">
+                  <span className="text-amber-600">{basicInfo.edition || '04'}</span>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-blue-600">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-purple-600">{basicInfo.eventCode || 'ME'}</span>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-emerald-600">01</span>
+                </div>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.edition || '04'}</span>
+                    <span className="text-slate-500">= Edition (2-digit)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>
+                    <span className="text-slate-500">= Year (2-digit)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.eventCode || 'ME'}</span>
+                    <span className="text-slate-500">= Event Short Code (e.g. Mediccon Expo)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">01</span>
+                    <span className="text-slate-500">= Series Number (auto-increments sequentially for each registered client)</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="text-2xl sm:text-3xl font-mono font-extrabold tracking-widest text-white bg-black/40 px-4 py-2 rounded-lg border border-indigo-500/30">
-                  <span className="text-amber-400">{basicInfo.edition || '04'}</span>/
-                  <span className="text-cyan-400">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>/
-                  <span className="text-indigo-400">{basicInfo.eventCode || 'ME'}</span>/
-                  <span className="text-emerald-400">01</span>
-                </div>
-                <div className="text-xs text-slate-300 space-y-0.5">
-                  <div><span className="font-bold text-amber-400">{basicInfo.edition || '04'}</span> = Edition (2-digit)</div>
-                  <div><span className="font-bold text-cyan-400">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span> = Year (2-digit)</div>
-                  <div><span className="font-bold text-indigo-400">{basicInfo.eventCode || 'ME'}</span> = Event Short Code (e.g. Mediccon Expo)</div>
-                  <div><span className="font-bold text-emerald-400">01</span> = Series Number (auto-increments sequentially for each registered client)</div>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-indigo-200/80 pt-1 flex items-center gap-1.5 border-t border-indigo-900/40">
-                <span className="text-amber-300 font-bold">Important Constraint:</span>
-                <span>SP Code <strong>({basicInfo.spcode || 'B001'})</strong> is strictly for Admin/Staff authentication & event management. It is never displayed on the client-facing registration form.</span>
+              <div className="text-[11px] text-slate-500 pt-2 flex flex-wrap items-center gap-1.5 border-t border-purple-100">
+                <span className="text-amber-800 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">NOTE</span>
+                <span>SP Code <strong className="text-slate-800 font-mono">({basicInfo.spcode || 'B001'})</strong> is strictly for Admin/Staff authentication & event management. It is never displayed on the client-facing registration form.</span>
               </div>
             </div>
           </div>
