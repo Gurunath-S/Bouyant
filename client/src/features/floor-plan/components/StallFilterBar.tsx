@@ -5,22 +5,25 @@ import { Filter, ZoomIn, ZoomOut, RotateCcw, Building } from 'lucide-react';
 
 interface StallFilterBarProps {
   stalls: Stall[];
-  onZoomChange: (zoom: number) => void;
-  currentZoom: number;
+  onZoomChange?: (zoom: number) => void;
+  currentZoom?: number;
   halls?: Array<{ id: string; name: string }>;
+  showZoomControls?: boolean;
 }
 
 export const StallFilterBar: React.FC<StallFilterBarProps> = ({
   stalls,
   onZoomChange,
-  currentZoom,
+  currentZoom = 100,
   halls,
+  showZoomControls = true,
 }) => {
   const {
     selectedCategory,
     setSelectedCategory,
     selectedHall,
     setSelectedHall,
+    baseZoomLevel,
   } = useFloorPlanStore();
 
   const categories: (StallCategory | null)[] = [null, 'STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
@@ -137,31 +140,35 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
           </span>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg">
-          <button
-            onClick={() => onZoomChange(Math.max(60, currentZoom - 15))}
-            className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 px-2">{currentZoom}%</span>
-          <button
-            onClick={() => onZoomChange(Math.min(180, currentZoom + 15))}
-            className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onZoomChange(100)}
-            className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors ml-1"
-            title="Reset Zoom"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {/* Zoom Controls (Optional, only show Zoom Out when zoomed in) */}
+        {showZoomControls && onZoomChange && (
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg">
+            {currentZoom > baseZoomLevel && (
+              <button
+                onClick={() => onZoomChange(Math.max(baseZoomLevel, currentZoom - 15))}
+                className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors animate-in fade-in duration-150 cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+            )}
+            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 px-2">{currentZoom}%</span>
+            <button
+              onClick={() => onZoomChange(Math.min(200, currentZoom + 15))}
+              className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onZoomChange(baseZoomLevel)}
+              className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors ml-1 cursor-pointer"
+              title="Reset to Fit View"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

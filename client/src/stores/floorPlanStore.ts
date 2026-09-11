@@ -9,6 +9,7 @@ interface FloorPlanState {
   selectedStatus: StallStatus | null;
   selectedHall: string;
   zoomLevel: number;
+  baseZoomLevel: number;
   activeHeldStall: {
     stall: Stall;
     heldUntil: string;
@@ -20,6 +21,7 @@ interface FloorPlanState {
   setSelectedStatus: (status: StallStatus | null) => void;
   setSelectedHall: (hall: string) => void;
   setZoomLevel: (zoom: number | ((prev: number) => number)) => void;
+  setBaseZoomLevel: (zoom: number) => void;
   setActiveHeldStall: (holdData: { stall: Stall; heldUntil: string } | null) => void;
 }
 
@@ -31,6 +33,7 @@ export const useFloorPlanStore = create<FloorPlanState>((set) => ({
   selectedStatus: null,
   selectedHall: 'ALL',
   zoomLevel: 100,
+  baseZoomLevel: 100,
   activeHeldStall: null,
 
   toggleStallSelection: (stall) =>
@@ -56,5 +59,6 @@ export const useFloorPlanStore = create<FloorPlanState>((set) => ({
     set((state) => ({
       zoomLevel: typeof zoom === 'function' ? zoom(state.zoomLevel) : zoom,
     })),
+  setBaseZoomLevel: (baseZoomLevel) => set({ baseZoomLevel }),
   setActiveHeldStall: (activeHeldStall) => set({ activeHeldStall }),
 }));

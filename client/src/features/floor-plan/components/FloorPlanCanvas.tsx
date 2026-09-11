@@ -11,6 +11,10 @@ interface FloorPlanCanvasProps {
   layoutData?: FloorPlanLayoutData | null;
   canvasWidth?: number;
   canvasHeight?: number;
+  className?: string;
+  children?: React.ReactNode;
+  showBackgroundImage?: boolean;
+  showGrid?: boolean;
 }
 
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
@@ -19,8 +23,12 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   layoutData,
   canvasWidth: propWidth,
   canvasHeight: propHeight,
+  className,
+  children,
+  showBackgroundImage = false,
+  showGrid = false,
 }) => {
-  const { selectedStallIds, zoomLevel, setZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
+  const { selectedStallIds, zoomLevel, setZoomLevel, baseZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -101,9 +109,11 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     const offsetX = (svgCenterX - contentBounds.centerX) * fitScale;
     const offsetY = (svgCenterY - contentBounds.centerY) * fitScale;
 
-    setZoomLevel(Math.round(fitScale * 100));
+    const targetZoom = Math.round(fitScale * 100);
+    setBaseZoomLevel(targetZoom);
+    setZoomLevel(targetZoom);
     setPanOffset({ x: Math.round(offsetX), y: Math.round(offsetY) });
-  }, [contentBounds, width, height, setZoomLevel]);
+  }, [contentBounds, width, height, setZoomLevel, setBaseZoomLevel]);
 
   const hasAutoFitted = useRef(false);
   useEffect(() => {
@@ -113,6 +123,14 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       return () => clearTimeout(timer);
     }
   }, [stalls.length, handleFitToScreen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      handleFitToScreen();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [handleFitToScreen]);
 
   // Filter stalls based on category, status, and optional hall selection
   const filteredStalls = stalls.filter((stall) => {
@@ -231,11 +249,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const facilitiesList = layoutData?.facilities || [];
   const annotationsList = layoutData?.annotations || [];
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 10 : -10;
-    setZoomLevel((prev: number) => Math.max(25, Math.min(200, prev + delta)));
-  };
+  const touchDistanceRef = useRef<number | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0 || e.button === 1) {
@@ -265,26 +279,45 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       setIsPanning(true);
       setHasDragged(false);
       setPanStart({ x: e.touches[0].clientX - panOffset.x, y: e.touches[0].clientY - panOffset.y });
+    } else if (e.touches.length === 2) {
+      setIsPanning(false);
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchDistanceRef.current = dist;
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPanning || e.touches.length !== 1) return;
-    const newX = e.touches[0].clientX - panStart.x;
-    const newY = e.touches[0].clientY - panStart.y;
-    if (Math.abs(newX - panOffset.x) > 4 || Math.abs(newY - panOffset.y) > 4) {
-      setHasDragged(true);
+    if (e.touches.length === 1 && isPanning) {
+      const newX = e.touches[0].clientX - panStart.x;
+      const newY = e.touches[0].clientY - panStart.y;
+      if (Math.abs(newX - panOffset.x) > 4 || Math.abs(newY - panOffset.y) > 4) {
+        setHasDragged(true);
+      }
+      setPanOffset({ x: newX, y: newY });
+    } else if (e.touches.length === 2 && touchDistanceRef.current !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = currentDist / touchDistanceRef.current;
+      if (Math.abs(ratio - 1) > 0.04) {
+        const delta = ratio > 1 ? 6 : -6;
+        setZoomLevel((prev: number) => Math.max(baseZoomLevel, Math.min(200, prev + delta)));
+        touchDistanceRef.current = currentDist;
+      }
     }
-    setPanOffset({ x: newX, y: newY });
   };
 
   const handleTouchEnd = () => {
     setIsPanning(false);
+    touchDistanceRef.current = null;
   };
 
   const handleResetMap = () => {
-    setPanOffset({ x: 0, y: 0 });
-    setZoomLevel(100);
+    handleFitToScreen();
   };
 
   const panMoveRef = useRef(handleMouseMove);
@@ -323,9 +356,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        // Trackpad pinch or Ctrl+Wheel zoom
+        // Trackpad pinch or Ctrl+Wheel zoom (clamped to baseZoomLevel minimum)
         const delta = e.deltaY < 0 ? 8 : -8;
-        setZoomLevel((prev: number) => Math.max(25, Math.min(200, prev + delta)));
+        setZoomLevel((prev: number) => Math.max(baseZoomLevel, Math.min(200, prev + delta)));
       } else {
         // Smooth pan canvas
         setPanOffset((prev) => ({
@@ -339,7 +372,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     return () => {
       el.removeEventListener('wheel', handleWheelNative);
     };
-  }, [setZoomLevel]);
+  }, [setZoomLevel, baseZoomLevel]);
 
   return (
     <div
@@ -356,9 +389,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
-      className={`relative w-full overflow-hidden bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl min-h-[600px] shadow-inner flex items-center justify-center bg-floor-grid transition-colors duration-200 select-none ${
-        isPanning ? 'cursor-grabbing' : 'cursor-grab'
-      }`}
+      className={`relative w-full overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-inner flex items-center justify-center transition-colors duration-200 select-none ${
+        showGrid ? 'bg-floor-grid' : ''
+      } ${isPanning ? 'cursor-grabbing' : 'cursor-grab'} ${className || 'min-h-[600px]'}`}
     >
       <div
         className="select-none"
@@ -375,7 +408,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800"
         >
           {/* Optional Full Background Blueprint / Venue Image */}
-          {layoutData?.backgroundImageUrl && (
+          {showBackgroundImage && layoutData?.backgroundImageUrl && (
             <image
               href={layoutData.backgroundImageUrl}
               x="0"
@@ -608,20 +641,23 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <span>Drag Map</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setZoomLevel((prev: number) => Math.max(25, prev - 10))}
-          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors active:scale-95 cursor-pointer"
-          title="Zoom Out (-)"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
+        {/* Zoom Out is ONLY needed & shown when user has zoomed in on the chart */}
+        {zoomLevel > baseZoomLevel && (
+          <button
+            type="button"
+            onClick={() => setZoomLevel((prev: number) => Math.max(baseZoomLevel, prev - 10))}
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all active:scale-95 cursor-pointer text-slate-700 dark:text-slate-200 animate-in fade-in zoom-in-90 duration-150"
+            title="Zoom Out (-)"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+        )}
 
         <button
           type="button"
-          onClick={() => setZoomLevel(100)}
+          onClick={handleFitToScreen}
           className="px-2 py-1 text-xs font-mono font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors min-w-[50px] text-center cursor-pointer"
-          title="Reset zoom to 100%"
+          title={`Current zoom: ${zoomLevel}%. Click to reset to fit (${baseZoomLevel}%)`}
         >
           {zoomLevel}%
         </button>
@@ -656,6 +692,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <RotateCcw className="w-4 h-4" />
         </button>
       </div>
+
+      {children}
     </div>
   );
 };
