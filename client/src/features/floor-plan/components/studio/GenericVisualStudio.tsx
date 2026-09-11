@@ -127,15 +127,19 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
 
   // Auto-Save Key for Crash Protection
+  // Auto-Save Key for Crash Protection
   const autoSaveKey = `buoyant_studio_autosave_${exhibitionTitle.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
   const [restoredFromBackup, setRestoredFromBackup] = useState<boolean>(false);
+  const hasAttemptedRestoreRef = useRef(false);
 
-  // Crash Recovery: Auto-restore if session crashed or tab was closed
+  // Crash Recovery: Auto-restore if session crashed or tab was closed (run only once on mount)
   useEffect(() => {
+    if (hasAttemptedRestoreRef.current) return;
     if (
       (!initialLayoutData?.halls || initialLayoutData.halls.length === 0) &&
       (!initialStalls || initialStalls.length === 0)
     ) {
+      hasAttemptedRestoreRef.current = true;
       try {
         const saved = localStorage.getItem(autoSaveKey);
         if (saved) {
@@ -165,78 +169,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     }
   }, [autoSaveKey, initialLayoutData, initialStalls]);
 
-  // Continuously persist state to localStorage on every change
-  useEffect(() => {
-    try {
-      const draft = {
-        halls,
-        facilities,
-        annotations,
-        stalls,
-        canvasWidth,
-        canvasHeight,
-        backgroundImageUrl,
-        backgroundOpacity,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(autoSaveKey, JSON.stringify(draft));
-    } catch (e) {
-      console.warn('Auto-save failed', e);
-    }
-  }, [halls, facilities, annotations, stalls, canvasWidth, canvasHeight, backgroundImageUrl, backgroundOpacity, autoSaveKey]);
-
-  // Window beforeunload listener
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      try {
-        const draft = {
-          halls,
-          facilities,
-          annotations,
-          stalls,
-          canvasWidth,
-          canvasHeight,
-          backgroundImageUrl,
-          backgroundOpacity,
-          timestamp: Date.now(),
-        };
-        localStorage.setItem(autoSaveKey, JSON.stringify(draft));
-      } catch (e) {}
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [halls, facilities, annotations, stalls, canvasWidth, canvasHeight, backgroundImageUrl, backgroundOpacity, autoSaveKey]);
-
-  // Real-time bidirectional layout synchronizer with parent wizard
-  const onChangeLayoutRef = useRef(onChangeLayout);
-  onChangeLayoutRef.current = onChangeLayout;
-  useEffect(() => {
-    if (onChangeLayoutRef.current) {
-      const currentLayout: FloorPlanLayoutData = {
-        canvasWidth,
-        canvasHeight,
-        gridSize: pxPerMeter,
-        snapInterval,
-        halls,
-        facilities,
-        annotations,
-        backgroundImageUrl,
-        backgroundOpacity,
-      };
-      onChangeLayoutRef.current({ layoutData: currentLayout, stalls });
-    }
-  }, [
-    halls,
-    facilities,
-    annotations,
-    stalls,
-    canvasWidth,
-    canvasHeight,
-    pxPerMeter,
-    snapInterval,
-    backgroundImageUrl,
-    backgroundOpacity,
-  ]);
 
   // Selection
   const [selectedRefs, setSelectedRefs] = useState<SelectedItemReference[]>([]);
@@ -271,6 +203,105 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
   // Track last canvas click coordinates for viewport-aware smart element placement
   const lastCanvasClickPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Debounced auto-save to localStorage (runs only when idle, not mid-drag)
+  useEffect(() => {
+    if (isDraggingObj || isResizing) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const draft = {
+          halls,
+          facilities,
+          annotations,
+          stalls,
+          canvasWidth,
+          canvasHeight,
+          backgroundImageUrl,
+          backgroundOpacity,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(autoSaveKey, JSON.stringify(draft));
+      } catch (e) {
+        console.warn('Auto-save failed', e);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [
+    halls,
+    facilities,
+    annotations,
+    stalls,
+    canvasWidth,
+    canvasHeight,
+    backgroundImageUrl,
+    backgroundOpacity,
+    autoSaveKey,
+    isDraggingObj,
+    isResizing,
+  ]);
+
+  // Window beforeunload listener
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        const draft = {
+          halls,
+          facilities,
+          annotations,
+          stalls,
+          canvasWidth,
+          canvasHeight,
+          backgroundImageUrl,
+          backgroundOpacity,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(autoSaveKey, JSON.stringify(draft));
+      } catch (e) {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [halls, facilities, annotations, stalls, canvasWidth, canvasHeight, backgroundImageUrl, backgroundOpacity, autoSaveKey]);
+
+  // Debounced real-time bidirectional layout synchronizer with parent wizard
+  const onChangeLayoutRef = useRef(onChangeLayout);
+  onChangeLayoutRef.current = onChangeLayout;
+  useEffect(() => {
+    if (isDraggingObj || isResizing) return;
+
+    const timer = setTimeout(() => {
+      if (onChangeLayoutRef.current) {
+        const currentLayout: FloorPlanLayoutData = {
+          canvasWidth,
+          canvasHeight,
+          gridSize: pxPerMeter,
+          snapInterval,
+          halls,
+          facilities,
+          annotations,
+          backgroundImageUrl,
+          backgroundOpacity,
+        };
+        onChangeLayoutRef.current({ layoutData: currentLayout, stalls });
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    halls,
+    facilities,
+    annotations,
+    stalls,
+    canvasWidth,
+    canvasHeight,
+    pxPerMeter,
+    snapInterval,
+    backgroundImageUrl,
+    backgroundOpacity,
+    isDraggingObj,
+    isResizing,
+  ]);
 
   // Undo / Redo History Stack
   const [history, setHistory] = useState<
@@ -1378,27 +1409,33 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       let newW = resizeInitial.width;
       let newH = resizeInitial.height;
 
-      if (resizeHandle.includes('e')) newW = Math.max(30, resizeInitial.width + dx);
-      if (resizeHandle.includes('s')) newH = Math.max(30, resizeInitial.height + dy);
+      const fixedRight = resizeInitial.x + resizeInitial.width;
+      const fixedBottom = resizeInitial.y + resizeInitial.height;
+
+      if (resizeHandle.includes('e')) {
+        const rawW = Math.max(30, resizeInitial.width + dx);
+        newW = snapToGrid ? snapCoord(rawW) : Math.round(rawW);
+      }
+      if (resizeHandle.includes('s')) {
+        const rawH = Math.max(30, resizeInitial.height + dy);
+        newH = snapToGrid ? snapCoord(rawH) : Math.round(rawH);
+      }
       if (resizeHandle.includes('w')) {
-        const potentialW = resizeInitial.width - dx;
-        if (potentialW >= 30) {
-          newW = potentialW;
-          newX = resizeInitial.x + dx;
+        const rawX = resizeInitial.x + dx;
+        const candidateX = snapToGrid ? snapCoord(rawX) : Math.round(rawX);
+        if (fixedRight - candidateX >= 30) {
+          newX = candidateX;
+          newW = fixedRight - candidateX;
         }
       }
       if (resizeHandle.includes('n')) {
-        const potentialH = resizeInitial.height - dy;
-        if (potentialH >= 30) {
-          newH = potentialH;
-          newY = resizeInitial.y + dy;
+        const rawY = resizeInitial.y + dy;
+        const candidateY = snapToGrid ? snapCoord(rawY) : Math.round(rawY);
+        if (fixedBottom - candidateY >= 30) {
+          newY = candidateY;
+          newH = fixedBottom - candidateY;
         }
       }
-
-      newX = snapCoord(newX);
-      newY = snapCoord(newY);
-      newW = snapCoord(newW);
-      newH = snapCoord(newH);
 
       if (resizeInitial.type === 'stall') {
         const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
@@ -1440,8 +1477,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     if (isDraggingObj && dragItemInitialCoords.length > 0) {
       const rawDx = pt.x - dragStartPos.x;
       const rawDy = pt.y - dragStartPos.y;
-      const dx = snapToGrid ? snapCoord(rawDx) : rawDx;
-      const dy = snapToGrid ? snapCoord(rawDy) : rawDy;
 
       const stallUpdates: Record<string, { x: number; y: number }> = {};
       const hallUpdates: Record<string, { x: number; y: number }> = {};
@@ -1449,8 +1484,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       const annUpdates: Record<string, { x: number; y: number }> = {};
 
       dragItemInitialCoords.forEach((init) => {
-        const nx = snapCoord(init.x + dx);
-        const ny = snapCoord(init.y + dy);
+        const nx = snapToGrid ? snapCoord(init.x + rawDx) : Math.round(init.x + rawDx);
+        const ny = snapToGrid ? snapCoord(init.y + rawDy) : Math.round(init.y + rawDy);
         if (init.type === 'stall') stallUpdates[init.id] = { x: nx, y: ny };
         else if (init.type === 'hall') hallUpdates[init.id] = { x: nx, y: ny };
         else if (init.type === 'facility') facUpdates[init.id] = { x: nx, y: ny };
@@ -1499,6 +1534,22 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       setResizeInitial(null);
       setResizeNeighbors([]);
       pushHistory(halls, facilities, annotations, stalls);
+
+      // Immediately sync with parent on drag/resize release
+      if (onChangeLayoutRef.current) {
+        const currentLayout: FloorPlanLayoutData = {
+          canvasWidth,
+          canvasHeight,
+          gridSize: pxPerMeter,
+          snapInterval,
+          halls,
+          facilities,
+          annotations,
+          backgroundImageUrl,
+          backgroundOpacity,
+        };
+        onChangeLayoutRef.current({ layoutData: currentLayout, stalls });
+      }
     }
 
     if (marqueeBox) {
@@ -1809,7 +1860,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         <div
           ref={containerRef}
           onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
+          onMouseMove={(e) => {
+            // If active interaction is underway, the global window listener handles it smoothly without double-dispatch
+            if (isPanning || isDraggingObj || isResizing || marqueeBox) return;
+            handleCanvasMouseMove(e);
+          }}
           onMouseUp={handleCanvasMouseUp}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 relative overflow-hidden bg-slate-50 flex items-center justify-center select-none ${
@@ -1872,7 +1927,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             style={{
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel / 100})`,
               transformOrigin: 'center center',
-              transition: isPanning ? 'none' : 'transform 0.08s ease-out',
+              transition: 'none',
+              willChange: 'transform',
             }}
             className="select-none"
           >
