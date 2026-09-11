@@ -13,7 +13,6 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking } from '../../../types';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
-import { StallHoverCard } from '../../floor-plan/components/StallHoverCard';
 import { OfficialContractForm } from '../components/OfficialContractForm';
 import { TermsAndConditionsModal } from '../components/TermsAndConditionsModal';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
@@ -38,6 +37,13 @@ import {
   Mail,
   Key,
   ShieldCheck,
+  ShoppingCart,
+  Trash2,
+  X,
+  Maximize2,
+  Minimize2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const companySchema = z.object({
@@ -93,6 +99,7 @@ export const BookingWizardPage: React.FC = () => {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [showContractPreview, setShowContractPreview] = useState(false);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [isVerifyingGst, setIsVerifyingGst] = useState(false);
   const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
@@ -446,170 +453,228 @@ export const BookingWizardPage: React.FC = () => {
   const formattedDeadline = formatDisplayDate(deadlineDate);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 font-sans pb-16">
-      {/* Header & Stepper */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <div>
-            <button
-              onClick={() => navigate(`/exhibitions/${slug}`)}
-              className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1 mb-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibition Profile
-            </button>
-            <h1 className="text-2xl font-extrabold text-[#012970] leading-tight">
-              Stall Reservation — {exhibition.title}
-            </h1>
-          </div>
-        </div>
-
-        {/* Stepper Tabs */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between text-xs font-extrabold text-slate-600 shadow-2xs overflow-x-auto gap-2">
-          {[
-            { num: 1, label: 'Stall Selection' },
-            { num: 2, label: 'Company Details' },
-            { num: 3, label: 'Tax Audit & Bill' },
-            { num: 4, label: 'Razorpay Payment' },
-            { num: 5, label: 'Pass & Credentials' },
-          ].map((step, idx, arr) => {
-            const isCompleted = currentStep > step.num;
-            const isCurrent = currentStep === step.num;
-            return (
-              <React.Fragment key={step.num}>
-                <div
-                  className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
-                    isCurrent
-                      ? 'text-[#09539b]'
-                      : isCompleted
-                      ? 'text-emerald-700'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
-                      isCompleted
-                        ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
-                        : isCurrent
-                        ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
-                        : 'bg-slate-100 text-slate-400 border border-slate-200'
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    ) : (
-                      step.num
-                    )}
-                  </span>
-                  <span>{step.label}</span>
-                </div>
-                {idx < arr.length - 1 && (
-                  <div
-                    className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
-                      currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
-                    }`}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* STEP 1: STALL FLOOR PLAN SELECTION */}
-      {currentStep === 1 && (
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div
+      className={`mx-auto font-sans transition-all duration-300 ${
+        currentStep === 1
+          ? isFullscreen
+            ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
+            : 'w-full max-w-[1920px] px-2 sm:px-4 lg:px-6 pb-6 space-y-3'
+          : 'max-w-5xl mx-auto px-4 pb-16 space-y-8'
+      }`}
+    >
+      {/* Header & Stepper (Hidden in Fullscreen mode for pure canvas immersion) */}
+      {!isFullscreen && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <div>
-              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#09539b]" /> Select Stall on Interactive Hall Floor Plan
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Click any available green stall to inspect dimensions and choose your booth position.
-              </p>
+              <button
+                onClick={() => navigate(`/exhibitions/${slug}`)}
+                className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1 mb-0.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibition Profile
+              </button>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] leading-tight">
+                Stall Reservation — {exhibition.title}
+              </h1>
             </div>
-            {selectedStallsObj.length > 0 && (
-              <div className="flex justify-between items-center bg-[#f6f9ff] p-4 rounded-xl border border-[#09539b]/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#09539b] text-white flex items-center justify-center font-bold">
-                    <Check className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-[#012970] uppercase tracking-wide text-sm">
-                      Confirm {selectedStallsObj.length} Stall(s) & Enter Details
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Stall {selectedStallsObj.map(s => '#' + s.stallNumber).join(', ')}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleHoldSelectedStall}
-                  className="bg-[#09539b] hover:bg-[#012970] font-bold"
-                  rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
-                >
-                  Proceed
-                </Button>
-              </div>
+
+            {currentStep === 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFullscreen(true)}
+                className="text-xs font-bold border-[#09539b]/30 text-[#09539b] hover:bg-blue-50 flex items-center gap-1.5 shrink-0"
+                leftIcon={<Maximize2 className="w-3.5 h-3.5" />}
+              >
+                Full Screen View
+              </Button>
             )}
           </div>
 
+          {/* Stepper Tabs */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-extrabold text-slate-600 shadow-2xs overflow-x-auto gap-2">
+            {[
+              { num: 1, label: 'Stall Selection' },
+              { num: 2, label: 'Company Details' },
+              { num: 3, label: 'Tax Audit & Bill' },
+              { num: 4, label: 'Razorpay Payment' },
+              { num: 5, label: 'Pass & Credentials' },
+            ].map((step, idx, arr) => {
+              const isCompleted = currentStep > step.num;
+              const isCurrent = currentStep === step.num;
+              return (
+                <React.Fragment key={step.num}>
+                  <div
+                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
+                      isCurrent
+                        ? 'text-[#09539b]'
+                        : isCompleted
+                        ? 'text-emerald-700'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
+                        isCompleted
+                          ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
+                          : isCurrent
+                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
+                          : 'bg-slate-100 text-slate-400 border border-slate-200'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      ) : (
+                        step.num
+                      )}
+                    </span>
+                    <span>{step.label}</span>
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div
+                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
+                        currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Mode Top Bar */}
+      {isFullscreen && currentStep === 1 && (
+        <div className="bg-[#012970] text-white px-4 py-2.5 rounded-xl flex items-center justify-between shadow-lg shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
+              {exhibition.title}
+            </span>
+            <span className="text-slate-400">|</span>
+            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#9cc542]" /> Interactive Hall Floor Plan
+            </span>
+            {selectedStallsObj.length > 0 && (
+              <span className="px-2.5 py-0.5 bg-[#9cc542] text-[#012970] font-black text-xs rounded-full">
+                {selectedStallsObj.length} Stall(s) Selected (₹{grandTotal.toLocaleString()})
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedStallsObj.length > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleHoldSelectedStall}
+                className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black text-xs shadow-sm"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+              >
+                Proceed to Details ({selectedStallsObj.length})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFullscreen(false)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold"
+              leftIcon={<Minimize2 className="w-3.5 h-3.5" />}
+            >
+              Exit Full Screen
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 1: STALL FLOOR PLAN SELECTION */}
+      {currentStep === 1 && (
+        <div className={`flex flex-col gap-2 ${isFullscreen ? 'flex-1 min-h-0' : 'space-y-2'}`}>
           {stallHoldError && (
-            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0">
               <AlertTriangle className="w-4 h-4 text-rose-600" />
               {stallHoldError}
             </div>
           )}
 
-          <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} halls={layoutData?.halls} />
-
-          <div className="relative flex flex-col lg:flex-row gap-6 items-start">
-            <div className="flex-1 w-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs p-4">
-              <FloorPlanCanvas
-                stalls={stalls}
-                layoutData={layoutData}
-                onStallSelect={(s) => {
-                  if (s.status === 'AVAILABLE') toggleStallSelection(s);
-                }}
-              />
-            </div>
-
-            {selectedStallsObj.length > 0 && (
-              <div className="hidden lg:block lg:col-span-1 pl-4 border-l border-slate-200 space-y-4 max-h-[700px] overflow-y-auto">
-                <h4 className="text-xs font-bold text-slate-500 uppercase">Selected Stalls ({selectedStallsObj.length})</h4>
-                {selectedStallsObj.map((s) => (
-                  <StallHoverCard
-                    key={s.id}
-                    stall={s}
-                    onClose={() => toggleStallSelection(s)}
-                    onHold={handleHoldSelectedStall}
-                  />
-                ))}
-              </div>
-            )}
+          {/* Stalls Filter Bar */}
+          <div className="shrink-0">
+            <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
           </div>
 
-          {/* Sticky Bottom Bar when Stall is picked */}
-          {selectedStallsObj.length > 0 && (
-            <div className="bg-gradient-to-r from-[#012970] to-[#09539b] text-white p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-lg gap-4">
-              <div>
-                <p className="text-xs font-semibold text-blue-200 uppercase tracking-wider mb-1">Reservation Hold</p>
-                <h3 className="text-base font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-[#9cc542]" />
-                  {selectedStallsObj.length} Stall(s) Selected • ({selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft Total)
-                </h3>
-                <p className="text-xs text-blue-100 mt-1">
-                  Base Rental: ₹{basePrice.toLocaleString()} INR (+ 18% GST)
+          {/* Canvas Wrapper - Expansive Clean Canvas (Cinema Booking Style) */}
+          <div className={`relative w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex-1 ${
+            isFullscreen ? 'h-full min-h-0' : 'h-[calc(100vh-240px)] min-h-[580px] lg:min-h-[660px]'
+          }`}>
+            <FloorPlanCanvas
+              stalls={stalls}
+              layoutData={layoutData}
+              showBackgroundImage={false}
+              showGrid={false}
+              className="w-full h-full min-h-full"
+              onStallSelect={(s) => {
+                if (s.status === 'AVAILABLE') toggleStallSelection(s);
+              }}
+            />
+          </div>
+
+          {/* Cinema-Style Bottom Bar */}
+          {selectedStallsObj.length > 0 ? (
+            <div className="sticky bottom-2 z-40 bg-[#012970]/95 dark:bg-slate-900/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-blue-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-3 duration-200">
+              {/* Left: Selected stalls pills with quick 'x' */}
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black text-[#9cc542] uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" /> {selectedStallsObj.length} Stall(s) Selected:
+                  </span>
+                  {selectedStallsObj.map((s) => (
+                    <span
+                      key={s.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-mono font-bold text-white transition-colors"
+                    >
+                      #{s.stallNumber}
+                      <button
+                        onClick={() => toggleStallSelection(s)}
+                        className="text-blue-300 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
+                        title={`Remove stall ${s.stallNumber}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    onClick={clearStallSelection}
+                    className="text-[11px] text-slate-300 hover:text-rose-400 underline ml-2 transition-colors cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <p className="text-[11px] text-blue-200 font-medium">
+                  Combined Area: <b className="text-white">{selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
                 </p>
               </div>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleHoldSelectedStall}
-                className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black w-full sm:w-auto shadow-md"
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                Proceed to Company Details
-              </Button>
+
+              {/* Right: Total Price & Proceed Button */}
+              <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="text-right">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">Total Payable</span>
+                  <span className="text-lg sm:text-xl font-black font-mono text-[#9cc542]">₹{grandTotal.toLocaleString()} INR</span>
+                </div>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleHoldSelectedStall}
+                  className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black shadow-lg px-6 py-3 text-sm flex items-center gap-2"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Proceed to Booking
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xs text-slate-500 rounded-xl text-center text-xs font-medium border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Click any available green stall to select your booth(s). Multiple stalls can be reserved together.
             </div>
           )}
         </div>
