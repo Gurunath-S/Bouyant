@@ -98,50 +98,13 @@ export const Sidebar: React.FC = () => {
 
       {/* Nav Links */}
       <div className="flex-1 p-2.5 space-y-5 overflow-y-auto overflow-x-hidden">
-        {/* Client Portal Navigation */}
-        <div className="space-y-1">
-          {!isCollapsed ? (
-            <p className="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-              Exhibitor Workspace
-            </p>
-          ) : (
-            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
-          )}
-          {clientLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                title={isCollapsed ? link.label : undefined}
-                className={({ isActive }) =>
-                  `flex items-center rounded-xl text-xs font-semibold transition-all ${
-                    isCollapsed
-                      ? 'justify-center p-2.5 mx-auto'
-                      : 'gap-3 px-3 py-2.5'
-                  } ${
-                    isActive
-                      ? 'bg-[#09539b]/10 dark:bg-blue-950/70 text-[#09539b] dark:text-blue-300 border-l-4 border-[#9cc542] shadow-2xs font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#012970] dark:hover:text-slate-100'
-                  }`
-                }
-              >
-                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} shrink-0`} />
-                {!isCollapsed && <span className="truncate">{link.label}</span>}
-              </NavLink>
-            );
-          })}
-        </div>
-
-        {/* Admin Navigation Section (Visible to Admins) */}
+        {/* Admin Navigation Section (Visible to Admins - Placed on Top) */}
         {isAdmin && (
-          <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-slate-800">
-            {!isCollapsed ? (
-              <p className="px-3 text-[10px] font-bold text-[#012970] dark:text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9cc542]" /> Platform Operations
+          <div className="space-y-1">
+            {!isCollapsed && (
+              <p className="px-3 text-[10px] font-bold text-[#012970] dark:text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9cc542]" /> Admin Operations
               </p>
-            ) : (
-              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
             )}
             {adminLinks.map((link) => {
               const Icon = link.icon;
@@ -175,6 +138,42 @@ export const Sidebar: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Client / Exhibitor Portal Navigation (Placed Below for Admins) */}
+        <div className={`space-y-1 ${isAdmin ? 'pt-3 border-t border-slate-100 dark:border-slate-800' : ''}`}>
+          {!isCollapsed ? (
+            <p className="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              {isAdmin ? 'Exhibitor & Other Portals' : 'Exhibitor Workspace'}
+            </p>
+          ) : (
+            isAdmin && <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
+          )}
+          {clientLinks.map((link) => {
+            const Icon = link.icon;
+            const displayLabel = link.to === '/dashboard' && isAdmin ? 'Client Dashboard' : link.label;
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                title={isCollapsed ? displayLabel : undefined}
+                className={({ isActive }) =>
+                  `flex items-center rounded-xl text-xs font-semibold transition-all ${
+                    isCollapsed
+                      ? 'justify-center p-2.5 mx-auto'
+                      : 'gap-3 px-3 py-2.5'
+                  } ${
+                    isActive
+                      ? 'bg-[#09539b]/10 dark:bg-blue-950/70 text-[#09539b] dark:text-blue-300 border-l-4 border-[#9cc542] shadow-2xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#012970] dark:hover:text-slate-100'
+                  }`
+                }
+              >
+                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} shrink-0`} />
+                {!isCollapsed && <span className="truncate">{displayLabel}</span>}
+              </NavLink>
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer Context */}

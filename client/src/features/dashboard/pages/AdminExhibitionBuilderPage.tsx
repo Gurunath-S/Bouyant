@@ -822,13 +822,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   placeholder="e.g. India Industrial & Automation Expo 2026"
                   required
                 />
+                {/* Small & simple Client Reg No preview directly below event name */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
-                  <span className="font-semibold text-slate-400">Live Web Address (Slug):</span>
-                  <code className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono text-[11px] border border-purple-200">
-                    /exhibitions/{basicInfo.slug || 'event-slug'}
+                  <span className="font-semibold text-slate-400">Client Reg No:</span>
+                  <code className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                    {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
-                    (automatically synchronized with event title)
+                    (Edition • Year • Code • Client #)
                   </span>
                 </div>
               </div>
@@ -944,17 +945,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         : `Edition ${basicInfo.edition || '10'}`}
                     </p>
                   </div>
-                </div>
-
-                {/* Client Registration Number Live Preview directly below short code & edition code */}
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
-                  <span className="font-semibold text-slate-400">Client Reg No Preview:</span>
-                  <code className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-mono text-[11px] border border-emerald-200 font-bold tracking-wide">
-                    {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01
-                  </code>
-                  <span className="text-[10px] text-slate-400 italic">
-                    ({basicInfo.edition || '10'}: Edition Month • {basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}: Year • {basicInfo.eventCode || 'IIAE'}: Code • 01: Client #)
-                  </span>
                 </div>
 
                 {/* Collision Notice if this code is already taken by another event */}
@@ -1200,6 +1190,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               venueName={basicInfo.venue}
               cityName={basicInfo.city}
               address={basicInfo.address}
+              stateName={basicInfo.state}
               onChangeCoordinates={(lat, lng) =>
                 setBasicInfo((prev) => ({ ...prev, latitude: lat, longitude: lng }))
               }
@@ -1393,7 +1384,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   </div>
                 )}
                 <p><span className="font-semibold text-slate-500">Title:</span> {basicInfo.title}</p>
-                <p><span className="font-semibold text-slate-500">Public Slug:</span> <code className="text-purple-700 font-mono font-bold">/exhibitions/{basicInfo.slug}</code></p>
                 <p><span className="font-semibold text-slate-500">Category:</span> {basicInfo.category}</p>
                 <p><span className="font-semibold text-slate-500">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
                 <p><span className="font-semibold text-slate-500">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
