@@ -140,30 +140,43 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
           </span>
         </div>
 
-        {/* Zoom Controls (Optional, only show Zoom Out when zoomed in) */}
+        {/* Zoom Controls: Zoom Out enabled ONLY when user has zoomed in (> 100%) */}
         {showZoomControls && onZoomChange && (
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg">
-            {currentZoom > baseZoomLevel && (
-              <button
-                onClick={() => onZoomChange(Math.max(baseZoomLevel, currentZoom - 15))}
-                className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors animate-in fade-in duration-150 cursor-pointer"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-            )}
-            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 px-2">{currentZoom}%</span>
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg">
             <button
+              type="button"
+              disabled={currentZoom <= 100}
+              onClick={() => onZoomChange(Math.max(100, currentZoom - 15))}
+              className={`p-1 rounded transition-colors ${
+                currentZoom > 100
+                  ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 cursor-pointer'
+                  : 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-35'
+              }`}
+              title={currentZoom > 100 ? "Zoom Out towards 100%" : "At standard 100% view (zoom out disabled)"}
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 px-1.5 min-w-[42px] text-center">
+              {currentZoom}%
+            </span>
+            <button
+              type="button"
+              disabled={currentZoom >= 200}
               onClick={() => onZoomChange(Math.min(200, currentZoom + 15))}
-              className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              className={`p-1 rounded transition-colors ${
+                currentZoom < 200
+                  ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 cursor-pointer'
+                  : 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-35'
+              }`}
               title="Zoom In"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onZoomChange(baseZoomLevel)}
-              className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors ml-1 cursor-pointer"
-              title="Reset to Fit View"
+              type="button"
+              onClick={() => onZoomChange(100)}
+              className="p-1 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors ml-0.5 cursor-pointer"
+              title="Reset to 100%"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
