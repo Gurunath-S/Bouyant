@@ -333,13 +333,14 @@ export const ExhibitionDetailPage: React.FC = () => {
                       Click any available green stall on the map to inspect position, price, and reserve immediately.
                     </p>
                   </div>
-                  <StallFilterBar stalls={stalls} onZoomChange={(z) => setZoomLevel(z)} currentZoom={zoomLevel} halls={layoutData?.halls} />
+                  <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
                 </div>
 
-                <div className="relative border border-slate-200 rounded-xl overflow-hidden shadow-inner p-2 bg-slate-50">
+                <div className="relative border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 max-w-[1200px] mx-auto">
                   <FloorPlanCanvas
                     stalls={stalls}
                     layoutData={layoutData}
+                    className="w-full h-[500px] sm:h-[540px]"
                     onStallSelect={(s) => {
                       if (s.status === 'AVAILABLE') toggleStallSelection(s);
                     }}

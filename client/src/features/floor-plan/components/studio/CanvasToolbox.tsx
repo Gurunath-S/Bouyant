@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ZoomIn,
   ZoomOut,
+  CheckSquare,
 } from 'lucide-react';
 import { StudioTool, FacilityType } from '../../../../types/floorPlanStudio';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
@@ -42,6 +43,8 @@ interface CanvasToolboxProps {
   readOnly?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isMultiSelectMode?: boolean;
+  onToggleMultiSelectMode?: () => void;
 }
 
 export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
@@ -60,6 +63,8 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   readOnly = false,
   isCollapsed = false,
   onToggleCollapse,
+  isMultiSelectMode = false,
+  onToggleMultiSelectMode,
 }) => {
   const [showTemplatesMenu, setShowTemplatesMenu] = useState(false);
   const [showFacilitiesMenu, setShowFacilitiesMenu] = useState(false);
@@ -80,9 +85,12 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
 
         {/* Navigation */}
         <button
-          onClick={() => onSelectTool('select')}
+          onClick={() => {
+            if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
+            onSelectTool('select');
+          }}
           className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-            activeTool === 'select' || activeTool === 'marquee'
+            (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
@@ -90,6 +98,19 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         >
           <MousePointer className="w-4 h-4" />
         </button>
+        {onToggleMultiSelectMode && (
+          <button
+            onClick={onToggleMultiSelectMode}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+              isMultiSelectMode
+                ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-300'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+            title="Random Multi-Select Pick Mode (M) — Click any stalls anywhere to toggle selection"
+          >
+            <CheckSquare className="w-4 h-4" />
+          </button>
+        )}
         <button
           onClick={() => onSelectTool('pan')}
           className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
@@ -305,11 +326,14 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
           Navigation & Selection Tools
         </div>
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           <button
-            onClick={() => onSelectTool('select')}
+            onClick={() => {
+              if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
+              onSelectTool('select');
+            }}
             className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-              activeTool === 'select' || activeTool === 'marquee'
+              (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
             }`}
@@ -317,10 +341,36 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           >
             <div className="flex items-center gap-1">
               <MousePointer className="w-3.5 h-3.5" />
-              <BoxSelect className="w-3 h-3 opacity-80" />
             </div>
-            <span>Select & Box (V)</span>
+            <span>Select (V)</span>
           </button>
+          {onToggleMultiSelectMode ? (
+            <button
+              onClick={onToggleMultiSelectMode}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                isMultiSelectMode
+                  ? 'bg-purple-600 text-white shadow-xs ring-2 ring-purple-300'
+                  : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200'
+              }`}
+              title="Random Multi-Select Pick Mode (M) — Click any stalls randomly to toggle in/out of selection"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>Multi-Pick (M)</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onSelectTool('marquee')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                activeTool === 'marquee'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+              title="Box Select (M)"
+            >
+              <BoxSelect className="w-3.5 h-3.5" />
+              <span>Box Select</span>
+            </button>
+          )}
           <button
             onClick={() => onSelectTool('pan')}
             className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
@@ -331,11 +381,13 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             title="Pan / Move Canvas (H)"
           >
             <Hand className="w-3.5 h-3.5" />
-            <span>Move Map (H)</span>
+            <span>Move (H)</span>
           </button>
         </div>
         <p className="text-[10px] text-slate-400 leading-tight pt-0.5">
-          Drag empty canvas to marquee-select stalls & items. Use wheel / trackpad to move around map.
+          {isMultiSelectMode
+            ? 'Pick Mode Active: Click any stalls anywhere to toggle selection randomly without Shift.'
+            : 'Click stall to select, or drag empty canvas to marquee-box select multiple.'}
         </p>
 
         {/* Common Zoom Controls across all tools */}

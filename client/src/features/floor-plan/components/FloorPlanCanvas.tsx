@@ -17,6 +17,8 @@ interface FloorPlanCanvasProps {
   showGrid?: boolean;
 }
 
+import { getStallTypography } from '../utils/stallTypography';
+
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   stalls,
   onStallSelect,
@@ -68,7 +70,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     });
 
     if (minX === Infinity) {
-      return { minX: 0, minY: 0, maxX: 1400, maxY: 850, width: 1400, height: 850, centerX: 700, centerY: 425 };
+      return { minX: 0, minY: 0, maxX: 1200, maxY: 750, width: 1200, height: 750, centerX: 600, centerY: 375 };
     }
 
     const pad = 60;
@@ -82,55 +84,45 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       minY: bMinY,
       maxX: bMaxX,
       maxY: bMaxY,
-      width: Math.max(800, bMaxX - bMinX),
-      height: Math.max(600, bMaxY - bMinY),
+      width: Math.max(600, bMaxX - bMinX),
+      height: Math.max(450, bMaxY - bMinY),
       centerX: (bMinX + bMaxX) / 2,
       centerY: (bMinY + bMaxY) / 2,
     };
   }, [stalls, layoutData]);
 
-  const width = Math.max(propWidth || 0, layoutData?.canvasWidth || 0, contentBounds.maxX + 60, 1600);
-  const height = Math.max(propHeight || 0, layoutData?.canvasHeight || 0, contentBounds.maxY + 60, 1000);
+  // Inner Floor Plan Display Size: 1140px (+20px increase for optimal framing & clarity)
+  const width = propWidth || 1140;
+  const viewBoxWidth = Math.max(1140, contentBounds.maxX + 40);
+  const viewBoxHeight = Math.max(730, contentBounds.maxY + 40);
+  const height = propHeight || Math.round(width * (viewBoxHeight / viewBoxWidth));
   const pxPerMeter = layoutData?.gridSize || 20;
 
-  // Auto-fit entire floor plan into view on first load or when requested
+  // Center floor plan at 100% zoom (locked scale so user only moves around the floor plan)
   const handleFitToScreen = useCallback(() => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const containerW = rect.width || 900;
-    const containerH = rect.height || 600;
-
-    const scaleX = (containerW - 80) / contentBounds.width;
-    const scaleY = (containerH - 80) / contentBounds.height;
-    const fitScale = Math.min(1.0, Math.max(0.2, Math.min(scaleX, scaleY)));
-
-    const svgCenterX = width / 2;
-    const svgCenterY = height / 2;
-    const offsetX = (svgCenterX - contentBounds.centerX) * fitScale;
-    const offsetY = (svgCenterY - contentBounds.centerY) * fitScale;
-
-    const targetZoom = Math.round(fitScale * 100);
-    setBaseZoomLevel(targetZoom);
-    setZoomLevel(targetZoom);
-    setPanOffset({ x: Math.round(offsetX), y: Math.round(offsetY) });
-  }, [contentBounds, width, height, setZoomLevel, setBaseZoomLevel]);
+    setBaseZoomLevel(100);
+    setZoomLevel(100);
+    setPanOffset({ x: 0, y: 0 });
+  }, [setZoomLevel, setBaseZoomLevel]);
 
   const hasAutoFitted = useRef(false);
   useEffect(() => {
     if (stalls.length > 0 && !hasAutoFitted.current && containerRef.current) {
       hasAutoFitted.current = true;
-      const timer = setTimeout(handleFitToScreen, 150);
-      return () => clearTimeout(timer);
+      setBaseZoomLevel(100);
+      setZoomLevel(100);
+      setPanOffset({ x: 0, y: 0 });
     }
-  }, [stalls.length, handleFitToScreen]);
+  }, [stalls.length, setZoomLevel, setBaseZoomLevel]);
 
   useEffect(() => {
     const handleResize = () => {
-      handleFitToScreen();
+      setBaseZoomLevel(100);
+      setZoomLevel(100);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [handleFitToScreen]);
+  }, [setZoomLevel, setBaseZoomLevel]);
 
   // Filter stalls based on category, status, and optional hall selection
   const filteredStalls = stalls.filter((stall) => {
@@ -251,6 +243,46 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const touchDistanceRef = useRef<number | null>(null);
 
+  // Strict boundary clamping: floor plan edges never detach from viewport, revealing 0 space behind
+  const clampPan = useCallback(
+    (x: number, y: number, currentZoom: number = zoomLevel) => {
+      if (!containerRef.current) return { x, y };
+      const containerW = containerRef.current.clientWidth || width;
+      const containerH = containerRef.current.clientHeight || height;
+      const scale = currentZoom / 100;
+      const scaledW = width * scale;
+      const scaledH = height * scale;
+
+      // When scaled dimension is larger than container, pan strictly between edges (0 gap)
+      // When scaled dimension is smaller or equal, lock to center (0 gap)
+      const limitX = Math.max(0, (scaledW - containerW) / 2);
+      const limitY = Math.max(0, (scaledH - containerH) / 2);
+
+      return {
+        x: Math.round(Math.max(-limitX, Math.min(limitX, x))),
+        y: Math.round(Math.max(-limitY, Math.min(limitY, y))),
+      };
+    },
+    [width, height, zoomLevel]
+  );
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev: number) => {
+      const next = Math.min(200, prev + 20);
+      setPanOffset((cur) => clampPan(cur.x, cur.y, next));
+      return next;
+    });
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev: number) => {
+      // Zoom out is allowed down to 100%
+      const next = Math.max(100, prev - 20);
+      setPanOffset((cur) => clampPan(cur.x, cur.y, next));
+      return next;
+    });
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0 || e.button === 1) {
       e.preventDefault();
@@ -262,12 +294,12 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isPanning) return;
-    const newX = e.clientX - panStart.x;
-    const newY = e.clientY - panStart.y;
-    if (Math.abs(newX - panOffset.x) > 4 || Math.abs(newY - panOffset.y) > 4) {
+    const rawX = e.clientX - panStart.x;
+    const rawY = e.clientY - panStart.y;
+    if (Math.abs(rawX - panOffset.x) > 4 || Math.abs(rawY - panOffset.y) > 4) {
       setHasDragged(true);
     }
-    setPanOffset({ x: newX, y: newY });
+    setPanOffset(clampPan(rawX, rawY, zoomLevel));
   };
 
   const handleMouseUp = () => {
@@ -291,12 +323,12 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 1 && isPanning) {
-      const newX = e.touches[0].clientX - panStart.x;
-      const newY = e.touches[0].clientY - panStart.y;
-      if (Math.abs(newX - panOffset.x) > 4 || Math.abs(newY - panOffset.y) > 4) {
+      const rawX = e.touches[0].clientX - panStart.x;
+      const rawY = e.touches[0].clientY - panStart.y;
+      if (Math.abs(rawX - panOffset.x) > 4 || Math.abs(rawY - panOffset.y) > 4) {
         setHasDragged(true);
       }
-      setPanOffset({ x: newX, y: newY });
+      setPanOffset(clampPan(rawX, rawY, zoomLevel));
     } else if (e.touches.length === 2 && touchDistanceRef.current !== null) {
       const currentDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -304,8 +336,13 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       );
       const ratio = currentDist / touchDistanceRef.current;
       if (Math.abs(ratio - 1) > 0.04) {
-        const delta = ratio > 1 ? 6 : -6;
-        setZoomLevel((prev: number) => Math.max(baseZoomLevel, Math.min(200, prev + delta)));
+        const delta = ratio > 1 ? 10 : -10;
+        setZoomLevel((prev: number) => {
+          // Minimum zoom is 100% - cannot zoom out past standard view
+          const next = Math.max(100, Math.min(200, Math.round(prev + delta)));
+          setPanOffset((cur) => clampPan(cur.x, cur.y, next));
+          return next;
+        });
         touchDistanceRef.current = currentDist;
       }
     }
@@ -317,7 +354,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   const handleResetMap = () => {
-    handleFitToScreen();
+    setPanOffset({ x: 0, y: 0 });
+    setZoomLevel(100);
   };
 
   const panMoveRef = useRef(handleMouseMove);
@@ -346,7 +384,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     };
   }, [isPanning]);
 
-  // Native non-passive wheel event listener to prevent browser zoom & page scroll
+  // Native non-passive wheel event listener to pan smoothly across the 1140px floor plan and zoom with Ctrl/pinch
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -356,15 +394,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        // Trackpad pinch or Ctrl+Wheel zoom (clamped to baseZoomLevel minimum)
-        const delta = e.deltaY < 0 ? 8 : -8;
-        setZoomLevel((prev: number) => Math.max(baseZoomLevel, Math.min(200, prev + delta)));
+        // Trackpad pinch or Ctrl+Wheel zoom: clamped between 100% and 200%
+        const delta = e.deltaY < 0 ? 10 : -10;
+        setZoomLevel((prev: number) => {
+          const next = Math.max(100, Math.min(200, prev + delta));
+          setPanOffset((cur) => clampPan(cur.x, cur.y, next));
+          return next;
+        });
       } else {
-        // Smooth pan canvas
-        setPanOffset((prev) => ({
-          x: prev.x - e.deltaX,
-          y: prev.y - e.deltaY,
-        }));
+        // Smooth pan canvas in both X and Y directions, clamped to boundaries
+        setPanOffset((prev) =>
+          clampPan(Math.round(prev.x - e.deltaX), Math.round(prev.y - e.deltaY), zoomLevel)
+        );
       }
     };
 
@@ -372,7 +413,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     return () => {
       el.removeEventListener('wheel', handleWheelNative);
     };
-  }, [setZoomLevel, baseZoomLevel]);
+  }, [clampPan, zoomLevel, setZoomLevel]);
 
   return (
     <div
@@ -389,9 +430,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
-      className={`relative w-full overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-inner flex items-center justify-center transition-colors duration-200 select-none ${
+      className={`relative w-full max-w-[1200px] mx-auto overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex items-center justify-center transition-colors duration-200 select-none ${
         showGrid ? 'bg-floor-grid' : ''
-      } ${isPanning ? 'cursor-grabbing' : 'cursor-grab'} ${className || 'min-h-[600px]'}`}
+      } ${isPanning ? 'cursor-grabbing' : 'cursor-grab'} ${className || 'min-h-[500px]'}`}
     >
       <div
         className="select-none"
@@ -404,21 +445,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         <svg
           width={width}
           height={height}
-          viewBox={`0 0 ${width} ${height}`}
-          className="select-none shadow-sm bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800"
+          viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+          className="select-none bg-white dark:bg-slate-900"
         >
-          {/* Optional Full Background Blueprint / Venue Image */}
-          {showBackgroundImage && layoutData?.backgroundImageUrl && (
-            <image
-              href={layoutData.backgroundImageUrl}
-              x="0"
-              y="0"
-              width={width}
-              height={height}
-              preserveAspectRatio="none"
-              opacity={layoutData.backgroundOpacity ?? 0.85}
-            />
-          )}
           {/* Dynamic Halls / Pavilions */}
           <g id="halls-layer">
             {hallsList.map((hall) => {
@@ -585,48 +614,77 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     className="transition-colors"
                   />
 
-                  {/* Clean Centered Stall Number */}
-                  <text
-                    x={stall.xPosition + stall.width / 2}
-                    y={stall.yPosition + stall.height / 2 + (isBooked || isBlocked ? -4 : (stall.height >= 48 ? -2 : 3))}
-                    textAnchor="middle"
-                    fill={styles.textColor}
-                    fontSize={stall.width < 50 ? '9' : '11'}
-                    fontWeight="bold"
-                    className="select-none pointer-events-none font-mono"
-                  >
-                    {stall.stallNumber}
-                  </text>
+                  {/* Clean Centered Stall Number (Adaptive font size & automatic row alignment) */}
+                  {(() => {
+                    const typo = getStallTypography(
+                      stall.stallNumber,
+                      stall.width,
+                      stall.height,
+                      zoomLevel,
+                      stall.xPosition,
+                      stall.yPosition
+                    );
+                    const showSubtext =
+                      zoomLevel >= 70 &&
+                      typo.lines.length === 1 &&
+                      ((isAvailable && stall.height >= 48 && stall.width >= 45) ||
+                        ((isBooked || isBlocked) && stall.height > 40));
 
-                  {/* Stall Area / Dimension Subtext if space permits */}
-                  {isAvailable && stall.height >= 48 && stall.width >= 45 && (
-                    <text
-                      x={stall.xPosition + stall.width / 2}
-                      y={stall.yPosition + stall.height / 2 + 10}
-                      textAnchor="middle"
-                      fill={styles.textColor}
-                      fontSize="8"
-                      fontWeight="600"
-                      className="select-none pointer-events-none font-mono opacity-80"
-                    >
-                      {stall.areaSqFt ? `${stall.areaSqFt} sqft` : `${Math.round(stall.width / pxPerMeter)}×${Math.round(stall.height / pxPerMeter)}m`}
-                    </text>
-                  )}
+                    return (
+                      <>
+                        {typo.lines.map((line, lIdx) => (
+                          <text
+                            key={lIdx}
+                            x={typo.centerX}
+                            y={
+                              showSubtext
+                                ? typo.startY + lIdx * typo.lineHeight + (isBooked || isBlocked ? -4 : (stall.height >= 48 ? -2 : 0))
+                                : typo.startY + lIdx * typo.lineHeight
+                            }
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fill={styles.textColor}
+                            fontSize={typo.fontSize}
+                            fontWeight="800"
+                            letterSpacing="0.02em"
+                            className="select-none pointer-events-none font-mono tracking-tight"
+                          >
+                            {line}
+                          </text>
+                        ))}
 
-                  {/* Status Indicator (Only if booked/blocked) */}
-                  {(isBooked || isBlocked) && stall.height > 40 && (
-                    <text
-                      x={stall.xPosition + stall.width / 2}
-                      y={stall.yPosition + stall.height / 2 + 11}
-                      textAnchor="middle"
-                      fill={styles.textColor}
-                      fontSize="8"
-                      fontWeight="800"
-                      className="select-none pointer-events-none font-mono opacity-90 tracking-wider uppercase"
-                    >
-                      {isBooked ? 'BOOKED' : 'BLOCKED'}
-                    </text>
-                  )}
+                        {/* Stall Area / Dimension Subtext if space permits and not zoomed out */}
+                        {showSubtext && isAvailable && (
+                          <text
+                            x={stall.xPosition + stall.width / 2}
+                            y={stall.yPosition + stall.height / 2 + 10}
+                            textAnchor="middle"
+                            fill={styles.textColor}
+                            fontSize="9"
+                            fontWeight="600"
+                            className="select-none pointer-events-none font-mono opacity-85"
+                          >
+                            {stall.areaSqFt ? `${stall.areaSqFt} sqft` : `${Math.round(stall.width / pxPerMeter)}×${Math.round(stall.height / pxPerMeter)}m`}
+                          </text>
+                        )}
+
+                        {/* Status Indicator (Only if booked/blocked) */}
+                        {showSubtext && (isBooked || isBlocked) && (
+                          <text
+                            x={stall.xPosition + stall.width / 2}
+                            y={stall.yPosition + stall.height / 2 + 11}
+                            textAnchor="middle"
+                            fill={styles.textColor}
+                            fontSize="8"
+                            fontWeight="800"
+                            className="select-none pointer-events-none font-mono opacity-90 tracking-wider uppercase"
+                          >
+                            {isBooked ? 'BOOKED' : 'BLOCKED'}
+                          </text>
+                        )}
+                      </>
+                    );
+                  })()}
                 </g>
               );
             })}
@@ -634,39 +692,43 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         </svg>
       </div>
 
-      {/* Floating Canvas Controls HUD: Map Navigation & Zoom */}
+      {/* Floating Canvas Controls HUD: Map Navigation & Conditional Zoom Out */}
       <div className="absolute bottom-4 right-4 z-20 flex items-center bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-lg border border-slate-200 dark:border-slate-700 rounded-xl p-1 gap-1 text-slate-700 dark:text-slate-200 select-none">
-        <div className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
-          <Move className="w-3.5 h-3.5 text-blue-600" />
-          <span>Drag Map</span>
+        <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700">
+          <Move className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+          <span className="hidden sm:inline">Drag Map</span>
         </div>
 
-        {/* Zoom Out is ONLY needed & shown when user has zoomed in on the chart */}
-        {zoomLevel > baseZoomLevel && (
-          <button
-            type="button"
-            onClick={() => setZoomLevel((prev: number) => Math.max(baseZoomLevel, prev - 10))}
-            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all active:scale-95 cursor-pointer text-slate-700 dark:text-slate-200 animate-in fade-in zoom-in-90 duration-150"
-            title="Zoom Out (-)"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-        )}
-
+        {/* Zoom Out: Enabled ONLY when user has zoomed in (> 100%) */}
         <button
           type="button"
-          onClick={handleFitToScreen}
-          className="px-2 py-1 text-xs font-mono font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors min-w-[50px] text-center cursor-pointer"
-          title={`Current zoom: ${zoomLevel}%. Click to reset to fit (${baseZoomLevel}%)`}
+          disabled={zoomLevel <= 100}
+          onClick={handleZoomOut}
+          className={`p-1.5 rounded-lg transition-all ${
+            zoomLevel > 100
+              ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 cursor-pointer'
+              : 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-35'
+          }`}
+          title={zoomLevel > 100 ? "Zoom Out towards 100%" : "At standard 100% view (zoom out disabled)"}
         >
-          {zoomLevel}%
+          <ZoomOut className="w-4 h-4" />
         </button>
 
+        <span className="px-1 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 min-w-[38px] text-center">
+          {zoomLevel}%
+        </span>
+
+        {/* Zoom In: Always available up to 200% */}
         <button
           type="button"
-          onClick={() => setZoomLevel((prev: number) => Math.min(200, prev + 10))}
-          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors active:scale-95 cursor-pointer"
-          title="Zoom In (+)"
+          disabled={zoomLevel >= 200}
+          onClick={handleZoomIn}
+          className={`p-1.5 rounded-lg transition-all ${
+            zoomLevel < 200
+              ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 cursor-pointer'
+              : 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-35'
+          }`}
+          title="Zoom In (+) to inspect details"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
@@ -675,21 +737,12 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
         <button
           type="button"
-          onClick={handleFitToScreen}
-          className="flex items-center gap-1 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-xs font-semibold cursor-pointer text-blue-600 dark:text-blue-400"
-          title="Fit all stalls to screen overview"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-          <span>Fit View</span>
-        </button>
-
-        <button
-          type="button"
           onClick={handleResetMap}
-          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors active:scale-95 cursor-pointer"
-          title="Center & Reset Map View"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+          title="Recenter & Reset to 100%"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+          <span className="hidden sm:inline">Recenter</span>
         </button>
       </div>
 

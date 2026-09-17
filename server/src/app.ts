@@ -25,15 +25,22 @@ export const createApp = (): Express => {
   app.use(
     cors({
       origin: (origin, callback) => {
+        const allowedOrigins = (env.CLIENT_URL || '')
+          .split(',')
+          .map((u) => u.trim())
+          .filter(Boolean);
+
         if (
           !origin ||
           origin.startsWith('http://localhost:') ||
           origin.startsWith('http://127.0.0.1:') ||
-          origin === env.CLIENT_URL
+          allowedOrigins.includes(origin) ||
+          allowedOrigins.includes('*') ||
+          env.NODE_ENV !== 'production'
         ) {
           callback(null, true);
         } else {
-          callback(null, true);
+          callback(null, allowedOrigins.includes(origin));
         }
       },
       credentials: true,

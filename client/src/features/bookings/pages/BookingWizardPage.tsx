@@ -472,7 +472,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
       className={`mx-auto font-sans transition-all duration-300 ${currentStep === 1
           ? isFullscreen
             ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
-            : 'w-full max-w-[1920px] px-2 sm:px-4 lg:px-6 pb-6 space-y-3'
+            : 'w-full max-w-[1200px] mx-auto px-2 sm:px-4 pb-6 space-y-3'
           : 'max-w-5xl mx-auto px-4 pb-16 space-y-8'
         }`}
     >
@@ -613,9 +613,10 @@ const [discountValue, setDiscountValue] = useState<number>(0);
             <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
           </div>
 
-          {/* Canvas Wrapper - Expansive Clean Canvas (Cinema Booking Style) */}
-          <div className={`relative w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex-1 ${isFullscreen ? 'h-full min-h-0' : 'h-[calc(100vh-240px)] min-h-[580px] lg:min-h-[660px]'
-            }`}>
+          {/* Canvas Wrapper - Compact Clean Canvas (1200px Max Length) */}
+          <div className={`relative w-full max-w-[1200px] mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm ${
+            isFullscreen ? 'flex-1 h-full min-h-0' : 'h-[500px] sm:h-[540px] lg:h-[560px]'
+          }`}>
             <FloorPlanCanvas
               stalls={stalls}
               layoutData={layoutData}
@@ -630,7 +631,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
 
           {/* Cinema-Style Bottom Bar */}
           {selectedStallsObj.length > 0 ? (
-            <div className="sticky bottom-2 z-40 bg-[#012970]/95 dark:bg-slate-900/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-blue-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-3 duration-200">
+            <div className="sticky bottom-2 z-40 max-w-[1200px] mx-auto w-full bg-[#012970]/95 dark:bg-slate-900/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-blue-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-3 duration-200">
               {/* Left: Selected stalls pills with quick 'x' */}
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">

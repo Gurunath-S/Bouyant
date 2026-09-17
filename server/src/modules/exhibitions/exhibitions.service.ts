@@ -126,18 +126,17 @@ export class ExhibitionsService {
       }
     }
 
-    const existingCode = await prisma.exhibition.findFirst({
-      where: {
-        edition,
-        eventCode,
-      },
-    });
-
-    if (existingCode) {
-      throw ApiError.conflict(
-        `An exhibition with Edition '${edition}' and Event Code '${eventCode}' already exists ("${existingCode.title}"). These codes must always be unique.`
-      );
+    // Auto-resolve any event code / edition collision so a newer unique code is always assigned
+    let finalEventCode = eventCode;
+    while (await prisma.exhibition.findFirst({ where: { edition, eventCode: finalEventCode } })) {
+      const match = finalEventCode.match(/^(.*?)(\d+)$/);
+      if (match) {
+        finalEventCode = `${match[1]}${parseInt(match[2], 10) + 1}`;
+      } else {
+        finalEventCode = `${finalEventCode}2`;
+      }
     }
+    eventCode = finalEventCode;
 
     const validExhibitionStatuses = ['DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'ARCHIVED'];
     let exhibitionStatus = 'DRAFT';
@@ -283,21 +282,25 @@ export class ExhibitionsService {
     const targetEventCode = input.eventCode !== undefined ? String(input.eventCode).toUpperCase().trim() : exhibition.eventCode;
 
     if (targetEdition && targetEventCode) {
-      const existingCode = await prisma.exhibition.findFirst({
-        where: {
-          edition: targetEdition,
-          eventCode: targetEventCode,
-          NOT: { id },
-        },
-      });
-
-      if (existingCode) {
-        throw ApiError.conflict(
-          `An exhibition with Edition '${targetEdition}' and Event Code '${targetEventCode}' already exists ("${existingCode.title}"). These codes must always be unique.`
-        );
+      let finalTargetCode = targetEventCode;
+      while (
+        await prisma.exhibition.findFirst({
+          where: {
+            edition: targetEdition,
+            eventCode: finalTargetCode,
+            NOT: { id },
+          },
+        })
+      ) {
+        const match = finalTargetCode.match(/^(.*?)(\d+)$/);
+        if (match) {
+          finalTargetCode = `${match[1]}${parseInt(match[2], 10) + 1}`;
+        } else {
+          finalTargetCode = `${finalTargetCode}2`;
+        }
       }
       cleanUpdateData.edition = targetEdition;
-      cleanUpdateData.eventCode = targetEventCode;
+      cleanUpdateData.eventCode = finalTargetCode;
     }
 
     const targetSpcode = input.spcode !== undefined ? String(input.spcode).toUpperCase().trim() : undefined;

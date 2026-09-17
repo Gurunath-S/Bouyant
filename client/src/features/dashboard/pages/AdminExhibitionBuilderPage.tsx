@@ -52,6 +52,106 @@ export interface DraftStall {
   status: 'AVAILABLE' | 'BLOCKED';
 }
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// Helper to extract 2-digit month from ISO date string (e.g. '2026-10-15' -> '10')
+const getMonthEditionCode = (dateStr: string): string => {
+  if (!dateStr) return '10';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length >= 2 && parts[1]) {
+      const m = parseInt(parts[1], 10);
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        return String(m).padStart(2, '0');
+      }
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return String(d.getMonth() + 1).padStart(2, '0');
+    }
+  } catch {
+    // fallback
+  }
+  return '10';
+};
+
+const getMonthNameByEdition = (editionStr: string): string => {
+  const m = parseInt(editionStr, 10);
+  if (!isNaN(m) && m >= 1 && m <= 12) {
+    return MONTH_NAMES[m - 1];
+  }
+  return '';
+};
+
+// Helper to generate event short code from title (e.g. "India Industrial & Automation Expo 2026" -> "IIAE", "Mediccon Expo" -> "ME")
+const generateEventShortCode = (title: string): string => {
+  if (!title) return '';
+  const stopWords = new Set(['and', '&', 'the', 'of', 'for', 'to', 'in', 'a', 'an', 'at', 'by', 'on', 'with']);
+  const words = title
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !/^\d{4}$/.test(w) && !stopWords.has(w.toLowerCase()));
+
+  if (words.length >= 2) {
+    return words.slice(0, 4).map((w) => w[0].toUpperCase()).join('');
+  } else if (words.length === 1 && words[0].length >= 2) {
+    return words[0].slice(0, 3).toUpperCase();
+  }
+  return title.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+};
+
+const formatTimeDisplay = (time24?: string): string => {
+  if (!time24) return '10:00 AM';
+  const [hStr, mStr] = time24.split(':');
+  const h = parseInt(hStr || '10', 10);
+  const m = mStr || '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${period}`;
+};
+
+const formatIsoWithTime = (dateStr: string, timeStr: string, defaultHour: number) => {
+  if (!dateStr) return new Date().toISOString();
+  try {
+    const [h, m] = (timeStr || `${defaultHour}:00`).split(':');
+    const d = new Date(dateStr);
+    d.setHours(parseInt(h || `${defaultHour}`, 10), parseInt(m || '0', 10), 0, 0);
+    return d.toISOString();
+  } catch {
+    return new Date(dateStr).toISOString();
+  }
+};
+
+// Helper to generate a guaranteed unique event short code
+const getUniqueEventShortCode = (
+  title: string,
+  existingEvents: { id: string; eventCode?: string }[],
+  currentEventId?: string
+): string => {
+  const base = generateEventShortCode(title) || 'EX';
+  const takenCodes = new Set(
+    existingEvents
+      .filter((e) => e.id !== currentEventId)
+      .map((e) => (e.eventCode || '').toUpperCase().trim())
+      .filter(Boolean)
+  );
+
+  if (!takenCodes.has(base)) {
+    return base;
+  }
+
+  // If base exists, generate newer unique code by appending next counter (e.g. BAE2, BAE3)
+  let counter = 2;
+  while (takenCodes.has(`${base}${counter}`)) {
+    counter++;
+  }
+  return `${base}${counter}`;
+};
+
 export const AdminExhibitionBuilderPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -67,17 +167,38 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
 
+  // Existing exhibitions loaded from DB to guarantee unique short codes
+  const [existingEvents, setExistingEvents] = useState<{ id: string; title: string; eventCode: string; edition: string }[]>([]);
+
+  useEffect(() => {
+    exhibitionService
+      .getExhibitions()
+      .then((events) => {
+        setExistingEvents(
+          (events || []).map((e) => ({
+            id: e.id,
+            title: e.title,
+            eventCode: ((e as any).eventCode || '').toUpperCase().trim(),
+            edition: ((e as any).edition || '').toUpperCase().trim(),
+          }))
+        );
+      })
+      .catch((err) => console.warn('Could not fetch existing events for uniqueness check', err));
+  }, []);
+
   // Step 1: Basic Event Information
   const [basicInfo, setBasicInfo] = useState({
     title: 'India Industrial & Automation Expo 2026',
     slug: 'india-industrial-expo-2026',
-    edition: '01',
-    eventCode: 'II',
-    spcode: 'B003',
+    edition: '10', // Default derived from October start date (month 10)
+    eventCode: 'IIAE',
+    spcode: 'B003', // Internal admin allocation code, hidden from step 1 UI
     category: 'Industrial & Automation',
     description: 'Premier trade fair for industrial machinery, robotics automation, IoT sensors, and smart manufacturing technologies.',
-    startDate: '2026-11-10',
-    endDate: '2026-11-14',
+    startDate: '2026-10-10',
+    endDate: '2026-10-14',
+    startTime: '10:00',
+    endTime: '18:00',
     venue: 'Bombay Exhibition Centre (BEC)',
     address: 'NSE Nesco Complex, Off Western Express Hwy, Goregaon East',
     city: 'Mumbai',
@@ -88,6 +209,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     longitude: 72.8553,
     status: 'PUBLISHED',
   });
+
+  const [isEventCodeCustom, setIsEventCodeCustom] = useState<boolean>(false);
+  const [isEditionCustom, setIsEditionCustom] = useState<boolean>(false);
 
   useEffect(() => {
     if (id) {
@@ -101,16 +225,38 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       setLoadError(null);
       const data = await exhibitionService.getExhibitionBySlug(eventId);
       if (data) {
+        let loadedStartTime = '10:00';
+        let loadedEndTime = '18:00';
+        if (data.startDate) {
+          const sDate = new Date(data.startDate);
+          if (!isNaN(sDate.getTime()) && (sDate.getHours() !== 0 || sDate.getMinutes() !== 0)) {
+            loadedStartTime = `${String(sDate.getHours()).padStart(2, '0')}:${String(sDate.getMinutes()).padStart(2, '0')}`;
+          }
+        }
+        if (data.endDate) {
+          const eDate = new Date(data.endDate);
+          if (!isNaN(eDate.getTime()) && (eDate.getHours() !== 0 || eDate.getMinutes() !== 0)) {
+            loadedEndTime = `${String(eDate.getHours()).padStart(2, '0')}:${String(eDate.getMinutes()).padStart(2, '0')}`;
+          }
+        }
+
+        const startIso = data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '';
+        const endIso = data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '';
+        const loadedEdition = (data as any).edition || getMonthEditionCode(startIso);
+        const loadedEventCode = (data as any).eventCode || generateEventShortCode(data.title || '');
+
         setBasicInfo({
           title: data.title || '',
           slug: data.slug || '',
-          edition: (data as any).edition || '',
-          eventCode: (data as any).eventCode || '',
-          spcode: (data as any).spcode || '',
+          edition: loadedEdition,
+          eventCode: loadedEventCode,
+          spcode: (data as any).spcode || 'B003',
           category: 'Industrial & Automation',
           description: data.description || '',
-          startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
-          endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
+          startDate: startIso,
+          endDate: endIso,
+          startTime: (data as any).startTime || loadedStartTime,
+          endTime: (data as any).endTime || loadedEndTime,
           venue: data.venue || '',
           address: data.venue || '',
           city: data.city || '',
@@ -121,6 +267,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           longitude: 72.8553,
           status: data.status || 'PUBLISHED',
         });
+
+        if ((data as any).eventCode) setIsEventCodeCustom(true);
+        if ((data as any).edition) setIsEditionCustom(true);
 
         if (data.floorPlans && data.floorPlans.length > 0) {
           const fp = data.floorPlans[0];
@@ -333,8 +482,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           spcode: basicInfo.spcode,
           venue: basicInfo.venue,
           city: basicInfo.city,
-          startDate: new Date(basicInfo.startDate).toISOString(),
-          endDate: new Date(basicInfo.endDate).toISOString(),
+          startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
+          endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -372,8 +521,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           spcode: basicInfo.spcode,
           venue: basicInfo.venue,
           city: basicInfo.city,
-          startDate: new Date(basicInfo.startDate).toISOString(),
-          endDate: new Date(basicInfo.endDate).toISOString(),
+          startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
+          endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -627,7 +776,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </Button>
           </div>
 
-          {/* Card 1: Event Identity & Classification */}
+          {/* Card 1: Event Identity & Category */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
               <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
@@ -638,13 +787,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   1. Event Identity & Category
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Official name, automated SEO web slug, and exhibition theme description
+                  Official name, automated short code, edition month, classification, and event overview
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
+            {/* Event Name + Event Short Code + Edition Code */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Exhibition Event Name */}
+              <div className="md:col-span-6">
                 <Input
                   label="Exhibition Event Name *"
                   value={basicInfo.title}
@@ -656,38 +807,300 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .replace(/[^a-z0-9]+/g, '-')
                       .replace(/(^-|-$)+/g, '');
 
-                    const words = title.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/);
                     let newEventCode = basicInfo.eventCode;
-                    if (!id && (!basicInfo.eventCode || basicInfo.eventCode.length <= 2)) {
-                      if (words.length >= 2 && words[0] && words[1]) {
-                        newEventCode = (words[0][0] + words[1][0]).toUpperCase();
-                      } else if (words.length === 1 && words[0].length >= 2) {
-                        newEventCode = words[0].substring(0, 2).toUpperCase();
-                      }
+                    if (!isEventCodeCustom) {
+                      newEventCode = getUniqueEventShortCode(title, existingEvents, id);
                     }
 
                     setBasicInfo((prev) => ({
                       ...prev,
                       title,
                       slug: autoSlug,
-                      eventCode: newEventCode || prev.eventCode,
+                      eventCode: newEventCode,
                     }));
                   }}
                   placeholder="e.g. India Industrial & Automation Expo 2026"
                   required
                 />
+                {/* Small & simple Client Reg No preview directly below event name */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
-                  <span className="font-semibold text-slate-400">Live Web Address (Slug):</span>
-                  <code className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono text-[11px] border border-purple-200">
-                    /exhibitions/{basicInfo.slug || 'event-slug'}
+                  <span className="font-semibold text-slate-400">Client Reg No:</span>
+                  <code className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                    {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
-                    (automatically synchronized with event title)
+                    (Edition • Year • Code • Client #)
                   </span>
                 </div>
               </div>
 
-              <div>
+              {/* Event Short Code & Edition Code Row with Client Reg No Live Preview */}
+              <div className="md:col-span-6 flex flex-col justify-between">
+                <div className="grid grid-cols-12 gap-3">
+                  {/* Event Short Code */}
+                  <div className="col-span-7 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Event Short Code *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const auto = getUniqueEventShortCode(basicInfo.title, existingEvents, id);
+                          setIsEventCodeCustom(false);
+                          setBasicInfo((prev) => ({ ...prev, eventCode: auto }));
+                        }}
+                        title="Reset / re-generate automatically from event name"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" />
+                        <span>{isEventCodeCustom ? 'Reset Auto' : 'Auto-Sync'}</span>
+                      </button>
+                    </div>
+                    <div className="relative rounded-lg shadow-xs">
+                      <input
+                        type="text"
+                        value={basicInfo.eventCode}
+                        onChange={(e) => {
+                          setIsEventCodeCustom(true);
+                          setBasicInfo((prev) => ({
+                            ...prev,
+                            eventCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8),
+                          }));
+                        }}
+                        placeholder="e.g. IIAE"
+                        required
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-3 pr-14 py-2 uppercase transition-colors"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                            isEventCodeCustom
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-purple-100 text-purple-700'
+                          }`}
+                        >
+                          {isEventCodeCustom ? 'Custom' : 'Auto'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      {isEventCodeCustom
+                        ? 'Custom short code • used in client IDs'
+                        : 'Auto-derived unique code • edit to customize'}
+                    </p>
+                  </div>
+
+                  {/* Edition Code */}
+                  <div className="col-span-5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Edition Code *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const autoEd = getMonthEditionCode(basicInfo.startDate);
+                          setIsEditionCustom(false);
+                          setBasicInfo((prev) => ({ ...prev, edition: autoEd }));
+                        }}
+                        title="Sync edition code with start date month"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" />
+                        <span>{isEditionCustom ? 'Reset' : 'Month'}</span>
+                      </button>
+                    </div>
+                    <div className="relative rounded-lg shadow-xs">
+                      <input
+                        type="text"
+                        value={basicInfo.edition}
+                        onChange={(e) => {
+                          setIsEditionCustom(true);
+                          setBasicInfo((prev) => ({
+                            ...prev,
+                            edition: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4),
+                          }));
+                        }}
+                        placeholder="e.g. 10"
+                        maxLength={4}
+                        required
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-3 pr-12 py-2 text-center uppercase transition-colors"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none">
+                        <span
+                          className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase ${
+                            isEditionCustom
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-indigo-100 text-indigo-700'
+                          }`}
+                        >
+                          {isEditionCustom ? 'Custom' : 'Auto'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
+                      {getMonthNameByEdition(basicInfo.edition)
+                        ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition})`
+                        : `Edition ${basicInfo.edition || '10'}`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Collision Notice if this code is already taken by another event */}
+                {(() => {
+                  const collision = existingEvents.find(
+                    (e) =>
+                      e.id !== id &&
+                      e.eventCode &&
+                      e.eventCode.toUpperCase().trim() === basicInfo.eventCode.toUpperCase().trim()
+                  );
+                  if (!collision) return null;
+                  const suggestedNewer = getUniqueEventShortCode(
+                    basicInfo.title || basicInfo.eventCode,
+                    existingEvents,
+                    id
+                  );
+                  return (
+                    <div className="mt-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded-md text-[10px] text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-1 animate-in fade-in">
+                      <span className="truncate">
+                        ⚠️ Code <strong>{basicInfo.eventCode}</strong> is already used by "{collision.title}".
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBasicInfo((prev) => ({ ...prev, eventCode: suggestedNewer }));
+                          setIsEventCodeCustom(true);
+                        }}
+                        className="font-bold underline text-amber-900 hover:text-amber-700 shrink-0 cursor-pointer text-[10px] bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded transition-colors"
+                      >
+                        Use Newer ({suggestedNewer})
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* DIRECTLY BELOW: Dates & Exhibition Schedule / Timings */}
+            <div className="pt-3 border-t border-slate-100 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                <span>Exhibition Dates & Daily Visiting Timings</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <DateInput
+                  label="Exhibition Start Date"
+                  value={basicInfo.startDate}
+                  onChange={(isoVal) => {
+                    setBasicInfo((prev) => {
+                      const newEdition = isEditionCustom ? prev.edition : getMonthEditionCode(isoVal);
+                      return {
+                        ...prev,
+                        startDate: isoVal,
+                        edition: newEdition,
+                      };
+                    });
+                  }}
+                  required
+                  helperText="Format: DD/MM/YYYY"
+                />
+                <DateInput
+                  label="Exhibition End Date"
+                  value={basicInfo.endDate}
+                  onChange={(isoVal) => setBasicInfo({ ...basicInfo, endDate: isoVal })}
+                  required
+                  helperText="Format: DD/MM/YYYY"
+                />
+
+                {/* Event Time: Opening Time */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Daily Opening Time
+                  </label>
+                  <div className="relative rounded-lg shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Clock className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="time"
+                      value={basicInfo.startTime}
+                      onChange={(e) => setBasicInfo({ ...basicInfo, startTime: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Visiting start time</p>
+                </div>
+
+                {/* Event Time: Closing Time */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Daily Closing Time
+                  </label>
+                  <div className="relative rounded-lg shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Clock className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="time"
+                      value={basicInfo.endTime}
+                      onChange={(e) => setBasicInfo({ ...basicInfo, endTime: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Visiting close time</p>
+                </div>
+              </div>
+
+              {/* Quick Time Presets */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                <span className="text-[11px] font-semibold text-slate-500">Quick Hours Presets:</span>
+                {[
+                  { label: '10:00 AM – 06:00 PM', start: '10:00', end: '18:00' },
+                  { label: '09:30 AM – 06:30 PM', start: '09:30', end: '18:30' },
+                  { label: '10:00 AM – 07:00 PM', start: '10:00', end: '19:00' },
+                  { label: '11:00 AM – 08:00 PM', start: '11:00', end: '20:00' },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() =>
+                      setBasicInfo((prev) => ({
+                        ...prev,
+                        startTime: preset.start,
+                        endTime: preset.end,
+                      }))
+                    }
+                    className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-colors cursor-pointer ${
+                      basicInfo.startTime === preset.start && basicInfo.endTime === preset.end
+                        ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              {durationDays !== null && durationDays > 0 ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-900">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>
+                      Total Duration: <strong className="font-bold">{durationDays} Days</strong> ({formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)}) • Daily Visiting Hours: <strong className="font-bold">{formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)}</strong>
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase bg-blue-100 text-blue-800 px-2 py-0.5 rounded shrink-0 self-start sm:self-auto">
+                    Active Schedule
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Category and Registration Format Template Strip */}
+            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              <div className="md:col-span-6">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Industry / Sector Category
                 </label>
@@ -722,151 +1135,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Card: Event Codes & Client Registration Number Configuration */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-mono font-black text-xs">
-                  SP
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                    2. Event Codes, SP Code & Registration Numbering
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Official edition, shortcode, internal staff SP Code, and automated client registration format
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <Input
-                  label="Edition Code *"
-                  value={basicInfo.edition}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, edition: e.target.value.toUpperCase().slice(0, 4) })}
-                  placeholder="e.g. 04"
-                  helperText="Exhibition edition (e.g. 04)"
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  label="Event Short Code *"
-                  value={basicInfo.eventCode}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, eventCode: e.target.value.toUpperCase().slice(0, 6) })}
-                  placeholder="e.g. ME"
-                  helperText="e.g. ME (Mediccon Expo)"
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  label="SP Code (Admin / Staff Allocation) *"
-                  value={basicInfo.spcode}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, spcode: e.target.value.toUpperCase().slice(0, 10) })}
-                  placeholder="e.g. B001"
-                  helperText="Staff authentication code (hidden from client form)"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Registration Format Live Preview */}
-            <div className="p-4 sm:p-5 bg-purple-50/50 border border-purple-100 rounded-xl space-y-3.5">
-              <div className="border-b border-purple-100 pb-2.5">
-                <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">
-                  Client Registration Number Format Template
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-5">
-                <div className="text-2xl sm:text-3xl font-mono font-extrabold tracking-widest text-slate-800 bg-white px-4 py-2.5 rounded-lg border border-purple-200/80 shadow-xs">
-                  <span className="text-amber-600">{basicInfo.edition || '04'}</span>
-                  <span className="text-slate-300">/</span>
-                  <span className="text-blue-600">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>
-                  <span className="text-slate-300">/</span>
-                  <span className="text-purple-600">{basicInfo.eventCode || 'ME'}</span>
-                  <span className="text-slate-300">/</span>
-                  <span className="text-emerald-600">01</span>
-                </div>
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.edition || '04'}</span>
-                    <span className="text-slate-500">= Edition (2-digit)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}</span>
-                    <span className="text-slate-500">= Year (2-digit)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">{basicInfo.eventCode || 'ME'}</span>
-                    <span className="text-slate-500">= Event Short Code (e.g. Mediccon Expo)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded text-[11px] min-w-[28px] text-center">01</span>
-                    <span className="text-slate-500">= Series Number (auto-increments sequentially for each registered client)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-slate-500 pt-2 flex flex-wrap items-center gap-1.5 border-t border-purple-100">
-                <span className="text-amber-800 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">NOTE</span>
-                <span>SP Code <strong className="text-slate-800 font-mono">({basicInfo.spcode || 'B001'})</strong> is strictly for Admin/Staff authentication & event management. It is never displayed on the client-facing registration form.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Dates & Exhibition Schedule */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  3. Dates & Exhibition Schedule
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Enter dates in DD/MM/YYYY format. Date badges display in standard Indian business format.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <DateInput
-                label="Exhibition Start Date *"
-                value={basicInfo.startDate}
-                onChange={(isoVal) => setBasicInfo({ ...basicInfo, startDate: isoVal })}
-                required
-                helperText="Date input format: DD/MM/YYYY"
-              />
-              <DateInput
-                label="Exhibition End Date *"
-                value={basicInfo.endDate}
-                onChange={(isoVal) => setBasicInfo({ ...basicInfo, endDate: isoVal })}
-                required
-                helperText="Date input format: DD/MM/YYYY"
-              />
-            </div>
-
-            {durationDays !== null && durationDays > 0 ? (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900">
-                <div className="flex items-center gap-2 font-medium">
-                  <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>
-                    Total Duration: <strong className="font-bold">{durationDays} Days</strong> ({formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)})
-                  </span>
-                </div>
-                <span className="text-[11px] font-bold uppercase bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                  Active Schedule
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Card 3: Venue Location & Interactive Pin Placement */}
+          {/* Card 2: Venue Location & Interactive Pin Placement */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
               <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
@@ -874,7 +1143,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  3. Venue Location & Interactive Pin Placement
+                  2. Venue Location & Interactive Pin Placement
                 </h3>
                 <p className="text-xs text-slate-500">
                   Enter postal venue details and place an exact entrance pin. You can sync the address from the pin or keep them separated.
@@ -921,6 +1190,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               venueName={basicInfo.venue}
               cityName={basicInfo.city}
               address={basicInfo.address}
+              stateName={basicInfo.state}
               onChangeCoordinates={(lat, lng) =>
                 setBasicInfo((prev) => ({ ...prev, latitude: lat, longitude: lng }))
               }
@@ -937,7 +1207,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             />
           </div>
 
-          {/* Card 4: Event Visuals & Media Gallery */}
+          {/* Card 3: Event Visuals & Media Gallery */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -945,7 +1215,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  4. Event Visuals & Media Gallery
+                  3. Event Visuals & Media Gallery
                 </h3>
                 <p className="text-xs text-slate-500">
                   Upload multiple banners from your computer or paste direct image links. No stock presets. Star the primary cover banner.
@@ -1031,8 +1301,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     spcode: basicInfo.spcode || undefined,
                     venue: basicInfo.venue || 'Exhibition Venue',
                     city: basicInfo.city || 'City',
-                    startDate: basicInfo.startDate ? new Date(basicInfo.startDate).toISOString() : new Date().toISOString(),
-                    endDate: basicInfo.endDate ? new Date(basicInfo.endDate).toISOString() : new Date(Date.now() + 86400000 * 3).toISOString(),
+                    startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
+                    endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
                     bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
                     status: 'DRAFT',
                     totalStalls: savedStalls.length,
@@ -1114,15 +1384,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   </div>
                 )}
                 <p><span className="font-semibold text-slate-500">Title:</span> {basicInfo.title}</p>
-                <p><span className="font-semibold text-slate-500">Public Slug:</span> <code className="text-purple-700 font-mono font-bold">/exhibitions/{basicInfo.slug}</code></p>
                 <p><span className="font-semibold text-slate-500">Category:</span> {basicInfo.category}</p>
                 <p><span className="font-semibold text-slate-500">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
                 <p><span className="font-semibold text-slate-500">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
                 <p><span className="font-semibold text-slate-500">SP Code (Admin/Staff):</span> <span className="font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[11px]">{basicInfo.spcode || 'B001'}</span></p>
-                <p><span className="font-semibold text-slate-500">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700">{basicInfo.edition || '04'}</span> / <span className="font-mono font-bold text-indigo-700">{basicInfo.eventCode || 'ME'}</span></p>
-                <p><span className="font-semibold text-slate-500">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '04'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'ME'}/01</code></p>
+                <p><span className="font-semibold text-slate-500">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700">{basicInfo.edition || '10'}</span> / <span className="font-mono font-bold text-indigo-700">{basicInfo.eventCode || 'IIAE'}</span></p>
+                <p><span className="font-semibold text-slate-500">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01</code></p>
                 <p><span className="font-semibold text-slate-500">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
-                <p><span className="font-semibold text-slate-500">Dates:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)}</p>
+                <p><span className="font-semibold text-slate-500">Dates & Timings:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)} ({formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)})</p>
               </div>
 
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">

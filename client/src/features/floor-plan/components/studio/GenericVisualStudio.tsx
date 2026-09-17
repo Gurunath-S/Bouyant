@@ -23,6 +23,11 @@ import {
   Undo2,
   Redo2,
   Loader2,
+  Layers,
+  Move,
+  CheckSquare,
+  Ban,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   HallZone,
@@ -49,6 +54,8 @@ interface GenericVisualStudioProps {
   onBack?: () => void;
   isViewOnly?: boolean;
 }
+
+import { getStallTypography } from '../../utils/stallTypography';
 
 export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   exhibitionTitle,
@@ -122,6 +129,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     initialLayoutData?.backgroundOpacity ?? 0.85
   );
   const [isBgModalOpen, setIsBgModalOpen] = useState<boolean>(false);
+  const [showBlueprint, setShowBlueprint] = useState<boolean>(true);
+  const [blueprintLayerPosition, setBlueprintLayerPosition] = useState<'under' | 'over'>('under');
+  const [isBlueprintInspectMode, setIsBlueprintInspectMode] = useState<boolean>(false);
+  const [ghostStallOpacity, setGhostStallOpacity] = useState<number>(0.22);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState<boolean>(false);
 
   // Map Movement State (Spacebar held or Pan mode)
   const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
@@ -179,6 +191,14 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [dragItemInitialCoords, setDragItemInitialCoords] = useState<
     Array<{ id: string; type: string; x: number; y: number }>
   >([]);
+  const clickedItemRef = useRef<{
+    type: 'stall' | 'hall' | 'facility' | 'annotation';
+    id: string;
+    isMulti: boolean;
+    isPickMode?: boolean;
+    isRemovePick?: boolean;
+  } | null>(null);
+  const hasDraggedItemRef = useRef<boolean>(false);
 
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
@@ -425,8 +445,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         setIsSpacePressed(true);
       } else if (e.key === 'v' || e.key === 'V') {
         setActiveTool('select');
+        setIsMultiSelectMode(false);
       } else if (e.key === 'm' || e.key === 'M') {
-        setActiveTool('marquee');
+        e.preventDefault();
+        setIsMultiSelectMode((prev) => !prev);
+      } else if (e.key === 'x' || e.key === 'X') {
+        if (backgroundImageUrl) {
+          e.preventDefault();
+          setIsBlueprintInspectMode((prev) => !prev);
+          setShowBlueprint(true);
+        }
       } else if (e.key === 'h' || e.key === 'H') {
         setActiveTool('pan');
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -466,6 +494,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         handleFitToScreen();
+      } else if (e.key === 'b' || e.key === 'B') {
+        if (backgroundImageUrl) {
+          e.preventDefault();
+          setShowBlueprint((prev) => !prev);
+        }
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Nudge selected items
         if (!isReadOnly && selectedRefs.length > 0) {
@@ -491,7 +524,19 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedRefs, isReadOnly, handleUndo, handleRedo, snapToGrid, snapInterval, pxPerMeter, handleFitToScreen]);
+  }, [
+    selectedRefs,
+    isReadOnly,
+    handleUndo,
+    handleRedo,
+    snapToGrid,
+    snapInterval,
+    pxPerMeter,
+    handleFitToScreen,
+    backgroundImageUrl,
+    isBlueprintInspectMode,
+    isMultiSelectMode,
+  ]);
 
   // Nudge selected items by (dx, dy)
   const nudgeSelected = (dx: number, dy: number) => {
@@ -1272,19 +1317,54 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const pt = getSVGCoordinates(e);
     lastCanvasClickPos.current = { x: pt.x, y: pt.y };
 
-    // Shift-click toggles selection
-    if (e.shiftKey) {
-      const exists = selectedRefs.some((r) => r.type === type && r.id === id);
-      if (exists) {
-        setSelectedRefs(selectedRefs.filter((r) => !(r.type === type && r.id === id)));
+    // Pick Mode (or Shift-click): Toggle item selection without holding Shift
+    const isPickModeActive = isMultiSelectMode || e.shiftKey;
+    if (isPickModeActive) {
+      const isAlreadySelected = selectedRefs.some((r) => r.type === type && r.id === id);
+      let activeRefs: SelectedItemReference[];
+      if (!isAlreadySelected) {
+        // Add immediately to selection
+        activeRefs = [...selectedRefs, { type, id }];
+        setSelectedRefs(activeRefs);
+        clickedItemRef.current = { type, id, isMulti: true, isPickMode: true, isRemovePick: false };
       } else {
-        setSelectedRefs([...selectedRefs, { type, id }]);
+        // Already selected: keep selected for potential group drag, but mark for removal if mouse released without drag
+        activeRefs = selectedRefs;
+        clickedItemRef.current = { type, id, isMulti: true, isPickMode: true, isRemovePick: true };
       }
+
+      hasDraggedItemRef.current = false;
+      if (isReadOnly) return;
+
+      setIsDraggingObj(true);
+      setDragStartPos({ x: pt.x, y: pt.y });
+
+      const initialCoords: Array<{ id: string; type: string; x: number; y: number }> = [];
+      activeRefs.forEach((ref) => {
+        if (ref.type === 'stall') {
+          const item = stalls.find((s) => s.id === ref.id);
+          if (item) initialCoords.push({ id: item.id, type: 'stall', x: item.xPosition, y: item.yPosition });
+        } else if (ref.type === 'hall') {
+          const item = halls.find((h) => h.id === ref.id);
+          if (item) initialCoords.push({ id: item.id, type: 'hall', x: item.x, y: item.y });
+        } else if (ref.type === 'facility') {
+          const item = facilities.find((f) => f.id === ref.id);
+          if (item) initialCoords.push({ id: item.id, type: 'facility', x: item.x, y: item.y });
+        } else if (ref.type === 'annotation') {
+          const item = annotations.find((a) => a.id === ref.id);
+          if (item) initialCoords.push({ id: item.id, type: 'annotation', x: item.x, y: item.y });
+        }
+      });
+      setDragItemInitialCoords(initialCoords);
       return;
     }
 
     // Normal click: If not already part of selected group, select only this
     const isAlreadySelected = selectedRefs.some((r) => r.type === type && r.id === id);
+    const isMulti = selectedRefs.length > 1 && isAlreadySelected;
+    clickedItemRef.current = { type, id, isMulti, isPickMode: false };
+    hasDraggedItemRef.current = false;
+
     const activeRefs = isAlreadySelected ? selectedRefs : [{ type, id }];
     if (!isAlreadySelected) {
       setSelectedRefs(activeRefs);
@@ -1477,6 +1557,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     if (isDraggingObj && dragItemInitialCoords.length > 0) {
       const rawDx = pt.x - dragStartPos.x;
       const rawDy = pt.y - dragStartPos.y;
+      if (Math.abs(rawDx) > 3 || Math.abs(rawDy) > 3) {
+        hasDraggedItemRef.current = true;
+      }
 
       const stallUpdates: Record<string, { x: number; y: number }> = {};
       const hallUpdates: Record<string, { x: number; y: number }> = {};
@@ -1528,12 +1611,33 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     }
 
     if (isDraggingObj || isResizing) {
+      if (clickedItemRef.current) {
+        if (clickedItemRef.current.isPickMode) {
+          // If clicked an already selected item in pick mode without dragging, toggle it off!
+          if (clickedItemRef.current.isRemovePick && !hasDraggedItemRef.current) {
+            setSelectedRefs((prev) =>
+              prev.filter(
+                (r) => !(r.type === clickedItemRef.current!.type && r.id === clickedItemRef.current!.id)
+              )
+            );
+          }
+        } else if (clickedItemRef.current.isMulti && !hasDraggedItemRef.current) {
+          // Normal mode: single click inside multi-selection narrows to that item
+          setSelectedRefs([{ type: clickedItemRef.current.type, id: clickedItemRef.current.id }]);
+        }
+        clickedItemRef.current = null;
+      }
+      const didMove = hasDraggedItemRef.current;
+      hasDraggedItemRef.current = false;
+
       setIsDraggingObj(false);
       setIsResizing(false);
       setResizeHandle(null);
       setResizeInitial(null);
       setResizeNeighbors([]);
-      pushHistory(halls, facilities, annotations, stalls);
+      if (didMove || isResizing) {
+        pushHistory(halls, facilities, annotations, stalls);
+      }
 
       // Immediately sync with parent on drag/resize release
       if (onChangeLayoutRef.current) {
@@ -1625,10 +1729,23 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           }
         });
 
-        setSelectedRefs(foundRefs);
+        if (isMultiSelectMode) {
+          // Merge marquee found items into existing selectedRefs
+          const merged = [...selectedRefs];
+          foundRefs.forEach((fr) => {
+            if (!merged.some((m) => m.type === fr.type && m.id === fr.id)) {
+              merged.push(fr);
+            }
+          });
+          setSelectedRefs(merged);
+        } else {
+          setSelectedRefs(foundRefs);
+        }
       } else {
         // Single click without drag (>4px)
-        if (marqueeBox.startInsideHallId) {
+        if (isMultiSelectMode) {
+          // In Multi-Select Pick Mode, clicking empty canvas does NOT clear your selection!
+        } else if (marqueeBox.startInsideHallId) {
           // User clicked inside a hall: select the hall!
           setSelectedRefs([{ type: 'hall', id: marqueeBox.startInsideHallId }]);
         } else {
@@ -1769,7 +1886,59 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             }`}
           >
             <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-            <span>{backgroundImageUrl ? 'Blueprint Set' : 'Add Blueprint Image'}</span>
+            <span>{backgroundImageUrl ? 'Blueprint Settings' : 'Add Blueprint Image'}</span>
+          </button>
+
+          {/* Direct Compare Blueprint Toggle (Exact Same Position) */}
+          {backgroundImageUrl && (
+            <button
+              type="button"
+              onClick={() => setShowBlueprint((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                showBlueprint
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300'
+              }`}
+              title="Compare Blueprint in Exact Same Position (Shortcut: B)"
+            >
+              <Layers className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{showBlueprint ? 'Compare: Blueprint ON' : 'Compare: Blueprint OFF'}</span>
+            </button>
+          )}
+
+          {/* Blueprint X-Ray Inspect Mode (100% sharp blueprint + translucent stalls) */}
+          {backgroundImageUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsBlueprintInspectMode((prev) => !prev);
+                setShowBlueprint(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                isBlueprintInspectMode
+                  ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+              }`}
+              title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{isBlueprintInspectMode ? 'X-Ray Compare: ON' : 'X-Ray Compare'}</span>
+            </button>
+          )}
+
+          {/* Multi-Select Random Pick Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsMultiSelectMode((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+              isMultiSelectMode
+                ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+            }`}
+            title="Random Multi-Select Pick Mode: Click any stalls randomly anywhere to toggle in/out of selection (Shortcut: M)"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>{isMultiSelectMode ? 'Multi-Pick: ON' : 'Multi-Pick'}</span>
           </button>
 
           {/* Mode Switch: Edit vs Preview */}
@@ -1854,6 +2023,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           readOnly={isReadOnly}
           isCollapsed={isLeftCollapsed}
           onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
+          isMultiSelectMode={isMultiSelectMode}
+          onToggleMultiSelectMode={() => setIsMultiSelectMode((prev) => !prev)}
         />
 
         {/* Center Dominant Canvas Workspace - Complete Light Graph (No Black) */}
@@ -1913,13 +2084,128 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             </div>
           )}
 
-          {/* Multi-Select Floating Action Pill */}
-          {selectedRefs.filter((r) => r.type === 'stall').length > 1 && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border border-purple-400 text-xs font-bold flex items-center gap-2.5 pointer-events-none backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-              <BoxSelect className="w-4 h-4 text-purple-400 animate-pulse" />
-              <span>
-                {selectedRefs.filter((r) => r.type === 'stall').length} Stalls Selected • Drag any stall to move together
+          {/* Blueprint X-Ray Active Banner */}
+          {isBlueprintInspectMode && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border border-purple-400 text-xs font-bold flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-1.5 text-purple-400">
+                <Eye className="w-4 h-4 animate-pulse" />
+                <span>Blueprint X-Ray Active</span>
+              </div>
+              <span className="text-slate-400 hidden sm:inline">•</span>
+              <span className="text-slate-300 hidden sm:inline">
+                Blueprint 100% clarity • Stalls translucent for alignment
               </span>
+              <div className="flex items-center gap-1 ml-1 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                <span className="text-[10px] text-slate-400">Stalls:</span>
+                <button
+                  type="button"
+                  onClick={() => setGhostStallOpacity(0.12)}
+                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
+                    ghostStallOpacity === 0.12 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  12%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGhostStallOpacity(0.22)}
+                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
+                    ghostStallOpacity === 0.22 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  22%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGhostStallOpacity(0.4)}
+                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
+                    ghostStallOpacity === 0.4 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  40%
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBlueprintInspectMode(false)}
+                className="ml-1 px-2.5 py-1 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                title="Exit Blueprint X-Ray (Shortcut: X)"
+              >
+                Exit X-Ray (X)
+              </button>
+            </div>
+          )}
+
+          {/* Multi-Select Floating Action Pill */}
+          {(isMultiSelectMode || selectedRefs.filter((r) => r.type === 'stall').length > 1) && (
+            <div
+              className={`absolute left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border text-xs font-bold flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-2 pointer-events-auto ${
+                isBlueprintInspectMode ? 'top-16' : 'top-4'
+              } ${isMultiSelectMode ? 'border-purple-400 ring-2 ring-purple-500/20' : 'border-blue-400'}`}
+            >
+              <div className="flex items-center gap-1.5 text-purple-400">
+                <CheckSquare className="w-4 h-4 animate-pulse" />
+                <span>{isMultiSelectMode ? 'Multi-Select (Pick Mode)' : 'Multiple Selected'}</span>
+              </div>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-200">
+                <strong className="text-white">{selectedRefs.filter((r) => r.type === 'stall').length}</strong> Stalls Selected
+              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                {/* Direct Bulk Block / Unblock Quick Action Buttons */}
+                {selectedRefs.filter((r) => r.type === 'stall').length > 0 && !isReadOnly && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUpdateStalls({ status: 'BLOCKED' })}
+                      className="px-2.5 py-0.5 text-[11px] rounded-md bg-rose-600 hover:bg-rose-500 text-white font-bold border border-rose-500 flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      title="Block all selected stalls (Prevents public booking)"
+                    >
+                      <Ban className="w-3 h-3" />
+                      <span>Block</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUpdateStalls({ status: 'AVAILABLE' })}
+                      className="px-2.5 py-0.5 text-[11px] rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold border border-emerald-500 flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      title="Make all selected stalls available for public booking"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Make Available</span>
+                    </button>
+                    <div className="h-4 w-px bg-slate-700 mx-0.5" />
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedRefs(stalls.map((s) => ({ type: 'stall', id: s.id })))}
+                  className="px-2 py-0.5 text-[11px] rounded-md bg-slate-800 hover:bg-slate-700 text-blue-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                  title="Select all stalls across the canvas"
+                >
+                  Select All ({stalls.length})
+                </button>
+                {selectedRefs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRefs([])}
+                    className="px-2 py-0.5 text-[11px] rounded-md bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                    title="Clear current selection"
+                  >
+                    Clear
+                  </button>
+                )}
+                {isMultiSelectMode && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMultiSelectMode(false)}
+                    className="ml-1 px-2.5 py-0.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                    title="Exit Multi-Select Mode (Shortcut: V)"
+                  >
+                    Done (V)
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {/* Zoom & Pan Container */}
@@ -1957,8 +2243,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 </pattern>
               </defs>
 
-              {/* Single Full Background Image / Blueprint, or Unified Grid Surface */}
-              {backgroundImageUrl ? (
+              {/* Single Full Background Image / Blueprint in Exact Same Position (Under Stalls) */}
+              {backgroundImageUrl && (showBlueprint || isBlueprintInspectMode) && blueprintLayerPosition === 'under' && (
                 <image
                   href={backgroundImageUrl}
                   x="0"
@@ -1966,15 +2252,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   width={canvasWidth}
                   height={canvasHeight}
                   preserveAspectRatio="none"
-                  opacity={backgroundOpacity}
-                  className="pointer-events-none"
+                  opacity={isBlueprintInspectMode ? 1.0 : backgroundOpacity}
+                  className="pointer-events-none transition-opacity duration-200"
                 />
-              ) : (
-                showGrid && <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
               )}
 
+              {/* Unified Grid Surface */}
+              {showGrid && <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />}
+
               {/* 1. RENDER HALLS (Containers) */}
-              <g id="halls-layer">
+              <g id="halls-layer" opacity={isBlueprintInspectMode ? 0.2 : 1} className="transition-opacity duration-200">
                 {halls.map((hall) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'hall' && r.id === hall.id);
                   const strokeColor = hall.color || '#3b82f6';
@@ -2284,7 +2571,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               </g>
 
               {/* 2. RENDER FACILITIES & AMENITIES */}
-              <g id="facilities-layer">
+              <g id="facilities-layer" opacity={isBlueprintInspectMode ? 0.2 : 1} className="transition-opacity duration-200">
                 {facilities.map((fac) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'facility' && r.id === fac.id);
 
@@ -2552,7 +2839,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               </g>
 
               {/* 3. RENDER ANNOTATIONS */}
-              <g id="annotations-layer">
+              <g id="annotations-layer" opacity={isBlueprintInspectMode ? 0.25 : 1} className="transition-opacity duration-200">
                 {annotations.map((ann) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'annotation' && r.id === ann.id);
                   return (
@@ -2577,7 +2864,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               </g>
 
               {/* 4. RENDER STALLS */}
-              <g id="stalls-layer">
+              <g id="stalls-layer" opacity={isBlueprintInspectMode ? ghostStallOpacity : 1} className="transition-opacity duration-200">
                 {stalls.map((stall) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'stall' && r.id === stall.id);
                   const isBlocked = stall.status === 'BLOCKED';
@@ -2636,18 +2923,33 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         className="transition-colors"
                       />
 
-                      {/* Clean Centered Stall Number (No inside price clutter) */}
-                      <text
-                        x={stall.xPosition + stall.width / 2}
-                        y={stall.yPosition + stall.height / 2 + 4}
-                        textAnchor="middle"
-                        fill={textCol}
-                        fontSize={stall.width < 50 ? '10' : '12'}
-                        fontWeight="bold"
-                        className="select-none pointer-events-none font-mono"
-                      >
-                        {stall.stallNumber}
-                      </text>
+                      {/* Clean Centered Stall Number (Adaptive font size & automatic row alignment) */}
+                      {(() => {
+                        const typo = getStallTypography(
+                          stall.stallNumber,
+                          stall.width,
+                          stall.height,
+                          zoomLevel,
+                          stall.xPosition,
+                          stall.yPosition
+                        );
+                        return typo.lines.map((line, lIdx) => (
+                          <text
+                            key={lIdx}
+                            x={typo.centerX}
+                            y={typo.startY + lIdx * typo.lineHeight}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fill={textCol}
+                            fontSize={typo.fontSize}
+                            fontWeight="800"
+                            letterSpacing="0.02em"
+                            className="select-none pointer-events-none font-mono tracking-tight"
+                          >
+                            {line}
+                          </text>
+                        ));
+                      })()}
 
                       {/* Resize Handles (Only when single stall is selected) */}
                       {isSelected && selectedRefs.length === 1 && !isReadOnly && (
@@ -2695,6 +2997,20 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   strokeDasharray="4 3"
                 />
               )}
+
+              {/* Optional Top Blueprint Overlay Layer (Same position, over stalls for direct line comparison) */}
+              {backgroundImageUrl && showBlueprint && blueprintLayerPosition === 'over' && !isBlueprintInspectMode && (
+                <image
+                  href={backgroundImageUrl}
+                  x="0"
+                  y="0"
+                  width={canvasWidth}
+                  height={canvasHeight}
+                  preserveAspectRatio="none"
+                  opacity={Math.min(0.6, backgroundOpacity)}
+                  className="pointer-events-none transition-opacity duration-200"
+                />
+              )}
             </svg>
           </div>
 
@@ -2704,15 +3020,30 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             <button
               type="button"
               onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTool === 'pan'
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
               title="Toggle Map Move Mode (H / Space+Drag / Right-Click Drag)"
             >
               <Hand className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{activeTool === 'pan' ? 'Moving Map' : 'Move Map'}</span>
+              <span>{activeTool === 'pan' ? 'Moving Map' : 'Move Map'}</span>
+            </button>
+
+            {/* Quick Multi-Select Pick Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMultiSelectMode((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                isMultiSelectMode
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+              title="Toggle Multi-Select Pick Mode: Click random stalls anywhere to toggle selection (Shortcut: M)"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{isMultiSelectMode ? 'Pick Mode ON' : 'Multi-Pick'}</span>
             </button>
 
             <div className="h-4 w-px bg-slate-200 mx-0.5" />
@@ -2766,6 +3097,42 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             >
               <RotateCcw className="w-4 h-4" />
             </button>
+
+            {/* Quick Compare Blueprint Button (Same Position) */}
+            {backgroundImageUrl && (
+              <>
+                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                <button
+                  type="button"
+                  onClick={() => setShowBlueprint((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    showBlueprint
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                  title="Compare Blueprint in Same Position (Shortcut: B)"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{showBlueprint ? 'Blueprint ON' : 'Compare Blueprint'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBlueprintInspectMode((prev) => !prev);
+                    setShowBlueprint(true);
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isBlueprintInspectMode
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                  title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{isBlueprintInspectMode ? 'X-Ray ON' : 'X-Ray Compare'}</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -2817,6 +3184,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
         onExpandCanvas={handleExpandCanvas}
+        hasBlueprint={Boolean(backgroundImageUrl)}
+        showBlueprint={showBlueprint}
+        onToggleBlueprint={() => setShowBlueprint((prev) => !prev)}
+        isBlueprintInspectMode={isBlueprintInspectMode}
+        onToggleInspectMode={() => {
+          setIsBlueprintInspectMode((prev) => !prev);
+          setShowBlueprint(true);
+        }}
+        isMultiSelectMode={isMultiSelectMode}
+        onToggleMultiSelectMode={() => setIsMultiSelectMode((prev) => !prev)}
       />
 
       {/* Bulk Stall Row Creation Wizard Modal */}
@@ -2886,20 +3263,71 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               </div>
 
               {backgroundImageUrl && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
-                    <span>Background Opacity</span>
-                    <span>{Math.round(backgroundOpacity * 100)}%</span>
+                <div className="space-y-3 pt-1 border-t border-slate-100">
+                  {/* Canvas Visibility Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Show Blueprint on Canvas</span>
+                      <span className="text-[11px] text-slate-500">Toggle overlay in exact same position (Shortcut: B)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBlueprint((prev) => !prev)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        showBlueprint
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                      }`}
+                    >
+                      {showBlueprint ? 'ON (Visible)' : 'OFF (Hidden)'}
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.05"
-                    value={backgroundOpacity}
-                    onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
-                    className="w-full accent-blue-600"
-                  />
+
+                  {/* Layer Position: Under stalls vs Over stalls */}
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-800 block">Comparison Layer Placement</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBlueprintLayerPosition('under')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                          blueprintLayerPosition === 'under'
+                            ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-xs'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Under Stalls (Tracing)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBlueprintLayerPosition('over')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                          blueprintLayerPosition === 'over'
+                            ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-xs'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Over Stalls (Transparent)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Opacity Slider */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
+                      <span>Blueprint Opacity</span>
+                      <span>{Math.round(backgroundOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={backgroundOpacity}
+                      onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
               )}
 

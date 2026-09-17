@@ -9,6 +9,9 @@ import {
   Undo2,
   Redo2,
   Expand,
+  Layers,
+  Eye,
+  CheckSquare,
 } from 'lucide-react';
 
 interface CanvasBottomToolbarProps {
@@ -30,6 +33,13 @@ interface CanvasBottomToolbarProps {
   canvasWidth?: number;
   canvasHeight?: number;
   onExpandCanvas?: () => void;
+  hasBlueprint?: boolean;
+  showBlueprint?: boolean;
+  onToggleBlueprint?: () => void;
+  isBlueprintInspectMode?: boolean;
+  onToggleInspectMode?: () => void;
+  isMultiSelectMode?: boolean;
+  onToggleMultiSelectMode?: () => void;
 }
 
 export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
@@ -51,6 +61,13 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
   canvasWidth,
   canvasHeight,
   onExpandCanvas,
+  hasBlueprint,
+  showBlueprint = true,
+  onToggleBlueprint,
+  isBlueprintInspectMode = false,
+  onToggleInspectMode,
+  isMultiSelectMode = false,
+  onToggleMultiSelectMode,
 }) => {
   return (
     <footer className="h-12 bg-white border-t border-slate-200 px-4 flex items-center justify-between select-none shadow-xs z-20 shrink-0">
@@ -77,6 +94,54 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
         </div>
 
         <div className="h-4 w-px bg-slate-200 mx-1" />
+
+        {/* Blueprint Comparison Toggle (Shown when a blueprint is added) */}
+        {hasBlueprint && onToggleBlueprint && (
+          <button
+            onClick={onToggleBlueprint}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              showBlueprint
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs'
+                : 'border-slate-200 text-slate-500 hover:bg-slate-100'
+            }`}
+            title="Compare Blueprint in Exact Same Position (Shortcut: B)"
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Blueprint {showBlueprint ? 'ON' : 'OFF'}</span>
+          </button>
+        )}
+
+        {/* Blueprint X-Ray Inspect Mode (100% sharp blueprint + translucent stalls) */}
+        {hasBlueprint && onToggleInspectMode && (
+          <button
+            onClick={onToggleInspectMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isBlueprintInspectMode
+                ? 'bg-purple-600 border-purple-700 text-white shadow-xs'
+                : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+            title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>X-Ray {isBlueprintInspectMode ? 'ON' : 'OFF'}</span>
+          </button>
+        )}
+
+        {/* Multi-Select Random Pick Mode */}
+        {onToggleMultiSelectMode && (
+          <button
+            onClick={onToggleMultiSelectMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isMultiSelectMode
+                ? 'bg-purple-600 border-purple-700 text-white shadow-xs'
+                : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+            title="Random Multi-Select Pick Mode: Click any stalls randomly anywhere to toggle selection (Shortcut: M)"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>Multi-Pick {isMultiSelectMode ? 'ON' : 'OFF'}</span>
+          </button>
+        )}
 
         {/* Grid Toggle */}
         <button
