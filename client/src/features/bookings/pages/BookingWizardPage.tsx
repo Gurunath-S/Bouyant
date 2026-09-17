@@ -83,7 +83,8 @@ export const BookingWizardPage: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(user?.company || null);
   const [guestFormData, setGuestFormData] = useState<CompanyFormData | null>(null);
   const [isAddingNewCompany, setIsAddingNewCompany] = useState(false);
-
+const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
+const [discountValue, setDiscountValue] = useState<number>(0);
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
   const [paymentStatusState, setPaymentStatusState] = useState<'IDLE' | 'PROCESSING' | 'SUCCESS' | 'FAILED'>('IDLE');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
@@ -94,7 +95,7 @@ export const BookingWizardPage: React.FC = () => {
 
   // Payment Plan Selection: Full (100%) or Partial (> 50%)
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
-  const [partialPercentage, setPartialPercentage] = useState<number>(60);
+  const [partialPercentage, setPartialPercentage] = useState<number>(50);
   const [isTermsAccepted, setIsTermsAccepted] = useState(true);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [showContractPreview, setShowContractPreview] = useState(false);
@@ -433,19 +434,33 @@ export const BookingWizardPage: React.FC = () => {
       </div>
     );
   }
-
+    const isAdmin = user?.role === 'ADMIN';
   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
-  const taxAmount = Math.round(basePrice * 0.18);
+
+  const isPartial = paymentType === 'PARTIAL';
+  const effectivePartialPercent = Math.max(50, Math.min(99, partialPercentage));
+ 
+  const payableToday = Math.round(basePrice * (effectivePartialPercent / 100))
+  const taxAmount = isPartial ? Math.round(payableToday * 0.18) : Math.round(basePrice * 0.18);
   const grandTotal = basePrice + taxAmount;
 
-  // Payment Option Calculations (> 50% for Partial)
-  const isPartial = paymentType === 'PARTIAL';
-  const effectivePartialPercent = Math.max(51, Math.min(99, partialPercentage));
-  const payableToday = isPartial
-    ? Math.round(grandTotal * (effectivePartialPercent / 100))
-    : grandTotal;
-  const remainingBalance = isPartial ? grandTotal - payableToday : 0;
+  // Calculate discount amounts based on mode (only for ADMIN)
+  const billBaseAmount=isPartial?payableToday:basePrice
+  const preDiscountTotal = billBaseAmount + taxAmount;
+
+  const discountAmount = isAdmin
+  ? discountMode === 'PERCENT'
+    ? Math.round(preDiscountTotal * (Math.min(Math.max(discountValue, 0), 100) / 100))
+    : Math.min(Math.max(discountValue, 0), preDiscountTotal)
+  : 0;
+  const billGrandTotal = preDiscountTotal - discountAmount;
+
+  // Payment Option Calculations (>= 50% for Partial)
+ 
+ 
+
+  const remainingBalance = isPartial ? basePrice - payableToday : 0;
 
   // Calculate 15 days before event date
   const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
@@ -454,13 +469,12 @@ export const BookingWizardPage: React.FC = () => {
 
   return (
     <div
-      className={`mx-auto font-sans transition-all duration-300 ${
-        currentStep === 1
+      className={`mx-auto font-sans transition-all duration-300 ${currentStep === 1
           ? isFullscreen
             ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
             : 'w-full max-w-[1920px] px-2 sm:px-4 lg:px-6 pb-6 space-y-3'
           : 'max-w-5xl mx-auto px-4 pb-16 space-y-8'
-      }`}
+        }`}
     >
       {/* Header & Stepper (Hidden in Fullscreen mode for pure canvas immersion) */}
       {!isFullscreen && (
@@ -505,22 +519,20 @@ export const BookingWizardPage: React.FC = () => {
               return (
                 <React.Fragment key={step.num}>
                   <div
-                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
-                      isCurrent
+                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${isCurrent
                         ? 'text-[#09539b]'
                         : isCompleted
-                        ? 'text-emerald-700'
-                        : 'text-slate-400'
-                    }`}
+                          ? 'text-emerald-700'
+                          : 'text-slate-400'
+                      }`}
                   >
                     <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
-                        isCompleted
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${isCompleted
                           ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
                           : isCurrent
-                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
-                          : 'bg-slate-100 text-slate-400 border border-slate-200'
-                      }`}
+                            ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
+                            : 'bg-slate-100 text-slate-400 border border-slate-200'
+                        }`}
                     >
                       {isCompleted ? (
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -532,9 +544,8 @@ export const BookingWizardPage: React.FC = () => {
                   </div>
                   {idx < arr.length - 1 && (
                     <div
-                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
-                        currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
-                      }`}
+                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
+                        }`}
                     />
                   )}
                 </React.Fragment>
@@ -603,9 +614,8 @@ export const BookingWizardPage: React.FC = () => {
           </div>
 
           {/* Canvas Wrapper - Expansive Clean Canvas (Cinema Booking Style) */}
-          <div className={`relative w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex-1 ${
-            isFullscreen ? 'h-full min-h-0' : 'h-[calc(100vh-240px)] min-h-[580px] lg:min-h-[660px]'
-          }`}>
+          <div className={`relative w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex-1 ${isFullscreen ? 'h-full min-h-0' : 'h-[calc(100vh-240px)] min-h-[580px] lg:min-h-[660px]'
+            }`}>
             <FloorPlanCanvas
               stalls={stalls}
               layoutData={layoutData}
@@ -723,11 +733,10 @@ export const BookingWizardPage: React.FC = () => {
                   <div
                     key={c.id}
                     onClick={() => handleSelectExistingCompany(c)}
-                    className={`p-4 border rounded-xl cursor-pointer transition-all flex flex-col justify-between space-y-3 ${
-                      selectedCompany?.id === c.id
+                    className={`p-4 border rounded-xl cursor-pointer transition-all flex flex-col justify-between space-y-3 ${selectedCompany?.id === c.id
                         ? 'bg-[#f6f9ff] border-[#09539b] ring-2 ring-[#09539b]'
                         : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <div>
                       <div className="flex justify-between items-start">
@@ -987,7 +996,7 @@ export const BookingWizardPage: React.FC = () => {
 
       {/* STEP 3: TAX BILL & SUMMARY */}
       {currentStep === 3 && selectedStallsObj.length > 0 && selectedCompany && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
           <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
@@ -1016,42 +1025,170 @@ export const BookingWizardPage: React.FC = () => {
               <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
                 <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5 flex items-center justify-between">
                   <span>Exhibitor GSTIN Entity</span>
-                  {(selectedCompany.regNo || assignedRegNo) && (
+                  {/* {(selectedCompany.regNo || assignedRegNo) && (
                     <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
                       Reg No: {selectedCompany.regNo || assignedRegNo}
                     </span>
-                  )}
+                  )} */}
                 </h4>
                 <p><span className="font-semibold text-slate-500">Company Name:</span> {selectedCompany.name}</p>
-                <p><span className="font-semibold text-slate-500">Official Reg No:</span> <strong className="font-mono text-indigo-700">{selectedCompany.regNo || assignedRegNo || `${exhibition?.edition || '01'}/${exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/${exhibition?.eventCode || 'EX'}/01`}</strong></p>
+                {/* <p><span className="font-semibold text-slate-500">Official Reg No:</span> <strong className="font-mono text-indigo-700">{selectedCompany.regNo || assignedRegNo || `${exhibition?.edition || '01'}/${exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/${exhibition?.eventCode || 'EX'}/01`}</strong></p> */}
                 <p><span className="font-semibold text-slate-500">GSTIN:</span> {selectedCompany.gstNumber || 'N/A'}</p>
                 <p><span className="font-semibold text-slate-500">Contact Email:</span> {selectedCompany.email}</p>
               </div>
 
-              <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                  Reserved Booth Configuration
-                </h4>
-                <div className="grid grid-cols-3 gap-2">
-                      {/* Overview Box */}
-                <div className="bg-[#f6f9ff] p-4 rounded-xl border border-blue-100 space-y-2">
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span className="text-sm">Exhibition Event</span>
-                    <span className="font-bold text-[#012970] text-sm text-right">{exhibition?.title}</span>
+             
+              <div className="rounded-2xl border border-slate-200 bg-[#f7faff] overflow-hidden">
+                {/* Header */}
+                <div className="p-5 border-b border-slate-200">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 text-[#09539b]"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        >
+                          <rect x="3" y="3" width="7" height="7" rx="1" />
+                          <rect x="14" y="3" width="7" height="7" rx="1" />
+                          <rect x="3" y="14" width="7" height="7" rx="1" />
+                          <rect x="14" y="14" width="7" height="7" rx="1" />
+                        </svg>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">
+                          Exhibition Booking
+                        </p>
+                        <h4 className="text-sm font-extrabold text-[#012970] uppercase tracking-wider">
+                          Reserved Booth Configuration
+                        </h4>
+                      </div>
+                    </div>
+
+                    <span className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                      Reserved
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span className="text-sm">Stall Numbers</span>
-                    <span className="font-bold text-[#012970] text-sm font-mono">{selectedStallsObj.map(s => s.stallNumber).join(', ')}</span>
+                </div>
+
+                {/* Event and Summary */}
+                <div className="p-5 space-y-4">
+                  <div className="bg-white rounded-xl border border-blue-100 p-4">
+                    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                      Exhibition Event
+                    </p>
+
+                    <h5 className="text-lg font-extrabold text-[#012970] mt-1 break-words">
+                      {exhibition?.title || "N/A"}
+                    </h5>
+
+                    <p className="text-xs text-slate-500 mt-1">
+                      Your selected booth configuration
+                    </p>
                   </div>
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span className="text-sm">Categories</span>
-                    <span className="font-bold text-[#09539b] text-sm uppercase">{Array.from(new Set(selectedStallsObj.map(s => s.category))).join(', ')}</span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                      <p className="text-xs font-medium text-slate-500">
+                        Reserved Stalls
+                      </p>
+
+                      <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-extrabold text-[#012970]">
+                          {selectedStallsObj.length}
+                        </span>
+                        <span className="text-xs text-slate-500 mb-1">
+                          {selectedStallsObj.length === 1 ? "Stall" : "Stalls"}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {selectedStallsObj.map((stall) => (
+                          <span
+                            key={stall.id ?? stall.stallNumber}
+                            className="px-2 py-1 bg-blue-50 text-[#09539b] rounded-md text-xs font-bold"
+                          >
+                            {stall.stallNumber}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                      <p className="text-xs font-medium text-slate-500">
+                        Total Area
+                      </p>
+
+                      <div className="flex items-end gap-2 mt-2">
+                        <span className="text-3xl font-extrabold text-[#012970]">
+                          {selectedStallsObj.reduce(
+                            (sum, stall) => sum + stall.areaSqFt,
+                            0
+                          )}
+                        </span>
+                        <span className="text-xs text-slate-500 mb-1">
+                          Sq.Ft
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-3">
+                        Combined area of all selected booths
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span className="text-sm">Total Area</span>
-                    <span className="font-bold text-[#012970] text-sm">{selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft</span>
+
+                  {/* Stall Details */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h5 className="text-sm font-bold text-slate-800">
+                        Selected Stalls
+                      </h5>
+
+                      <span className="text-xs text-slate-500">
+                        {selectedStallsObj.length} booths
+                      </span>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      {selectedStallsObj.map((stall, index) => (
+                        <div
+                          key={stall.id ?? stall.stallNumber}
+                          className={`p-4 flex items-center gap-3 ${
+                            index !== 0 ? "border-t border-slate-100" : ""
+                          }`}
+                        >
+                          <div className="w-10 h-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <span className="text-xs font-bold text-[#09539b]">
+                              {stall.stallNumber}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-[#012970]">
+                              Stall {stall.stallNumber}
+                            </p>
+
+                            <p className="text-xs text-slate-500 mt-1 uppercase">
+                              {stall.category}
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold text-[#012970]">
+                              {stall.areaSqFt} Sq.Ft
+                            </p>
+                            <p className="text-sm text-slate-500 mt-1">
+                              ₹{stall?.price}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>          </div>
+                </div>
               </div>
 
               {/* PAYMENT OPTION SELECTOR (FULL vs PARTIAL > 50%) */}
@@ -1069,11 +1206,10 @@ export const BookingWizardPage: React.FC = () => {
                   {/* Full Payment Option */}
                   <div
                     onClick={() => setPaymentType('FULL')}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                      paymentType === 'FULL'
+                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'FULL'
                         ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
                         : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-[#012970] text-xs">Full Payment (100%)</span>
@@ -1084,18 +1220,17 @@ export const BookingWizardPage: React.FC = () => {
                     </p>
                     <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-[#012970]">
                       <span>Amount Today:</span>
-                      <span className="font-mono text-[#09539b]">₹{grandTotal.toLocaleString()}</span>
+                      <span className="font-mono text-[#09539b]">₹{basePrice.toLocaleString()}</span>
                     </div>
                   </div>
 
                   {/* Partial Payment Option */}
                   <div
                     onClick={() => setPaymentType('PARTIAL')}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                      paymentType === 'PARTIAL'
+                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'PARTIAL'
                         ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
                         : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
@@ -1129,11 +1264,10 @@ export const BookingWizardPage: React.FC = () => {
                             key={pct}
                             type="button"
                             onClick={() => setPartialPercentage(pct)}
-                            className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                              partialPercentage === pct
+                            className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${partialPercentage === pct
                                 ? 'bg-[#09539b] text-white shadow-xs'
                                 : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                            }`}
+                              }`}
                           >
                             {pct}%
                           </button>
@@ -1145,7 +1279,7 @@ export const BookingWizardPage: React.FC = () => {
                       <span className="text-xs font-bold text-slate-600">Custom Advance %:</span>
                       <input
                         type="number"
-                        min="51"
+                        min="50"
                         max="99"
                         value={partialPercentage}
                         onChange={(e) => setPartialPercentage(Number(e.target.value))}
@@ -1236,27 +1370,79 @@ export const BookingWizardPage: React.FC = () => {
             </div>
 
             {/* 1 Span: Financial Card */}
-            <div className="p-6 bg-[#012970] text-white rounded-2xl space-y-4 shadow-xl flex flex-col justify-between">
+            <div className="p-6 bg-[#012970] text-white rounded-2xl space-y-4 shadow-xl flex flex-col justify-between md:sticky md:top-16 self-start w-full min-h-[500px]">
               <div className="space-y-3">
                 <h4 className="text-xs font-extrabold border-b border-white/20 pb-2 uppercase tracking-wider text-[#9cc542]">
                   Payment Summary
                 </h4>
 
-                <div className="space-y-2 text-xs text-slate-200">
+                <div className="space-y-2 text-sm text-slate-200">
                   <div className="flex justify-between">
                     <span>Base Rental</span>
-                    <span className="font-mono font-bold text-white">₹{basePrice.toLocaleString()}</span>
+                    <span className="font-mono font-bold text-white">₹{(isPartial?payableToday:basePrice).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>18% GST Tax</span>
                     <span className="font-mono font-bold text-white">₹{taxAmount.toLocaleString()}</span>
                   </div>
+                  {/* Only visible to Logged-in Admin / Staff */}
+              {isAdmin && (
+                  <div className="space-y-1.5 py-1.5 border-t border-white/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-300 text-xs font-semibold">Discount</span>
+                      <div className="flex bg-white/10 rounded-md p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setDiscountMode('AMOUNT')}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+                            discountMode === 'AMOUNT' ? 'bg-[#9cc542] text-[#012970]' : 'text-white/70'
+                          }`}
+                        >
+                          ₹
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountMode('PERCENT')}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+                            discountMode === 'PERCENT' ? 'bg-[#9cc542] text-[#012970]' : 'text-white/70'
+                          }`}
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">
+                        {discountMode === 'AMOUNT' ? '₹' : '%'}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={discountMode === 'PERCENT' ? 100 : undefined}
+                        value={discountValue || ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setDiscountValue(isNaN(val) ? 0 : val);
+                        }}
+                        placeholder="0"
+                        className="w-full pl-5 pr-2 py-1 text-xs text-right font-mono font-bold rounded bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9cc542]"
+                      />
+                    </div>
+
+                    {discountAmount > 0 && (
+                      <p className="text-[10px] text-emerald-300 text-right">
+                        −₹{discountAmount.toLocaleString()} applied
+                      </p>
+                    )}
+                  </div>
+                )}
                   <div className="flex justify-between border-t border-white/10 pt-2 font-bold text-slate-100">
                     <span>Grand Total:</span>
-                    <span className="font-mono text-[#9cc542]">₹{grandTotal.toLocaleString()}</span>
+                    <span className="font-mono text-[#9cc542]">₹{billGrandTotal.toLocaleString()}</span>
                   </div>
 
-                  {paymentType === 'PARTIAL' ? (
+                  {paymentType === 'PARTIAL' && (
                     <>
                       <div className="flex justify-between text-xs font-bold text-[#9cc542] pt-2 border-t border-white/20">
                         <span>Advance Payable Today ({effectivePartialPercent}%):</span>
@@ -1270,24 +1456,19 @@ export const BookingWizardPage: React.FC = () => {
                         Due 15 days before event ({formattedDeadline})
                       </p>
                     </>
-                  ) : (
-                    <div className="pt-3 border-t border-white/20 flex justify-between items-center text-base font-black text-white">
-                      <span>Total Payable Today:</span>
-                      <span className="font-mono text-[#9cc542] text-lg">₹{payableToday.toLocaleString()}</span>
-                    </div>
-                  )}
+                  ) }
                 </div>
               </div>
 
               <Button
                 variant="primary"
                 size="lg"
-                disabled={!isTermsAccepted}
+                disabled={!isTermsAccepted || billGrandTotal===0}
                 className="w-full font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50"
                 onClick={handleProceedToPayment}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                Proceed to Pay ₹{payableToday.toLocaleString()}
+                Pay ₹{billGrandTotal.toLocaleString()} Now
               </Button>
             </div>
           </div>
@@ -1406,17 +1587,17 @@ export const BookingWizardPage: React.FC = () => {
 
               {/* Render Official Contract Form Component */}
               <div className="max-w-4xl mx-auto print:block">
-              <OfficialContractForm
-                company={selectedCompany}
-                exhibition={exhibition}
-                stalls={selectedStallsObj}
-                paymentType={paymentType}
-                effectivePartialPercent={effectivePartialPercent}
-                payableToday={payableToday}
-                remainingBalance={remainingBalance}
-                formattedDeadline={formattedDeadline}
-                onPrint={() => window.print()}
-              />
+                <OfficialContractForm
+                  company={selectedCompany}
+                  exhibition={exhibition}
+                  stalls={selectedStallsObj}
+                  paymentType={paymentType}
+                  effectivePartialPercent={effectivePartialPercent}
+                  payableToday={payableToday}
+                  remainingBalance={remainingBalance}
+                  formattedDeadline={formattedDeadline}
+                  onPrint={() => window.print()}
+                />
               </div>
 
               <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
