@@ -25,6 +25,37 @@ export class BookingsService {
       throw ApiError.badRequest('Please complete your Company Profile before making a stall booking.');
     }
 
+    // Verify Exhibition status & booking deadline
+    const exhibition = await prisma.exhibition.findUnique({
+      where: { id: input.exhibitionId },
+    });
+    if (!exhibition) throw ApiError.notFound('Exhibition event not found.');
+
+    if (exhibition.status === 'COMPLETED') {
+      throw ApiError.badRequest('This exhibition has concluded. Stall bookings are closed.');
+    }
+    if (exhibition.status === 'CANCELLED') {
+      throw ApiError.badRequest('This exhibition is cancelled. Stall bookings are not accepted.');
+    }
+    if (exhibition.status === 'DRAFT') {
+      throw ApiError.badRequest('This exhibition is in draft mode and not yet published for booking.');
+    }
+
+    const now = new Date();
+    const bookingDeadline = exhibition.bookingEndDate
+      ? new Date(exhibition.bookingEndDate)
+      : new Date(exhibition.startDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+
+    if (now > bookingDeadline) {
+      throw ApiError.badRequest(
+        `Stall bookings for this exhibition closed on ${bookingDeadline.toLocaleDateString()}. New reservations are no longer accepted.`
+      );
+    }
+
+    if (now > exhibition.endDate) {
+      throw ApiError.badRequest('This exhibition event has ended. Stall bookings are closed.');
+    }
+
     // 3. Verify Stalls & Exhibition
     const stalls = await prisma.stall.findMany({
       where: { id: { in: input.stallIds } },

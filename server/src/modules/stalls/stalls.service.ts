@@ -89,6 +89,45 @@ export class StallsService {
   static async holdStall(stallId: string, userId: string) {
     await this.releaseExpiredHolds();
 
+    const targetStall = await prisma.stall.findUnique({
+      where: { id: stallId },
+      include: {
+        floorPlan: {
+          include: {
+            exhibition: true,
+          },
+        },
+      },
+    });
+
+    if (!targetStall) {
+      throw ApiError.notFound('Stall not found.');
+    }
+
+    const exhibition = targetStall.floorPlan.exhibition;
+    if (exhibition.status === 'COMPLETED') {
+      throw ApiError.badRequest('This exhibition has concluded. Stall holds and bookings are closed.');
+    }
+    if (exhibition.status === 'CANCELLED') {
+      throw ApiError.badRequest('This exhibition is cancelled.');
+    }
+    if (exhibition.status === 'DRAFT') {
+      throw ApiError.badRequest('This exhibition is not yet published for booking.');
+    }
+
+    const now = new Date();
+    const bookingDeadline = exhibition.bookingEndDate
+      ? new Date(exhibition.bookingEndDate)
+      : new Date(exhibition.startDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+
+    if (now > bookingDeadline) {
+      throw ApiError.badRequest('Stall bookings for this exhibition are closed as the cut-off date has passed.');
+    }
+
+    if (now > exhibition.endDate) {
+      throw ApiError.badRequest('This exhibition event has ended.');
+    }
+
     const holdUntil = new Date(Date.now() + env.STALL_HOLD_DURATION_MINUTES * 60 * 1000);
 
     // Atomic update using Prisma condition: updateMany guarantees atomicity in PostgreSQL
