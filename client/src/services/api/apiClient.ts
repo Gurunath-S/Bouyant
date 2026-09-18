@@ -1,9 +1,13 @@
 import axios from 'axios';
 
 const getApiBaseUrl = (): string => {
-  const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
-    return envUrl.trim();
+  let envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string') {
+    // Strip accidental leading/trailing quotes often pasted into Vercel/Netlify env dashboards
+    envUrl = envUrl.trim().replace(/^["']+|["']+$/g, '');
+    if (envUrl !== '') {
+      return envUrl;
+    }
   }
   // Production fallback: if running on a real domain or reverse-proxy, default to relative '/api/v1'
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
