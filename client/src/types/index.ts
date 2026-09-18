@@ -70,6 +70,7 @@ export interface Exhibition {
   city: string;
   startDate: string;
   endDate: string;
+  bookingEndDate?: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
   category?: string;
   bannerUrl?: string;
