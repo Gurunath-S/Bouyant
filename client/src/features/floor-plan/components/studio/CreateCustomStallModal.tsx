@@ -127,10 +127,10 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-extrabold text-slate-900 leading-tight">
-                Create Dimension-Defined Stall
+                Add Custom Sized Stall
               </h2>
               <p className="text-xs text-slate-500">
-                Design custom-sized stalls with accurate physical dimensions and custom labels.
+                Configure custom stall dimensions, booth category, and pricing.
               </p>
             </div>
           </div>
