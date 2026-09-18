@@ -170,31 +170,31 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       case 'AVAILABLE':
         if (stall.category === 'PREMIUM') {
           return {
-            fill: isDark ? '#172554' : '#eff6ff',
-            stroke: '#3b82f6',
+            fill: isDark ? '#064e3b' : '#f0fdf4',
+            stroke: '#059669',
             strokeWidth: 1.5,
-            textColor: isDark ? '#bfdbfe' : '#1d4ed8',
+            textColor: isDark ? '#a7f3d0' : '#064e3b',
           };
         } else if (stall.category === 'CORNER') {
           return {
             fill: isDark ? '#451a03' : '#fffbeb',
-            stroke: '#f59e0b',
+            stroke: '#d97706',
             strokeWidth: 1.5,
-            textColor: isDark ? '#fde68a' : '#b45309',
+            textColor: isDark ? '#fde68a' : '#78350f',
           };
         } else if (stall.category === 'ISLAND') {
           return {
             fill: isDark ? '#3b0764' : '#faf5ff',
-            stroke: '#8b5cf6',
+            stroke: '#7c3aed',
             strokeWidth: 1.5,
-            textColor: isDark ? '#ddd6fe' : '#6d28d9',
+            textColor: isDark ? '#ddd6fe' : '#4c1d95',
           };
         }
         return {
-          fill: isDark ? '#064e3b' : '#ecfdf5',
-          stroke: '#10b981',
+          fill: isDark ? '#1e293b' : '#f8fafc',
+          stroke: '#2563eb',
           strokeWidth: 1.5,
-          textColor: isDark ? '#a7f3d0' : '#047857',
+          textColor: isDark ? '#93c5fd' : '#1e3a8a',
         };
       case 'TEMPORARILY_HELD':
         return {
