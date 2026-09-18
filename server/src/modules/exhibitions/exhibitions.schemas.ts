@@ -12,6 +12,7 @@ export const CreateExhibitionSchema = z
     city: z.string().optional().default('Mumbai'),
     startDate: z.string(),
     endDate: z.string(),
+    bookingEndDate: z.string().optional().nullable().or(z.literal('')),
     bannerUrl: z.string().optional().or(z.literal('')),
     totalStalls: z.number().optional(),
     status: z

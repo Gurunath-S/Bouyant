@@ -4,6 +4,21 @@ import { CreateExhibitionInput, UpdateExhibitionInput } from './exhibitions.sche
 
 export class ExhibitionsService {
   static async listExhibitions(status?: string, search = '') {
+    // Auto-complete any expired published exhibitions
+    try {
+      await prisma.exhibition.updateMany({
+        where: {
+          status: 'PUBLISHED',
+          endDate: { lt: new Date() },
+        },
+        data: {
+          status: 'COMPLETED',
+        },
+      });
+    } catch (err) {
+      console.warn('Could not auto-complete expired exhibitions:', err);
+    }
+
     const validExhibitionStatuses = ['DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'ARCHIVED'];
     const where: any = {};
     if (status && status.toUpperCase() !== 'ALL') {
@@ -64,6 +79,15 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw ApiError.notFound('Exhibition not found.');
+    }
+
+    // Auto-complete if expired
+    if (exhibition.status === 'PUBLISHED' && new Date(exhibition.endDate) < new Date()) {
+      await prisma.exhibition.update({
+        where: { id: exhibition.id },
+        data: { status: 'COMPLETED' },
+      });
+      exhibition.status = 'COMPLETED';
     }
 
     return exhibition;
@@ -147,6 +171,12 @@ export class ExhibitionsService {
       }
     }
 
+    const startDt = new Date(input.startDate);
+    const endDt = new Date(input.endDate);
+    const bookingEndDt = input.bookingEndDate
+      ? new Date(input.bookingEndDate)
+      : new Date(startDt.getTime() - 15 * 24 * 60 * 60 * 1000);
+
     const exhibition = await prisma.exhibition.create({
       data: {
         title: input.title,
@@ -157,8 +187,9 @@ export class ExhibitionsService {
         spcode,
         venue: input.venue || 'Exhibition Center',
         city: input.city || 'Mumbai',
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
+        startDate: startDt,
+        endDate: endDt,
+        bookingEndDate: bookingEndDt,
         bannerUrl: input.bannerUrl || null,
         totalStalls: Number(input.totalStalls) || 0,
         status: exhibitionStatus as any,
@@ -251,6 +282,9 @@ export class ExhibitionsService {
     if (input.city !== undefined) cleanUpdateData.city = input.city;
     if (input.startDate) cleanUpdateData.startDate = new Date(input.startDate);
     if (input.endDate) cleanUpdateData.endDate = new Date(input.endDate);
+    if (input.bookingEndDate !== undefined) {
+      cleanUpdateData.bookingEndDate = input.bookingEndDate ? new Date(input.bookingEndDate) : null;
+    }
     if (input.bannerUrl !== undefined) cleanUpdateData.bannerUrl = input.bannerUrl || null;
     if (input.totalStalls !== undefined) cleanUpdateData.totalStalls = Number(input.totalStalls) || 0;
 
