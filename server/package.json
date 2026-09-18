@@ -12,8 +12,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "prisma": {
-  "seed": "tsx prisma/seed.ts"
- },
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@prisma/client": "^5.10.0",
     "bcryptjs": "^2.4.3",
@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "pdfkit": "^0.15.0",
+    "razorpay": "^2.9.8",
     "zod": "^3.22.4"
   },
   "devDependencies": {

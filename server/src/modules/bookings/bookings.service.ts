@@ -122,7 +122,7 @@ export class BookingsService {
           amount: grandTotal,
           currency: 'INR',
           status: 'PENDING',
-          provider: 'STRIPE_SIMULATOR',
+          provider: 'RAZORPAY',
         },
       });
 
@@ -138,7 +138,7 @@ export class BookingsService {
         stalls: { include: { stall: true } },
         exhibition: true,
         company: true,
-        payment: true,
+        payments: true,
         invoice: true,
       },
     });
@@ -151,7 +151,7 @@ export class BookingsService {
         stalls: { include: { stall: true } },
         exhibition: true,
         company: true,
-        payment: true,
+        payments: true,
         invoice: true,
         user: { select: { id: true, name: true, email: true } },
       },
@@ -179,7 +179,7 @@ export class BookingsService {
           stalls: { include: { stall: true } },
           exhibition: { select: { title: true } },
           company: { select: { name: true, companyCode: true } },
-          payment: { select: { status: true, paymentReference: true } },
+          payments: { select: { status: true, paymentReference: true } },
           user: { select: { name: true, email: true } },
         },
       }),
