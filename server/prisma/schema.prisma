@@ -127,6 +127,7 @@ model Exhibition {
   city        String
   startDate   DateTime 
   endDate     DateTime
+  bookingEndDate DateTime?
   status      ExhibitionStatus @default(DRAFT)
   bannerUrl   String?
   totalStalls Int              @default(0)
