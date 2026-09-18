@@ -646,6 +646,74 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </label>
             </div>
 
+            {/* Quick Dimension Presets */}
+            <div className="space-y-1">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Standard Size Presets
+              </span>
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { label: '3×3m', w: 3, d: 3 },
+                  { label: '4×3m', w: 4, d: 3 },
+                  { label: '6×3m', w: 6, d: 3 },
+                  { label: '6×6m', w: 6, d: 6 },
+                ].map((p) => {
+                  const isActive = widthMeters === p.w && depthMeters === p.d;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => {
+                        const newW = p.w * pxPerMeter;
+                        const newH = p.d * pxPerMeter;
+                        const newAreaSqFt = Math.round(p.w * p.d * 10.764);
+                        onUpdateStall(
+                          stall.id,
+                          { width: newW, height: newH, areaSqFt: newAreaSqFt, name: p.label },
+                          { pushNeighbors: singlePushNeighbors }
+                        );
+                      }}
+                      className={`py-1 text-[10px] font-mono font-bold rounded border transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Dimension Label / Mark */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Custom Dimension Mark / Label
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStall(stall.id, { name: `${widthMeters}×${depthMeters}` });
+                  }}
+                  className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                  title="Reset label to current width × depth"
+                >
+                  Auto ({widthMeters}×{depthMeters})
+                </button>
+              </div>
+              <input
+                type="text"
+                disabled={readOnly}
+                value={stall.name || `${widthMeters}×${depthMeters}`}
+                onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
+                placeholder="e.g. 3×3, 6×3, VIP Suite"
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
