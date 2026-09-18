@@ -32,6 +32,7 @@ interface CanvasToolboxProps {
   onSelectTool: (tool: StudioTool) => void;
   onAddHall: () => void;
   onAddStall: () => void;
+  onOpenCustomStallModal?: () => void;
   onOpenStallRowModal: () => void;
   onAddFacility: (type: FacilityType) => void;
   onAddZone: () => void;
@@ -52,6 +53,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   onSelectTool,
   onAddHall,
   onAddStall,
+  onOpenCustomStallModal,
   onOpenStallRowModal,
   onAddFacility,
   onAddZone,
@@ -163,10 +165,19 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             <button
               onClick={onAddStall}
               className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200 transition-colors"
-              title="+ Single Stall (3×3m)"
+              title="+ Single Stall (3×3m Default)"
             >
               <Square className="w-4 h-4 text-emerald-600" />
             </button>
+            {onOpenCustomStallModal && (
+              <button
+                onClick={onOpenCustomStallModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 transition-colors"
+                title="+ Custom Dimension Stall (3×3, 6×3, custom size)"
+              >
+                <Sliders className="w-4 h-4 text-blue-600" />
+              </button>
+            )}
             <button
               onClick={onOpenStallRowModal}
               className="w-9 h-9 rounded-lg flex items-center justify-center text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors"
@@ -436,13 +447,27 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
 
         <button
           onClick={onAddStall}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50/60 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-all shadow-2xs"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50/60 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          title="Quick 1-click spawn standard 3×3m stall"
         >
           <span className="flex items-center gap-2">
             <Square className="w-3.5 h-3.5 text-emerald-600" /> + Single Stall
           </span>
-          <span className="text-[10px] text-slate-400">3×3m</span>
+          <span className="text-[10px] text-slate-500 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded">3×3m</span>
         </button>
+
+        {onOpenCustomStallModal && (
+          <button
+            onClick={onOpenCustomStallModal}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-blue-50/60 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs cursor-pointer"
+            title="Create stall with custom dimensions (3×3, 6×3, custom meters/feet) and custom label"
+          >
+            <span className="flex items-center gap-2">
+              <Sliders className="w-3.5 h-3.5 text-blue-600" /> + Custom Sized Stall
+            </span>
+            <span className="text-[10px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">3×3, 6×3...</span>
+          </button>
+        )}
 
         <button
           onClick={onOpenStallRowModal}
