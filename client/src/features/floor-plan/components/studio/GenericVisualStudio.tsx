@@ -43,6 +43,7 @@ import { CanvasToolbox } from './CanvasToolbox';
 import { CanvasPropertyInspector } from './CanvasPropertyInspector';
 import { CanvasBottomToolbar } from './CanvasBottomToolbar';
 import { CreateStallRowModal } from './CreateStallRowModal';
+import { CreateCustomStallModal } from './CreateCustomStallModal';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
 
 interface GenericVisualStudioProps {
@@ -90,6 +91,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRowModalOpen, setIsRowModalOpen] = useState<boolean>(false);
+  const [isCustomStallModalOpen, setIsCustomStallModalOpen] = useState<boolean>(false);
 
   // Collapsible panels state for full-width expansive workspace
   const [isLeftCollapsed, setIsLeftCollapsed] = useState<boolean>(false);
@@ -419,17 +421,91 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     []
   );
 
-  // Fit to screen calculation
+  // Bounded pan calculation: keeps the floor plan and comfortable editing margin in view
+  // Prevents the user from wandering off into infinite empty space where the chart disappears
+  const clampPan = useCallback(
+    (newX: number, newY: number, currentZoom: number = zoomLevel) => {
+      if (!containerRef.current) return { x: newX, y: newY };
+      const containerW = containerRef.current.clientWidth || 1200;
+      const containerH = containerRef.current.clientHeight || 800;
+      const scale = currentZoom / 100;
+      const scaledW = canvasWidth * scale;
+      const scaledH = canvasHeight * scale;
+
+      // Allow panning up to the edges with ~220px extra margin on each side so users have working room
+      // for adding rows, resizing stalls, but CANNOT lose the canvas in an infinite void!
+      const limitX = Math.max(120, (scaledW / 2) + (containerW / 2) - 180);
+      const limitY = Math.max(120, (scaledH / 2) + (containerH / 2) - 180);
+
+      return {
+        x: Math.round(Math.max(-limitX, Math.min(limitX, newX))),
+        y: Math.round(Math.max(-limitY, Math.min(limitY, newY))),
+      };
+    },
+    [canvasWidth, canvasHeight, zoomLevel]
+  );
+
+  // Content-aware Fit to Screen: centers on stalls/halls with comfortable extra side margins
   const handleFitToScreen = useCallback(() => {
     if (!containerRef.current) return;
-    const containerW = containerRef.current.clientWidth - 40;
-    const containerH = containerRef.current.clientHeight - 40;
+    const containerW = containerRef.current.clientWidth - 80;
+    const containerH = containerRef.current.clientHeight - 80;
+
+    // Calculate bounding box of stalls, halls, and facilities
+    if (stalls.length > 0 || halls.length > 0 || facilities.length > 0) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      stalls.forEach((s) => {
+        minX = Math.min(minX, s.xPosition);
+        minY = Math.min(minY, s.yPosition);
+        maxX = Math.max(maxX, s.xPosition + s.width);
+        maxY = Math.max(maxY, s.yPosition + s.height);
+      });
+      halls.forEach((h) => {
+        minX = Math.min(minX, h.x);
+        minY = Math.min(minY, h.y);
+        maxX = Math.max(maxX, h.x + h.width);
+        maxY = Math.max(maxY, h.y + h.height);
+      });
+      facilities.forEach((f) => {
+        minX = Math.min(minX, f.x);
+        minY = Math.min(minY, f.y);
+        maxX = Math.max(maxX, f.x + f.width);
+        maxY = Math.max(maxY, f.y + f.height);
+      });
+
+      if (minX < maxX && minY < maxY && isFinite(minX)) {
+        // Provide comfortable extra side margins (140px on sides) for editing and row reflow
+        const margin = 140;
+        const contentW = (maxX - minX) + margin * 2;
+        const contentH = (maxY - minY) + margin * 2;
+        const contentCenterX = (minX + maxX) / 2;
+        const contentCenterY = (minY + maxY) / 2;
+
+        const scaleX = containerW / contentW;
+        const scaleY = containerH / contentH;
+        const optimalScale = Math.min(scaleX, scaleY);
+        const targetZoom = Math.max(35, Math.min(150, Math.round(optimalScale * 100)));
+
+        const offsetX = Math.round(((canvasWidth / 2) - contentCenterX) * (targetZoom / 100));
+        const offsetY = Math.round(((canvasHeight / 2) - contentCenterY) * (targetZoom / 100));
+
+        setZoomLevel(targetZoom);
+        setPanOffset(clampPan(offsetX, offsetY, targetZoom));
+        return;
+      }
+    }
+
     const scaleX = containerW / canvasWidth;
     const scaleY = containerH / canvasHeight;
     const optimalScale = Math.min(scaleX, scaleY);
-    setZoomLevel(Math.max(25, Math.min(150, Math.round(optimalScale * 100))));
+    const targetZoom = Math.max(25, Math.min(150, Math.round(optimalScale * 100)));
+    setZoomLevel(targetZoom);
     setPanOffset({ x: 0, y: 0 });
-  }, [canvasWidth, canvasHeight]);
+  }, [canvasWidth, canvasHeight, stalls, halls, facilities, clampPan]);
 
   // Keyboard Shortcuts Listener
   useEffect(() => {
@@ -670,6 +746,30 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const nextStalls = [...stalls, newStall];
     setStalls(nextStalls);
     setSelectedRefs([{ type: 'stall', id: newStall.id }]);
+    pushHistory(halls, facilities, annotations, nextStalls);
+  };
+
+  const getNextSuggestedStallNumber = useCallback(() => {
+    const existingNums = new Set(stalls.map((s) => s.stallNumber.toUpperCase()));
+    let nextNum = stalls.length + 1;
+    let numStr = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+    while (existingNums.has(`S-${numStr}`.toUpperCase())) {
+      nextNum++;
+      numStr = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+    }
+    return `S-${numStr}`;
+  }, [stalls]);
+
+  const handleCreateCustomStall = (customDraft: DraftStallItem) => {
+    const spawnPos = getNewItemSpawnCoordinates(customDraft.width, customDraft.height);
+    const placedStall: DraftStallItem = {
+      ...customDraft,
+      xPosition: snapCoord(Math.min(canvasWidth - customDraft.width - 20, Math.max(20, spawnPos.x))),
+      yPosition: snapCoord(Math.min(canvasHeight - customDraft.height - 20, Math.max(20, spawnPos.y))),
+    };
+    const nextStalls = [...stalls, placedStall];
+    setStalls(nextStalls);
+    setSelectedRefs([{ type: 'stall', id: placedStall.id }]);
     pushHistory(halls, facilities, annotations, nextStalls);
   };
 
@@ -1473,7 +1573,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       if ('preventDefault' in e && typeof e.preventDefault === 'function') {
         e.preventDefault();
       }
-      setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+      setPanOffset(clampPan(e.clientX - panStart.x, e.clientY - panStart.y));
       return;
     }
 
@@ -1826,10 +1926,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         setZoomLevel((prev) => Math.max(25, Math.min(200, prev + delta)));
       } else {
         // 2-finger trackpad scroll or mouse wheel: smoothly pan canvas
-        setPanOffset((prev) => ({
-          x: prev.x - e.deltaX,
-          y: prev.y - e.deltaY,
-        }));
+        setPanOffset((prev) => clampPan(prev.x - e.deltaX, prev.y - e.deltaY));
       }
     };
 
@@ -1837,7 +1934,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     return () => {
       el.removeEventListener('wheel', handleWheelNative);
     };
-  }, []);
+  }, [clampPan]);
 
   const selectedSingleRef = selectedRefs.length === 1 ? selectedRefs[0] : null;
 
@@ -2012,6 +2109,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           onSelectTool={setActiveTool}
           onAddHall={handleAddHall}
           onAddStall={handleAddStall}
+          onOpenCustomStallModal={() => setIsCustomStallModalOpen(true)}
           onOpenStallRowModal={() => setIsRowModalOpen(true)}
           onAddFacility={handleAddFacility}
           onAddZone={handleAddZone}
@@ -2027,7 +2125,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           onToggleMultiSelectMode={() => setIsMultiSelectMode((prev) => !prev)}
         />
 
-        {/* Center Dominant Canvas Workspace - Complete Light Graph (No Black) */}
+        {/* Center Dominant Canvas Workspace - Neutral Studio Desk Backdrop */}
         <div
           ref={containerRef}
           onMouseDown={handleCanvasMouseDown}
@@ -2038,7 +2136,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           }}
           onMouseUp={handleCanvasMouseUp}
           onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 relative overflow-hidden bg-slate-50 flex items-center justify-center select-none ${
+          className={`flex-1 relative overflow-hidden flex items-center justify-center select-none ${
             isPanning || isSpacePressed || activeTool === 'pan'
               ? (isPanning ? 'cursor-grabbing' : 'cursor-grab')
               : activeTool === 'marquee'
@@ -2046,18 +2144,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               : 'cursor-default'
           }`}
           style={{
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#eef2f6',
+            backgroundImage: 'radial-gradient(#cbd5e1 1.25px, transparent 1.25px)',
+            backgroundSize: '24px 24px',
             touchAction: 'none',
             overscrollBehavior: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            backgroundImage: `
-              linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px),
-              linear-gradient(to right, #cbd5e1 1.5px, transparent 1.5px),
-              linear-gradient(to bottom, #cbd5e1 1.5px, transparent 1.5px)
-            `,
-            backgroundSize: '20px 20px, 20px 20px, 100px 100px, 100px 100px',
           }}
         >
           {/* Local Auto-Save Restoration Banner */}
@@ -2223,7 +2316,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               width={canvasWidth}
               height={canvasHeight}
               viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-              className="select-none shadow-md border border-slate-300 rounded-xl"
+              className="select-none shadow-2xl border border-slate-300/80 rounded-2xl ring-1 ring-slate-400/20"
               style={{
                 minWidth: canvasWidth,
                 minHeight: canvasHeight,
@@ -2870,33 +2963,47 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   const isBlocked = stall.status === 'BLOCKED';
                   const isBooked = stall.status === 'BOOKED_CONFIRMED';
 
-                  let fillCol = '#ecfdf5';
-                  let strokeCol = '#10b981';
-                  let textCol = '#047857';
+                  // High-contrast, professional architectural CAD palette
+                  let fillCol = '#f8fafc';
+                  let strokeCol = '#2563eb';
+                  let textCol = '#1e3a8a';
+                  let accentCol = '#3b82f6';
 
                   if (stall.category === 'PREMIUM') {
-                    fillCol = '#eff6ff';
-                    strokeCol = '#3b82f6';
-                    textCol = '#1d4ed8';
+                    fillCol = '#f0fdf4';
+                    strokeCol = '#059669';
+                    textCol = '#064e3b';
+                    accentCol = '#10b981';
                   } else if (stall.category === 'CORNER') {
                     fillCol = '#fffbeb';
-                    strokeCol = '#f59e0b';
-                    textCol = '#b45309';
+                    strokeCol = '#d97706';
+                    textCol = '#78350f';
+                    accentCol = '#f59e0b';
                   } else if (stall.category === 'ISLAND') {
                     fillCol = '#faf5ff';
-                    strokeCol = '#8b5cf6';
-                    textCol = '#6d28d9';
+                    strokeCol = '#7c3aed';
+                    textCol = '#4c1d95';
+                    accentCol = '#8b5cf6';
                   }
 
                   if (isBlocked) {
-                    fillCol = '#fef2f2';
-                    strokeCol = '#f43f5e';
-                    textCol = '#be123c';
+                    fillCol = '#fff1f2';
+                    strokeCol = '#e11d48';
+                    textCol = '#9f1239';
+                    accentCol = '#f43f5e';
                   } else if (isBooked) {
                     fillCol = '#f1f5f9';
                     strokeCol = '#64748b';
                     textCol = '#334155';
+                    accentCol = '#94a3b8';
                   }
+
+                  const widthMeters = Number((stall.width / pxPerMeter).toFixed(1)).toString().replace('.0', '');
+                  const depthMeters = Number((stall.height / pxPerMeter).toFixed(1)).toString().replace('.0', '');
+                  const dimMarkText = stall.name && stall.name !== `Stall ${stall.stallNumber}`
+                    ? stall.name
+                    : `${widthMeters}×${depthMeters}m`;
+                  const hasDimMark = stall.width >= 36 && stall.height >= 40;
 
                   const transformAttr = stall.rotation
                     ? `rotate(${stall.rotation} ${stall.xPosition + stall.width / 2} ${stall.yPosition + stall.height / 2})`
@@ -2915,12 +3022,23 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         y={stall.yPosition}
                         width={stall.width}
                         height={stall.height}
-                        rx="5"
+                        rx="6"
                         fill={fillCol}
                         stroke={isSelected ? '#2563eb' : strokeCol}
                         strokeWidth={isSelected ? 3 : 1.5}
                         strokeDasharray={isBlocked ? '4 3' : 'none'}
                         className="transition-colors"
+                      />
+
+                      {/* Top Category Accent Line */}
+                      <rect
+                        x={stall.xPosition + 2}
+                        y={stall.yPosition + 2}
+                        width={Math.max(0, stall.width - 4)}
+                        height={Math.min(4, Math.max(2.5, stall.height * 0.08))}
+                        rx="2"
+                        fill={accentCol}
+                        className="pointer-events-none opacity-90"
                       />
 
                       {/* Clean Centered Stall Number (Adaptive font size & automatic row alignment) */}
@@ -2933,11 +3051,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                           stall.xPosition,
                           stall.yPosition
                         );
+                        // If dimension label is visible underneath, shift stall number slightly upward
+                        const offsetY = hasDimMark ? -5 : 0;
                         return typo.lines.map((line, lIdx) => (
                           <text
                             key={lIdx}
                             x={typo.centerX}
-                            y={typo.startY + lIdx * typo.lineHeight}
+                            y={typo.startY + offsetY + lIdx * typo.lineHeight}
                             textAnchor="middle"
                             dominantBaseline="central"
                             fill={textCol}
@@ -2950,6 +3070,24 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                           </text>
                         ));
                       })()}
+
+                      {/* Dimension Marking Label (Rendered directly on canvas) */}
+                      {hasDimMark && (
+                        <text
+                          x={stall.xPosition + stall.width / 2}
+                          y={stall.yPosition + stall.height - (stall.height >= 56 ? 9 : 6.5)}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={textCol}
+                          opacity={0.72}
+                          fontSize={Math.max(7.5, Math.min(10, Math.round(stall.width / 6.5)))}
+                          fontWeight="700"
+                          letterSpacing="0.02em"
+                          className="select-none pointer-events-none font-mono"
+                        >
+                          {dimMarkText}
+                        </text>
+                      )}
 
                       {/* Resize Handles (Only when single stall is selected) */}
                       {isSelected && selectedRefs.length === 1 && !isReadOnly && (
@@ -3203,6 +3341,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         onGenerateRow={handleGenerateStallRow}
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
+      />
+
+      {/* Custom Dimension-Defined Stall Creation Modal */}
+      <CreateCustomStallModal
+        isOpen={isCustomStallModalOpen}
+        onClose={() => setIsCustomStallModalOpen(false)}
+        onCreateStall={handleCreateCustomStall}
+        existingStallsCount={stalls.length}
+        nextSuggestedNumber={getNextSuggestedStallNumber()}
       />
 
       {/* Background Blueprint Image Modal */}
