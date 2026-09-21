@@ -11,6 +11,7 @@ datasource db {
 
 enum UserRole {
   CLIENT
+  STAFF
   ADMIN
   SUPERADMIN
 }
@@ -70,21 +71,23 @@ enum InvoiceStatus {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  phone         String?
-  role          UserRole       @default(CLIENT)
-  companyId     String?
-  spcode        String?        @unique
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  phone              String?
+  role               UserRole       @default(CLIENT)
+  companyId          String?
+  spcode             String?        @unique
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  bookings      Booking[]
-  payments      Payment[]
-  notifications Notification[]
+  company            Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  bookings           Booking[]
+  payments           Payment[]
+  notifications      Notification[]
+  createdExhibitions Exhibition[]   @relation("CreatedExhibitions")
 
   @@index([email])
   @@index([companyId])
@@ -119,30 +122,33 @@ model Company {
 }
 
 model Exhibition {
-  id          String           @id @default(uuid())
-  title       String
-  slug        String           @unique
-  description String
-  venue       String
-  city        String
-  startDate   DateTime 
-  endDate     DateTime
-  bookingEndDate DateTime?
-  status      ExhibitionStatus @default(DRAFT)
-  bannerUrl   String?
-  totalStalls Int              @default(0)
-  edition     String?          @default("10")
-  eventCode   String?          @default("GG")
-  spcode      String?          @default("ZE05")
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id              String           @id @default(uuid())
+  title           String
+  slug            String           @unique
+  description     String
+  venue           String
+  city            String
+  startDate       DateTime 
+  endDate         DateTime
+  bookingEndDate  DateTime?
+  status          ExhibitionStatus @default(DRAFT)
+  bannerUrl       String?
+  totalStalls     Int              @default(0)
+  edition         String?          @default("10")
+  eventCode       String?          @default("GG")
+  spcode          String?          @default("ZE05")
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  floorPlans  FloorPlan[]
-  bookings    Booking[]
+  createdBy       User?            @relation("CreatedExhibitions", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  floorPlans      FloorPlan[]
+  bookings        Booking[]
 
   @@unique([edition, eventCode])
   @@index([slug])
   @@index([status])
+  @@index([createdByUserId])
 }
 
 model FloorPlan {

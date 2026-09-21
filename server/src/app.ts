@@ -16,6 +16,8 @@ import { bookingRoutes } from './modules/bookings/bookings.routes.js';
 import { paymentRoutes } from './modules/payments/payments.routes.js';
 import { invoiceRoutes } from './modules/invoices/invoices.routes.js';
 import { notificationRoutes } from './modules/notifications/notifications.routes.js';
+import { userRoutes } from './modules/users/users.routes.js';
+import { reportRoutes } from './modules/reports/reports.routes.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -72,6 +74,8 @@ export const createApp = (): Express => {
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/invoices', invoiceRoutes);
   app.use('/api/v1/notifications', notificationRoutes);
+  app.use('/api/v1/users', userRoutes);
+  app.use('/api/v1/reports', reportRoutes);
 
   // 404 Fallback Handler
   app.use((req: Request, res: Response) => {

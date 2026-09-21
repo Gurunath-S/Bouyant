@@ -6,6 +6,7 @@ export interface TokenPayload {
   email: string;
   role: string;
   companyId?: string | null;
+  spcode?: string | null;
 }
 
 export const generateTokens = (payload: TokenPayload) => {

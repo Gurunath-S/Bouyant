@@ -51,6 +51,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       companyId: user.companyId,
+      spcode: user.spcode,
     });
 
     return { user, tokens };
@@ -78,11 +79,16 @@ export class AuthService {
       throw ApiError.unauthorized('Invalid email or password.');
     }
 
+    if (user.isActive === false) {
+      throw ApiError.forbidden('Your account has been deactivated. Please contact an administrator.');
+    }
+
     const tokens = generateTokens({
       userId: user.id,
       email: user.email,
       role: user.role,
       companyId: user.companyId,
+      spcode: user.spcode,
     });
 
     const userProfile = {
@@ -91,7 +97,10 @@ export class AuthService {
       name: user.name,
       phone: user.phone,
       role: user.role,
+      spcode: user.spcode,
+      isActive: user.isActive,
       companyId: user.companyId,
+      spcode: user.spcode,
       company: user.company,
       createdAt: user.createdAt,
     };
@@ -110,15 +119,21 @@ export class AuthService {
         throw ApiError.unauthorized('User no longer exists.');
       }
 
+      if (user.isActive === false) {
+        throw ApiError.forbidden('Your account has been deactivated.');
+      }
+
       const tokens = generateTokens({
         userId: user.id,
         email: user.email,
         role: user.role,
         companyId: user.companyId,
+      spcode: user.spcode,
       });
 
       return tokens;
-    } catch (error) {
+    } catch (error: any) {
+      if (error instanceof ApiError) throw error;
       throw ApiError.unauthorized('Invalid or expired refresh token.');
     }
   }
@@ -132,6 +147,8 @@ export class AuthService {
         name: true,
         phone: true,
         role: true,
+        spcode: true,
+        isActive: true,
         companyId: true,
         company: true,
         createdAt: true,
@@ -140,6 +157,10 @@ export class AuthService {
 
     if (!user) {
       throw ApiError.notFound('User profile not found.');
+    }
+
+    if (user.isActive === false) {
+      throw ApiError.forbidden('Your account has been deactivated.');
     }
 
     return user;
