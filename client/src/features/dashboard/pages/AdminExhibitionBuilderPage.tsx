@@ -57,9 +57,22 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Helper to extract 2-digit month from ISO date string (e.g. '2026-10-15' -> '10')
-const getMonthEditionCode = (dateStr: string): string => {
-  if (!dateStr) return '10';
+const PRESET_CATEGORIES = [
+  'Industrial & Automation',
+  'Electronics & Technology',
+  'Healthcare & Pharma',
+  'Textiles & Apparel',
+  'Building & Construction',
+  'Food & Hospitality',
+  'Automotive & Mobility',
+  'General Trade Fair',
+];
+
+// Helper to extract 2-digit month from ISO date string (e.g. '2026-10-15' -> '10', fallback to current month)
+const getMonthEditionCode = (dateStr?: string): string => {
+  if (!dateStr || !dateStr.trim()) {
+    return String(new Date().getMonth() + 1).padStart(2, '0');
+  }
   try {
     const parts = dateStr.split('-');
     if (parts.length >= 2 && parts[1]) {
@@ -75,7 +88,7 @@ const getMonthEditionCode = (dateStr: string): string => {
   } catch {
     // fallback
   }
-  return '10';
+  return String(new Date().getMonth() + 1).padStart(2, '0');
 };
 
 const getMonthNameByEdition = (editionStr: string): string => {
@@ -119,23 +132,40 @@ const formatIsoWithTime = (dateStr: string, timeStr: string, defaultHour: number
   try {
     const [h, m] = (timeStr || `${defaultHour}:00`).split(':');
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return new Date().toISOString();
     d.setHours(parseInt(h || `${defaultHour}`, 10), parseInt(m || '0', 10), 0, 0);
     return d.toISOString();
   } catch {
-    return new Date(dateStr).toISOString();
+    return new Date().toISOString();
+  }
+};
+
+// Helper to calculate default booking end date (15 days prior to start date)
+const calculateDefaultBookingEndDate = (startDateIso: string): string => {
+  if (!startDateIso) return '';
+  try {
+    const d = new Date(startDateIso);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() - 15);
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '';
   }
 };
 
 // Helper to generate a guaranteed unique event short code
 const getUniqueEventShortCode = (
   title: string,
-  existingEvents: { id: string; eventCode?: string }[],
+  existingEvents: { id: string; slug?: string; eventCode?: string }[],
   currentEventId?: string
 ): string => {
-  const base = generateEventShortCode(title) || 'EX';
+  if (!title || !title.trim()) return '';
+  const base = generateEventShortCode(title);
+  if (!base) return '';
+
   const takenCodes = new Set(
     existingEvents
-      .filter((e) => e.id !== currentEventId)
+      .filter((e) => e.id !== currentEventId && (!e.slug || e.slug !== currentEventId))
       .map((e) => (e.eventCode || '').toUpperCase().trim())
       .filter(Boolean)
   );
@@ -168,7 +198,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
 
   // Existing exhibitions loaded from DB to guarantee unique short codes
-  const [existingEvents, setExistingEvents] = useState<{ id: string; title: string; eventCode: string; edition: string }[]>([]);
+  const [existingEvents, setExistingEvents] = useState<{ id: string; slug?: string; title: string; eventCode: string; edition: string }[]>([]);
 
   useEffect(() => {
     exhibitionService
@@ -177,6 +207,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         setExistingEvents(
           (events || []).map((e) => ({
             id: e.id,
+            slug: e.slug,
             title: e.title,
             eventCode: ((e as any).eventCode || '').toUpperCase().trim(),
             edition: ((e as any).edition || '').toUpperCase().trim(),
@@ -188,30 +219,33 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
   // Step 1: Basic Event Information
   const [basicInfo, setBasicInfo] = useState({
-    title: 'India Industrial & Automation Expo 2026',
-    slug: 'india-industrial-expo-2026',
-    edition: '10', // Default derived from October start date (month 10)
-    eventCode: 'IIAE',
-    spcode: 'B003', // Internal admin allocation code, hidden from step 1 UI
+    title: '',
+    slug: '',
+    edition: getMonthEditionCode(''),
+    eventCode: '',
+    spcode: 'B003', // Internal admin allocation code
     category: 'Industrial & Automation',
-    description: 'Premier trade fair for industrial machinery, robotics automation, IoT sensors, and smart manufacturing technologies.',
-    startDate: '2026-10-10',
-    endDate: '2026-10-14',
+    description: '',
+    startDate: '',
+    endDate: '',
+    bookingEndDate: '',
     startTime: '10:00',
     endTime: '18:00',
-    venue: 'Bombay Exhibition Centre (BEC)',
-    address: 'NSE Nesco Complex, Off Western Express Hwy, Goregaon East',
-    city: 'Mumbai',
+    venue: '',
+    address: '',
+    city: '',
     state: 'Maharashtra',
-    bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
-    images: ['https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80'],
+    bannerUrl: '',
+    images: [] as string[],
     latitude: 19.1551,
     longitude: 72.8553,
-    status: 'PUBLISHED',
+    status: 'DRAFT',
   });
 
   const [isEventCodeCustom, setIsEventCodeCustom] = useState<boolean>(false);
   const [isEditionCustom, setIsEditionCustom] = useState<boolean>(false);
+  const [isBookingEndDateCustom, setIsBookingEndDateCustom] = useState<boolean>(false);
+  const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
 
   useEffect(() => {
     if (id) {
@@ -242,8 +276,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
         const startIso = data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '';
         const endIso = data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '';
+        const loadedBookingEndIso = (data as any).bookingEndDate
+          ? new Date((data as any).bookingEndDate).toISOString().split('T')[0]
+          : calculateDefaultBookingEndDate(startIso);
         const loadedEdition = (data as any).edition || getMonthEditionCode(startIso);
-        const loadedEventCode = (data as any).eventCode || generateEventShortCode(data.title || '');
+        const loadedEventCode = (data as any).eventCode || '';
+        const loadedCategory = (data as any).category || 'Industrial & Automation';
 
         setBasicInfo({
           title: data.title || '',
@@ -251,10 +289,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           edition: loadedEdition,
           eventCode: loadedEventCode,
           spcode: (data as any).spcode || 'B003',
-          category: 'Industrial & Automation',
+          category: loadedCategory,
           description: data.description || '',
           startDate: startIso,
           endDate: endIso,
+          bookingEndDate: loadedBookingEndIso,
           startTime: (data as any).startTime || loadedStartTime,
           endTime: (data as any).endTime || loadedEndTime,
           venue: data.venue || '',
@@ -263,13 +302,17 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           state: 'Maharashtra',
           bannerUrl: data.bannerUrl || '',
           images: data.bannerUrl ? [data.bannerUrl] : [],
-          latitude: 19.1551,
-          longitude: 72.8553,
+          latitude: (data as any).latitude || 19.1551,
+          longitude: (data as any).longitude || 72.8553,
           status: data.status || 'PUBLISHED',
         });
 
-        if ((data as any).eventCode) setIsEventCodeCustom(true);
-        if ((data as any).edition) setIsEditionCustom(true);
+        setIsEventCodeCustom(false);
+        setIsEditionCustom(false);
+        if (loadedCategory && !PRESET_CATEGORIES.includes(loadedCategory)) {
+          setIsCustomCategory(true);
+        }
+        if ((data as any).bookingEndDate) setIsBookingEndDateCustom(true);
 
         if (data.floorPlans && data.floorPlans.length > 0) {
           const fp = data.floorPlans[0];
@@ -472,6 +515,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const handlePublishExhibition = async () => {
     try {
       setIsSubmitting(true);
+      const computedBookingEndDate = basicInfo.bookingEndDate
+        ? formatIsoWithTime(basicInfo.bookingEndDate, '23:59', 23)
+        : basicInfo.startDate
+        ? formatIsoWithTime(calculateDefaultBookingEndDate(basicInfo.startDate), '23:59', 23)
+        : null;
+
       if (id) {
         // Updating existing event
         const updatePayload = {
@@ -484,6 +533,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           city: basicInfo.city,
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
+          bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -523,6 +573,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           city: basicInfo.city,
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
+          bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -600,10 +651,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
               <Layers className="w-6 h-6 text-purple-600" />
               {isViewMode
-                ? `Exhibition Dossier & Studio — ${basicInfo.title}`
+                ? `View Exhibition — ${basicInfo.title}`
                 : isEditMode
-                ? `Edit Exhibition Event & Floor Plan — ${basicInfo.title}`
-                : 'Exhibition & Visual Floor Plan Studio'}
+                ? `Edit Exhibition & Floor Plan — ${basicInfo.title}`
+                : 'Create Exhibition & Floor Plan'}
             </h1>
           </div>
 
@@ -688,7 +739,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         {isLoadingEvent && (
           <div className="p-6 text-center bg-white border border-slate-200 rounded-xl shadow-xs space-y-2">
             <Loader2 className="w-6 h-6 text-purple-600 animate-spin mx-auto" />
-            <p className="text-xs font-semibold text-slate-700">Loading Event Parameters into Studio...</p>
+            <p className="text-xs font-semibold text-slate-700">Loading Event & Floor Plan...</p>
           </div>
         )}
 
@@ -708,7 +759,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             >
               1
             </span>
-            <span>Basic Event Info</span>
+            <span>Event Details</span>
           </button>
           <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
 
@@ -726,7 +777,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             >
               2
             </span>
-            <span>Exhibition Studio (CAD Canvas)</span>
+            <span>Floor Plan Designer</span>
           </button>
           <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
 
@@ -744,7 +795,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             >
               3
             </span>
-            <span>Preview & Publish</span>
+            <span>Review & Publish</span>
           </button>
         </div>
       </div>
@@ -757,13 +808,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 mb-2">
                 <Building className="w-3.5 h-3.5 text-purple-600" />
-                <span>Step 1 of 3: Exhibition Event Profile</span>
+                <span>Step 1 of 3: Event Details</span>
               </div>
               <h2 className="text-xl font-extrabold text-slate-900">
-                Exhibition Event Profile & Location Setup
+                Event Details & Location Setup
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Configure event identity, timeline, interactive venue location pin, and promotional visual media gallery.
+                Configure event identity, dates, venue location, and promotional images.
               </p>
             </div>
             <Button
@@ -772,7 +823,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               onClick={() => setCurrentStep(2)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Continue to Floor Plan Studio
+              Continue to Floor Plan Designer
             </Button>
           </div>
 
@@ -784,10 +835,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  1. Event Identity & Category
+                  1. Event Overview & Schedule
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Official name, automated short code, edition month, classification, and event overview
+                  Event name, unique codes, timings, and category
                 </p>
               </div>
             </div>
@@ -799,7 +850,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <Input
                   label="Exhibition Event Name *"
                   value={basicInfo.title}
+                  disabled={isViewMode}
                   onChange={(e) => {
+                    if (isViewMode) return;
                     const title = e.target.value;
                     const autoSlug = title
                       .toLowerCase()
@@ -808,14 +861,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .replace(/(^-|-$)+/g, '');
 
                     let newEventCode = basicInfo.eventCode;
-                    if (!isEventCodeCustom) {
-                      newEventCode = getUniqueEventShortCode(title, existingEvents, id);
+                    // Only auto-derive short code when creating a new event and user hasn't customized it
+                    if (!id && !isEventCodeCustom) {
+                      newEventCode = title.trim() ? getUniqueEventShortCode(title, existingEvents, id) : '';
                     }
 
                     setBasicInfo((prev) => ({
                       ...prev,
                       title,
-                      slug: autoSlug,
+                      slug: !id ? autoSlug : prev.slug,
                       eventCode: newEventCode,
                     }));
                   }}
@@ -826,7 +880,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
                   <span className="font-semibold text-slate-400">Client Reg No:</span>
                   <code className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 shadow-2xs">
-                    {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01
+                    {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'EX'}/01
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
                     (Edition • Year • Code • Client #)
@@ -843,51 +897,49 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Event Short Code *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const auto = getUniqueEventShortCode(basicInfo.title, existingEvents, id);
-                          setIsEventCodeCustom(false);
-                          setBasicInfo((prev) => ({ ...prev, eventCode: auto }));
-                        }}
-                        title="Reset / re-generate automatically from event name"
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
-                      >
-                        <RotateCcw className="w-2.5 h-2.5" />
-                        <span>{isEventCodeCustom ? 'Reset Auto' : 'Auto-Sync'}</span>
-                      </button>
+                      {!isViewMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const auto = basicInfo.title.trim() ? getUniqueEventShortCode(basicInfo.title, existingEvents, id) : '';
+                            setIsEventCodeCustom(false);
+                            setBasicInfo((prev) => ({ ...prev, eventCode: auto }));
+                          }}
+                          title="Re-generate automatically from event title"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>{isEventCodeCustom ? 'Reset Auto' : 'Auto-Sync'}</span>
+                        </button>
+                      )}
                     </div>
                     <div className="relative rounded-lg shadow-xs">
                       <input
                         type="text"
                         value={basicInfo.eventCode}
+                        disabled={isViewMode}
+                        readOnly={isViewMode}
                         onChange={(e) => {
+                          if (isViewMode) return;
                           setIsEventCodeCustom(true);
                           setBasicInfo((prev) => ({
                             ...prev,
                             eventCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8),
                           }));
                         }}
-                        placeholder="e.g. IIAE"
+                        placeholder="Auto-generated on title typing"
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-3 pr-14 py-2 uppercase transition-colors"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                       />
-                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                            isEventCodeCustom
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-purple-100 text-purple-700'
-                          }`}
-                        >
-                          {isEventCodeCustom ? 'Custom' : 'Auto'}
-                        </span>
-                      </div>
                     </div>
-                    <p className="text-[10px] text-slate-500">
-                      {isEventCodeCustom
-                        ? 'Custom short code • used in client IDs'
-                        : 'Auto-derived unique code • edit to customize'}
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {isViewMode
+                        ? 'Unique event short code • registered in catalog'
+                        : isEventCodeCustom
+                        ? 'Custom short code • click Auto-Sync to re-generate from title'
+                        : basicInfo.eventCode
+                        ? 'Auto-generated from title • edit to customize'
+                        : 'Type event name above to auto-generate short code'}
                     </p>
                   </div>
 
@@ -897,25 +949,30 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Edition Code *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const autoEd = getMonthEditionCode(basicInfo.startDate);
-                          setIsEditionCustom(false);
-                          setBasicInfo((prev) => ({ ...prev, edition: autoEd }));
-                        }}
-                        title="Sync edition code with start date month"
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
-                      >
-                        <RotateCcw className="w-2.5 h-2.5" />
-                        <span>{isEditionCustom ? 'Reset' : 'Month'}</span>
-                      </button>
+                      {!isViewMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const autoEd = getMonthEditionCode(basicInfo.startDate);
+                            setIsEditionCustom(false);
+                            setBasicInfo((prev) => ({ ...prev, edition: autoEd }));
+                          }}
+                          title="Sync edition code with start date month"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Sync Month</span>
+                        </button>
+                      )}
                     </div>
                     <div className="relative rounded-lg shadow-xs">
                       <input
                         type="text"
                         value={basicInfo.edition}
+                        disabled={isViewMode}
+                        readOnly={isViewMode}
                         onChange={(e) => {
+                          if (isViewMode) return;
                           setIsEditionCustom(true);
                           setBasicInfo((prev) => ({
                             ...prev,
@@ -925,33 +982,24 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         placeholder="e.g. 10"
                         maxLength={4}
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-3 pr-12 py-2 text-center uppercase transition-colors"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                       />
-                      <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none">
-                        <span
-                          className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase ${
-                            isEditionCustom
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-indigo-100 text-indigo-700'
-                          }`}
-                        >
-                          {isEditionCustom ? 'Custom' : 'Auto'}
-                        </span>
-                      </div>
                     </div>
                     <p className="text-[10px] text-slate-500 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
                       {getMonthNameByEdition(basicInfo.edition)
-                        ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition})`
-                        : `Edition ${basicInfo.edition || '10'}`}
+                        ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition}) • ${isEditionCustom ? 'Custom' : 'Matches start date'}`
+                        : `Edition ${basicInfo.edition || 'Current'}`}
                     </p>
                   </div>
                 </div>
 
                 {/* Collision Notice if this code is already taken by another event */}
                 {(() => {
+                  if (isViewMode || !basicInfo.eventCode || !basicInfo.eventCode.trim()) return null;
                   const collision = existingEvents.find(
                     (e) =>
                       e.id !== id &&
+                      (!e.slug || e.slug !== id) &&
                       e.eventCode &&
                       e.eventCode.toUpperCase().trim() === basicInfo.eventCode.toUpperCase().trim()
                   );
@@ -993,13 +1041,17 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <DateInput
                   label="Exhibition Start Date"
                   value={basicInfo.startDate}
+                  disabled={isViewMode}
                   onChange={(isoVal) => {
+                    if (isViewMode) return;
                     setBasicInfo((prev) => {
-                      const newEdition = isEditionCustom ? prev.edition : getMonthEditionCode(isoVal);
+                      const newEdition = (!id && !isEditionCustom) ? getMonthEditionCode(isoVal) : prev.edition;
+                      const newBookingEndDate = !isBookingEndDateCustom ? calculateDefaultBookingEndDate(isoVal) : prev.bookingEndDate;
                       return {
                         ...prev,
                         startDate: isoVal,
                         edition: newEdition,
+                        bookingEndDate: newBookingEndDate,
                       };
                     });
                   }}
@@ -1009,7 +1061,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <DateInput
                   label="Exhibition End Date"
                   value={basicInfo.endDate}
-                  onChange={(isoVal) => setBasicInfo({ ...basicInfo, endDate: isoVal })}
+                  disabled={isViewMode}
+                  onChange={(isoVal) => {
+                    if (isViewMode) return;
+                    setBasicInfo({ ...basicInfo, endDate: isoVal });
+                  }}
                   required
                   helperText="Format: DD/MM/YYYY"
                 />
@@ -1026,8 +1082,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     <input
                       type="time"
                       value={basicInfo.startTime}
-                      onChange={(e) => setBasicInfo({ ...basicInfo, startTime: e.target.value })}
-                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px]"
+                      disabled={isViewMode}
+                      onChange={(e) => {
+                        if (isViewMode) return;
+                        setBasicInfo({ ...basicInfo, startTime: e.target.value });
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">Visiting start time</p>
@@ -1045,8 +1105,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     <input
                       type="time"
                       value={basicInfo.endTime}
-                      onChange={(e) => setBasicInfo({ ...basicInfo, endTime: e.target.value })}
-                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px]"
+                      disabled={isViewMode}
+                      onChange={(e) => {
+                        if (isViewMode) return;
+                        setBasicInfo({ ...basicInfo, endTime: e.target.value });
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">Visiting close time</p>
@@ -1054,33 +1118,106 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
 
               {/* Quick Time Presets */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-                <span className="text-[11px] font-semibold text-slate-500">Quick Hours Presets:</span>
-                {[
-                  { label: '10:00 AM – 06:00 PM', start: '10:00', end: '18:00' },
-                  { label: '09:30 AM – 06:30 PM', start: '09:30', end: '18:30' },
-                  { label: '10:00 AM – 07:00 PM', start: '10:00', end: '19:00' },
-                  { label: '11:00 AM – 08:00 PM', start: '11:00', end: '20:00' },
-                ].map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() =>
-                      setBasicInfo((prev) => ({
-                        ...prev,
-                        startTime: preset.start,
-                        endTime: preset.end,
-                      }))
+              {!isViewMode && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                  <span className="text-[11px] font-semibold text-slate-500">Quick Hours Presets:</span>
+                  {[
+                    { label: '10:00 AM – 06:00 PM', start: '10:00', end: '18:00' },
+                    { label: '09:30 AM – 06:30 PM', start: '09:30', end: '18:30' },
+                    { label: '10:00 AM – 07:00 PM', start: '10:00', end: '19:00' },
+                    { label: '11:00 AM – 08:00 PM', start: '11:00', end: '20:00' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setBasicInfo((prev) => ({
+                          ...prev,
+                          startTime: preset.start,
+                          endTime: preset.end,
+                        }))
+                      }
+                      className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-colors cursor-pointer ${
+                        basicInfo.startTime === preset.start && basicInfo.endTime === preset.end
+                          ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Stall Booking Cut-Off Date (Closing Date) Card */}
+              <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 font-bold text-xs text-purple-950">
+                      <Calendar className="w-4 h-4 text-purple-600" />
+                      <span>Stall Booking Closing Date (Registration Cut-Off)</span>
+                      <span className="text-[10px] font-bold uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md border border-purple-200">
+                        Default: 15 Days Prior
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      New stall reservations, holds, and public checkouts will automatically stop after this date.
+                    </p>
+                  </div>
+
+                  {!isViewMode && basicInfo.startDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const autoDate = calculateDefaultBookingEndDate(basicInfo.startDate);
+                        setBasicInfo((prev) => ({ ...prev, bookingEndDate: autoDate }));
+                        setIsBookingEndDateCustom(false);
+                      }}
+                      className="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 hover:bg-purple-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
+                      title="Reset booking cut-off date to 15 days prior to event start"
+                    >
+                      Reset to 15 Days Before Start
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <DateInput
+                    label="Booking Closing Date"
+                    value={basicInfo.bookingEndDate}
+                    disabled={isViewMode}
+                    onChange={(isoVal) => {
+                      if (isViewMode) return;
+                      setIsBookingEndDateCustom(true);
+                      setBasicInfo((prev) => ({ ...prev, bookingEndDate: isoVal }));
+                    }}
+                    required
+                    helperText={
+                      basicInfo.startDate && basicInfo.bookingEndDate
+                        ? `${Math.max(
+                            0,
+                            Math.round(
+                              (new Date(basicInfo.startDate).getTime() - new Date(basicInfo.bookingEndDate).getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            )
+                          )} days before exhibition start date`
+                        : 'Format: DD/MM/YYYY'
                     }
-                    className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-colors cursor-pointer ${
-                      basicInfo.startTime === preset.start && basicInfo.endTime === preset.end
-                        ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+                  />
+
+                  <div className="p-3 bg-white border border-purple-100 rounded-lg flex items-center gap-2.5 text-slate-600">
+                    <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
+                    <p className="text-[11px] leading-relaxed">
+                      {basicInfo.bookingEndDate ? (
+                        <>
+                          Stall bookings will stop on <strong className="text-purple-900 font-bold">{formatDisplayDate(basicInfo.bookingEndDate)}</strong>. After this cut-off, public exhibitors cannot select or hold stalls.
+                        </>
+                      ) : (
+                        'Select an Exhibition Start Date above to automatically compute the 15-day cut-off date.'
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {durationDays !== null && durationDays > 0 ? (
@@ -1100,24 +1237,53 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
             {/* Category and Registration Format Template Strip */}
             <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-              <div className="md:col-span-6">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Industry / Sector Category
+              <div className="md:col-span-8 space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Industry / Sector Category *
                 </label>
-                <select
-                  value={basicInfo.category}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, category: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 h-[38px]"
-                >
-                  <option value="Industrial & Automation">Industrial & Automation</option>
-                  <option value="Electronics & Technology">Electronics & Technology</option>
-                  <option value="Healthcare & Pharma">Healthcare & Pharma</option>
-                  <option value="Textiles & Apparel">Textiles & Apparel</option>
-                  <option value="Building & Construction">Building & Construction</option>
-                  <option value="Food & Hospitality">Food & Hospitality</option>
-                  <option value="Automotive & Mobility">Automotive & Mobility</option>
-                  <option value="General Trade Fair">General Trade Fair</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <select
+                    value={PRESET_CATEGORIES.includes(basicInfo.category) ? basicInfo.category : 'OTHER'}
+                    disabled={isViewMode}
+                    onChange={(e) => {
+                      if (isViewMode) return;
+                      const val = e.target.value;
+                      if (val === 'OTHER') {
+                        setIsCustomCategory(true);
+                        if (PRESET_CATEGORIES.includes(basicInfo.category)) {
+                          setBasicInfo({ ...basicInfo, category: '' });
+                        }
+                      } else {
+                        setIsCustomCategory(false);
+                        setBasicInfo({ ...basicInfo, category: val });
+                      }
+                    }}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                  >
+                    {PRESET_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="OTHER">Other (Type custom sector...)</option>
+                  </select>
+
+                  {(isCustomCategory || !PRESET_CATEGORIES.includes(basicInfo.category)) && (
+                    <Input
+                      placeholder="Enter custom industry sector..."
+                      value={basicInfo.category}
+                      disabled={isViewMode}
+                      onChange={(e) => {
+                        if (isViewMode) return;
+                        setBasicInfo({ ...basicInfo, category: e.target.value });
+                      }}
+                      required
+                    />
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Choose from industry sector presets or select "Other" to type your own custom sector.
+                </p>
               </div>
             </div>
 
@@ -1128,9 +1294,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               <textarea
                 rows={3}
                 value={basicInfo.description}
-                onChange={(e) => setBasicInfo({ ...basicInfo, description: e.target.value })}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, description: e.target.value });
+                }}
                 placeholder="Summarize key industry sectors, visitor profiles, major pavilions, and trade opportunities..."
-                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-colors"
+                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -1143,10 +1313,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  2. Venue Location & Interactive Pin Placement
+                  2. Venue & Location
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Enter postal venue details and place an exact entrance pin. You can sync the address from the pin or keep them separated.
+                  Enter venue address and set the location pin on the map.
                 </p>
               </div>
             </div>
@@ -1155,14 +1325,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               <Input
                 label="Venue / Centre Name *"
                 value={basicInfo.venue}
-                onChange={(e) => setBasicInfo({ ...basicInfo, venue: e.target.value })}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, venue: e.target.value });
+                }}
                 placeholder="e.g. Bombay Exhibition Centre (BEC)"
                 required
               />
               <Input
                 label="City *"
                 value={basicInfo.city}
-                onChange={(e) => setBasicInfo({ ...basicInfo, city: e.target.value })}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, city: e.target.value });
+                }}
                 placeholder="e.g. Mumbai"
                 required
               />
@@ -1172,13 +1350,21 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               <Input
                 label="Full Venue Address"
                 value={basicInfo.address}
-                onChange={(e) => setBasicInfo({ ...basicInfo, address: e.target.value })}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, address: e.target.value });
+                }}
                 placeholder="e.g. NSE Nesco Complex, Off Western Express Hwy, Goregaon East"
               />
               <Input
                 label="State / Region"
                 value={basicInfo.state}
-                onChange={(e) => setBasicInfo({ ...basicInfo, state: e.target.value })}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, state: e.target.value });
+                }}
                 placeholder="e.g. Maharashtra"
               />
             </div>
@@ -1191,10 +1377,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               cityName={basicInfo.city}
               address={basicInfo.address}
               stateName={basicInfo.state}
-              onChangeCoordinates={(lat, lng) =>
-                setBasicInfo((prev) => ({ ...prev, latitude: lat, longitude: lng }))
-              }
+              readOnly={isViewMode}
+              onChangeCoordinates={(lat, lng) => {
+                if (isViewMode) return;
+                setBasicInfo((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+              }}
               onSyncAddress={(addressData) => {
+                if (isViewMode) return;
                 setBasicInfo((prev) => ({
                   ...prev,
                   address: addressData.address || prev.address,
@@ -1215,10 +1404,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                  3. Event Visuals & Media Gallery
+                  3. Photos & Banners
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Upload multiple banners from your computer or paste direct image links. No stock presets. Star the primary cover banner.
+                  Upload event banners or paste image links. Click the star icon to set the primary cover image.
                 </p>
               </div>
             </div>
@@ -1226,20 +1415,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <MultiImagePicker
               images={basicInfo.images}
               coverImage={basicInfo.bannerUrl}
-              onChangeImages={(newImages, newCover) =>
+              disabled={isViewMode}
+              onChangeImages={(newImages, newCover) => {
+                if (isViewMode) return;
                 setBasicInfo((prev) => ({
                   ...prev,
                   images: newImages,
                   bannerUrl: newCover,
-                }))
-              }
+                }));
+              }}
             />
           </div>
 
           {/* Step 1 Footer Action */}
           <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-xs">
             <span className="text-xs text-slate-500 font-medium">
-              Next step: Open visual studio canvas and build halls & stalls from scratch.
+              Next step: Design your halls and stalls on the interactive floor plan.
             </span>
             <Button
               variant="primary"
@@ -1247,7 +1438,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               onClick={() => setCurrentStep(2)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Continue to Visual Studio Canvas
+              Continue to Floor Plan Designer
             </Button>
           </div>
         </div>
@@ -1345,7 +1536,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
           <div className="pt-2 flex justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <Button variant="outline" size="lg" onClick={() => setCurrentStep(1)}>
-              Back to Event Info
+              Back to Event Details
             </Button>
             <Button
               variant="primary"
@@ -1353,7 +1544,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               onClick={() => setCurrentStep(3)}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Proceed to Final Preview & Launch
+              Continue to Review & Publish
             </Button>
           </div>
         </div>
@@ -1365,12 +1556,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600" /> Step 3: Final Exhibition Read-Only Preview
+                <Eye className="w-5 h-5 text-purple-600" /> Step 3: Review & Publish Exhibition
               </h2>
-              <p className="text-xs text-slate-500 mt-1">Review event parameters and stall inventory before publishing to live production.</p>
+              <p className="text-xs text-slate-500 mt-1">Review event details and stall layout before publishing.</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
-              Back to Canvas Editor
+              Back to Floor Plan Designer
             </Button>
           </div>
 
@@ -1392,6 +1583,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <p><span className="font-semibold text-slate-500">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01</code></p>
                 <p><span className="font-semibold text-slate-500">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
                 <p><span className="font-semibold text-slate-500">Dates & Timings:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)} ({formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)})</p>
+                <p><span className="font-semibold text-slate-500">Stall Booking Cut-Off:</span> <span className="font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded text-[11px]">{formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}</span></p>
               </div>
 
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">

@@ -14,6 +14,7 @@ import { AdminExhibitionBuilderPage } from '../features/dashboard/pages/AdminExh
 import { AdminCompaniesPage } from '../features/dashboard/pages/AdminCompaniesPage';
 import { AdminBookingsPage } from '../features/dashboard/pages/AdminBookingsPage';
 import { AdminPaymentsPage } from '../features/dashboard/pages/AdminPaymentsPage';
+import { AdminEventRegistrationPage } from '../features/dashboard/pages/AdminEventRegistrationPage';
 import { ExhibitionsPage } from '../features/exhibitions/pages/ExhibitionsPage';
 import { ExhibitionDetailPage } from '../features/exhibitions/pages/ExhibitionDetailPage';
 import { BookingWizardPage } from '../features/bookings/pages/BookingWizardPage';
@@ -26,6 +27,18 @@ import { InvoiceDetailPage } from '../features/invoices/pages/InvoiceDetailPage'
 import { NotificationsPage } from '../features/notifications/pages/NotificationsPage';
 import { PublicNavbar } from '../components/layout/PublicNavbar';
 import { PublicFooter } from '../components/layout/PublicFooter';
+
+// Super Admin Pages
+import { SuperAdminDashboardPage } from '../features/super-admin/pages/SuperAdminDashboardPage';
+import { SuperAdminUsersPage } from '../features/super-admin/pages/SuperAdminUsersPage';
+
+// Staff Pages
+import { StaffDashboardPage } from '../features/staff/pages/StaffDashboardPage';
+import { StaffRegisterEventPage } from '../features/staff/pages/StaffRegisterEventPage';
+import { StaffEventsPage } from '../features/staff/pages/StaffEventsPage';
+
+// Reports Page
+import { ReportsPage } from '../features/reports/pages/ReportsPage';
 
 const DashboardLayout = () => {
   return (
@@ -80,7 +93,7 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Protected Exhibitor & Admin Workspace Routes
+  // Protected Exhibitor, Admin, SuperAdmin, & Staff Workspace Routes
   {
     path: '/',
     element: (
@@ -89,6 +102,7 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
+      // Client Routes
       { path: 'dashboard', element: <ClientDashboardPage /> },
       { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
       { path: 'my-company', element: <CompanyProfilePage /> },
@@ -99,7 +113,61 @@ export const router = createBrowserRouter([
       { path: 'invoices/:id', element: <InvoiceDetailPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
 
-      // Admin Routes
+      // Super Admin Routes
+      {
+        path: 'super-admin/dashboard',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN']}>
+            <SuperAdminDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'super-admin/users',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN']}>
+            <SuperAdminUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Staff Routes
+      {
+        path: 'staff/dashboard',
+        element: (
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+            <StaffDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'staff/events/register',
+        element: (
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+            <StaffRegisterEventPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'staff/events',
+        element: (
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+            <StaffEventsPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Unified Role-Scoped Reports Route
+      {
+        path: 'reports',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']}>
+            <ReportsPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Admin Routes (Accessible to ADMIN and SUPERADMIN)
       {
         path: 'admin/dashboard',
         element: (
@@ -113,6 +181,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminEventsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/events/register',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']}>
+            <AdminEventRegistrationPage />
           </ProtectedRoute>
         ),
       },

@@ -93,6 +93,25 @@ const [discountValue, setDiscountValue] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [stallHoldError, setStallHoldError] = useState('');
 
+  const isBookingClosed = React.useMemo(() => {
+    if (!exhibition) return false;
+    if (exhibition.status === 'COMPLETED' || exhibition.status === 'CANCELLED' || exhibition.status === 'DRAFT') {
+      return true;
+    }
+    const now = new Date();
+    if (exhibition.bookingEndDate && now > new Date(exhibition.bookingEndDate)) {
+      return true;
+    }
+    if (!exhibition.bookingEndDate && exhibition.startDate) {
+      const defaultDeadline = new Date(new Date(exhibition.startDate).getTime() - 15 * 24 * 60 * 60 * 1000);
+      if (now > defaultDeadline) return true;
+    }
+    if (exhibition.endDate && now > new Date(exhibition.endDate)) {
+      return true;
+    }
+    return false;
+  }, [exhibition]);
+
   // Payment Plan Selection: Full (100%) or Partial (> 50%)
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [partialPercentage, setPartialPercentage] = useState<number>(50);
@@ -268,6 +287,10 @@ const [discountValue, setDiscountValue] = useState<number>(0);
 
   // Step 1: Confirm Stall Selection -> Proceed to Step 2 (Company Details)
   const handleHoldSelectedStall = async () => {
+    if (isBookingClosed) {
+      setStallHoldError('Stall bookings for this exhibition are closed as the cut-off date has passed.');
+      return;
+    }
     if (selectedStallIds.length === 0) return;
     try {
       setStallHoldError('');
@@ -608,6 +631,25 @@ const [discountValue, setDiscountValue] = useState<number>(0);
             </div>
           )}
 
+          {isBookingClosed && (
+            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold rounded-xl flex items-center justify-between gap-3 shrink-0 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Stall Bookings Closed:</strong> The registration cut-off date for this exhibition has passed. Stall reservations are closed.
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/exhibitions/${slug}`)}
+                className="bg-white border-amber-300 text-amber-900 text-xs hover:bg-amber-100"
+              >
+                Back to Event
+              </Button>
+            </div>
+          )}
+
           {/* Stalls Filter Bar */}
           <div className="shrink-0">
             <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
@@ -624,6 +666,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
               showGrid={false}
               className="w-full h-full min-h-full"
               onStallSelect={(s) => {
+                if (isBookingClosed) return;
                 if (s.status === 'AVAILABLE') toggleStallSelection(s);
               }}
             />

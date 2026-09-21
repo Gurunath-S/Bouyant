@@ -7,7 +7,19 @@ import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
-import { AlertCircle, CheckCircle2, Loader2, Save } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Save, Calendar } from 'lucide-react';
+
+const calculateDefaultBookingEndDate = (startDateStr: string): string => {
+  if (!startDateStr) return '';
+  try {
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() - 15);
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
+};
 
 interface ExhibitionEditModalProps {
   exhibition: Exhibition | null;
@@ -29,6 +41,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
     city: '',
     startDate: '',
     endDate: '',
+    bookingEndDate: '',
     bannerUrl: '',
     status: 'DRAFT',
   });
@@ -52,16 +65,22 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
         }
       };
 
-      setFormData({
-        title: exhibition.title || '',
-        description: exhibition.description || '',
-        venue: exhibition.venue || '',
-        city: exhibition.city || '',
-        startDate: formatToDateInput(exhibition.startDate),
-        endDate: formatToDateInput(exhibition.endDate),
-        bannerUrl: exhibition.bannerUrl || '',
-        status: exhibition.status || 'DRAFT',
-      });
+        const sIso = formatToDateInput(exhibition.startDate);
+        const bEndIso = exhibition.bookingEndDate
+          ? formatToDateInput(exhibition.bookingEndDate)
+          : calculateDefaultBookingEndDate(sIso);
+
+        setFormData({
+          title: exhibition.title || '',
+          description: exhibition.description || '',
+          venue: exhibition.venue || '',
+          city: exhibition.city || '',
+          startDate: sIso,
+          endDate: formatToDateInput(exhibition.endDate),
+          bookingEndDate: bEndIso,
+          bannerUrl: exhibition.bannerUrl || '',
+          status: exhibition.status || 'DRAFT',
+        });
       setImages(exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
       setErrorMessage(null);
     }
@@ -195,7 +214,13 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           <DateInput
             label="Start Date"
             value={formData.startDate}
-            onChange={(isoVal) => handleChange('startDate', isoVal)}
+            onChange={(isoVal) => {
+              setFormData((prev) => ({
+                ...prev,
+                startDate: isoVal,
+                bookingEndDate: prev.bookingEndDate || calculateDefaultBookingEndDate(isoVal),
+              }));
+            }}
             required
             helperText="Format: DD/MM/YYYY"
           />
@@ -205,6 +230,36 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
             onChange={(isoVal) => handleChange('endDate', isoVal)}
             required
             helperText="Format: DD/MM/YYYY"
+          />
+        </div>
+
+        {/* Stall Booking Cut-Off Date */}
+        <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-lg space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-xs text-purple-950 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-purple-600" />
+              Stall Booking Cut-Off Deadline
+            </span>
+            {formData.startDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  const autoD = calculateDefaultBookingEndDate(formData.startDate);
+                  handleChange('bookingEndDate', autoD);
+                }}
+                className="text-[10px] font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                title="Reset cut-off to 15 days before start"
+              >
+                Reset to 15 Days Prior
+              </button>
+            )}
+          </div>
+          <DateInput
+            label="Booking Closing Date"
+            value={formData.bookingEndDate}
+            onChange={(isoVal) => handleChange('bookingEndDate', isoVal)}
+            required
+            helperText="Public stall bookings will automatically stop after this date."
           />
         </div>
 

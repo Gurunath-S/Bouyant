@@ -276,7 +276,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       {/* Toolbox Header */}
       <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-          <Building className="w-3.5 h-3.5 text-blue-600" /> Studio Tools
+          <Building className="w-3.5 h-3.5 text-blue-600" /> Design Tools
         </span>
 
         <div className="flex items-center gap-1">
@@ -335,7 +335,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       {/* Navigation Tools */}
       <div className="p-3 border-b border-slate-100 space-y-1">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-          Navigation & Selection Tools
+          Selection Tools
         </div>
         <div className="grid grid-cols-3 gap-1.5">
           <button
@@ -363,10 +363,10 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
                   ? 'bg-purple-600 text-white shadow-xs ring-2 ring-purple-300'
                   : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200'
               }`}
-              title="Random Multi-Select Pick Mode (M) — Click any stalls randomly to toggle in/out of selection"
+              title="Multi-Select Mode (M) — Click stalls to add or remove from selection"
             >
               <CheckSquare className="w-3.5 h-3.5" />
-              <span>Multi-Pick (M)</span>
+              <span>Multi-Select (M)</span>
             </button>
           ) : (
             <button
@@ -392,13 +392,13 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             title="Pan / Move Canvas (H)"
           >
             <Hand className="w-3.5 h-3.5" />
-            <span>Move (H)</span>
+            <span>Pan Canvas (H)</span>
           </button>
         </div>
         <p className="text-[10px] text-slate-400 leading-tight pt-0.5">
           {isMultiSelectMode
-            ? 'Pick Mode Active: Click any stalls anywhere to toggle selection randomly without Shift.'
-            : 'Click stall to select, or drag empty canvas to marquee-box select multiple.'}
+            ? 'Multi-Select Active: Click stalls anywhere to add or remove them from selection.'
+            : 'Click stall to select, or drag empty canvas to select multiple.'}
         </p>
 
         {/* Common Zoom Controls across all tools */}
@@ -431,7 +431,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       {/* Structure Tools */}
       <div className="p-3 border-b border-slate-100 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-          Spatial Structures
+          Halls & Stalls
         </div>
 
         <button
@@ -440,7 +440,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           title="+ Add Hall / Pavilion (e.g. Hall A, Hall B) with freehand drag-resizing"
         >
           <span className="flex items-center gap-2">
-            <Maximize2 className="w-3.5 h-3.5 text-blue-600" /> + Hall / Pavilion
+            <Maximize2 className="w-3.5 h-3.5 text-blue-600" /> + Add Hall / Zone
           </span>
           <span className="text-[10px] text-blue-600 font-bold">Hall A, B</span>
         </button>
@@ -451,7 +451,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           title="Quick 1-click spawn standard 3×3m stall"
         >
           <span className="flex items-center gap-2">
-            <Square className="w-3.5 h-3.5 text-emerald-600" /> + Single Stall
+            <Square className="w-3.5 h-3.5 text-emerald-600" /> + Add Stall (3×3m)
           </span>
           <span className="text-[10px] text-slate-500 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded">3×3m</span>
         </button>
@@ -463,7 +463,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             title="Create stall with custom dimensions (3×3, 6×3, custom meters/feet) and custom label"
           >
             <span className="flex items-center gap-2">
-              <Sliders className="w-3.5 h-3.5 text-blue-600" /> + Custom Sized Stall
+              <Sliders className="w-3.5 h-3.5 text-blue-600" /> + Custom Size Stall
             </span>
             <span className="text-[10px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">3×3, 6×3...</span>
           </button>
@@ -474,7 +474,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-xs transition-all"
         >
           <span className="flex items-center gap-2">
-            <LayoutGrid className="w-3.5 h-3.5" /> + Stall Row (Bulk)
+            <LayoutGrid className="w-3.5 h-3.5" /> + Add Stall Row
           </span>
           <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded text-white">
             Fast Row
@@ -486,7 +486,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-purple-50/60 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-2xs"
         >
           <span className="flex items-center gap-2">
-            <Sliders className="w-3.5 h-3.5 text-purple-600" /> + Custom Zone / Area
+            <Sliders className="w-3.5 h-3.5 text-purple-600" /> + Special Area (VIP / Stage)
           </span>
           <span className="text-[10px] text-slate-400">VIP / Media</span>
         </button>
@@ -496,7 +496,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       <div className="p-3 border-b border-slate-100 space-y-1.5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Facilities & Amenities
+            Amenities & Entry Gates
           </span>
           <button
             onClick={() => setShowFacilitiesMenu(!showFacilitiesMenu)}

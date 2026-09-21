@@ -9,8 +9,9 @@ import {
   Layers,
   Plus,
   Calendar,
+  CalendarPlus,
   MapPin,
-  Eye,
+  ChevronDown,
   Pencil,
   Trash2,
   HelpCircle,
@@ -18,7 +19,43 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Search,
+  Filter,
 } from 'lucide-react';
+
+const getStatusConfig = (status: Exhibition['status']) => {
+  switch (status) {
+    case 'PUBLISHED':
+      return {
+        label: 'Published',
+        dotColor: 'bg-emerald-500 ring-emerald-200',
+        badgeClass:
+          'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100/70 hover:border-emerald-400 focus-within:ring-emerald-400/40',
+      };
+    case 'COMPLETED':
+      return {
+        label: 'Completed',
+        dotColor: 'bg-blue-500 ring-blue-200',
+        badgeClass:
+          'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100/70 hover:border-blue-400 focus-within:ring-blue-400/40',
+      };
+    case 'CANCELLED':
+      return {
+        label: 'Cancelled',
+        dotColor: 'bg-rose-500 ring-rose-200',
+        badgeClass:
+          'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100/70 hover:border-rose-400 focus-within:ring-rose-400/40',
+      };
+    case 'DRAFT':
+    default:
+      return {
+        label: 'Draft',
+        dotColor: 'bg-amber-500 ring-amber-200',
+        badgeClass:
+          'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100/70 hover:border-amber-400 focus-within:ring-amber-400/40',
+      };
+  }
+};
 
 export const AdminEventsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +67,10 @@ export const AdminEventsPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     fetchEvents();
@@ -46,6 +87,24 @@ export const AdminEventsPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const filteredExhibitions = React.useMemo(() => {
+    return exhibitions.filter((e) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesQuery =
+        !q ||
+        e.title.toLowerCase().includes(q) ||
+        (e.eventCode && e.eventCode.toLowerCase().includes(q)) ||
+        (e.slug && e.slug.toLowerCase().includes(q)) ||
+        (e.city && e.city.toLowerCase().includes(q)) ||
+        (e.venue && e.venue.toLowerCase().includes(q)) ||
+        (e.spcode && e.spcode.toLowerCase().includes(q));
+
+      const matchesStatus = statusFilter === 'ALL' || e.status === statusFilter;
+
+      return matchesQuery && matchesStatus;
+    });
+  }, [exhibitions, searchQuery, statusFilter]);
 
   const handleConfirmDelete = async () => {
     if (!exhibitionToDelete) return;
@@ -79,6 +138,36 @@ export const AdminEventsPage: React.FC = () => {
     fetchEvents();
   };
 
+  const handleStatusChange = async (eventId: string, newStatus: Exhibition['status']) => {
+    const previousEvents = [...exhibitions];
+    // Optimistically update the UI
+    setExhibitions((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, status: newStatus } : e))
+    );
+    setUpdatingStatusId(eventId);
+    try {
+      await exhibitionService.updateExhibition(eventId, { status: newStatus });
+      setNotification({
+        type: 'success',
+        message: `Exhibition status updated to ${newStatus}.`,
+      });
+    } catch (err: any) {
+      console.error('Failed to update status:', err);
+      // Revert optimistic update on failure
+      setExhibitions(previousEvents);
+      const apiMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to update exhibition status.';
+      setNotification({
+        type: 'error',
+        message: apiMsg,
+      });
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -86,22 +175,34 @@ export const AdminEventsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Layers className="w-6 h-6 text-purple-600" />
-            Exhibition Event & Floor Plan Builder
+            Manage Exhibitions
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Configure trade fair events, publish interactive floor plans, inspect booking dossiers, and manage events.
+            Create exhibitions, design interactive floor plans, and track stall bookings.
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => navigate('/admin/events/create')}
-          leftIcon={<Plus className="w-4 h-4" />}
-          className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-        >
-          Create Exhibition (Visual Floor Plan Studio)
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/admin/events/register')}
+            leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600" />}
+            className="border-purple-200 hover:border-purple-300 text-purple-700 hover:bg-purple-50"
+          >
+            Register Event
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/admin/events/create')}
+            leftIcon={<Plus className="w-4 h-4" />}
+            className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+          >
+            Create Exhibition
+          </Button>
+        </div>
       </div>
 
       {/* Notification Banner */}
@@ -130,34 +231,79 @@ export const AdminEventsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Search and Filters Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search exhibitions by title, code, slug, venue or SP code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <label className="text-xs font-bold text-slate-500 shrink-0">Status Filter:</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
+            >
+              <option value="ALL">All Statuses ({exhibitions.length})</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          <span className="text-xs font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+            Showing {filteredExhibitions.length} / {exhibitions.length}
+          </span>
+        </div>
+      </div>
+
       {/* Events Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
-              <th className="py-3.5 px-4">
-                <div className="flex items-center gap-1 group relative cursor-help">
-                  <span>Event Title & Slug</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 transition-colors" />
-                  {/* Tooltip explanation */}
-                  <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
-                    <strong>What is a Slug?</strong>
-                    <p className="mt-0.5 text-slate-300">
-                      A URL-friendly string used to access the public booking page (e.g. <span className="text-purple-300 font-mono">/events/mediccon-2026</span>) and optimize search ranking.
-                    </p>
+        {loading ? (
+          <div className="p-12 text-center text-xs text-slate-400">Loading exhibitions...</div>
+        ) : filteredExhibitions.length === 0 ? (
+          <div className="p-12 text-center text-xs text-slate-400 space-y-2">
+            <Layers className="w-8 h-8 text-slate-300 mx-auto" />
+            <p className="font-bold text-slate-600">No Exhibitions Found</p>
+            <p>No event matched your search query or status filter.</p>
+          </div>
+        ) : (
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
+                <th className="py-3.5 px-4">
+                  <div className="flex items-center gap-1 group relative cursor-help">
+                    <span>Event Title & Slug</span>
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                    {/* Tooltip explanation */}
+                    <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
+                      <strong>What is a Slug?</strong>
+                      <p className="mt-0.5 text-slate-300">
+                        A URL-friendly string used to access the public booking page (e.g. <span className="text-purple-300 font-mono">/events/mediccon-2026</span>) and optimize search ranking.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </th>
-              <th className="py-3.5 px-4">SP Code</th>
-              <th className="py-3.5 px-4">Venue & Location</th>
-              <th className="py-3.5 px-4">Event Dates</th>
-              <th className="py-3.5 px-4 text-center">Capacity</th>
-              <th className="py-3.5 px-4 text-center">Status</th>
-              <th className="py-3.5 px-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-800">
-            {exhibitions.map((e) => (
+                </th>
+                <th className="py-3.5 px-4">SP Code</th>
+                <th className="py-3.5 px-4">Venue & Location</th>
+                <th className="py-3.5 px-4">Event Dates</th>
+                <th className="py-3.5 px-4 text-center">Capacity</th>
+                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-800">
+              {filteredExhibitions.map((e) => (
               <tr
                 key={e.id}
                 onClick={() => navigate(`/admin/events/${e.id}/view`)}
@@ -204,39 +350,67 @@ export const AdminEventsPage: React.FC = () => {
                 </td>
                 <td className="py-3.5 px-4 text-center font-bold text-purple-700">{e.totalStalls} Stalls</td>
                 <td className="py-3.5 px-4 text-center">
-                  <span
-                    className={`px-2 py-0.5 font-bold text-[10px] rounded uppercase border ${
-                      e.status === 'PUBLISHED'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : e.status === 'CANCELLED'
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : 'bg-purple-50 text-purple-700 border-purple-200'
-                    }`}
+                  <div
+                    className="inline-flex items-center justify-center relative"
+                    onClick={(evt) => evt.stopPropagation()}
                   >
-                    {e.status}
-                  </span>
+                    {updatingStatusId === e.id ? (
+                      <div className="w-[130px] h-8 inline-flex items-center justify-center gap-1.5 px-2.5 text-[10px] font-bold rounded-lg border bg-slate-50 text-slate-500 border-slate-200 shadow-2xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                        <span>Updating...</span>
+                      </div>
+                    ) : (() => {
+                      const cfg = getStatusConfig(e.status);
+                      return (
+                        <div
+                          className={`relative inline-flex items-center w-[130px] h-8 rounded-lg border shadow-2xs transition-all focus-within:ring-2 focus-within:ring-offset-1 ${cfg.badgeClass}`}
+                        >
+                          {/* Status Dot Indicator */}
+                          <span
+                            className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ring-2 pointer-events-none ${cfg.dotColor}`}
+                          />
+
+                          {/* Interactive Status Select */}
+                          <select
+                            value={e.status}
+                            onChange={(evt) =>
+                              handleStatusChange(e.id, evt.target.value as Exhibition['status'])
+                            }
+                            className="w-full h-full appearance-none bg-transparent cursor-pointer pl-6 pr-6 text-[11px] font-bold tracking-wider uppercase focus:outline-none font-mono"
+                            title="Click to quickly change event status"
+                          >
+                            <option value="DRAFT" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                              Draft
+                            </option>
+                            <option value="PUBLISHED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                              Published
+                            </option>
+                            <option value="COMPLETED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                              Completed
+                            </option>
+                            <option value="CANCELLED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                              Cancelled
+                            </option>
+                          </select>
+
+                          {/* Dropdown Chevron */}
+                          <ChevronDown className="w-3.5 h-3.5 text-current absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </td>
                 <td className="py-3.5 px-4 text-center">
                   <div
-                    className="inline-flex items-center gap-1.5"
+                    className="inline-flex items-center justify-center gap-1.5"
                     onClick={(evt) => evt.stopPropagation()}
                   >
-                    {/* View in Studio Button */}
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/admin/events/${e.id}/view`)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
-                      title="View Full Event in Studio"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-
-                    {/* Edit in Studio Button */}
+                    {/* Edit Exhibition & Floor Plan Button */}
                     <button
                       type="button"
                       onClick={() => navigate(`/admin/events/${e.id}/edit`)}
-                      className="p-1.5 text-amber-600 hover:bg-amber-50 border border-amber-200 rounded-md transition-colors"
-                      title="Edit Event in Studio"
+                      className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg shadow-2xs transition-all"
+                      title="Edit Exhibition & Floor Plan"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -248,8 +422,8 @@ export const AdminEventsPage: React.FC = () => {
                         setDeleteError(null);
                         setExhibitionToDelete(e);
                       }}
-                      className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors"
-                      title="Delete Exhibition Event"
+                      className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-lg shadow-2xs transition-all"
+                      title="Delete Exhibition"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -259,6 +433,7 @@ export const AdminEventsPage: React.FC = () => {
             ))}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

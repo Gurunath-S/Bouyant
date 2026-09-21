@@ -21,6 +21,8 @@ import {
   CheckCircle,
   Layers,
   Info,
+  AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
@@ -38,13 +40,59 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
-  const { selectedStallIds, toggleStallSelection, zoomLevel, setZoomLevel } = useFloorPlanStore();
+  const { selectedStallIds, toggleStallSelection, clearStallSelection } = useFloorPlanStore();
+
+  const isBookingClosed = React.useMemo(() => {
+    if (!exhibition) return false;
+    if (exhibition.status === 'COMPLETED' || exhibition.status === 'CANCELLED' || exhibition.status === 'DRAFT') {
+      return true;
+    }
+    const now = new Date();
+    if (exhibition.bookingEndDate && now > new Date(exhibition.bookingEndDate)) {
+      return true;
+    }
+    if (!exhibition.bookingEndDate && exhibition.startDate) {
+      const defaultDeadline = new Date(new Date(exhibition.startDate).getTime() - 15 * 24 * 60 * 60 * 1000);
+      if (now > defaultDeadline) return true;
+    }
+    if (exhibition.endDate && now > new Date(exhibition.endDate)) {
+      return true;
+    }
+    return false;
+  }, [exhibition]);
+
+  const bookingCloseDisplay = React.useMemo(() => {
+    if (!exhibition) return '';
+    if (exhibition.bookingEndDate) return formatDisplayDate(exhibition.bookingEndDate);
+    if (exhibition.startDate) {
+      const defaultDeadline = new Date(new Date(exhibition.startDate).getTime() - 15 * 24 * 60 * 60 * 1000);
+      return formatDisplayDate(defaultDeadline.toISOString());
+    }
+    return '';
+  }, [exhibition]);
+
+  const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
   useEffect(() => {
-    if (slug) fetchEventData();
+    fetchExhibition();
+    fetchCurrentUpcoming();
   }, [slug]);
 
-  const fetchEventData = async () => {
+  const fetchCurrentUpcoming = async () => {
+    try {
+      const all = await exhibitionService.getExhibitions('PUBLISHED');
+      const now = new Date();
+      const active = all.filter((e) => new Date(e.endDate) >= now);
+      if (active.length > 0) {
+        active.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        setCurrentUpcomingEvent(active[0]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchExhibition = async () => {
     try {
       setLoading(true);
       const expo = await exhibitionService.getExhibitionBySlug(slug!);
@@ -95,6 +143,7 @@ export const ExhibitionDetailPage: React.FC = () => {
     );
   }
 
+  const isCurrentUpcoming = !currentUpcomingEvent || (exhibition && exhibition.id === currentUpcomingEvent.id);
   const availableCount = stalls.filter((s) => s.status === 'AVAILABLE').length || exhibition.totalStalls || 45;
   const registeredCount = stalls.length > 0 ? stalls.length - availableCount : 120;
   const totalSlots = stalls.length || (availableCount + registeredCount);
@@ -336,19 +385,34 @@ export const ExhibitionDetailPage: React.FC = () => {
                   <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
                 </div>
 
+                {isBookingClosed && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        <strong>Stall Bookings Closed:</strong> Online registration for this exhibition closed on <strong>{bookingCloseDisplay}</strong>. The floor plan is currently in view-only mode.
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded shrink-0">
+                      Booking Closed
+                    </span>
+                  </div>
+                )}
+
                 <div className="relative border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 max-w-[1200px] mx-auto">
                   <FloorPlanCanvas
                     stalls={stalls}
                     layoutData={layoutData}
                     className="w-full h-[500px] sm:h-[540px]"
                     onStallSelect={(s) => {
+                      if (isBookingClosed) return;
                       if (s.status === 'AVAILABLE') toggleStallSelection(s);
                     }}
                   />
                 </div>
 
                 {/* Selected Stall Quick Action Box */}
-                {selectedStallIds.length > 0 && (() => {
+                {!isBookingClosed && selectedStallIds.length > 0 && (() => {
                   const selectedStallsObj = stalls.filter(s => selectedStallIds.includes(s.id));
                   if (selectedStallsObj.length === 0) return null;
                   
@@ -545,12 +609,30 @@ export const ExhibitionDetailPage: React.FC = () => {
 
             {/* Book Stall Action Button — Clear Gap Above & Below */}
             <div className="pt-2">
-              <Link to={`/exhibitions/${slug}/book`}>
-                <button className="w-full bg-[#1E3FA0] hover:bg-[#152B75] text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                  Book Stall
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </Link>
+              {!isCurrentUpcoming ? (
+                <div className="w-full bg-amber-50 border border-amber-200 text-amber-900 font-bold text-xs py-3.5 px-4 rounded-xl flex flex-col items-center justify-center gap-1 text-center shadow-2xs">
+                  <span className="text-amber-900 font-extrabold flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Bookings Closed For This Event
+                  </span>
+                  <span className="text-[11px] font-medium text-amber-800">
+                    Stall booking is strictly restricted to the current upcoming event: <strong>"{currentUpcomingEvent?.title}"</strong>
+                  </span>
+                </div>
+              ) : isBookingClosed ? (
+                <div className="w-full bg-slate-50 border border-slate-200 text-slate-500 font-bold text-sm py-3.5 px-4 rounded-xl flex flex-col items-center justify-center gap-1 text-center shadow-2xs">
+                  <span className="text-slate-700 font-extrabold">Stall Bookings Closed</span>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Registration cut-off date was {bookingCloseDisplay}
+                  </span>
+                </div>
+              ) : (
+                <Link to={`/exhibitions/${slug}/book`}>
+                  <button className="w-full bg-[#1E3FA0] hover:bg-[#152B75] text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    Book Stall
+                    <ArrowRight className="w-5 h-5 text-[#84CC16]" />
+                  </button>
+                </Link>
+              )}
             </div>
 
             {/* Value Checklist */}

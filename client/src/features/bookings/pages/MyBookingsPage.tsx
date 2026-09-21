@@ -49,7 +49,7 @@ export const MyBookingsPage: React.FC = () => {
 
       {loading ? (
         <div className="p-12 text-center text-slate-500 animate-pulse font-medium">
-          Loading Booking Ledger...
+          Loading Bookings...
         </div>
       ) : bookings.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-3">

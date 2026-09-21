@@ -250,14 +250,16 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <button
                   onClick={() => onDistributeStalls('horizontal')}
                   className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+                  title="Make horizontal spacing between stalls equal"
                 >
-                  Distribute Horiz ↔
+                  Even Spacing ↔
                 </button>
                 <button
                   onClick={() => onDistributeStalls('vertical')}
                   className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+                  title="Make vertical spacing between stalls equal"
                 >
-                  Distribute Vert ↕
+                  Even Spacing ↕
                 </button>
               </div>
             </div>
@@ -284,7 +286,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                       className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
                     />
                     <span className="text-[11px] font-bold text-blue-900">
-                      Keep Flush / No Gaps (Auto-Pack)
+                      Snap together without gaps
                     </span>
                   </label>
                 </div>
@@ -297,7 +299,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                     title="Remove all gaps and pack selected stalls tightly edge-to-edge"
                   >
                     <Layers className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Snap & Pack Flush (0 Gap)</span>
+                    <span>Snap Stalls Together (No Gaps)</span>
                   </button>
                 )}
               </div>
@@ -1338,7 +1340,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
         {/* Total Valuation Card */}
         <div className="p-3.5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-1">
           <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">
-            Total Inventory Valuation
+            Total Stall Value
           </span>
           <p className="text-xl font-extrabold text-blue-700 font-mono">
             ₹{totalValuation.toLocaleString()}
@@ -1351,7 +1353,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
         {/* Breakdown Counts */}
         <div className="space-y-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Spatial Components
+            Floor Plan Overview
           </span>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">

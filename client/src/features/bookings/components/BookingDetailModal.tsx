@@ -40,7 +40,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Booking Dossier — ${booking.bookingReference}`}
+      title={`Booking Details — ${booking.bookingReference}`}
       maxWidth="2xl"
     >
       <div className="space-y-6 text-xs text-slate-700 dark:text-slate-200 max-h-[75vh] overflow-y-auto pr-1">
@@ -163,10 +163,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Financial & Ledger Breakdown */}
+        {/* Financial Breakdown */}
         <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
           <h4 className="font-extrabold text-[#012970] dark:text-blue-400 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-700 pb-2">
-            <FileText className="w-4 h-4 text-[#09539b] dark:text-blue-400" /> Financial Settlement & Tax Ledger
+            <FileText className="w-4 h-4 text-[#09539b] dark:text-blue-400" /> Payment & Tax Summary
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
@@ -242,7 +242,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
               </Link>
             )}
             <Button variant="secondary" size="sm" onClick={onClose}>
-              Close Dossier
+              Close
             </Button>
           </div>
         </div>

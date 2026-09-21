@@ -2403,7 +2403,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
                   return (
                     <g key={hall.id}>
-                      {/* Hall boundary rectangle - clicking/dragging interior allows marquee drag-select or single-click select */}
+                      {/* Hall boundary rectangle - dragging inside draws marquee selection for inside items; moving hall is done by dragging header banner or border outline */}
                       <rect
                         x={hall.x}
                         y={hall.y}
@@ -2414,17 +2414,20 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         stroke={strokeColor}
                         strokeWidth={isSelected ? 3.5 : 2}
                         strokeDasharray={isSelected ? 'none' : '8 6'}
-                        className="transition-all cursor-default"
+                        className="transition-all cursor-crosshair"
                         onMouseDown={(e) => {
                           if (e.button !== 0) return;
-                          if (activeTool === 'pan') {
+                          if (activeTool === 'pan' || isSpacePressed) {
                             setIsPanning(true);
                             setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
                             return;
                           }
-                          // Allow drag-select or click-select over hall interior
+                          // Marquee drag-select items inside the hall interior automatically
                           const pt = getSVGCoordinates(e);
                           lastCanvasClickPos.current = { x: pt.x, y: pt.y };
+                          if (!e.shiftKey && !isMultiSelectMode) {
+                            setSelectedRefs([]);
+                          }
                           setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y, startInsideHallId: hall.id });
                           e.stopPropagation();
                         }}
