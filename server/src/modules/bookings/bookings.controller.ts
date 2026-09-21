@@ -40,11 +40,13 @@ export class BookingsController {
   };
 
   static listAll = async (req: AuthenticatedRequest, res: Response) => {
-    const page = parseInt(req.query.page as string || '1', 10);
-    const limit = parseInt(req.query.limit as string || '20', 10);
+    const page = parseInt((req.query.page as string) || '1', 10);
+    const limit = parseInt((req.query.limit as string) || '50', 10);
     const status = req.query.status as string;
+    const registeredByRole = req.query.registeredByRole as string;
+    const exhibitionId = req.query.exhibitionId as string;
 
-    const result = await BookingsService.listAllBookings(page, limit, status);
+    const result = await BookingsService.listAllBookings(page, limit, status, registeredByRole, exhibitionId);
     return sendResponse({
       res,
       statusCode: 200,

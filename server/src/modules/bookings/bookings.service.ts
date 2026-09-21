@@ -25,11 +25,29 @@ export class BookingsService {
       throw ApiError.badRequest('Please complete your Company Profile before making a stall booking.');
     }
 
-    // Verify Exhibition status & booking deadline
+    // Verify Exhibition status & current upcoming active event rule
     const exhibition = await prisma.exhibition.findUnique({
       where: { id: input.exhibitionId },
     });
     if (!exhibition) throw ApiError.notFound('Exhibition event not found.');
+
+    const now = new Date();
+
+    // SINGLE ACTIVE UPCOMING EVENT RULE:
+    // Only the single current active published upcoming exhibition allows bookings
+    const currentUpcomingEvent = await prisma.exhibition.findFirst({
+      where: {
+        status: 'PUBLISHED',
+        endDate: { gte: now },
+      },
+      orderBy: { startDate: 'asc' },
+    });
+
+    if (currentUpcomingEvent && exhibition.id !== currentUpcomingEvent.id) {
+      throw ApiError.badRequest(
+        `Stall bookings are strictly restricted to the current upcoming event ("${currentUpcomingEvent.title}"). Bookings for this exhibition are closed.`
+      );
+    }
 
     if (exhibition.status === 'COMPLETED') {
       throw ApiError.badRequest('This exhibition has concluded. Stall bookings are closed.');
@@ -37,11 +55,11 @@ export class BookingsService {
     if (exhibition.status === 'CANCELLED') {
       throw ApiError.badRequest('This exhibition is cancelled. Stall bookings are not accepted.');
     }
-    if (exhibition.status === 'DRAFT') {
+    const isAdminUser = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
+    if (exhibition.status === 'DRAFT' && !isAdminUser) {
       throw ApiError.badRequest('This exhibition is in draft mode and not yet published for booking.');
     }
 
-    const now = new Date();
     const bookingDeadline = exhibition.bookingEndDate
       ? new Date(exhibition.bookingEndDate)
       : new Date(exhibition.startDate.getTime() - 15 * 24 * 60 * 60 * 1000);
@@ -106,7 +124,84 @@ export class BookingsService {
         }
       }
 
-      // Update stall statuses to PAYMENT_PENDING
+      const isAdminUser = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
+      const isDirectConfirm = input.confirmDirectly && isAdminUser;
+
+      if (isDirectConfirm) {
+        // Direct Admin Allocation: immediately confirm stalls and booking
+        await tx.stall.updateMany({
+          where: { id: { in: input.stallIds } },
+          data: {
+            status: 'BOOKED_CONFIRMED',
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+
+        const booking = await tx.booking.create({
+          data: {
+            bookingReference: bookingRef,
+            userId,
+            companyId: targetCompanyId,
+            exhibitionId: input.exhibitionId,
+            status: 'CONFIRMED',
+            paymentStatus: 'PAID_FULL',
+            totalAmount: basePrice,
+            taxAmount,
+            grandTotal,
+            paidAmount: grandTotal,
+            balanceAmount: new Prisma.Decimal(0),
+            stalls: {
+              create: stalls.map((s) => ({
+                stallId: s.id,
+                price: new Prisma.Decimal(s.price.toString()),
+              })),
+            },
+          },
+          include: {
+            stalls: { include: { stall: true } },
+            exhibition: true,
+            company: true,
+            user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
+          },
+        });
+
+        // Create Payment Record for Admin Allocation
+        const paymentRef = `PAY-${Math.floor(10000 + Math.random() * 90000)}`;
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference: paymentRef,
+            bookingId: booking.id,
+            userId,
+            amount: grandTotal,
+            currency: 'INR',
+            status: 'SUCCESS',
+            provider: 'OFFLINE_ADMIN',
+            paymentMethod: input.paymentMethod || 'ADMIN_DIRECT_ALLOCATION',
+            paidAt: new Date(),
+          },
+        });
+
+        // Generate Invoice
+        const invoiceNum = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+        await tx.invoice.create({
+          data: {
+            invoiceNumber: invoiceNum,
+            bookingId: booking.id,
+            paymentId: payment.id,
+            companyId: targetCompanyId,
+            totalAmount: basePrice,
+            taxAmount,
+            grandTotal,
+            status: 'PAID',
+            issueDate: new Date(),
+          },
+        });
+
+        return booking;
+      }
+
+      // Standard / Client Hold Flow: Update stall statuses to PAYMENT_PENDING
       await tx.stall.updateMany({
         where: { id: { in: input.stallIds } },
         data: {
@@ -131,15 +226,15 @@ export class BookingsService {
           stalls: {
             create: stalls.map((s) => ({
               stallId: s.id,
-              price: new Prisma.Decimal(s.price.toString())
-            }))
-          }
+              price: new Prisma.Decimal(s.price.toString()),
+            })),
+          },
         },
         include: {
           stalls: { include: { stall: true } },
           exhibition: true,
           company: true,
-          user: { select: { name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
         },
       });
 
@@ -184,7 +279,7 @@ export class BookingsService {
         company: true,
         payments: true,
         invoice: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
       },
     });
 
@@ -196,9 +291,24 @@ export class BookingsService {
     return booking;
   }
 
-  static async listAllBookings(page = 1, limit = 20, status?: string) {
+  static async listAllBookings(
+    page = 1,
+    limit = 20,
+    status?: string,
+    registeredByRole?: string,
+    exhibitionId?: string
+  ) {
     const skip = (page - 1) * limit;
-    const where: any = status ? { status } : {};
+    const where: any = {};
+    if (status) where.status = status;
+    if (exhibitionId) where.exhibitionId = exhibitionId;
+    if (registeredByRole) {
+      if (registeredByRole === 'ADMIN') {
+        where.user = { role: { in: ['ADMIN', 'SUPERADMIN'] } };
+      } else {
+        where.user = { role: registeredByRole };
+      }
+    }
 
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
@@ -208,10 +318,42 @@ export class BookingsService {
         orderBy: { createdAt: 'desc' },
         include: {
           stalls: { include: { stall: true } },
-          exhibition: { select: { title: true } },
-          company: { select: { name: true, companyCode: true } },
-          payments: { select: { status: true, paymentReference: true } },
-          user: { select: { name: true, email: true } },
+          exhibition: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              edition: true,
+              eventCode: true,
+              city: true,
+              venue: true,
+              startDate: true,
+              endDate: true,
+            },
+          },
+          company: {
+            select: {
+              id: true,
+              name: true,
+              companyCode: true,
+              contactPerson: true,
+              mobile: true,
+              email: true,
+              city: true,
+              gstNumber: true,
+            },
+          },
+          payments: {
+            select: {
+              status: true,
+              paymentReference: true,
+              provider: true,
+              amount: true,
+              paidAt: true,
+            },
+          },
+          invoice: { select: { id: true, invoiceNumber: true, status: true } },
+          user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
         },
       }),
       prisma.booking.count({ where }),

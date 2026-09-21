@@ -1,6 +1,5 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { InvoicesService } from '../invoices/invoices.service.js';
 
 export class PaymentsService {
   /**
@@ -18,7 +17,7 @@ export class PaymentsService {
       include: {
         stalls: { include: { stall: true } },
         company: true,
-        payment: true,
+        payments: true,
       },
     });
 
@@ -29,28 +28,38 @@ export class PaymentsService {
 
     if (action === 'SUCCESS') {
       return await prisma.$transaction(async (tx) => {
-        // 1. Update Payment Record
-        const payment = await tx.payment.upsert({
+        // 1. Update or Create Payment Record
+        const existingPayment = await tx.payment.findFirst({
           where: { bookingId },
-          update: {
-            status: 'SUCCESS',
-            transactionId: generatedTxnId,
-            paymentMethod,
-            paidAt: new Date(),
-          },
-          create: {
-            paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
-            bookingId,
-            userId,
-            amount: booking.grandTotal,
-            currency: 'INR',
-            status: 'SUCCESS',
-            provider: 'STRIPE_SIMULATOR',
-            transactionId: generatedTxnId,
-            paymentMethod,
-            paidAt: new Date(),
-          },
         });
+
+        let payment;
+        if (existingPayment) {
+          payment = await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              status: 'SUCCESS',
+              transactionId: generatedTxnId,
+              paymentMethod,
+              paidAt: new Date(),
+            },
+          });
+        } else {
+          payment = await tx.payment.create({
+            data: {
+              paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+              bookingId,
+              userId,
+              amount: booking.grandTotal,
+              currency: 'INR',
+              status: 'SUCCESS',
+              provider: 'STRIPE_SIMULATOR',
+              transactionId: generatedTxnId,
+              paymentMethod,
+              paidAt: new Date(),
+            },
+          });
+        }
 
         // 2. Mark Booking as CONFIRMED
         await tx.booking.update({
@@ -59,7 +68,7 @@ export class PaymentsService {
         });
 
         // 3. Mark ALL stalls as BOOKED_CONFIRMED
-        const stallIds = booking.stalls.map((s: any) => s.stallId);
+        const stallIds = booking.stalls.map((s) => s.stallId);
         await tx.stall.updateMany({
           where: { id: { in: stallIds } },
           data: {
@@ -99,22 +108,31 @@ export class PaymentsService {
       });
     } else {
       // Payment Failed or Cancelled
-      await prisma.payment.upsert({
+      const existingPayment = await prisma.payment.findFirst({
         where: { bookingId },
-        update: {
-          status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
-          failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
-        },
-        create: {
-          paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
-          bookingId,
-          userId,
-          amount: booking.grandTotal,
-          currency: 'INR',
-          status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
-          failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
-        },
       });
+
+      if (existingPayment) {
+        await prisma.payment.update({
+          where: { id: existingPayment.id },
+          data: {
+            status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
+            failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
+          },
+        });
+      } else {
+        await prisma.payment.create({
+          data: {
+            paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+            bookingId,
+            userId,
+            amount: booking.grandTotal,
+            currency: 'INR',
+            status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
+            failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
+          },
+        });
+      }
 
       await prisma.notification.create({
         data: {
