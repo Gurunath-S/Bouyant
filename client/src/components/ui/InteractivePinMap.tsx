@@ -52,6 +52,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   // Track the last geocoded input string to prevent redundant auto-search loops
   const lastAutoGeocodedRef = useRef<string>('');
   const userInteractedRef = useRef<boolean>(false);
+  const manualPinPlacedRef = useRef<boolean>(false);
 
   // Ultra-precise SVG Pin Icon.
   // Icon dimensions: 36px width x 44px total height.
@@ -144,24 +145,32 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
       // Handle Pin Drag
       if (!readOnly) {
         marker.on('dragend', () => {
+          manualPinPlacedRef.current = true;
           userInteractedRef.current = true;
+          lastAutoGeocodedRef.current = 'MANUAL_PIN';
           const pos = marker.getLatLng();
           const newLat = Number(pos.lat.toFixed(6));
           const newLng = Number(pos.lng.toFixed(6));
           setCurrentCoords([newLat, newLng]);
           onChangeCoordinates?.(newLat, newLng);
           fetchAddressFromCoords(newLat, newLng);
+          setSyncStatusMessage(`📍 Pin positioned at: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
+          setTimeout(() => setSyncStatusMessage(null), 4000);
         });
 
         // Handle Map Click: drop pin exactly at the clicked spot
         map.on('click', (e: L.LeafletMouseEvent) => {
+          manualPinPlacedRef.current = true;
           userInteractedRef.current = true;
+          lastAutoGeocodedRef.current = 'MANUAL_PIN';
           const newLat = Number(e.latlng.lat.toFixed(6));
           const newLng = Number(e.latlng.lng.toFixed(6));
           marker.setLatLng([newLat, newLng]);
           setCurrentCoords([newLat, newLng]);
           onChangeCoordinates?.(newLat, newLng);
           fetchAddressFromCoords(newLat, newLng);
+          setSyncStatusMessage(`📍 Pin dropped at: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
+          setTimeout(() => setSyncStatusMessage(null), 4000);
         });
       }
 
@@ -304,6 +313,9 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   // Automatic debounced geocoding as user types in Venue Name, City, Address, or State
   useEffect(() => {
     if (readOnly) return;
+    // If the user has manually dropped or dragged a pin on the map, do NOT auto-override it with typed address geocoding!
+    if (manualPinPlacedRef.current) return;
+
     const combined = [venueName, address, cityName, stateName]
       .map((s) => (s || '').trim())
       .filter(Boolean)
@@ -314,6 +326,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
 
     // Debounce 900ms after user pauses typing
     const timer = setTimeout(() => {
+      if (manualPinPlacedRef.current) return;
       lastAutoGeocodedRef.current = combined;
       handleGeocodeSearch(undefined, false);
     }, 900);
@@ -323,6 +336,8 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
 
   const handleSyncAddressConfirmed = () => {
     if (pendingSyncLocation && onSyncAddress) {
+      lastAutoGeocodedRef.current = 'MANUAL_PIN';
+      manualPinPlacedRef.current = true;
       onSyncAddress({
         address: pendingSyncLocation.displayName,
         city: pendingSyncLocation.city,
@@ -335,6 +350,8 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   };
 
   const handleKeepSeparated = () => {
+    lastAutoGeocodedRef.current = 'MANUAL_PIN';
+    manualPinPlacedRef.current = true;
     setPendingSyncLocation(null);
     setSyncStatusMessage('Custom pin location saved. Typed address preserved.');
     setTimeout(() => setSyncStatusMessage(null), 3000);
@@ -343,6 +360,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   const handleManualSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
+    manualPinPlacedRef.current = false;
     handleGeocodeSearch(searchQuery, true);
   };
 
@@ -484,7 +502,10 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
 
       {/* Map Canvas */}
       <div className={`w-full ${heightClass} relative z-0`}>
-        <div ref={mapContainerRef} className="w-full h-full" />
+        <div
+          ref={mapContainerRef}
+          className={`w-full h-full ${!readOnly ? 'cursor-crosshair' : ''}`}
+        />
       </div>
     </div>
   );

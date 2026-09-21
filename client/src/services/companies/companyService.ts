@@ -36,8 +36,22 @@ export const companyService = {
     return res.data;
   },
 
-  listCompanies: async (page = 1, search = '') => {
-    const res: any = await apiClient.get('/companies', { params: { page, search } });
+  listCompanies: async (
+    page = 1,
+    search = '',
+    exhibitionId?: string,
+    status?: string,
+    limit = 50
+  ) => {
+    const res: any = await apiClient.get('/companies', {
+      params: {
+        page,
+        limit,
+        search: search || undefined,
+        exhibitionId: exhibitionId || undefined,
+        status: status || undefined,
+      },
+    });
     return res;
   },
 };

@@ -51,8 +51,12 @@ export const LoginPage: React.FC = () => {
       const res = await authService.login(data);
       setTokens(res.tokens.accessToken, res.tokens.refreshToken);
       setUser(res.user);
-      if (res.user.role === 'ADMIN') {
+      if (res.user.role === 'SUPERADMIN') {
+        navigate('/super-admin/dashboard');
+      } else if (res.user.role === 'ADMIN') {
         navigate('/admin/dashboard');
+      } else if (res.user.role === 'STAFF') {
+        navigate('/staff/dashboard');
       } else {
         navigate('/dashboard');
       }

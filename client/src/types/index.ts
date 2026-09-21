@@ -1,4 +1,4 @@
-export type UserRole = 'CLIENT' | 'ADMIN';
+export type UserRole = 'CLIENT' | 'STAFF' | 'ADMIN' | 'SUPERADMIN';
 
 export type StallCategory = 'STANDARD' | 'PREMIUM' | 'CORNER' | 'ISLAND';
 
@@ -26,9 +26,10 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  phone?: string;
+  phone?: string | null;
   spcode?: string | null;
   role: UserRole;
+  isActive?: boolean;
   companyId?: string | null;
   company?: Company | null;
   createdAt: string;
@@ -53,9 +54,14 @@ export interface Company {
   panNumber?: string;
   tanNumber?: string;
   industry: string;
-  category: string;
+  category?: string;
   website?: string;
   createdAt: string;
+  bookings?: Booking[];
+  _count?: {
+    bookings: number;
+    users?: number;
+  };
 }
 
 export interface Exhibition {
@@ -75,6 +81,8 @@ export interface Exhibition {
   category?: string;
   bannerUrl?: string;
   totalStalls: number;
+  createdByUserId?: string | null;
+  createdBy?: Partial<User> | null;
   floorPlans?: FloorPlan[];
   _count?: { bookings: number };
 }
@@ -127,6 +135,9 @@ export interface Booking {
   totalAmount: number | string;
   taxAmount: number | string;
   grandTotal: number | string;
+  paidAmount?: number | string;
+  balanceAmount?: number | string;
+  paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED';
   expiresAt?: string;
   createdAt: string;
   stalls?: BookingStall[];
@@ -181,3 +192,63 @@ export interface NotificationItem {
 }
 
 export type Notification = NotificationItem;
+
+// Super Admin User Management Types
+export interface AdminStaffUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: 'ADMIN' | 'STAFF';
+  spcode?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    createdExhibitions: number;
+  };
+}
+
+export interface CreateAdminStaffPayload {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  spcode?: string;
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  phone?: string;
+  spcode?: string;
+}
+
+// Reports Types
+export interface ReportOverviewData {
+  roleScope: 'SUPERADMIN' | 'ADMIN' | 'STAFF';
+  totalRevenue?: number;
+  totalBookings?: number;
+  confirmedBookings?: number;
+  totalExhibitions?: number;
+  activeAdmins?: number;
+  activeStaff?: number;
+  totalStalls?: number;
+  occupiedStalls?: number;
+  occupancyRate?: number;
+  recentBookings?: any[];
+  // Staff scope metrics
+  totalEventsRegistered?: number;
+  platformTotalEvents?: number;
+  upcomingEvents?: number;
+  totalStallsInRegisteredEvents?: number;
+  registeredEvents?: any[];
+}
+
+export interface OccupancyReportData {
+  totalStalls: number;
+  totalAvailable: number;
+  totalBooked: number;
+  totalBlocked: number;
+  categoryBreakdown: Record<string, { total: number; available: number; booked: number }>;
+}
+

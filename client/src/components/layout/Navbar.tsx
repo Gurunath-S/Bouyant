@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useThemeStore } from '../../stores/themeStore';
-import { Bell, LogOut, ChevronDown, Building, Sun, Moon } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Building, Sun, Moon, Shield, Sparkles } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -15,12 +15,47 @@ export const Navbar: React.FC = () => {
     navigate('/login');
   };
 
+  const getLogoDestination = () => {
+    if (user?.role === 'SUPERADMIN') return '/super-admin/dashboard';
+    if (user?.role === 'ADMIN') return '/admin/dashboard';
+    if (user?.role === 'STAFF') return '/staff/dashboard';
+    return '/dashboard';
+  };
+
+  const getRoleLabel = () => {
+    switch (user?.role) {
+      case 'SUPERADMIN':
+        return 'Platform Super Admin';
+      case 'ADMIN':
+        return 'Platform Admin';
+      case 'STAFF':
+        return 'Operations Staff';
+      case 'CLIENT':
+      default:
+        return user?.company?.name || 'Exhibitor Client';
+    }
+  };
+
+  const getRoleBadgeStyle = () => {
+    switch (user?.role) {
+      case 'SUPERADMIN':
+        return 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700';
+      case 'ADMIN':
+        return 'bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700';
+      case 'STAFF':
+        return 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
+      case 'CLIENT':
+      default:
+        return 'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700';
+    }
+  };
+
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-14 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors duration-200">
-      {/* Brand Logo (Replaced Search Bar) */}
+      {/* Brand Logo */}
       <div className="flex items-center gap-3">
         <Link
-          to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}
+          to={getLogoDestination()}
           className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
           <img
@@ -74,9 +109,9 @@ export const Navbar: React.FC = () => {
               <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{user?.name}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                  {user?.role === 'ADMIN' ? 'Platform Admin' : user?.company?.name || 'Exhibitor Client'}
+                  {getRoleLabel()}
                 </span>
-                {user?.role === 'ADMIN' && user?.spcode && (
+                {user?.spcode && (
                   <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded font-mono text-[9px] font-bold shadow-xs">
                     {user.spcode}
                   </span>
@@ -93,12 +128,12 @@ export const Navbar: React.FC = () => {
                 <p className="font-bold text-slate-900 dark:text-slate-100">{user?.name}</p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                 <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="inline-block px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold text-[10px] rounded">
-                    {user?.role} ACCOUNT
+                  <span className={`inline-block px-1.5 py-0.5 font-semibold text-[10px] rounded border ${getRoleBadgeStyle()}`}>
+                    {user?.role}
                   </span>
-                  {user?.role === 'ADMIN' && user?.spcode && (
+                  {user?.spcode && (
                     <span className="inline-block px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-mono font-bold text-[10px] rounded">
-                      SP CODE: {user.spcode}
+                      SP: {user.spcode}
                     </span>
                   )}
                 </div>

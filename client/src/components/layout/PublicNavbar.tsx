@@ -38,7 +38,7 @@ export const PublicNavbar: React.FC = () => {
               <Link to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}>
                 <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs transition-all">
                   <User className="w-3.5 h-3.5" />
-                  {user?.role === 'ADMIN' ? 'Admin Studio' : 'Exhibitor Portal'}
+                  {user?.role === 'ADMIN' ? 'Admin Dashboard' : 'Exhibitor Portal'}
                 </button>
               </Link>
               <button
@@ -83,7 +83,7 @@ export const PublicNavbar: React.FC = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               <button className="w-full font-bold bg-[#1E3FA0] text-white py-2.5 rounded-xl">
-                Go to {user?.role === 'ADMIN' ? 'Admin Studio' : 'Dashboard'}
+                Go to {user?.role === 'ADMIN' ? 'Admin Dashboard' : 'Dashboard'}
               </button>
             </Link>
           ) : (
