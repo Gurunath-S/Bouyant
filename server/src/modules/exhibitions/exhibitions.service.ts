@@ -55,6 +55,9 @@ export class ExhibitionsService {
         _count: {
           select: { bookings: true },
         },
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true, spcode: true },
+        },
       },
     });
    
@@ -185,6 +188,7 @@ export class ExhibitionsService {
         edition,
         eventCode,
         spcode,
+        createdByUserId: creatorId || null,
         venue: input.venue || 'Exhibition Center',
         city: input.city || 'Mumbai',
         startDate: startDt,

@@ -33,7 +33,6 @@ export const CreateCompanySchema = z
     industry: z.string().trim().min(2, 'Industry is required'),
     website: z.string().trim().url('Invalid website URL').or(z.literal('')).optional(),
     remarks: z.string().trim().optional(),
-    regNo: z.string().trim().optional(),
     spcode: z.string().trim().optional(),
     edition: z.string().trim().optional(),
     eventCode: z.string().trim().optional(),

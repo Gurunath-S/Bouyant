@@ -8,8 +8,9 @@ export class CompaniesController {
 
   static verifyGst = async (req: Request, res: Response) => {
     const { gstNumber, edition, eventCode, spcode, year } = req.body;
+    const effectiveSpcode = spcode || (req as AuthenticatedRequest).user?.spcode;
 
-    const result = await CompaniesService.verifyGst(gstNumber, edition, eventCode, spcode, year);
+    const result = await CompaniesService.verifyGst(gstNumber, edition, eventCode, effectiveSpcode, year);
 
     return sendResponse({
       res,
@@ -20,8 +21,8 @@ export class CompaniesController {
   };
 
   static create = async (req: AuthenticatedRequest, res: Response) => {
-    const company = await CompaniesService.createCompany(req.body);
-    
+    const company = await CompaniesService.createCompany(req.body, req.user?.spcode);
+
     return sendResponse({
       res,
       statusCode: 201,
@@ -69,11 +70,13 @@ export class CompaniesController {
   };
 
   static list = async (req: AuthenticatedRequest, res: Response) => {
-    const page = parseInt(req.query.page as string || '1', 10);
-    const limit = parseInt(req.query.limit as string || '20', 10);
+    const page = parseInt((req.query.page as string) || '1', 10);
+    const limit = parseInt((req.query.limit as string) || '50', 10);
     const search = (req.query.search as string) || '';
+    const exhibitionId = (req.query.exhibitionId as string) || undefined;
+    const status = (req.query.status as string) || undefined;
 
-    const result = await CompaniesService.listCompanies(page, limit, search);
+    const result = await CompaniesService.listCompanies(page, limit, search, exhibitionId, status);
     return sendResponse({
       res,
       statusCode: 200,

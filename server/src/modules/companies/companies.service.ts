@@ -139,11 +139,11 @@ export class CompaniesService {
     return candidate;
   }
 
-  static async createCompany(input: CreateCompanyInput) {
+  static async createCompany(input: CreateCompanyInput, userSpcode?: string) {
     const anyInput = input as any;
     let edition = anyInput.edition;
     let eventCode = anyInput.eventCode;
-    let spcode = anyInput.spcode;
+    let spcode = anyInput.spcode || userSpcode;
 
     if (!edition || !eventCode || !spcode) {
       const expo = await prisma.exhibition.findFirst({
@@ -330,20 +330,61 @@ export class CompaniesService {
     return company;
   }
 
-  static async listCompanies(page = 1, limit = 20, search = '') {
+  static async listCompanies(
+    page = 1,
+    limit = 20,
+    search = '',
+    exhibitionId?: string,
+    status?: string
+  ) {
     const skip = (page - 1) * limit;
-    const where = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' as const } },
-            { companyCode: { contains: search, mode: 'insensitive' as const } },
-            { regNo: { contains: search, mode: 'insensitive' as const } },
-            { spcode: { contains: search, mode: 'insensitive' as const } },
-            { email: { contains: search, mode: 'insensitive' as const } },
-            { gstNumber: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
-      : {};
+    const andConditions: any[] = [];
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { companyCode: { contains: search, mode: 'insensitive' as const } },
+          { regNo: { contains: search, mode: 'insensitive' as const } },
+          { spcode: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { gstNumber: { contains: search, mode: 'insensitive' as const } },
+          { contactPerson: { contains: search, mode: 'insensitive' as const } },
+          { industry: { contains: search, mode: 'insensitive' as const } },
+        ],
+      });
+    }
+
+    if (exhibitionId) {
+      andConditions.push({
+        bookings: {
+          some: {
+            exhibitionId,
+            status: { not: 'CANCELLED' as const },
+          },
+        },
+      });
+    }
+
+    if (status === 'REGISTERED') {
+      andConditions.push({
+        bookings: {
+          some: {
+            status: { not: 'CANCELLED' as const },
+          },
+        },
+      });
+    } else if (status === 'UNREGISTERED') {
+      andConditions.push({
+        bookings: {
+          none: {
+            status: { not: 'CANCELLED' as const },
+          },
+        },
+      });
+    }
+
+    const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
     const [companies, total] = await Promise.all([
       prisma.company.findMany({
@@ -353,6 +394,45 @@ export class CompaniesService {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { bookings: true, users: true } },
+          bookings: {
+            where: { status: { not: 'CANCELLED' as const } },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              bookingReference: true,
+              status: true,
+              paymentStatus: true,
+              grandTotal: true,
+              paidAmount: true,
+              balanceAmount: true,
+              createdAt: true,
+              exhibition: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  edition: true,
+                  eventCode: true,
+                  city: true,
+                  venue: true,
+                  startDate: true,
+                  endDate: true,
+                },
+              },
+              stalls: {
+                select: {
+                  stall: {
+                    select: {
+                      id: true,
+                      stallNumber: true,
+                      category: true,
+                      price: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       }),
       prisma.company.count({ where }),
