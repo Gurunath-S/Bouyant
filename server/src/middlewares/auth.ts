@@ -8,7 +8,7 @@ export interface AuthenticatedRequest extends Request {
 
 export const authenticateToken = (
   req: AuthenticatedRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) => {
   let token = req.headers.authorization?.split(' ')[1];
@@ -25,7 +25,7 @@ export const authenticateToken = (
     const decoded = verifyAccessToken(token);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (_error) {
     return next(ApiError.unauthorized('Invalid or expired authentication token'));
   }
 };

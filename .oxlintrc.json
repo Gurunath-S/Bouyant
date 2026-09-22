@@ -1,0 +1,19 @@
+{
+  "plugins": ["react", "typescript", "import"],
+  "rules": {
+    "eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/node_modules/**",
+    "**/oxlint_report.txt"
+  ]
+}

@@ -139,7 +139,7 @@ export class ReportsService {
     };
   }
 
-  static async getExhibitionsReport(role: string, userId: string) {
+  static async getExhibitionsReport(role: string, _userId: string) {
     const isStaff = role === UserRole.STAFF;
     const where: any = {};
 
@@ -191,7 +191,7 @@ export class ReportsService {
     return exhibitions;
   }
 
-  static async getStallOccupancyReport(role: string, userId: string) {
+  static async getStallOccupancyReport(_role: string, _userId: string) {
     const stalls = await prisma.stall.findMany({
       select: {
         id: true,

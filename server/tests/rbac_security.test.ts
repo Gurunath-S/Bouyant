@@ -35,7 +35,7 @@ async function request(endpoint: string, { method = 'GET', body, token }: any = 
   let data: any = null;
   try {
     data = await res.json();
-  } catch (e) {
+  } catch (_e) {
     // not json
   }
 

@@ -73,7 +73,7 @@ export class FloorPlansService {
         updateData.backgroundUrl = typeof layoutData === 'string' ? layoutData : JSON.stringify(layoutData);
       }
 
-      const updatedFloorPlan = await tx.floorPlan.update({
+      await tx.floorPlan.update({
         where: { id: floorPlanId },
         data: updateData,
       });

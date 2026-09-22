@@ -10,7 +10,9 @@
     "build:client": "cd client && npm install && npm run build",
     "build": "npm run build:server && npm run build:client",
     "start": "cd server && npm start",
-    "seed": "cd server && npm run seed"
+    "seed": "cd server && npm run seed",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "keywords": [
     "b2b",
@@ -24,5 +26,8 @@
     "postgresql"
   ],
   "author": "Buoyant Media Engineering",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "oxlint": "^1.85.0"
+  }
 }
