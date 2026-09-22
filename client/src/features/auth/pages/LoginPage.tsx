@@ -158,9 +158,9 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Input
-                  label="Corporate Email or Staff SP Code"
+                  label="Email, Username or Staff SP Code"
                   type="text"
-                  placeholder="name@company.com or B001"
+                  placeholder="name@company.com, username, or B001"
                   leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
                   error={errors.email?.message}
                   {...register('email')}

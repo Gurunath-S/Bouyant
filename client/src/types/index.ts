@@ -25,6 +25,7 @@ export type InvoiceStatus = 'ISSUED' | 'PAID' | 'VOID';
 export interface User {
   id: string;
   email: string;
+  username?: string | null;
   name: string;
   phone?: string | null;
   spcode?: string | null;

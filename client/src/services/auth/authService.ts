@@ -17,7 +17,13 @@ export const authService = {
     return res.data;
   },
 
+  checkUsernameAvailability: async (username: string): Promise<{ available: boolean; message?: string }> => {
+    const res: any = await apiClient.get('/auth/check-username', { params: { username } });
+    return res.data;
+  },
+
   logout: async () => {
     await apiClient.post('/auth/logout');
   },
 };
+

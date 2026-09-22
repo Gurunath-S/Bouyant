@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
 import { companyService } from '../../../services/companies/companyService';
@@ -11,80 +8,37 @@ import { paymentService } from '../../../services/payments/paymentService';
 import { useAuthStore } from '../../../stores/authStore';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking } from '../../../types';
-import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
-import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
-import { OfficialContractForm } from '../components/OfficialContractForm';
-import { TermsAndConditionsModal } from '../components/TermsAndConditionsModal';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
-import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
-import {
-  Building,
-  Layers,
-  FileText,
-  CreditCard,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  Building2,
-  Plus,
-  RefreshCw,
-  Download,
-  Check,
-  XCircle,
-  Mail,
-  Key,
-  ShieldCheck,
-  ShoppingCart,
-  Trash2,
-  X,
-  Maximize2,
-  Minimize2,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 
-const companySchema = z.object({
-  name: z.string().min(2, 'Company Name is required'),
-  contactPerson: z.string().min(2, 'Contact Person Name is required'),
-  designation: z.string().min(2, 'Designation is required'),
-  mobile: z.string().min(10, 'Valid 10-digit mobile number is required'),
-  email: z.string().email('Valid corporate email address is required'),
-  address: z.string().min(5, 'Corporate address is required'),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State is required'),
-  pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
-  country: z.string().optional().default('India'),
-  gstNumber: z.string().trim().refine((val) => !val || val.length === 15, { message: 'GST Registration Number must be 15 characters' }).optional().or(z.literal('')),
-  panNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'PAN Number must be 10 characters' }).optional().or(z.literal('')),
-  tanNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'TAN Number must be 10 characters' }).optional().or(z.literal('')),
-  industry: z.string().min(2, 'Industry sector is required'),
-  category: z.string().min(2, 'Product/Service Category is required'),
-  website: z.string().optional(),
-});
-
-type CompanyFormData = z.infer<typeof companySchema>;
+import { Step1StallSelection } from '../components/wizard/Step1StallSelection';
+import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2CompanyDetails';
+import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
+import { Step4PaymentCheckout } from '../components/wizard/Step4PaymentCheckout';
+import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
-  const { selectedStallIds, clearStallSelection, toggleStallSelection, zoomLevel, setZoomLevel } = useFloorPlanStore();
+  const { selectedStallIds, clearStallSelection, toggleStallSelection } = useFloorPlanStore();
 
-  // Booking Flow Steps: 1 = Stall Selection, 2 = Company Details, 3 = Tax Audit & Bill, 4 = Razorpay Payment, 5 = Confirmation & OTP Credentials
+  // Wizard Stepper (1 = Stall, 2 = Company, 3 = Tax Bill, 4 = Payment, 5 = Pass & Credentials)
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(user?.company || null);
-  const [guestFormData, setGuestFormData] = useState<CompanyFormData | null>(null);
-  const [isAddingNewCompany, setIsAddingNewCompany] = useState(false);
-const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
-const [discountValue, setDiscountValue] = useState<number>(0);
+  const [assignedRegNo, setAssignedRegNo] = useState<string>('');
+
+  const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [partialPercentage, setPartialPercentage] = useState<number>(50);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(true);
+
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
   const [paymentStatusState, setPaymentStatusState] = useState<'IDLE' | 'PROCESSING' | 'SUCCESS' | 'FAILED'>('IDLE');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
@@ -92,6 +46,8 @@ const [discountValue, setDiscountValue] = useState<number>(0);
 
   const [loading, setLoading] = useState(true);
   const [stallHoldError, setStallHoldError] = useState('');
+  const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;
@@ -111,124 +67,6 @@ const [discountValue, setDiscountValue] = useState<number>(0);
     }
     return false;
   }, [exhibition]);
-
-  // Payment Plan Selection: Full (100%) or Partial (> 50%)
-  const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
-  const [partialPercentage, setPartialPercentage] = useState<number>(50);
-  const [isTermsAccepted, setIsTermsAccepted] = useState(true);
-  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
-  const [showContractPreview, setShowContractPreview] = useState(false);
-  const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const [isVerifyingGst, setIsVerifyingGst] = useState(false);
-  const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
-  const [gstVerifiedDetails, setGstVerifiedDetails] = useState<any>(null);
-  const [gstError, setGstError] = useState('');
-  const [gstNotice, setGstNotice] = useState('');
-  const [assignedRegNo, setAssignedRegNo] = useState<string>('');
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm<CompanyFormData>({
-    resolver: zodResolver(companySchema),
-    defaultValues: {
-      name: user?.company?.name || '',
-      contactPerson: user?.name || '',
-      designation: 'Exhibitor Representative',
-      mobile: user?.phone || '',
-      email: user?.email || '',
-      address: '',
-      city: '',
-      state: '',
-      pinCode: user?.company?.pinCode || '',
-      country: 'India',
-      gstNumber: '',
-      panNumber: '',
-      tanNumber: '',
-      industry: 'Technology & Manufacturing',
-      category: 'Exhibitor / Booth',
-      website: '',
-    },
-  });
-
-  const handleVerifyGst = async (overrideGst?: string) => {
-    const rawGst = overrideGst || watch('gstNumber') || '';
-    const cleanGst = rawGst.trim().toUpperCase();
-
-    if (!cleanGst || cleanGst.length !== 15) {
-      setGstError('Please enter a full 15-character GSTIN (e.g. 27AAACT1029F1Z5).');
-      setGstNotice('');
-      return;
-    }
-
-    try {
-      setIsVerifyingGst(true);
-      setGstError('');
-      setGstNotice('');
-      setGstVerificationSuccess(false);
-
-      const edition = exhibition?.edition;
-      const eventCode = exhibition?.eventCode;
-      const spcode = exhibition?.spcode;
-      const year = exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : undefined;
-      const res = await companyService.verifyGst(cleanGst, edition || undefined, eventCode || undefined, spcode || undefined, year);
-
-      if (res && res.gstVerified) {
-        setGstVerificationSuccess(true);
-        setGstVerifiedDetails(res.gstDetails);
-
-        if (res.gstDetails?.regNo) {
-          setAssignedRegNo(res.gstDetails.regNo);
-        }
-
-        // Scenario 1: Company is already registered in Buoyant database
-        if (res.companyExists && res.existingCompany) {
-          const comp = res.existingCompany;
-          setValue('name', comp.name);
-          if (comp.panNumber) setValue('panNumber', comp.panNumber);
-          if (comp.contactPerson) setValue('contactPerson', comp.contactPerson);
-          if (comp.mobile) setValue('mobile', comp.mobile);
-          if (comp.email) setValue('email', comp.email);
-          if (comp.address) setValue('address', comp.address);
-          if (comp.city) setValue('city', comp.city);
-          if (comp.state) setValue('state', comp.state);
-          if (comp.pinCode) setValue('pinCode', comp.pinCode);
-          if (comp.country) setValue('country', comp.country || 'India');
-          if (comp.industry) setValue('industry', comp.industry);
-          if (comp.website) setValue('website', comp.website || '');
-          if (comp.regNo) setAssignedRegNo(comp.regNo);
-
-          setSelectedCompany(comp);
-          setGstNotice('Existing Registered Profile: Company details verified and loaded from database.');
-        } else if (res.gstDetails) {
-          // Scenario 2: New verified GSTIN from official registry / accurate validator
-          const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
-          if (officialName) setValue('name', officialName);
-          if (res.gstDetails.pan) setValue('panNumber', res.gstDetails.pan);
-          if (res.gstDetails.address) setValue('address', res.gstDetails.address);
-          if (res.gstDetails.city) setValue('city', res.gstDetails.city);
-          if (res.gstDetails.state) setValue('state', res.gstDetails.state);
-          if (res.gstDetails.pincode) setValue('pinCode', res.gstDetails.pincode);
-          setValue('country', 'India');
-
-          setGstNotice('');
-        }
-      } else {
-        setGstError('GST verification failed. Please check the 15-character GST number.');
-      }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'GST verification request failed.';
-      setGstError(msg);
-      setGstVerificationSuccess(false);
-    } finally {
-      setIsVerifyingGst(false);
-    }
-  };
 
   useEffect(() => {
     if (slug) loadInitialData();
@@ -260,9 +98,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
             console.warn('Failed to parse floor plan layout in booking wizard', e);
           }
         }
-        const stallsData = fp.stalls && fp.stalls.length > 0
-          ? fp.stalls
-          : await stallService.getStallsByFloorPlan(fp.id);
+        const stallsData = fp.stalls && fp.stalls.length > 0 ? fp.stalls : await stallService.getStallsByFloorPlan(fp.id);
         setStalls(stallsData || []);
       } else {
         setStalls([]);
@@ -273,9 +109,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
         setCompanies(comps || []);
         if (comps && comps.length > 0 && !selectedCompany) {
           setSelectedCompany(comps[0]);
-          if (comps[0].regNo) {
-            setAssignedRegNo(comps[0].regNo);
-          }
+          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
         }
       }
     } catch (err) {
@@ -285,7 +119,7 @@ const [discountValue, setDiscountValue] = useState<number>(0);
     }
   };
 
-  // Step 1: Confirm Stall Selection -> Proceed to Step 2 (Company Details)
+  // Step 1 -> Step 2
   const handleHoldSelectedStall = async () => {
     if (isBookingClosed) {
       setStallHoldError('Stall bookings for this exhibition are closed as the cut-off date has passed.');
@@ -295,48 +129,66 @@ const [discountValue, setDiscountValue] = useState<number>(0);
     try {
       setStallHoldError('');
       if (user) {
-        await Promise.all(selectedStallIds.map(id => stallService.holdStall(id)));
+        await Promise.all(selectedStallIds.map((id) => stallService.holdStall(id)));
       }
-      setCurrentStep(2); // Proceed to Company Details
+      setCurrentStep(2);
     } catch (err: any) {
       const msg = err.response?.data?.message || 'This stall is temporarily held. Please select another available green stall.';
       setStallHoldError(msg);
     }
   };
 
-  // Step 2: Submit Company Details (Supports Guest & Authenticated Users) -> Proceed to Step 3 (Tax Bill Review)
+  // Step 2 -> Step 3
   const onSubmitCompanyForm = async (data: CompanyFormData) => {
-    setGuestFormData(data);
     const eventYear = exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26';
-    if (user) {
-      try {
-        if (selectedCompany && selectedCompany.gstNumber === data.gstNumber) {
-          if (selectedCompany.regNo) setAssignedRegNo(selectedCompany.regNo);
-          setCurrentStep(3);
-          return;
-        }
 
-        const created = await companyService.createCompany({
-          ...data,
-          regNo: assignedRegNo || undefined,
-          edition: exhibition?.edition,
-          eventCode: exhibition?.eventCode,
-          spcode: exhibition?.spcode,
-          year: eventYear,
-          pinCode: data.pinCode,
-          country: data.country || 'India',
-        } as any);
-        if (created && created.id) {
-          if (created.regNo) setAssignedRegNo(created.regNo);
-          setCompanies((prev) => [...prev.filter((c) => c.id !== created.id), created]);
-          setSelectedCompany(created);
-          setUser({ ...user, companyId: created.id, company: created });
+    if (user && selectedCompany && selectedCompany.gstNumber === data.gstNumber) {
+      if (selectedCompany.regNo) setAssignedRegNo(selectedCompany.regNo);
+      setCurrentStep(3);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await companyService.createCompany({
+        ...data,
+        regNo: assignedRegNo || undefined,
+        edition: exhibition?.edition,
+        eventCode: exhibition?.eventCode,
+        spcode: exhibition?.spcode,
+        year: eventYear,
+        pinCode: data.pinCode,
+        country: data.country || 'India',
+      } as any);
+
+      const createdComp = res.company || res;
+      const createdUser = res.user;
+      const tempPass = res.temporaryPassword;
+
+      if (createdComp && createdComp.id) {
+        if (createdComp.regNo) setAssignedRegNo(createdComp.regNo);
+        setCompanies((prev) => [...prev.filter((c) => c.id !== createdComp.id), createdComp]);
+        setSelectedCompany(createdComp);
+
+        if (createdUser) {
+          setUser({
+            id: createdUser.id,
+            email: createdUser.email,
+            username: createdUser.username,
+            name: createdUser.name,
+            phone: createdUser.phone,
+            role: createdUser.role,
+            companyId: createdComp.id,
+            company: createdComp,
+            createdAt: createdUser.createdAt || new Date().toISOString(),
+          });
         }
-      } catch (err: any) {
-        console.warn('Backend company save note:', err.response?.data?.message || err);
+        if (tempPass) {
+          setGeneratedOTP(tempPass);
+        }
       }
-    } else {
-      // For Guest Users: Create temporary company object for wizard progression
+    } catch (err: any) {
+      console.warn('Backend company save note:', err.response?.data?.message || err);
       const regToUse = assignedRegNo || `${exhibition?.edition || '01'}/${eventYear}/${exhibition?.eventCode || 'EX'}/01`;
       const mockGuestComp: Company = {
         id: 'guest_comp_' + Date.now(),
@@ -362,49 +214,62 @@ const [discountValue, setDiscountValue] = useState<number>(0);
       };
       setAssignedRegNo(regToUse);
       setSelectedCompany(mockGuestComp);
+    } finally {
+      setLoading(false);
     }
-    setCurrentStep(3); // Proceed to Tax Audit & Review
+
+    setCurrentStep(3);
   };
 
-  const handleSelectExistingCompany = (comp: Company) => {
-    setSelectedCompany(comp);
-    if (comp.regNo) setAssignedRegNo(comp.regNo);
-  };
-
-  // Step 3: Proceed to Payment
+  // Step 3 -> Step 4
   const handleProceedToPayment = async () => {
     if (selectedStallIds.length === 0 || !selectedCompany) return;
     try {
       setLoading(true);
-      const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
-      const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
-      const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
-      const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
+      let realBooking: Booking | null = null;
+      if (user && user.id && !user.id.startsWith('guest_')) {
+        try {
+          realBooking = await bookingService.createBooking({
+            exhibitionId: exhibition?.id,
+            stallIds: selectedStallIds,
+            companyId: selectedCompany.id,
+          });
+        } catch (e) {
+          console.warn('Backend booking creation note:', e);
+        }
+      }
 
-      // For guest/demo flow, construct a valid booking object
-      const mockBooking: Booking = {
-        id: 'bkg_' + Date.now(),
-        bookingReference: 'BKG-2026-' + Math.floor(1000 + Math.random() * 9000),
-        userId: user?.id || 'guest_user_id',
-        companyId: selectedCompany.id,
-        exhibitionId: exhibition?.id || 'expo_id',
-        status: 'HELD',
-        totalAmount: calculatedBasePrice,
-        taxAmount: calculatedTaxAmount,
-        grandTotal: calculatedGrandTotal,
-        createdAt: new Date().toISOString(),
-        stalls: selectedStallsObj.map((s) => ({
-          id: 'ms_' + Math.random(),
-          bookingId: 'bkg_mock',
-          stallId: s.id,
-          price: s.price,
-          stall: s,
-        })),
-        company: selectedCompany,
-        exhibition: exhibition || undefined,
-      };
-      setCreatedBooking(mockBooking);
-      setCurrentStep(4); // Proceed to Payment UI
+      if (!realBooking) {
+        const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+        const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+        const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
+        const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
+
+        realBooking = {
+          id: 'bkg_' + Date.now(),
+          bookingReference: 'BKG-2026-' + Math.floor(1000 + Math.random() * 9000),
+          userId: user?.id || 'guest_user_id',
+          companyId: selectedCompany.id,
+          exhibitionId: exhibition?.id || 'expo_id',
+          status: 'HELD',
+          totalAmount: calculatedBasePrice,
+          taxAmount: calculatedTaxAmount,
+          grandTotal: calculatedGrandTotal,
+          createdAt: new Date().toISOString(),
+          stalls: selectedStallsObj.map((s) => ({
+            id: 'ms_' + Math.random(),
+            bookingId: 'bkg_mock',
+            stallId: s.id,
+            price: s.price,
+            stall: s,
+          })),
+          company: selectedCompany,
+          exhibition: exhibition || undefined,
+        };
+      }
+
+      setCreatedBooking(realBooking);
+      setCurrentStep(4);
     } catch (err: any) {
       alert('Booking initialization failed.');
     } finally {
@@ -412,15 +277,26 @@ const [discountValue, setDiscountValue] = useState<number>(0);
     }
   };
 
-  // Step 4: Razorpay Payment Execution
+  // Step 4 -> Step 5
   const handleExecuteRazorpayPayment = async (shouldFail = false) => {
     if (!createdBooking) return;
     try {
       setCurrentStep(5);
       setPaymentStatusState('PROCESSING');
 
-      // Simulate network latency for payment processing
-      await new Promise((res) => setTimeout(res, 2000));
+      if (createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+        try {
+          await paymentService.verifyPayment({
+            bookingId: createdBooking.id,
+            action: shouldFail ? 'FAILED' : 'SUCCESS',
+            paymentMethod: 'RAZORPAY_CARD',
+          });
+        } catch (err: any) {
+          console.warn('Backend payment verification note:', err);
+        }
+      } else {
+        await new Promise((res) => setTimeout(res, 1500));
+      }
 
       if (shouldFail) {
         setPaymentStatusState('FAILED');
@@ -428,9 +304,10 @@ const [discountValue, setDiscountValue] = useState<number>(0);
         return;
       }
 
-      // Generate One-Time Password for newly created account
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOTP(otp);
+      if (!generatedOTP) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedOTP(otp);
+      }
       setPaymentStatusState('SUCCESS');
     } catch (err: any) {
       setPaymentStatusState('FAILED');
@@ -457,49 +334,27 @@ const [discountValue, setDiscountValue] = useState<number>(0);
       </div>
     );
   }
-    const isAdmin = user?.role === 'ADMIN';
+
   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
-
-  const isPartial = paymentType === 'PARTIAL';
   const effectivePartialPercent = Math.max(50, Math.min(99, partialPercentage));
- 
-  const payableToday = Math.round(basePrice * (effectivePartialPercent / 100))
-  const taxAmount = isPartial ? Math.round(payableToday * 0.18) : Math.round(basePrice * 0.18);
-  const grandTotal = basePrice + taxAmount;
-
-  // Calculate discount amounts based on mode (only for ADMIN)
-  const billBaseAmount=isPartial?payableToday:basePrice
-  const preDiscountTotal = billBaseAmount + taxAmount;
-
-  const discountAmount = isAdmin
-  ? discountMode === 'PERCENT'
-    ? Math.round(preDiscountTotal * (Math.min(Math.max(discountValue, 0), 100) / 100))
-    : Math.min(Math.max(discountValue, 0), preDiscountTotal)
-  : 0;
-  const billGrandTotal = preDiscountTotal - discountAmount;
-
-  // Payment Option Calculations (>= 50% for Partial)
- 
- 
-
-  const remainingBalance = isPartial ? basePrice - payableToday : 0;
-
-  // Calculate 15 days before event date
-  const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
+  const payableToday = paymentType === 'PARTIAL' ? Math.round(basePrice * (effectivePartialPercent / 100)) : basePrice;
+  const remainingBalance = paymentType === 'PARTIAL' ? basePrice - payableToday : 0;
+  const eventStartDate = new Date(exhibition.startDate);
   const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
   const formattedDeadline = formatDisplayDate(deadlineDate);
 
   return (
     <div
-      className={`mx-auto font-sans transition-all duration-300 ${currentStep === 1
+      className={`mx-auto font-sans transition-all duration-300 ${
+        currentStep === 1
           ? isFullscreen
             ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
             : 'w-full max-w-[1200px] mx-auto px-2 sm:px-4 pb-6 space-y-3'
           : 'max-w-5xl mx-auto px-4 pb-16 space-y-8'
-        }`}
+      }`}
     >
-      {/* Header & Stepper (Hidden in Fullscreen mode for pure canvas immersion) */}
+      {/* Header & Stepper */}
       {!isFullscreen && (
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
@@ -514,18 +369,6 @@ const [discountValue, setDiscountValue] = useState<number>(0);
                 Stall Reservation — {exhibition.title}
               </h1>
             </div>
-
-            {currentStep === 1 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFullscreen(true)}
-                className="text-xs font-bold border-[#09539b]/30 text-[#09539b] hover:bg-blue-50 flex items-center gap-1.5 shrink-0"
-                leftIcon={<Maximize2 className="w-3.5 h-3.5" />}
-              >
-                Full Screen View
-              </Button>
-            )}
           </div>
 
           {/* Stepper Tabs */}
@@ -542,33 +385,28 @@ const [discountValue, setDiscountValue] = useState<number>(0);
               return (
                 <React.Fragment key={step.num}>
                   <div
-                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${isCurrent
-                        ? 'text-[#09539b]'
-                        : isCompleted
-                          ? 'text-emerald-700'
-                          : 'text-slate-400'
-                      }`}
+                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
+                      isCurrent ? 'text-[#09539b]' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                    }`}
                   >
                     <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${isCompleted
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
+                        isCompleted
                           ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
                           : isCurrent
-                            ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
-                            : 'bg-slate-100 text-slate-400 border border-slate-200'
-                        }`}
+                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
+                          : 'bg-slate-100 text-slate-400 border border-slate-200'
+                      }`}
                     >
-                      {isCompleted ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      ) : (
-                        step.num
-                      )}
+                      {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.num}
                     </span>
                     <span>{step.label}</span>
                   </div>
                   {idx < arr.length - 1 && (
                     <div
-                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
-                        }`}
+                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
+                        currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
+                      }`}
                     />
                   )}
                 </React.Fragment>
@@ -578,1118 +416,88 @@ const [discountValue, setDiscountValue] = useState<number>(0);
         </div>
       )}
 
-      {/* Fullscreen Mode Top Bar */}
-      {isFullscreen && currentStep === 1 && (
-        <div className="bg-[#012970] text-white px-4 py-2.5 rounded-xl flex items-center justify-between shadow-lg shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-              {exhibition.title}
-            </span>
-            <span className="text-slate-400">|</span>
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#9cc542]" /> Interactive Hall Floor Plan
-            </span>
-            {selectedStallsObj.length > 0 && (
-              <span className="px-2.5 py-0.5 bg-[#9cc542] text-[#012970] font-black text-xs rounded-full">
-                {selectedStallsObj.length} Stall(s) Selected (₹{grandTotal.toLocaleString()})
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {selectedStallsObj.length > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleHoldSelectedStall}
-                className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black text-xs shadow-sm"
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              >
-                Proceed to Details ({selectedStallsObj.length})
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFullscreen(false)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold"
-              leftIcon={<Minimize2 className="w-3.5 h-3.5" />}
-            >
-              Exit Full Screen
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 1: STALL FLOOR PLAN SELECTION */}
+      {/* STEP 1: STALL SELECTION */}
       {currentStep === 1 && (
-        <div className={`flex flex-col gap-2 ${isFullscreen ? 'flex-1 min-h-0' : 'space-y-2'}`}>
-          {stallHoldError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0">
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              {stallHoldError}
-            </div>
-          )}
-
-          {isBookingClosed && (
-            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold rounded-xl flex items-center justify-between gap-3 shrink-0 shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                <span>
-                  <strong>Stall Bookings Closed:</strong> The registration cut-off date for this exhibition has passed. Stall reservations are closed.
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/exhibitions/${slug}`)}
-                className="bg-white border-amber-300 text-amber-900 text-xs hover:bg-amber-100"
-              >
-                Back to Event
-              </Button>
-            </div>
-          )}
-
-          {/* Stalls Filter Bar */}
-          <div className="shrink-0">
-            <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
-          </div>
-
-          {/* Canvas Wrapper - Compact Clean Canvas (1200px Max Length) */}
-          <div className={`relative w-full max-w-[1200px] mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm ${
-            isFullscreen ? 'flex-1 h-full min-h-0' : 'h-[500px] sm:h-[540px] lg:h-[560px]'
-          }`}>
-            <FloorPlanCanvas
-              stalls={stalls}
-              layoutData={layoutData}
-              showBackgroundImage={false}
-              showGrid={false}
-              className="w-full h-full min-h-full"
-              onStallSelect={(s) => {
-                if (isBookingClosed) return;
-                if (s.status === 'AVAILABLE') toggleStallSelection(s);
-              }}
-            />
-          </div>
-
-          {/* Cinema-Style Bottom Bar */}
-          {selectedStallsObj.length > 0 ? (
-            <div className="sticky bottom-2 z-40 max-w-[1200px] mx-auto w-full bg-[#012970]/95 dark:bg-slate-900/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-blue-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-bottom-3 duration-200">
-              {/* Left: Selected stalls pills with quick 'x' */}
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-[#9cc542] uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4" /> {selectedStallsObj.length} Stall(s) Selected:
-                  </span>
-                  {selectedStallsObj.map((s) => (
-                    <span
-                      key={s.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-mono font-bold text-white transition-colors"
-                    >
-                      #{s.stallNumber}
-                      <button
-                        onClick={() => toggleStallSelection(s)}
-                        className="text-blue-300 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
-                        title={`Remove stall ${s.stallNumber}`}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <button
-                    onClick={clearStallSelection}
-                    className="text-[11px] text-slate-300 hover:text-rose-400 underline ml-2 transition-colors cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <p className="text-[11px] text-blue-200 font-medium">
-                  Combined Area: <b className="text-white">{selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
-                </p>
-              </div>
-
-              {/* Right: Total Price & Proceed Button */}
-              <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-                <div className="text-right">
-                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">Total Payable</span>
-                  <span className="text-lg sm:text-xl font-black font-mono text-[#9cc542]">₹{grandTotal.toLocaleString()} INR</span>
-                </div>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleHoldSelectedStall}
-                  className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black shadow-lg px-6 py-3 text-sm flex items-center gap-2"
-                  rightIcon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Proceed to Booking
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xs text-slate-500 rounded-xl text-center text-xs font-medium border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Click any available green stall to select your booth(s). Multiple stalls can be reserved together.
-            </div>
-          )}
-        </div>
+        <Step1StallSelection
+          exhibition={exhibition}
+          stalls={stalls}
+          layoutData={layoutData}
+          selectedStallIds={selectedStallIds}
+          toggleStallSelection={toggleStallSelection}
+          clearStallSelection={clearStallSelection}
+          stallHoldError={stallHoldError}
+          isBookingClosed={isBookingClosed}
+          isFullscreen={isFullscreen}
+          setIsFullscreen={setIsFullscreen}
+          onProceed={handleHoldSelectedStall}
+        />
       )}
 
-      {/* STEP 2: COMPANY / EXHIBITOR DETAILS */}
+      {/* STEP 2: COMPANY DETAILS */}
       {currentStep === 2 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-[#09539b]" /> Corporate Exhibitor Information
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                {selectedStallsObj.length > 0 ? (
-                  <>Selected: <b className="text-[#09539b] font-mono">Stall {selectedStallsObj.map(s => '#' + s.stallNumber).join(', ')}</b> ({selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft, ₹{selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) • </>
-                ) : null}
-                Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentStep(1)}
-              leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
-            >
-              Change Stall
-            </Button>
-          </div>
-
-          {/* Existing Registered Company Cards (If Logged In) */}
-          {companies.length > 0 && !isAddingNewCompany && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Select Saved Corporate Profile:</label>
-                <button
-                  onClick={() => setIsAddingNewCompany(true)}
-                  className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Fill New Corporate Details
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {companies.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => handleSelectExistingCompany(c)}
-                    className={`p-4 border rounded-xl cursor-pointer transition-all flex flex-col justify-between space-y-3 ${selectedCompany?.id === c.id
-                        ? 'bg-[#f6f9ff] border-[#09539b] ring-2 ring-[#09539b]'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                      }`}
-                  >
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <h4 className="text-sm font-extrabold text-[#012970]">{c.name}</h4>
-                        {selectedCompany?.id === c.id && (
-                          <span className="p-1 bg-[#09539b] text-white rounded-full">
-                            <Check className="w-3 h-3" />
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Code: {c.companyCode}</p>
-                    </div>
-
-                    <div className="space-y-1 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                      <p><span className="font-semibold text-slate-500">Reg No:</span> <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px]">{c.regNo || assignedRegNo || 'Pending'}</span></p>
-                      <p><span className="font-semibold text-slate-500">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
-                      <p><span className="font-semibold text-slate-500">Contact:</span> {c.contactPerson} ({c.email})</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4 flex justify-between items-center border-t border-slate-100">
-                <Button variant="outline" onClick={() => setCurrentStep(1)} leftIcon={<ArrowLeft className="w-4 h-4" />}>
-                  Back to Stall Selection
-                </Button>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  disabled={!selectedCompany}
-                  onClick={() => setCurrentStep(3)}
-                  className="bg-[#09539b] hover:bg-[#012970] font-bold"
-                  rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
-                >
-                  Continue to Tax Review & Contract
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Guest / New Company Details Form */}
-          {(companies.length === 0 || isAddingNewCompany) && (
-            <form onSubmit={handleSubmit(onSubmitCompanyForm)} className="space-y-5">
-              {companies.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingNewCompany(false)}
-                  className="text-xs font-semibold text-[#09539b] hover:underline mb-2 block"
-                >
-                  ← Select Existing Saved Company
-                </button>
-              )}
-
-              {/* GSTIN Verification & Auto-Fill Header Card */}
-              <div className="bg-[#f6f9ff] border-2 border-blue-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-[#09539b]" />
-                      <h4 className="text-sm font-bold text-[#012970]">
-                        GSTIN Verification & Auto-Fill
-                      </h4>
-                      <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        Official Tax Entity
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Enter your 15-character GSTIN to auto-fetch legal company name, PAN, and tax address.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="e.g. 27AAACT1029F1Z5"
-                        maxLength={15}
-                        {...register('gstNumber')}
-                        className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white shadow-xs"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleVerifyGst()}
-                      isLoading={isVerifyingGst}
-                      className="bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0"
-                    >
-                      <Check className="w-3.5 h-3.5 mr-1" />
-                      Verify GST
-                    </Button>
-                  </div>
-                </div>
-
-                {errors.gstNumber && (
-                  <p className="text-xs text-red-600 font-medium">{errors.gstNumber.message}</p>
-                )}
-
-                {/* Verified Details Success Card */}
-                {gstVerificationSuccess && gstVerifiedDetails && (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs space-y-1.5 animate-fadeIn">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2 font-bold text-emerald-900">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Verified Entity: {gstVerifiedDetails.legalName || gstVerifiedDetails.tradeName}</span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-200 text-emerald-900 border border-emerald-300">
-                        Status: {gstVerifiedDetails.status || 'Active'}
-                      </span>
-                    </div>
-                    {assignedRegNo && (
-                      <div className="flex items-center gap-2 pl-6 py-1">
-                        <span className="font-bold text-emerald-900">Assigned Reg No:</span>
-                        <span className="font-mono font-extrabold bg-white border border-emerald-400 text-indigo-800 px-2 py-0.5 rounded text-[11px] shadow-xs">
-                          {assignedRegNo}
-                        </span>
-                        <span className="text-[10px] text-emerald-700 italic font-medium">
-                          (Format: {exhibition?.edition || '01'}/{exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/{exhibition?.eventCode || 'EX'}/xx)
-                        </span>
-                      </div>
-                    )}
-                    <p className="text-emerald-800 text-[11px] pl-6">
-                      <span className="font-semibold">Registered Location:</span> {gstVerifiedDetails.address}, {gstVerifiedDetails.city}, {gstVerifiedDetails.state} - {gstVerifiedDetails.pincode}
-                    </p>
-                    <p className="text-emerald-700 text-[10px] pl-6">
-                      <span className="font-semibold">PAN:</span> {gstVerifiedDetails.pan} • <span className="font-semibold">State:</span> {gstVerifiedDetails.state} ({gstVerifiedDetails.stateCode})
-                    </p>
-                  </div>
-                )}
-
-                {/* GST Info / Notice Banner */}
-                {gstNotice && (
-                  <div className="p-3 bg-blue-50 border border-blue-300 text-blue-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
-                    <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <span className="font-medium">{gstNotice}</span>
-                  </div>
-                )}
-
-                {/* GST Warning / Notice Alert */}
-                {gstError && (
-                  <div className="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <span className="font-medium">{gstError}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Official Legal / Trade Name *"
-                  error={errors.name?.message}
-                  {...register('name')}
-                />
-                <Input
-                  label="Permanent Account Number (PAN) *"
-                  placeholder="e.g. AAACT1029F"
-                  maxLength={10}
-                  error={errors.panNumber?.message}
-                  {...register('panNumber')}
-                />
-                <Input
-                  label="Tax Deduction Account Number (TAN) (Optional)"
-                  placeholder="e.g. DELT12345E"
-                  maxLength={10}
-                  error={errors.tanNumber?.message}
-                  {...register('tanNumber')}
-                />
-                <Input
-                  label="Authorized Contact Person *"
-                  error={errors.contactPerson?.message}
-                  {...register('contactPerson')}
-                />
-                <Input
-                  label="Designation / Role *"
-                  error={errors.designation?.message}
-                  {...register('designation')}
-                />
-                <Input
-                  label="Mobile Number (10 digits) *"
-                  placeholder="9876543210"
-                  error={errors.mobile?.message}
-                  {...register('mobile')}
-                />
-                <Input
-                  label="Corporate Email Address *"
-                  type="email"
-                  error={errors.email?.message}
-                  {...register('email')}
-                />
-                <Input
-                  label="Industry Sector *"
-                  error={errors.industry?.message}
-                  {...register('industry')}
-                />
-                <Input
-                  label="Product / Service Category *"
-                  error={errors.category?.message}
-                  {...register('category')}
-                />
-                <Input
-                  label="Official Corporate Website"
-                  placeholder="https://"
-                  error={errors.website?.message}
-                  {...register('website')}
-                />
-                <Input
-                  label="PIN Code (6 digits) *"
-                  maxLength={6}
-                  placeholder="e.g. 400051"
-                  error={errors.pinCode?.message}
-                  {...register('pinCode')}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input
-                  label="Registered Corporate Address *"
-                  error={errors.address?.message}
-                  {...register('address')}
-                />
-                <Input
-                  label="City *"
-                  error={errors.city?.message}
-                  {...register('city')}
-                />
-                <Input
-                  label="State / Province *"
-                  error={errors.state?.message}
-                  {...register('state')}
-                />
-              </div>
-
-              <div className="pt-4 flex justify-between items-center border-t border-slate-100">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCurrentStep(1)}
-                  leftIcon={<ArrowLeft className="w-4 h-4" />}
-                >
-                  Back to Stall Selection
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  className="bg-[#09539b] hover:bg-[#012970] font-bold"
-                  rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
-                >
-                  Save & Continue to Tax Review & Contract
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+        <Step2CompanyDetails
+          user={user}
+          exhibition={exhibition}
+          selectedStalls={selectedStallsObj}
+          companies={companies}
+          selectedCompany={selectedCompany}
+          assignedRegNo={assignedRegNo}
+          onSelectCompany={(c) => {
+            setSelectedCompany(c);
+            if (c.regNo) setAssignedRegNo(c.regNo);
+          }}
+          onSubmitCompanyForm={onSubmitCompanyForm}
+          onBack={() => setCurrentStep(1)}
+          onContinueWithSelectedCompany={() => setCurrentStep(3)}
+        />
       )}
 
-      {/* STEP 3: TAX BILL & SUMMARY */}
-      {currentStep === 3 && selectedStallsObj.length > 0 && selectedCompany && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#09539b]" /> Step 3: Tax Invoice Audit & Line Items
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Review your corporate tax entity details and financial breakdown before payment.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
-              Back to Company Details
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* 2 Spans: Event & Corporate Details + Payment Mode Option */}
-            <div className="md:col-span-2 space-y-4">
-              <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                  Trade Fair Overview
-                </h4>
-                <p><span className="font-semibold text-slate-500">Event:</span> {exhibition.title}</p>
-                <p><span className="font-semibold text-slate-500">Venue:</span> {exhibition.venue}, {exhibition.city}</p>
-              </div>
-
-              <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-extrabold text-[#09539b] text-xs uppercase tracking-wider border-b border-slate-200 pb-1.5 flex items-center justify-between">
-                  <span>Exhibitor GSTIN Entity</span>
-                  {/* {(selectedCompany.regNo || assignedRegNo) && (
-                    <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                      Reg No: {selectedCompany.regNo || assignedRegNo}
-                    </span>
-                  )} */}
-                </h4>
-                <p><span className="font-semibold text-slate-500">Company Name:</span> {selectedCompany.name}</p>
-                {/* <p><span className="font-semibold text-slate-500">Official Reg No:</span> <strong className="font-mono text-indigo-700">{selectedCompany.regNo || assignedRegNo || `${exhibition?.edition || '01'}/${exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26'}/${exhibition?.eventCode || 'EX'}/01`}</strong></p> */}
-                <p><span className="font-semibold text-slate-500">GSTIN:</span> {selectedCompany.gstNumber || 'N/A'}</p>
-                <p><span className="font-semibold text-slate-500">Contact Email:</span> {selectedCompany.email}</p>
-              </div>
-
-             
-              <div className="rounded-2xl border border-slate-200 bg-[#f7faff] overflow-hidden">
-                {/* Header */}
-                <div className="p-5 border-b border-slate-200">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <svg
-                          className="w-5 h-5 text-[#09539b]"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                        >
-                          <rect x="3" y="3" width="7" height="7" rx="1" />
-                          <rect x="14" y="3" width="7" height="7" rx="1" />
-                          <rect x="3" y="14" width="7" height="7" rx="1" />
-                          <rect x="14" y="14" width="7" height="7" rx="1" />
-                        </svg>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">
-                          Exhibition Booking
-                        </p>
-                        <h4 className="text-sm font-extrabold text-[#012970] uppercase tracking-wider">
-                          Reserved Booth Configuration
-                        </h4>
-                      </div>
-                    </div>
-
-                    <span className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
-                      Reserved
-                    </span>
-                  </div>
-                </div>
-
-                {/* Event and Summary */}
-                <div className="p-5 space-y-4">
-                  <div className="bg-white rounded-xl border border-blue-100 p-4">
-                    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                      Exhibition Event
-                    </p>
-
-                    <h5 className="text-lg font-extrabold text-[#012970] mt-1 break-words">
-                      {exhibition?.title || "N/A"}
-                    </h5>
-
-                    <p className="text-xs text-slate-500 mt-1">
-                      Your selected booth configuration
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
-                      <p className="text-xs font-medium text-slate-500">
-                        Reserved Stalls
-                      </p>
-
-                      <div className="flex items-end gap-2 mt-2">
-                        <span className="text-3xl font-extrabold text-[#012970]">
-                          {selectedStallsObj.length}
-                        </span>
-                        <span className="text-xs text-slate-500 mb-1">
-                          {selectedStallsObj.length === 1 ? "Stall" : "Stalls"}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {selectedStallsObj.map((stall) => (
-                          <span
-                            key={stall.id ?? stall.stallNumber}
-                            className="px-2 py-1 bg-blue-50 text-[#09539b] rounded-md text-xs font-bold"
-                          >
-                            {stall.stallNumber}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
-                      <p className="text-xs font-medium text-slate-500">
-                        Total Area
-                      </p>
-
-                      <div className="flex items-end gap-2 mt-2">
-                        <span className="text-3xl font-extrabold text-[#012970]">
-                          {selectedStallsObj.reduce(
-                            (sum, stall) => sum + stall.areaSqFt,
-                            0
-                          )}
-                        </span>
-                        <span className="text-xs text-slate-500 mb-1">
-                          Sq.Ft
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-500 mt-3">
-                        Combined area of all selected booths
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stall Details */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h5 className="text-sm font-bold text-slate-800">
-                        Selected Stalls
-                      </h5>
-
-                      <span className="text-xs text-slate-500">
-                        {selectedStallsObj.length} booths
-                      </span>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                      {selectedStallsObj.map((stall, index) => (
-                        <div
-                          key={stall.id ?? stall.stallNumber}
-                          className={`p-4 flex items-center gap-3 ${
-                            index !== 0 ? "border-t border-slate-100" : ""
-                          }`}
-                        >
-                          <div className="w-10 h-10 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
-                            <span className="text-xs font-bold text-[#09539b]">
-                              {stall.stallNumber}
-                            </span>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-[#012970]">
-                              Stall {stall.stallNumber}
-                            </p>
-
-                            <p className="text-xs text-slate-500 mt-1 uppercase">
-                              {stall.category}
-                            </p>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-bold text-[#012970]">
-                              {stall.areaSqFt} Sq.Ft
-                            </p>
-                            <p className="text-sm text-slate-500 mt-1">
-                              ₹{stall?.price}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* PAYMENT OPTION SELECTOR (FULL vs PARTIAL > 50%) */}
-              <div className="p-5 bg-white border-2 border-[#09539b]/30 rounded-xl space-y-4 shadow-xs">
-                <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                  <h4 className="font-extrabold text-[#012970] text-sm flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-[#09539b]" /> Select Payment Plan Option
-                  </h4>
-                  <span className="text-[10px] font-bold text-[#09539b] bg-[#EEF4FC] px-2.5 py-0.5 rounded-full uppercase">
-                    Flexible Terms
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Full Payment Option */}
-                  <div
-                    onClick={() => setPaymentType('FULL')}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'FULL'
-                        ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#012970] text-xs">Full Payment (100%)</span>
-                      <input type="radio" checked={paymentType === 'FULL'} onChange={() => setPaymentType('FULL')} />
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Pay complete booth rental today with zero pending balance.
-                    </p>
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-[#012970]">
-                      <span>Amount Today:</span>
-                      <span className="font-mono text-[#09539b]">₹{basePrice.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  {/* Partial Payment Option */}
-                  <div
-                    onClick={() => setPaymentType('PARTIAL')}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'PARTIAL'
-                        ? 'border-[#09539b] bg-[#f6f9ff] ring-2 ring-[#09539b]/20'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-[#012970] text-xs">Partial Advance Payment</span>
-                        <span className="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded">
-                          &gt; 50% Required
-                        </span>
-                      </div>
-                      <input type="radio" checked={paymentType === 'PARTIAL'} onChange={() => setPaymentType('PARTIAL')} />
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Pay advance today to lock booth; remaining balance due 15 days before event.
-                    </p>
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold text-[#012970]">
-                      <span>Advance Today ({effectivePartialPercent}%):</span>
-                      <span className="font-mono text-[#09539b]">₹{payableToday.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Partial Payment Configuration & 15-Day Deadline Notice */}
-                {paymentType === 'PARTIAL' && (
-                  <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl space-y-3 animate-in fade-in">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <label className="text-xs font-bold text-slate-700">
-                        Select Advance Percentage (Must be &gt; 50%):
-                      </label>
-                      <div className="flex items-center gap-2">
-                        {[60, 70, 80].map((pct) => (
-                          <button
-                            key={pct}
-                            type="button"
-                            onClick={() => setPartialPercentage(pct)}
-                            className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${partialPercentage === pct
-                                ? 'bg-[#09539b] text-white shadow-xs'
-                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                              }`}
-                          >
-                            {pct}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-amber-200">
-                      <span className="text-xs font-bold text-slate-600">Custom Advance %:</span>
-                      <input
-                        type="number"
-                        min="50"
-                        max="99"
-                        value={partialPercentage}
-                        onChange={(e) => setPartialPercentage(Number(e.target.value))}
-                        className="w-20 px-2 py-1 border border-slate-300 rounded font-mono font-bold text-xs text-center"
-                      />
-                      <span className="text-xs text-slate-500 font-medium">
-                        (Payable Today: <b className="font-mono text-[#09539b]">₹{payableToday.toLocaleString()}</b> • Balance: <b className="font-mono text-slate-800">₹{remainingBalance.toLocaleString()}</b>)
-                      </span>
-                    </div>
-
-                    {/* Deadline Notice Banner */}
-                    <div className="p-3 bg-amber-100/70 border-l-4 border-amber-500 rounded-r-lg text-xs text-amber-900 font-medium flex items-start gap-2.5">
-                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-amber-950 block">15-Day Balance Deadline Notice:</span>
-                        The remaining balance of <b className="font-mono font-extrabold">₹{remainingBalance.toLocaleString()} INR</b> must be paid at least <b className="underline">15 days before the event</b> (on or before <b className="font-bold">{formattedDeadline}</b>).
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* OFFICIAL CONTRACT FORM & TERMS AGREEMENT SECTION */}
-              <div className="p-5 bg-slate-50 border-2 border-slate-200 rounded-xl space-y-4 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                  <div>
-                    <h4 className="font-extrabold text-[#012970] text-sm flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-[#09539b]" /> Official Registration Contract Form & Terms
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      Mediccon Expo 2026 CODISSIA Trade Centre Hall-A & Hall-B Contract Form
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowContractPreview(!showContractPreview)}
-                    className="px-3 py-1.5 bg-[#09539b]/10 hover:bg-[#09539b]/20 text-[#09539b] text-xs font-bold rounded-lg transition-colors border border-[#09539b]/20 flex items-center gap-1.5 self-start sm:self-auto"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    {showContractPreview ? 'Hide Official Form Preview' : 'View Official Form Preview'}
-                  </button>
-                </div>
-
-                {/* Contract Form Live Expandable Preview */}
-                {showContractPreview && selectedCompany && selectedStallsObj.length > 0 && exhibition && (
-                  <div className="print:block" id="contract-printable-area">
-                    <OfficialContractForm
-                      company={selectedCompany}
-                      exhibition={exhibition}
-                      stalls={selectedStallsObj}
-                      paymentType={paymentType}
-                      effectivePartialPercent={effectivePartialPercent}
-                      payableToday={payableToday}
-                      remainingBalance={remainingBalance}
-                      formattedDeadline={formattedDeadline}
-                      onPrint={() => window.print()}
-                    />
-                  </div>
-                )}
-
-                {/* Rules & Regulations Overleaf Agreement Checkbox */}
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms-check"
-                      checked={isTermsAccepted}
-                      onChange={(e) => setIsTermsAccepted(e.target.checked)}
-                      className="mt-1 w-4 h-4 text-[#09539b] rounded border-slate-300 focus:ring-[#09539b]"
-                    />
-                    <label htmlFor="terms-check" className="text-xs text-slate-700 font-medium leading-relaxed cursor-pointer">
-                      We acknowledge explicitly that we have read and accepted in full the <button type="button" onClick={() => setIsTermsModalOpen(true)} className="text-[#09539b] font-bold underline hover:text-[#012970]">Rules and Regulations of the Exhibition printed overleaf</button> and by submitting this application, we undertake to comply with the same.
-                    </label>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Organizer Bank: <b>THE FEDERAL BANK LTD</b> (A/C: 18020200001046)</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsTermsModalOpen(true)}
-                      className="text-[#09539b] font-bold hover:underline flex items-center gap-1"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" /> View All 5 Contract Clauses
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 1 Span: Financial Card */}
-            <div className="p-6 bg-[#012970] text-white rounded-2xl space-y-4 shadow-xl flex flex-col justify-between md:sticky md:top-16 self-start w-full min-h-[500px]">
-              <div className="space-y-3">
-                <h4 className="text-xs font-extrabold border-b border-white/20 pb-2 uppercase tracking-wider text-[#9cc542]">
-                  Payment Summary
-                </h4>
-
-                <div className="space-y-2 text-sm text-slate-200">
-                  <div className="flex justify-between">
-                    <span>Base Rental</span>
-                    <span className="font-mono font-bold text-white">₹{(isPartial?payableToday:basePrice).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>18% GST Tax</span>
-                    <span className="font-mono font-bold text-white">₹{taxAmount.toLocaleString()}</span>
-                  </div>
-                  {/* Only visible to Logged-in Admin / Staff */}
-              {isAdmin && (
-                  <div className="space-y-1.5 py-1.5 border-t border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-emerald-300 text-xs font-semibold">Discount</span>
-                      <div className="flex bg-white/10 rounded-md p-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setDiscountMode('AMOUNT')}
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
-                            discountMode === 'AMOUNT' ? 'bg-[#9cc542] text-[#012970]' : 'text-white/70'
-                          }`}
-                        >
-                          ₹
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDiscountMode('PERCENT')}
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
-                            discountMode === 'PERCENT' ? 'bg-[#9cc542] text-[#012970]' : 'text-white/70'
-                          }`}
-                        >
-                          %
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">
-                        {discountMode === 'AMOUNT' ? '₹' : '%'}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={discountMode === 'PERCENT' ? 100 : undefined}
-                        value={discountValue || ''}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setDiscountValue(isNaN(val) ? 0 : val);
-                        }}
-                        placeholder="0"
-                        className="w-full pl-5 pr-2 py-1 text-xs text-right font-mono font-bold rounded bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9cc542]"
-                      />
-                    </div>
-
-                    {discountAmount > 0 && (
-                      <p className="text-[10px] text-emerald-300 text-right">
-                        −₹{discountAmount.toLocaleString()} applied
-                      </p>
-                    )}
-                  </div>
-                )}
-                  <div className="flex justify-between border-t border-white/10 pt-2 font-bold text-slate-100">
-                    <span>Grand Total:</span>
-                    <span className="font-mono text-[#9cc542]">₹{billGrandTotal.toLocaleString()}</span>
-                  </div>
-
-                  {paymentType === 'PARTIAL' && (
-                    <>
-                      <div className="flex justify-between text-xs font-bold text-[#9cc542] pt-2 border-t border-white/20">
-                        <span>Advance Payable Today ({effectivePartialPercent}%):</span>
-                        <span className="font-mono text-base">₹{payableToday.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] text-amber-200 pt-1">
-                        <span>Remaining Balance Due:</span>
-                        <span className="font-mono">₹{remainingBalance.toLocaleString()}</span>
-                      </div>
-                      <p className="text-[10px] text-amber-300 font-medium italic pt-1">
-                        Due 15 days before event ({formattedDeadline})
-                      </p>
-                    </>
-                  ) }
-                </div>
-              </div>
-
-              <Button
-                variant="primary"
-                size="lg"
-                disabled={!isTermsAccepted || billGrandTotal===0}
-                className="w-full font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50"
-                onClick={handleProceedToPayment}
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                Pay ₹{billGrandTotal.toLocaleString()} Now
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* STEP 3: TAX AUDIT & BILL */}
+      {currentStep === 3 && (
+        <Step3TaxAuditBill
+          user={user}
+          exhibition={exhibition}
+          selectedStalls={selectedStallsObj}
+          selectedCompany={selectedCompany}
+          paymentType={paymentType}
+          setPaymentType={setPaymentType}
+          partialPercentage={partialPercentage}
+          setPartialPercentage={setPartialPercentage}
+          isTermsAccepted={isTermsAccepted}
+          setIsTermsAccepted={setIsTermsAccepted}
+          onProceedToPayment={handleProceedToPayment}
+          onBack={() => setCurrentStep(2)}
+        />
       )}
 
-      {/* STEP 4: RAZORPAY PAYMENT SIMULATOR */}
+      {/* STEP 4: PAYMENT CHECKOUT */}
       {currentStep === 4 && createdBooking && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-md max-w-xl mx-auto space-y-6">
-          <div className="text-center space-y-2 border-b border-slate-100 pb-4">
-            <span className="px-3 py-1 bg-[#09539b]/10 text-[#09539b] font-extrabold text-[10px] rounded-full uppercase">
-              Razorpay Payment Gateway
-            </span>
-            <h2 className="text-xl font-black text-[#012970]">Secure Payment Checkout</h2>
-            <p className="text-xs text-slate-500">Booking Ref: <span className="font-mono font-bold text-slate-800">{createdBooking.bookingReference}</span></p>
-          </div>
-
-          <div className="p-4 bg-[#f6f9ff] border border-slate-200 rounded-xl space-y-2">
-            <div className="flex justify-between items-center text-sm font-bold">
-              <span className="text-slate-600">
-                {paymentType === 'PARTIAL' ? `Advance Payment Today (${effectivePartialPercent}%):` : 'Total Amount Payable:'}
-              </span>
-              <span className="text-xl font-extrabold text-[#09539b] font-mono">₹{payableToday.toLocaleString()} INR</span>
-            </div>
-            {paymentType === 'PARTIAL' && (
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 font-medium">
-                <span className="font-bold">Partial Advance Selected:</span> Remaining balance of <b className="font-mono font-bold">₹{remainingBalance.toLocaleString()} INR</b> must be cleared at least 15 days before the event (on or before <b>{formattedDeadline}</b>).
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3.5 border-2 border-[#09539b] bg-[#f6f9ff] rounded-xl flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-3">
-                <input type="radio" checked readOnly className="text-[#09539b]" />
-                <span className="text-xs font-bold text-[#012970]">Razorpay UPI / QR / NetBanking</span>
-              </div>
-              <span className="text-[10px] font-black text-[#9cc542] bg-[#012970] px-2 py-0.5 rounded uppercase">Instant</span>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-4 border-t border-slate-100">
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full font-extrabold bg-[#09539b] hover:bg-[#012970] text-white shadow-md py-3"
-              onClick={() => handleExecuteRazorpayPayment(false)}
-              leftIcon={<CreditCard className="w-4 h-4 text-[#9cc542]" />}
-            >
-              Pay ₹{payableToday.toLocaleString()} via Razorpay (Simulate Success)
-            </Button>
-            <button
-              type="button"
-              onClick={() => handleExecuteRazorpayPayment(true)}
-              className="w-full py-2 text-xs font-semibold text-rose-600 hover:underline text-center"
-            >
-              Simulate Razorpay Payment Failure
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentStep(3)}
-              className="w-full py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:underline text-center"
-            >
-              ← Back to Review & Contract
-            </button>
-          </div>
-        </div>
+        <Step4PaymentCheckout
+          booking={createdBooking}
+          paymentType={paymentType}
+          payableToday={payableToday}
+          remainingBalance={remainingBalance}
+          effectivePartialPercent={effectivePartialPercent}
+          formattedDeadline={formattedDeadline}
+          onExecutePayment={handleExecuteRazorpayPayment}
+          onBack={() => setCurrentStep(3)}
+        />
       )}
 
-      {/* STEP 5: SUCCESS & ONE-TIME PASSWORD CREDENTIALS */}
+      {/* STEP 5: PASS & CREDENTIALS */}
       {currentStep === 5 && (
-        <div className="pt-6 sm:pt-8 max-w-5xl mx-auto space-y-8">
-          {paymentStatusState === 'PROCESSING' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-2xl mx-auto space-y-6 shadow-xl">
-              <RefreshCw className="w-12 h-12 text-[#09539b] animate-spin mx-auto" />
-              <h2 className="text-xl font-bold text-[#012970]">Authorizing payment with Razorpay...</h2>
-              <p className="text-xs text-slate-500">Please do not refresh or close the browser window.</p>
-            </div>
-          )}
-
-          {paymentStatusState === 'SUCCESS' && selectedCompany && selectedStallsObj.length > 0 && exhibition && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-              {/* SUCCESS BANNER */}
-              <div className="bg-[#f2faf5] border-2 border-[#9cc542] rounded-3xl p-8 sm:p-12 text-center shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#9cc542] to-[#0E8074]" />
-                <div className="w-20 h-20 bg-[#9cc542]/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-12 h-12 text-[#0E8074]" />
-                </div>
-                <h2 className="text-3xl sm:text-4xl font-black text-[#012970] mb-3">Booking Confirmed!</h2>
-                <p className="text-sm sm:text-base text-emerald-800 font-medium max-w-lg mx-auto">
-                  Your reservation for {selectedStallsObj.length} Stall(s) at {exhibition.title} is successful.
-                </p>
-              </div>
-
-              {/* OTP Credentials Dispatch Notification Box */}
-              <div className="p-5 bg-[#012970] text-white rounded-2xl text-left space-y-3 shadow-md border border-[#09539b]">
-                <div className="flex items-center gap-2 border-b border-white/20 pb-2">
-                  <Mail className="w-5 h-5 text-[#9cc542]" />
-                  <h3 className="text-xs font-black text-[#9cc542] uppercase tracking-wider">
-                    Exhibitor Dashboard Credentials Dispatched
-                  </h3>
-                </div>
-
-                <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                  We have automatically created your Exhibitor Account. Your login credentials and One-Time Password (OTP) have been sent to <span className="font-bold text-white underline">{selectedCompany.email}</span>.
-                </p>
-
-                <div className="p-3 bg-white/10 rounded-xl flex items-center justify-between text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <Key className="w-4 h-4 text-[#9cc542]" />
-                    <span className="text-slate-300">Generated Account OTP:</span>
-                  </div>
-                  <span className="text-base font-black text-[#9cc542] tracking-widest">{generatedOTP || '892401'}</span>
-                </div>
-              </div>
-
-              {/* Render Official Contract Form Component */}
-              <div className="max-w-4xl mx-auto print:block">
-                <OfficialContractForm
-                  company={selectedCompany}
-                  exhibition={exhibition}
-                  stalls={selectedStallsObj}
-                  paymentType={paymentType}
-                  effectivePartialPercent={effectivePartialPercent}
-                  payableToday={payableToday}
-                  remainingBalance={remainingBalance}
-                  formattedDeadline={formattedDeadline}
-                  onPrint={() => window.print()}
-                />
-              </div>
-
-              <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-                <Link to="/login">
-                  <Button variant="primary" className="w-full font-bold bg-[#09539b] hover:bg-[#012970]">
-                    Sign In to Exhibitor Dashboard
-                  </Button>
-                </Link>
-                <Link to="/">
-                  <Button variant="outline" className="w-full font-bold border-[#012970] text-[#012970]">
-                    Back to Homepage
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {paymentStatusState === 'FAILED' && (
-            <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-200 text-center">
-              <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                <XCircle className="w-10 h-10" />
-              </div>
-
-              <div className="space-y-1">
-                <h2 className="text-2xl font-black text-[#012970]">Payment Processing Declined</h2>
-                <p className="text-xs text-rose-600 font-semibold">{paymentErrorMessage}</p>
-              </div>
-
-              <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-                <Button variant="primary" className="bg-[#09539b]" onClick={() => setCurrentStep(4)}>
-                  Retry Razorpay Payment
-                </Button>
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                  Back to Stall Selection
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        <Step5PassCredentials
+          paymentStatus={paymentStatusState}
+          paymentErrorMessage={paymentErrorMessage}
+          createdBooking={createdBooking}
+          selectedCompany={selectedCompany}
+          selectedStalls={selectedStallsObj}
+          exhibition={exhibition}
+          user={user}
+          generatedOTP={generatedOTP}
+          onRetryPayment={() => setCurrentStep(4)}
+        />
       )}
-
-      {/* TERMS & CONDITIONS OVERLEAF MODAL */}
-      <TermsAndConditionsModal
-        isOpen={isTermsModalOpen}
-        onClose={() => setIsTermsModalOpen(false)}
-        isAccepted={isTermsAccepted}
-        onAccept={() => setIsTermsAccepted(true)}
-      />
     </div>
   );
 };

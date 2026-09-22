@@ -21,9 +21,9 @@ export const companyService = {
     return res.data;
   },
 
-  createCompany: async (data: any): Promise<Company> => {
+  createCompany: async (data: any): Promise<any> => {
     const res: any = await apiClient.post('/companies', data);
-    return (res.data?.company || res.data) as Company;
+    return res.data;
   },
 
   verifyGst: async (gstNumber: string, edition?: string, eventCode?: string, spcode?: string, year?: string) => {
