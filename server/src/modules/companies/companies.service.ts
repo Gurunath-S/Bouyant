@@ -5,6 +5,7 @@ import { CreateCompanyInput, UpdateCompanyInput } from './companies.schemas.js';
 import { GST_STATE_CODES } from './utils/gstUtils.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { EmailService } from '../../services/email.service.js';
 
 export class CompaniesService {
 
@@ -139,6 +140,24 @@ export class CompaniesService {
     return candidate;
   }
 
+  /**
+   * Generates a unique username candidate if none provided
+   */
+  static async generateUniqueUsername(seed: string): Promise<string> {
+    const clean = seed.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'user';
+    let candidate = `${clean}_${Math.floor(100 + Math.random() * 900)}`;
+    let attempts = 0;
+    while (await prisma.user.findUnique({ where: { username: candidate } })) {
+      attempts++;
+      candidate = `${clean}_${Math.floor(1000 + Math.random() * 9000)}`;
+      if (attempts > 10) {
+        candidate = `${clean}_${Date.now().toString().slice(-4)}`;
+        break;
+      }
+    }
+    return candidate;
+  }
+
   static async createCompany(input: CreateCompanyInput, userSpcode?: string) {
     const anyInput = input as any;
     let edition = anyInput.edition;
@@ -161,65 +180,120 @@ export class CompaniesService {
       }
     }
 
-    if (input.gstNumber) {
-      const gstResult = await this.verifyGst(input.gstNumber, edition, eventCode, spcode, anyInput.year);
+    const cleanGst = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber.trim().toUpperCase() : null;
+    const cleanPan = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const cleanMobile = input.mobile.trim();
 
-      if (!gstResult.canCreate) {
-        throw ApiError.conflict(
-          'A company with this GST number is already registered.'
-        );
+    // 1. Resolve or Generate Unique Username
+    let requestedUsername = anyInput.username ? anyInput.username.trim().toLowerCase() : null;
+    if (requestedUsername) {
+      const existingUserWithUsername = await prisma.user.findUnique({
+        where: { username: requestedUsername },
+      });
+      if (existingUserWithUsername && existingUserWithUsername.email !== normalizedEmail) {
+        throw ApiError.conflict(`Username "${requestedUsername}" is already taken. Please choose another username.`);
       }
+    } else {
+      requestedUsername = await this.generateUniqueUsername(input.contactPerson || input.name);
     }
 
+    // 2. SMART CHECK: Check if Company already exists in database
+    let existingCompany = cleanGst
+      ? await prisma.company.findUnique({ where: { gstNumber: cleanGst } })
+      : null;
+
+    if (!existingCompany && cleanPan) {
+      existingCompany = await prisma.company.findUnique({ where: { panNumber: cleanPan } });
+    }
+
+    if (existingCompany) {
+      // Check if user with same email or phone exists
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: normalizedEmail },
+            { phone: cleanMobile },
+          ],
+        },
+      });
+
+      // CASE 1: EXACT MATCH (Same GST and same Email or Phone) -> Reuse existing data, no duplication
+      if (existingUser && existingUser.companyId === existingCompany.id) {
+        if (requestedUsername && !existingUser.username) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { username: requestedUsername },
+          });
+        }
+
+        return {
+          company: existingCompany,
+          user: existingUser,
+          temporaryPassword: null,
+        };
+      }
+
+      // CASE 2: Same Company (GST), but new Email or Phone -> Create new User under this Company
+      if (existingUser && existingUser.companyId !== existingCompany.id) {
+        throw ApiError.conflict('An account with this email is already registered with another corporate entity.');
+      }
+
+      const temporaryPassword = crypto.randomBytes(8).toString('base64url');
+      const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+
+      const newUser = await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          username: requestedUsername,
+          passwordHash,
+          name: input.contactPerson,
+          phone: cleanMobile,
+          role: 'CLIENT',
+          companyId: existingCompany.id,
+        },
+      });
+
+      // Notify Admins about new representative under existing company
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+        select: { id: true },
+      });
+
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            title: 'New User Added to Company',
+            message: `New user ${input.contactPerson} (${normalizedEmail}) registered under company "${existingCompany!.name}".`,
+            type: 'INFO',
+          })),
+        });
+      }
+
+      return {
+        company: existingCompany,
+        user: newUser,
+        temporaryPassword,
+      };
+    }
+
+    // 3. CASE 3: Completely New Company & User Registration
     let effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
       ? input.tanNumber.trim().toUpperCase()
       : null;
 
     if (!effectiveTan) {
-      let candidateTan = `TAN${input.panNumber ? input.panNumber.substring(0, 4) : 'TEMP'}${Math.floor(1000 + Math.random() * 9000)}Z`;
+      let candidateTan = `TAN${cleanPan ? cleanPan.substring(0, 4) : 'TEMP'}${Math.floor(1000 + Math.random() * 9000)}Z`;
       while (await prisma.company.findUnique({ where: { tanNumber: candidateTan } })) {
-        candidateTan = `TAN${input.panNumber ? input.panNumber.substring(0, 4) : 'TEMP'}${Math.floor(1000 + Math.random() * 9000)}Z`;
+        candidateTan = `TAN${cleanPan ? cleanPan.substring(0, 4) : 'TEMP'}${Math.floor(1000 + Math.random() * 9000)}Z`;
       }
       effectiveTan = candidateTan;
-    }
-
-    // Check whether company information already exists
-    const existingCompany = await prisma.company.findFirst({
-      where: {
-        OR: [
-          { email: input.email },
-          { mobile: input.mobile },
-          { panNumber: input.panNumber },
-          { tanNumber: effectiveTan },
-        ],
-      },
-    });
-
-    if (existingCompany) {
-      if (existingCompany.email === input.email) {
-        throw ApiError.conflict('A company with this email already exists.');
-      }
-      if (existingCompany.mobile === input.mobile) {
-        throw ApiError.conflict('A company with this mobile number already exists.');
-      }
-      if (existingCompany.panNumber === input.panNumber) {
-        throw ApiError.conflict('A company with this PAN number already exists.');
-      }
-      if (existingCompany.tanNumber === effectiveTan) {
-        throw ApiError.conflict('A company with this TAN number already exists.');
-      }
     }
 
     let regNo = anyInput.regNo;
     if (!regNo || await prisma.company.findUnique({ where: { regNo } })) {
       regNo = await this.generateNextRegNo(edition, eventCode, anyInput.year);
-    }
-    const existingUser = await prisma.user.findUnique({
-      where: { email: input.email.toLowerCase() },
-    });
-
-    if (existingUser && existingUser.companyId) {
-      throw ApiError.conflict('An account with this email is already registered and linked to another company.');
     }
 
     const count = await prisma.company.count();
@@ -232,15 +306,15 @@ export class CompaniesService {
         data: {
           name: input.name,
           contactPerson: input.contactPerson,
-          mobile: input.mobile,
-          email: input.email,
+          mobile: cleanMobile,
+          email: normalizedEmail,
           address: input.address,
           city: input.city,
           state: input.state,
           pinCode: input.pinCode || '400051',
           country: input.country || 'India',
-          gstNumber: input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber : null,
-          panNumber: input.panNumber && input.panNumber.trim() !== '' ? input.panNumber : null,
+          gstNumber: cleanGst,
+          panNumber: cleanPan,
           tanNumber: effectiveTan,
           industry: input.industry,
           website: input.website,
@@ -251,35 +325,50 @@ export class CompaniesService {
         },
       });
 
-      let user = existingUser;
-      if (existingUser) {
-        user = await tx.user.update({
-          where: { id: existingUser.id },
-          data: {
-            name: input.contactPerson,
-            phone: input.mobile,
-            companyId: company.id,
-          },
-        });
-      } else {
-        user = await tx.user.create({
-          data: {
-            email: input.email.toLowerCase(),
-            passwordHash,
-            name: input.contactPerson,
-            phone: input.mobile,
-            role: 'CLIENT',
-            companyId: company.id,
-          },
+      const user = await tx.user.create({
+        data: {
+          email: normalizedEmail,
+          username: requestedUsername,
+          passwordHash,
+          name: input.contactPerson,
+          phone: cleanMobile,
+          role: 'CLIENT',
+          companyId: company.id,
+        },
+      });
+
+      // Notify System Administrators about new corporate registration
+      const admins = await tx.user.findMany({
+        where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+        select: { id: true },
+      });
+
+      if (admins.length > 0) {
+        await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            title: 'New Corporate Registration',
+            message: `Company "${company.name}" (${input.contactPerson}, ${normalizedEmail}) registered during stall booking.`,
+            type: 'INFO',
+          })),
         });
       }
 
       return {
         company,
         user,
-        temporaryPassword: existingUser ? null : temporaryPassword,
+        temporaryPassword,
       };
     });
+
+    // Dispatch background email alert to Admins
+    EmailService.sendAdminAlert({
+      type: 'COMPANY_REGISTERED',
+      companyName: result.company.name,
+      contactPerson: input.contactPerson,
+      email: normalizedEmail,
+      mobile: cleanMobile,
+    }).catch((e) => console.error('Admin registration email alert error:', e));
 
     return result;
   }

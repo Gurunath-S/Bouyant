@@ -37,6 +37,7 @@ export const CreateCompanySchema = z
     edition: z.string().trim().optional(),
     eventCode: z.string().trim().optional(),
     year: z.string().trim().optional(),
+    username: z.string().trim().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain alphanumeric characters, underscores, and hyphens').optional().or(z.literal('')),
   })
   .passthrough()
   .refine(

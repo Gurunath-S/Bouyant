@@ -21,6 +21,17 @@ export class AuthController {
     });
   };
 
+  static checkUsername = async (req: Request, res: Response) => {
+    const username = (req.query.username as string) || '';
+    const result = await AuthService.checkUsernameAvailability(username);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
+
   static login = async (req: Request, res: Response) => {
     const { user, tokens } = await AuthService.login(req.body);
 

@@ -38,9 +38,11 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         phone: true,
         role: true,
+        spcode: true,
         companyId: true,
         createdAt: true,
       },
@@ -57,12 +59,31 @@ export class AuthService {
     return { user, tokens };
   }
 
+  static async checkUsernameAvailability(username: string) {
+    const clean = username.trim().toLowerCase();
+    if (!clean || clean.length < 3) {
+      return { available: false, message: 'Username must be at least 3 characters long.' };
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(clean)) {
+      return { available: false, message: 'Username can only contain letters, numbers, hyphens, and underscores.' };
+    }
+    const existing = await prisma.user.findUnique({
+      where: { username: clean },
+    });
+    return {
+      available: !existing,
+      username: clean,
+      message: existing ? 'Username is already taken.' : 'Username is available!',
+    };
+  }
+
   static async login(input: LoginInput) {
     const identifier = input.email.trim();
     const user = await prisma.user.findFirst({
       where: {
         OR: [
           { email: { equals: identifier, mode: 'insensitive' } },
+          { username: { equals: identifier, mode: 'insensitive' } },
           { spcode: { equals: identifier, mode: 'insensitive' } },
         ],
       },
@@ -70,13 +91,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw ApiError.unauthorized('Invalid email or password.');
+      throw ApiError.unauthorized('Invalid username/email or password.');
     }
 
     const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw ApiError.unauthorized('Invalid email or password.');
+      throw ApiError.unauthorized('Invalid username/email or password.');
     }
 
     if (user.isActive === false) {
@@ -94,13 +115,13 @@ export class AuthService {
     const userProfile = {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       phone: user.phone,
       role: user.role,
       spcode: user.spcode,
       isActive: user.isActive,
       companyId: user.companyId,
-      spcode: user.spcode,
       company: user.company,
       createdAt: user.createdAt,
     };
@@ -128,7 +149,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         companyId: user.companyId,
-      spcode: user.spcode,
+        spcode: user.spcode,
       });
 
       return tokens;
@@ -144,6 +165,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         phone: true,
         role: true,

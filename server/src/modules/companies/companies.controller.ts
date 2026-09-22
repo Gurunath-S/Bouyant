@@ -21,7 +21,7 @@ export class CompaniesController {
   };
 
   static create = async (req: AuthenticatedRequest, res: Response) => {
-    const company = await CompaniesService.createCompany(req.body, req.user?.spcode);
+    const company = await CompaniesService.createCompany(req.body, req.user?.spcode || undefined);
 
     return sendResponse({
       res,
