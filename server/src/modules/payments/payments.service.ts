@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { EmailService } from '../../services/email.service.js';
 
 export class PaymentsService {
   /**
@@ -10,13 +11,16 @@ export class PaymentsService {
     userId: string,
     action: 'SUCCESS' | 'FAILED' | 'CANCELLED',
     paymentMethod = 'CREDIT_CARD_VISA',
-    transactionId?: string
+    transactionId?: string,
+    temporaryPassword?: string
   ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         stalls: { include: { stall: true } },
         company: true,
+        exhibition: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
         payments: true,
       },
     });
@@ -27,7 +31,7 @@ export class PaymentsService {
     const generatedTxnId = transactionId || `txn_mock_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     if (action === 'SUCCESS') {
-      return await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         // 1. Update or Create Payment Record
         const existingPayment = await tx.payment.findFirst({
           where: { bookingId },
@@ -94,7 +98,7 @@ export class PaymentsService {
           },
         });
 
-        // 5. Trigger System Notification
+        // 5. Trigger System Notification for Client
         await tx.notification.create({
           data: {
             userId,
@@ -104,8 +108,56 @@ export class PaymentsService {
           },
         });
 
+        // 6. Notify System Administrators about confirmed booking payment
+        const admins = await tx.user.findMany({
+          where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+          select: { id: true },
+        });
+
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.id,
+              title: 'Booking Payment Received',
+              message: `Payment of ₹${Number(booking.grandTotal).toLocaleString()} received from "${booking.company.name}" (Ref: ${booking.bookingReference}).`,
+              type: 'SUCCESS',
+            })),
+          });
+        }
+
         return { bookingStatus: 'CONFIRMED', payment, invoice };
       });
+
+      const stallNumbers = booking.stalls.map((s) => s.stall.stallNumber);
+
+      // Background Email Dispatches: Client Invoice & Admin Notification
+      EmailService.sendInvoiceAndCredentialsEmail({
+        toEmail: booking.user.email,
+        toName: booking.user.name,
+        companyName: booking.company.name,
+        bookingRef: booking.bookingReference,
+        invoiceNumber: result.invoice.invoiceNumber,
+        grandTotal: Number(booking.grandTotal),
+        paidAmount: Number(booking.grandTotal),
+        stalls: stallNumbers,
+        exhibitionTitle: booking.exhibition?.title || 'Buoyant Exhibition',
+        temporaryPassword,
+      }).catch((e) => console.error('Client invoice email dispatch error:', e));
+
+      EmailService.sendAdminAlert({
+        type: 'PAYMENT_RECEIVED',
+        companyName: booking.company.name,
+        contactPerson: booking.user.name,
+        email: booking.user.email,
+        mobile: booking.user.phone || booking.company.mobile,
+        bookingRef: booking.bookingReference,
+        invoiceNumber: result.invoice.invoiceNumber,
+        amount: Number(booking.grandTotal),
+        stalls: stallNumbers,
+        exhibitionTitle: booking.exhibition?.title,
+      }).catch((e) => console.error('Admin payment email alert error:', e));
+
+      return result;
     } else {
       // Payment Failed or Cancelled
       const existingPayment = await prisma.payment.findFirst({
