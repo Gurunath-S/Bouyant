@@ -337,18 +337,41 @@ export class CompaniesService {
         },
       });
 
-      // Notify System Administrators about new corporate registration
-      const admins = await tx.user.findMany({
-        where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+      // Find associated exhibition for event-specific admin notification routing
+      const targetExpo = await tx.exhibition.findFirst({
+        where: {
+          OR: [
+            { edition, eventCode },
+            { status: 'PUBLISHED' },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const eventEmails = targetExpo?.notificationEmails
+        ? targetExpo.notificationEmails.split(',').map((e) => e.trim().toLowerCase())
+        : [];
+
+      // Notify System Administrators or Event Designated Admins
+      const targetAdmins = await tx.user.findMany({
+        where: {
+          OR: [
+            ...(eventEmails.length > 0 ? [{ email: { in: eventEmails, mode: 'insensitive' as const } }] : []),
+            ...(targetExpo?.createdByUserId ? [{ id: targetExpo.createdByUserId }] : []),
+            { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+          ],
+        },
         select: { id: true },
       });
 
-      if (admins.length > 0) {
+      const uniqueAdminIds = Array.from(new Set(targetAdmins.map((a) => a.id)));
+
+      if (uniqueAdminIds.length > 0) {
         await tx.notification.createMany({
-          data: admins.map((admin) => ({
-            userId: admin.id,
+          data: uniqueAdminIds.map((adminId) => ({
+            userId: adminId,
             title: 'New Corporate Registration',
-            message: `Company "${company.name}" (${input.contactPerson}, ${normalizedEmail}) registered during stall booking.`,
+            message: `Company "${company.name}" (${input.contactPerson}, ${normalizedEmail}) registered for "${targetExpo?.title || 'Exhibition'}".`,
             type: 'INFO',
           })),
         });
@@ -358,19 +381,26 @@ export class CompaniesService {
         company,
         user,
         temporaryPassword,
+        targetExpo,
       };
     });
 
-    // Dispatch background email alert to Admins
+    // Dispatch background email alert to designated Event Admins / customRecipients
     EmailService.sendAdminAlert({
       type: 'COMPANY_REGISTERED',
       companyName: result.company.name,
       contactPerson: input.contactPerson,
       email: normalizedEmail,
       mobile: cleanMobile,
+      exhibitionTitle: result.targetExpo?.title,
+      customRecipients: result.targetExpo?.notificationEmails,
     }).catch((e) => console.error('Admin registration email alert error:', e));
 
-    return result;
+    return {
+      company: result.company,
+      user: result.user,
+      temporaryPassword: result.temporaryPassword,
+    };
   }
 
   static async updateCompany(companyId: string, input: UpdateCompanyInput) {

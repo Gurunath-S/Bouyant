@@ -32,8 +32,8 @@ export class CompaniesController {
   };
 
   static update = async (req: AuthenticatedRequest, res: Response) => {
-    const companyId = req.params.id || req.user!.companyId;
-    if (!companyId) {
+    const targetCompanyId = req.params.id || req.user!.companyId;
+    if (!targetCompanyId) {
       return sendResponse({
         res,
         statusCode: 400,
@@ -41,7 +41,16 @@ export class CompaniesController {
       });
     }
 
-    const updated = await CompaniesService.updateCompany(companyId, req.body);
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN';
+    if (!isAdmin && req.user?.companyId !== targetCompanyId) {
+      return sendResponse({
+        res,
+        statusCode: 403,
+        message: 'Access denied: You can only update your own company profile.',
+      });
+    }
+
+    const updated = await CompaniesService.updateCompany(targetCompanyId, req.body);
     return sendResponse({
       res,
       statusCode: 200,
@@ -51,8 +60,8 @@ export class CompaniesController {
   };
 
   static getById = async (req: AuthenticatedRequest, res: Response) => {
-    const companyId = req.params.id || req.user!.companyId;
-    if (!companyId) {
+    const targetCompanyId = req.params.id || req.user!.companyId;
+    if (!targetCompanyId) {
       return sendResponse({
         res,
         statusCode: 404,
@@ -60,7 +69,16 @@ export class CompaniesController {
       });
     }
 
-    const company = await CompaniesService.getCompanyById(companyId);
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN';
+    if (!isAdmin && req.user?.companyId !== targetCompanyId) {
+      return sendResponse({
+        res,
+        statusCode: 403,
+        message: 'Access denied: You can only access your own company profile.',
+      });
+    }
+
+    const company = await CompaniesService.getCompanyById(targetCompanyId);
     return sendResponse({
       res,
       statusCode: 200,
