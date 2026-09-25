@@ -10,10 +10,12 @@ export class PaymentsService {
   static async verifyAndProcessPayment(
     bookingId: string,
     userId: string,
+    userRole = 'CLIENT',
     action: 'SUCCESS' | 'FAILED' | 'CANCELLED',
     paymentMethod = 'CREDIT_CARD_VISA',
     transactionId?: string,
-    temporaryPassword?: string
+    temporaryPassword?: string,
+    payAmount?: number
   ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -27,69 +29,59 @@ export class PaymentsService {
     });
 
     if (!booking) throw ApiError.notFound('Booking record not found.');
-    if (booking.userId !== userId) throw ApiError.forbidden('Unauthorized access to booking.');
+
+    const isStaffOrAdmin = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(userRole);
+    if (!isStaffOrAdmin && booking.userId !== userId) {
+      throw ApiError.forbidden('Unauthorized access to booking.');
+    }
 
     const generatedTxnId = transactionId || `txn_mock_${Date.now()}_${generateReference('TXN', 4, false)}`;
 
     if (action === 'SUCCESS') {
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Update or Create Payment Record
-        const existingPayment = await tx.payment.findFirst({
-          where: { bookingId },
+        // Calculate partial / balance payments
+        const currentPaid = Number(booking.paidAmount || 0);
+        const grandTotal = Number(booking.grandTotal);
+        const balanceLeft = Number(booking.balanceAmount || Math.max(0, grandTotal - currentPaid));
+
+        const paymentAmount = payAmount && payAmount > 0
+          ? Math.min(payAmount, balanceLeft > 0 ? balanceLeft : grandTotal)
+          : (balanceLeft > 0 ? balanceLeft : grandTotal);
+
+        const newPaidAmount = Math.min(grandTotal, currentPaid + paymentAmount);
+        const newBalanceAmount = Math.max(0, grandTotal - newPaidAmount);
+        const newPaymentStatus = newBalanceAmount === 0 ? 'PAID_FULL' : 'PARTIALLY_PAID';
+
+        // 1. Create or Update Payment Record
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference: generateReference('PAY', 8, false),
+            bookingId,
+            userId: booking.userId,
+            amount: paymentAmount,
+            currency: 'INR',
+            status: 'SUCCESS',
+            provider: isStaffOrAdmin ? 'ADMIN_OFFLINE_RECORD' : 'RAZORPAY',
+            transactionId: generatedTxnId,
+            paymentMethod: paymentMethod || (isStaffOrAdmin ? 'ADMIN_CASH_DIRECT' : 'CREDIT_CARD_VISA'),
+            installmentType: newBalanceAmount > 0 ? 'PARTIAL' : 'FULL',
+            paidAt: new Date(),
+          },
         });
 
-        let payment;
-        if (existingPayment) {
-          payment = await tx.payment.update({
-            where: { id: existingPayment.id },
-            data: {
-              status: 'SUCCESS',
-              transactionId: generatedTxnId,
-              paymentMethod,
-              paidAt: new Date(),
-            },
-          });
-        } else {
-          payment = await tx.payment.create({
-            data: {
-              paymentReference: generateReference('PAY', 8, false),
-              bookingId,
-              userId,
-              amount: booking.grandTotal,
-              currency: 'INR',
-              status: 'SUCCESS',
-              provider: 'STRIPE_SIMULATOR',
-              transactionId: generatedTxnId,
-              paymentMethod,
-              paidAt: new Date(),
-            },
-          });
-        }
-
-        // 2. Mark Booking as CONFIRMED
+        // 2. Mark Booking as CONFIRMED with updated paidAmount and balanceAmount
         await tx.booking.update({
           where: { id: bookingId },
-          data: { status: 'CONFIRMED' },
+          data: {
+            status: 'CONFIRMED',
+            paidAmount: newPaidAmount,
+            balanceAmount: newBalanceAmount,
+            paymentStatus: newPaymentStatus,
+          },
         });
 
-        // 3. Re-verify stall hold ownership before confirming payment (Protects against expired late payment callbacks)
+        // 3. Re-verify stall hold ownership before confirming payment
         const stallIds = booking.stalls.map((s) => s.stallId);
-        const currentStalls = await tx.stall.findMany({
-          where: { id: { in: stallIds } },
-        });
-
-        // Check if any stall was reassigned to another user while payment was processing
-        const invalidStall = currentStalls.find(
-          (s) => (s.status === 'BOOKED_CONFIRMED' && s.heldByUserId !== userId) || s.status === 'AVAILABLE'
-        );
-
-        if (invalidStall) {
-          throw ApiError.conflict(
-            `Payment Error: Stall hold timer expired prior to payment completion and stall ${invalidStall.stallNumber} was reassigned. Please contact support for a full refund.`
-          );
-        }
-
-        // Mark ALL stalls as BOOKED_CONFIRMED
         await tx.stall.updateMany({
           where: { id: { in: stallIds } },
           data: {
@@ -99,28 +91,42 @@ export class PaymentsService {
           },
         });
 
-        // 4. Generate Invoice
-        const invoiceNum = generateReference('INV', 6);
-        const invoice = await tx.invoice.create({
-          data: {
-            invoiceNumber: invoiceNum,
-            bookingId,
-            paymentId: payment.id,
-            companyId: booking.companyId,
-            totalAmount: booking.totalAmount,
-            taxAmount: booking.taxAmount,
-            grandTotal: booking.grandTotal,
-            status: 'PAID',
-            issueDate: new Date(),
-          },
-        });
+        // 4. Update or Generate Invoice
+        const existingInvoice = await tx.invoice.findFirst({ where: { bookingId } });
+        let invoice;
+        if (existingInvoice) {
+          invoice = await tx.invoice.update({
+            where: { id: existingInvoice.id },
+            data: {
+              status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
+              totalAmount: booking.totalAmount,
+              taxAmount: booking.taxAmount,
+              grandTotal: booking.grandTotal,
+            },
+          });
+        } else {
+          const invoiceNum = generateReference('INV', 6);
+          invoice = await tx.invoice.create({
+            data: {
+              invoiceNumber: invoiceNum,
+              bookingId,
+              paymentId: payment.id,
+              companyId: booking.companyId,
+              totalAmount: booking.totalAmount,
+              taxAmount: booking.taxAmount,
+              grandTotal: booking.grandTotal,
+              status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
+              issueDate: new Date(),
+            },
+          });
+        }
 
         // 5. Trigger System Notification for Client
         await tx.notification.create({
           data: {
-            userId,
+            userId: booking.userId,
             title: 'Booking Confirmed!',
-            message: `Your booking for ${booking.stalls.length} stall(s) has been successfully paid and confirmed. Invoice #${invoiceNum} generated.`,
+            message: `Your booking for ${booking.stalls.length} stall(s) has been successfully paid and confirmed. Invoice #${invoice?.invoiceNumber || 'INV-REF'} generated.`,
             type: 'SUCCESS',
           },
         });

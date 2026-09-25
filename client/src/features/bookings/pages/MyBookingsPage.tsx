@@ -3,12 +3,17 @@ import { Link } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Booking } from '../../../types';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
-import { BookmarkCheck, FileText, ArrowRight } from 'lucide-react';
+import { BookmarkCheck, FileText, ArrowRight, CreditCard } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 
 export const MyBookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Payment Modal State
+  const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     fetchBookings();
@@ -90,15 +95,30 @@ export const MyBookingsPage: React.FC = () => {
                     ₹{Number(b.grandTotal).toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-center">
-                    {b.invoice ? (
-                      <Link to={`/invoices/${b.invoice.id}`}>
-                        <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
-                          Tax Invoice
+                    <div className="flex items-center justify-center gap-2">
+                      {Number(b.balanceAmount || 0) > 0 && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                          onClick={() => {
+                            setSelectedPaymentBooking(b);
+                            setIsPaymentModalOpen(true);
+                          }}
+                        >
+                          Pay Balance (₹{Number(b.balanceAmount).toLocaleString()})
                         </Button>
-                      </Link>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Processing</span>
-                    )}
+                      )}
+                      {b.invoice ? (
+                        <Link to={`/invoices/${b.invoice.id}`}>
+                          <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
+                            Tax Invoice
+                          </Button>
+                        </Link>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Processing</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -106,6 +126,17 @@ export const MyBookingsPage: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* Complete Payment Modal */}
+      <CompletePaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedPaymentBooking(null);
+        }}
+        booking={selectedPaymentBooking}
+        onSuccess={fetchBookings}
+      />
     </div>
   );
 };

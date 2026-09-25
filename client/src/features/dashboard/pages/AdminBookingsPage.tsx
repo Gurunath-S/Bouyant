@@ -239,6 +239,7 @@ export const AdminBookingsPage: React.FC = () => {
         booking={inspectedBooking}
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
+        onRefresh={fetchInitialData}
       />
     </div>
   );

@@ -23,11 +23,17 @@ import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatCurrency } from '../../../utils/date';
 
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
+
 export const ClientDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Payment Modal State
+  const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -265,7 +271,20 @@ export const ClientDashboardPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {Number(booking.balanceAmount || 0) > 0 && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                          onClick={() => {
+                            setSelectedPaymentBooking(booking);
+                            setIsPaymentModalOpen(true);
+                          }}
+                        >
+                          Pay Balance ({formatCurrency(Number(booking.balanceAmount))})
+                        </Button>
+                      )}
                       {booking.invoice?.id ? (
                         <Link to={`/invoices/${booking.invoice.id}`}>
                           <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
@@ -381,6 +400,17 @@ export const ClientDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Complete Payment Modal */}
+      <CompletePaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedPaymentBooking(null);
+        }}
+        booking={selectedPaymentBooking}
+        onSuccess={loadDashboardData}
+      />
     </div>
   );
 };

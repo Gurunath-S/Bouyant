@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { Booking } from '../../../types';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import {
   Building2,
   Calendar,
@@ -23,13 +24,17 @@ interface BookingDetailModalProps {
   booking: Booking | null;
   isOpen: boolean;
   onClose: () => void;
+  onRefresh?: () => void;
 }
 
 export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
   booking,
   isOpen,
   onClose,
+  onRefresh,
 }) => {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
   if (!booking) return null;
 
   const basePrice = Number(booking.totalAmount || 0);
@@ -234,6 +239,17 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {Number((booking as any).balanceAmount ?? (booking.paymentStatus === 'PAID' ? 0 : grandTotal)) > 0 && booking.status !== 'CANCELLED' && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setShowPaymentModal(true)}
+                leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+              >
+                Pay / Record Balance
+              </Button>
+            )}
             {booking.invoice && (
               <Link to={`/invoices/${booking.invoice.id}`} target="_blank">
                 <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
@@ -247,6 +263,20 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {showPaymentModal && (
+        <CompletePaymentModal
+          booking={booking}
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => {
+            setShowPaymentModal(false);
+            onRefresh?.();
+            onClose();
+          }}
+          isAdminMode={true}
+        />
+      )}
     </Modal>
   );
 };

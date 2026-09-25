@@ -5,21 +5,25 @@ import { sendResponse } from '../../utils/response.js';
 
 export class PaymentsController {
   static verifyPayment = async (req: AuthenticatedRequest, res: Response) => {
-    const { bookingId, action, paymentMethod, transactionId } = req.body;
+    const { bookingId, action, paymentMethod, transactionId, payAmount } = req.body;
     const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
     const result = await PaymentsService.verifyAndProcessPayment(
       bookingId,
       userId,
+      userRole,
       action || 'SUCCESS',
       paymentMethod,
-      transactionId
+      transactionId,
+      undefined,
+      payAmount ? Number(payAmount) : undefined
     );
 
     return sendResponse({
       res,
       statusCode: 200,
-      message: action === 'SUCCESS' ? 'Payment verified and booking confirmed!' : 'Payment processing updated.',
+      message: action === 'SUCCESS' ? 'Payment processed and booking updated successfully!' : 'Payment processing updated.',
       data: result,
     });
   };

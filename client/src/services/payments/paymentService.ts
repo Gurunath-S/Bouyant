@@ -19,6 +19,7 @@ export const paymentService = {
     action: 'SUCCESS' | 'FAILED' | 'CANCELLED';
     paymentMethod?: string;
     transactionId?: string;
+    payAmount?: number;
   }) => {
     const res: any = await apiClient.post('/payments/verify', data);
     return res.data;
