@@ -73,6 +73,7 @@ export interface Exhibition {
   edition?: string | null;
   eventCode?: string | null;
   spcode?: string | null;
+  notificationEmails?: string | null;
   venue: string;
   city: string;
   startDate: string;

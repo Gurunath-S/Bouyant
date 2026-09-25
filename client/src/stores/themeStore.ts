@@ -37,3 +37,21 @@ export const applyTheme = (theme: Theme) => {
     root.classList.remove('dark');
   }
 };
+
+const getInitialTheme = (): Theme => {
+  try {
+    const stored = localStorage.getItem('buoyant-theme-storage');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.state?.theme === 'dark' || parsed?.state?.theme === 'light') {
+        return parsed.state.theme;
+      }
+    }
+  } catch {}
+  return 'light';
+};
+
+// Immediately synchronize on import
+if (typeof window !== 'undefined') {
+  applyTheme(getInitialTheme());
+}
