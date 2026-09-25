@@ -24,6 +24,7 @@ export interface AdminNotificationPayload {
   amount?: number;
   stalls?: string[];
   exhibitionTitle?: string;
+  customRecipients?: string[] | string | null;
 }
 
 export class EmailService {
@@ -74,27 +75,39 @@ Buoyant Media Exhibition Team
   }
 
   /**
-   * Sends / logs real-time alert email to Administrators
+   * Sends / logs real-time alert email to Designated Event Administrators / Recipients
    */
   static async sendAdminAlert(payload: AdminNotificationPayload) {
-    // Fetch system admins
-    const admins = await prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
-      select: { email: true, name: true },
-    });
+    let recipientEmails = '';
 
-    const adminEmails = admins.map((a) => a.email).join(', ') || 'admin@buoyant.com';
+    if (payload.customRecipients) {
+      if (Array.isArray(payload.customRecipients)) {
+        recipientEmails = payload.customRecipients.filter(Boolean).join(', ');
+      } else if (typeof payload.customRecipients === 'string') {
+        recipientEmails = payload.customRecipients.trim();
+      }
+    }
+
+    // If no custom recipient specified for this exhibition, fallback to all system admins
+    if (!recipientEmails) {
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+        select: { email: true, name: true },
+      });
+      recipientEmails = admins.map((a) => a.email).join(', ') || 'admin@buoyant.com';
+    }
 
     let subject = '';
     let body = '';
 
     if (payload.type === 'COMPANY_REGISTERED') {
-      subject = `🏢 [ADMIN ALERT] New Company Registered: ${payload.companyName}`;
+      subject = `🏢 [ADMIN ALERT] New Company Registered: ${payload.companyName} (${payload.exhibitionTitle || 'Exhibition'})`;
       body = `
 Administrator Alert:
 
 A new corporate exhibitor has registered during the stall booking process.
 
+Event: ${payload.exhibitionTitle || 'Exhibition'}
 Company Name: ${payload.companyName}
 Contact Person: ${payload.contactPerson}
 Email Address: ${payload.email}
@@ -108,6 +121,7 @@ Administrator Alert:
 
 Stall booking payment confirmed for ${payload.exhibitionTitle || 'Exhibition'}.
 
+Event: ${payload.exhibitionTitle || 'Exhibition'}
 Company: ${payload.companyName}
 Contact: ${payload.contactPerson} (${payload.email}, ${payload.mobile})
 Booking Ref: ${payload.bookingRef}
@@ -117,7 +131,7 @@ Amount Paid: ₹${payload.amount?.toLocaleString()} INR
 `;
     }
 
-    console.log(`\n📢 [ADMIN EMAIL ALERT] Dispatching to Admins (${adminEmails}):`);
+    console.log(`\n📢 [ADMIN EMAIL ALERT] Dispatching to Designated Recipients (${recipientEmails}):`);
     console.log(`Subject: ${subject}`);
     console.log(body);
 
