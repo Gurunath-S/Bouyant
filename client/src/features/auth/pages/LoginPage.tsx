@@ -66,26 +66,26 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#F4F8FD] via-[#EEF4FC] to-white text-[#121B3D] font-sans flex flex-col justify-between relative overflow-hidden">
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#F4F8FD] via-[#EEF4FC] to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-[#121B3D] dark:text-slate-100 font-sans flex flex-col justify-between relative overflow-hidden">
       {/* Subtle Architectural Dot Grid Pattern */}
       <div
-        className="absolute inset-0 opacity-[0.25] pointer-events-none"
+        className="absolute inset-0 opacity-[0.25] dark:opacity-[0.1] pointer-events-none"
         style={{
           backgroundImage: 'radial-gradient(#1E3FA0 1.2px, transparent 1.2px)',
           backgroundSize: '32px 32px',
         }}
       />
 
-      {/* Top Header Bar — Original Clean White Header */}
-      <header className="relative z-10 w-full bg-white border-b border-slate-200 shadow-xs">
+      {/* Top Header Bar */}
+      <header className="relative z-10 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-3.5 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain" />
+            <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain dark:brightness-0 dark:invert" />
           </Link>
 
           <Link
             to="/"
-            className="text-xs font-bold text-[#1E3FA0] hover:text-[#152B75] flex items-center gap-2 transition-all bg-[#EEF4FC] px-4 py-2 rounded-xl border border-[#1E3FA0]/15 hover:shadow-xs"
+            className="text-xs font-bold text-[#1E3FA0] hover:text-[#152B75] dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 transition-all bg-[#EEF4FC] dark:bg-slate-800 px-4 py-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 hover:shadow-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
           </Link>
@@ -96,7 +96,7 @@ export const LoginPage: React.FC = () => {
       <main className="relative z-10 flex-1 max-w-[1600px] w-full mx-auto px-6 lg:px-12 py-6 sm:py-10 flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-14">
         {/* Left Side: Featured Exhibition Showcase Card */}
         <div className="w-full lg:w-1/2 max-w-xl lg:max-w-none">
-          <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-white/80 bg-slate-900 group">
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-white/80 dark:border-slate-800 bg-slate-900 group">
             {/* Background Event Photo */}
             <div className="h-[420px] sm:h-[480px] lg:h-[500px] relative overflow-hidden">
               <img
@@ -141,16 +141,16 @@ export const LoginPage: React.FC = () => {
 
         {/* Right Side: Sleek Glassmorphic Sign In Card */}
         <div className="w-full lg:w-5/12 max-w-md">
-          <div className="bg-white/90 backdrop-blur-xl border border-white rounded-3xl p-8 sm:p-10 shadow-2xl space-y-6 relative overflow-hidden">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white dark:border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl space-y-6 relative overflow-hidden">
             <div className="text-center">
-              <h2 className="text-3xl font-black text-[#1B37A0] tracking-tight">Sign In</h2>
-              <p className="text-xs text-slate-500 mt-1.5 font-medium">
+              <h2 className="text-3xl font-black text-[#1B37A0] dark:text-blue-400 tracking-tight">Sign In</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                 Enter your credentials to access your account
               </p>
             </div>
 
             {errorMsg && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-semibold animate-in fade-in duration-200">
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 rounded-2xl text-xs font-semibold animate-in fade-in duration-200">
                 {errorMsg}
               </div>
             )}
@@ -177,7 +177,7 @@ export const LoginPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="text-slate-400 hover:text-[#1E3FA0] focus:outline-none p-1 transition-colors"
+                      className="text-slate-400 hover:text-[#1E3FA0] dark:hover:text-blue-400 focus:outline-none p-1 transition-colors"
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -193,9 +193,9 @@ export const LoginPage: React.FC = () => {
                 <label className="inline-flex items-center gap-2.5 cursor-pointer group select-none">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300 text-[#1E3FA0] focus:ring-[#1E3FA0] focus:ring-2 focus:ring-offset-1 accent-[#1E3FA0] cursor-pointer transition-all group-hover:border-[#1E3FA0]"
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-[#1E3FA0] focus:ring-[#1E3FA0] focus:ring-2 focus:ring-offset-1 accent-[#1E3FA0] cursor-pointer transition-all group-hover:border-[#1E3FA0]"
                   />
-                  <span className="font-semibold text-slate-700 text-xs group-hover:text-[#1E3FA0] transition-colors">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs group-hover:text-[#1E3FA0] dark:group-hover:text-blue-400 transition-colors">
                     Remember me
                   </span>
                 </label>
@@ -216,8 +216,8 @@ export const LoginPage: React.FC = () => {
             </form>
 
             {/* Security Guarantee Badge */}
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400">
-              <ShieldCheck className="w-4 h-4 text-[#0E8074]" />
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+              <ShieldCheck className="w-4 h-4 text-[#0E8074] dark:text-teal-400" />
               <span>256-Bit SSL Encrypted & Tax Compliant Portal</span>
             </div>
           </div>
