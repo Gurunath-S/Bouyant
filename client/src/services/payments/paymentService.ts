@@ -26,6 +26,9 @@ export const paymentService = {
 
   getAllPayments: async () => {
     const res: any = await apiClient.get('/payments');
-    return res.data;
+    const rawData = res?.data ?? res;
+    if (Array.isArray(rawData)) return rawData;
+    if (Array.isArray(rawData?.payments)) return rawData.payments;
+    return rawData || [];
   },
 };

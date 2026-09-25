@@ -1,6 +1,7 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { EmailService } from '../../services/email.service.js';
+import { generateReference } from '../../utils/reference.js';
 
 export class PaymentsService {
   /**
@@ -28,7 +29,7 @@ export class PaymentsService {
     if (!booking) throw ApiError.notFound('Booking record not found.');
     if (booking.userId !== userId) throw ApiError.forbidden('Unauthorized access to booking.');
 
-    const generatedTxnId = transactionId || `txn_mock_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const generatedTxnId = transactionId || `txn_mock_${Date.now()}_${generateReference('TXN', 4, false)}`;
 
     if (action === 'SUCCESS') {
       const result = await prisma.$transaction(async (tx) => {
@@ -51,7 +52,7 @@ export class PaymentsService {
         } else {
           payment = await tx.payment.create({
             data: {
-              paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+              paymentReference: generateReference('PAY', 8, false),
               bookingId,
               userId,
               amount: booking.grandTotal,
@@ -71,8 +72,24 @@ export class PaymentsService {
           data: { status: 'CONFIRMED' },
         });
 
-        // 3. Mark ALL stalls as BOOKED_CONFIRMED
+        // 3. Re-verify stall hold ownership before confirming payment (Protects against expired late payment callbacks)
         const stallIds = booking.stalls.map((s) => s.stallId);
+        const currentStalls = await tx.stall.findMany({
+          where: { id: { in: stallIds } },
+        });
+
+        // Check if any stall was reassigned to another user while payment was processing
+        const invalidStall = currentStalls.find(
+          (s) => (s.status === 'BOOKED_CONFIRMED' && s.heldByUserId !== userId) || s.status === 'AVAILABLE'
+        );
+
+        if (invalidStall) {
+          throw ApiError.conflict(
+            `Payment Error: Stall hold timer expired prior to payment completion and stall ${invalidStall.stallNumber} was reassigned. Please contact support for a full refund.`
+          );
+        }
+
+        // Mark ALL stalls as BOOKED_CONFIRMED
         await tx.stall.updateMany({
           where: { id: { in: stallIds } },
           data: {
@@ -83,7 +100,7 @@ export class PaymentsService {
         });
 
         // 4. Generate Invoice
-        const invoiceNum = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+        const invoiceNum = generateReference('INV', 6);
         const invoice = await tx.invoice.create({
           data: {
             invoiceNumber: invoiceNum,
@@ -108,18 +125,31 @@ export class PaymentsService {
           },
         });
 
-        // 6. Notify System Administrators about confirmed booking payment
-        const admins = await tx.user.findMany({
-          where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+        // 6. Notify System Administrators or Designated Event Admins about confirmed booking payment
+        const eventEmails = booking.exhibition?.notificationEmails
+          ? booking.exhibition.notificationEmails.split(',').map((e) => e.trim().toLowerCase())
+          : [];
+
+        let targetAdmins = await tx.user.findMany({
+          where: {
+            OR: [
+              ...(eventEmails.length > 0 ? [{ email: { in: eventEmails, mode: 'insensitive' as const } }] : []),
+              ...(booking.exhibition?.createdByUserId ? [{ id: booking.exhibition.createdByUserId }] : []),
+              { role: { in: ['ADMIN', 'SUPERADMIN'] } },
+            ],
+          },
           select: { id: true },
         });
 
-        if (admins.length > 0) {
+        // Deduplicate target admin IDs
+        const uniqueAdminIds = Array.from(new Set(targetAdmins.map((a) => a.id)));
+
+        if (uniqueAdminIds.length > 0) {
           await tx.notification.createMany({
-            data: admins.map((admin) => ({
-              userId: admin.id,
+            data: uniqueAdminIds.map((adminId) => ({
+              userId: adminId,
               title: 'Booking Payment Received',
-              message: `Payment of ₹${Number(booking.grandTotal).toLocaleString()} received from "${booking.company.name}" (Ref: ${booking.bookingReference}).`,
+              message: `Payment of ₹${Number(booking.grandTotal).toLocaleString()} received from "${booking.company.name}" for "${booking.exhibition?.title}" (Ref: ${booking.bookingReference}).`,
               type: 'SUCCESS',
             })),
           });
@@ -155,6 +185,7 @@ export class PaymentsService {
         amount: Number(booking.grandTotal),
         stalls: stallNumbers,
         exhibitionTitle: booking.exhibition?.title,
+        customRecipients: booking.exhibition?.notificationEmails,
       }).catch((e) => console.error('Admin payment email alert error:', e));
 
       return result;
@@ -175,7 +206,7 @@ export class PaymentsService {
       } else {
         await prisma.payment.create({
           data: {
-            paymentReference: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+            paymentReference: generateReference('PAY', 8, false),
             bookingId,
             userId,
             amount: booking.grandTotal,
@@ -199,18 +230,28 @@ export class PaymentsService {
     }
   }
 
-  static async listPayments() {
-    return await prisma.payment.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        booking: {
-          include: {
-            stalls: { include: { stall: true } },
-            company: true,
+  static async listPayments(page = 1, limit = 50) {
+    const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+
+    const [total, payments] = await prisma.$transaction([
+      prisma.payment.count(),
+      prisma.payment.findMany({
+        take,
+        skip,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          booking: {
+            include: {
+              stalls: { include: { stall: true } },
+              company: true,
+            },
           },
+          user: { select: { name: true, email: true } },
         },
-        user: { select: { name: true, email: true } },
-      },
-    });
+      }),
+    ]);
+
+    return { payments, total, page, limit: take, totalPages: Math.ceil(total / take) };
   }
 }
