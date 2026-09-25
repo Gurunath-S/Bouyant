@@ -138,6 +138,7 @@ model Exhibition {
   edition         String?          @default("10")
   eventCode       String?          @default("GG")
   spcode          String?          @default("ZE05")
+  notificationEmails String?
   createdByUserId String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -196,6 +197,7 @@ model Stall {
   @@index([floorPlanId])
   @@index([status])
   @@index([heldUntil])
+  @@index([floorPlanId, status])
 }
 
 model Booking {
@@ -214,6 +216,7 @@ model Booking {
   balanceAmount    Decimal       @default(0) @db.Decimal(12, 2)
   paymentStatus    BookingPaymentStatus @default(UNPAID)
   expiresAt        DateTime?
+  idempotencyKey   String?       @unique
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -229,6 +232,9 @@ model Booking {
   @@index([companyId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([userId, status])
+  @@index([exhibitionId, status])
+  @@index([idempotencyKey])
 }
 
 model BookingStall {
