@@ -59,49 +59,49 @@ export const CompanyProfilePage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Building2 className="w-6 h-6 text-blue-600" />
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           Exhibitor Corporate Profile
         </h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Manage your official corporate entity details, GST/PAN tax identifiers, and contact information for exhibition bookings and invoices.
         </p>
       </div>
 
       {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-lg flex items-center gap-2">
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-lg flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           {successMsg}
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg">
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold rounded-lg">
           {errorMsg}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-xs space-y-6">
         {/* Registration & System Badges */}
         {user?.company && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-slate-500">Official Registration Number:</span>
-              <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded text-xs">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Official Registration Number:</span>
+              <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded text-xs">
                 {user.company.regNo || 'Not Assigned'}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-slate-500">Internal Company Code:</span>
-              <span className="font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded text-xs">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Internal Company Code:</span>
+              <span className="font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2.5 py-1 rounded text-xs">
                 {user.company.companyCode}
               </span>
             </div>
             {user?.role === 'ADMIN' && (user.spcode || user.company.spcode) && (
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-500">Staff SP Code:</span>
-                <span className="font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded text-xs">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">Staff SP Code:</span>
+                <span className="font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded text-xs">
                   {user.spcode || user.company.spcode}
                 </span>
               </div>
@@ -111,7 +111,7 @@ export const CompanyProfilePage: React.FC = () => {
 
         {/* Section 1: Business Identity */}
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 uppercase tracking-wider text-blue-600">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400">
             1. Corporate Identity
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -146,7 +146,7 @@ export const CompanyProfilePage: React.FC = () => {
 
         {/* Section 2: Contact Details */}
         <div className="space-y-4 pt-2">
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 uppercase tracking-wider text-blue-600">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400">
             2. Contact Person & Address
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -202,7 +202,7 @@ export const CompanyProfilePage: React.FC = () => {
 
         {/* Section 3: Tax Identifiers */}
         <div className="space-y-4 pt-2">
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 uppercase tracking-wider text-blue-600 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-2">
             <FileText className="w-4 h-4" /> 3. Tax Identifiers (for GST & Invoicing)
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

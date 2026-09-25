@@ -4,27 +4,20 @@ import {
   Save,
   Eye,
   Pencil,
-  Check,
   Maximize,
   Minimize,
   Maximize2,
-  Minimize2,
-  Sliders,
-  Sparkles,
-  BoxSelect,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Image as ImageIcon,
   Hand,
-  Upload,
   Trash2,
   X,
   Undo2,
   Redo2,
   Loader2,
   Layers,
-  Move,
   CheckSquare,
   Ban,
   CheckCircle2,
@@ -98,7 +91,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [isRightCollapsed, setIsRightCollapsed] = useState<boolean>(false);
 
   const isMaxCanvas = isLeftCollapsed && isRightCollapsed;
-  const handleToggleMaxCanvas = () => {
+  const _handleToggleMaxCanvas = () => {
     if (isMaxCanvas) {
       setIsLeftCollapsed(false);
       setIsRightCollapsed(false);
@@ -147,6 +140,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const hasAttemptedRestoreRef = useRef(false);
 
   // Crash Recovery: Auto-restore if session crashed or tab was closed (run only once on mount)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (hasAttemptedRestoreRef.current) return;
     if (
@@ -280,7 +274,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           timestamp: Date.now(),
         };
         localStorage.setItem(autoSaveKey, JSON.stringify(draft));
-      } catch (e) {}
+      } catch (_e) {}
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -600,6 +594,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedRefs,
     isReadOnly,
@@ -1907,7 +1902,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       window.removeEventListener('mousemove', onGlobalMouseMove);
       window.removeEventListener('mouseup', onGlobalMouseUp);
     };
-  }, [isPanning, isDraggingObj, isResizing, !!marqueeBox]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPanning, isDraggingObj, isResizing, marqueeBox]);
 
   // Native non-passive wheel listener on containerRef to prevent browser zoom & page scroll
   useEffect(() => {
@@ -1935,8 +1931,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       el.removeEventListener('wheel', handleWheelNative);
     };
   }, [clampPan]);
-
-  const selectedSingleRef = selectedRefs.length === 1 ? selectedRefs[0] : null;
 
   return (
     <div
@@ -3197,7 +3191,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           </div>
 
           {/* Common Floating Canvas Zoom & Map Navigation Controller HUD */}
-          <div className="absolute bottom-4 right-4 z-30 flex items-center bg-white/95 backdrop-blur-md shadow-lg border border-slate-200/90 rounded-xl p-1 gap-1 text-slate-700 select-none">
+          <div className="absolute bottom-4 right-4 z-30 flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-lg border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 gap-1 text-slate-700 dark:text-slate-200 select-none">
             {/* Quick Map Pan Mode Toggle */}
             <button
               type="button"
@@ -3205,7 +3199,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTool === 'pan'
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
               }`}
               title="Toggle Map Move Mode (H / Space+Drag / Right-Click Drag)"
             >
@@ -3220,7 +3214,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 isMultiSelectMode
                   ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
               }`}
               title="Toggle Multi-Select Mode: Click stalls anywhere to add or remove from selection (Shortcut: M)"
             >
@@ -3228,12 +3222,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               <span>{isMultiSelectMode ? 'Multi-Select ON' : 'Multi-Select'}</span>
             </button>
 
-            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
             <button
               type="button"
               onClick={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
               title="Zoom Out (-)"
             >
               <ZoomOut className="w-4 h-4" />
@@ -3242,7 +3236,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             <button
               type="button"
               onClick={() => setZoomLevel(100)}
-              className="px-2 py-1 text-xs font-mono font-bold text-slate-700 hover:bg-slate-100 rounded-md transition-colors min-w-[54px] text-center cursor-pointer"
+              className="px-2 py-1 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors min-w-[54px] text-center cursor-pointer"
               title="Click to reset zoom to 100% (Ctrl+0)"
             >
               {zoomLevel}%
@@ -3251,18 +3245,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             <button
               type="button"
               onClick={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
               title="Zoom In (+)"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
 
-            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
             <button
               type="button"
               onClick={handleFitToScreen}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
               title="Fit Floor Plan to Screen (F)"
             >
               <Maximize2 className="w-4 h-4" />
@@ -3274,7 +3268,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 setPanOffset({ x: 0, y: 0 });
                 setZoomLevel(100);
               }}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition-colors active:scale-95 cursor-pointer"
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
               title="Reset Map Position & Zoom"
             >
               <RotateCcw className="w-4 h-4" />
@@ -3283,14 +3277,14 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             {/* Quick Compare Blueprint Button (Same Position) */}
             {backgroundImageUrl && (
               <>
-                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
                 <button
                   type="button"
                   onClick={() => setShowBlueprint((prev) => !prev)}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     showBlueprint
                       ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
                   }`}
                   title="Compare Blueprint in Same Position (Shortcut: B)"
                 >
@@ -3306,7 +3300,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     isBlueprintInspectMode
                       ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
                   }`}
                   title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
                 >
@@ -3401,22 +3395,22 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       {/* Background Blueprint Image Modal */}
       {isBgModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center">
                   <ImageIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Venue Blueprint / Background Image</h3>
-                  <p className="text-[11px] text-slate-500">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Venue Blueprint / Background Image</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Keep one full background image to trace and draw your floor plan over
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsBgModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3424,18 +3418,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Image URL</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
                 <input
                   type="text"
                   value={backgroundImageUrl || ''}
                   onChange={(e) => setBackgroundImageUrl(e.target.value)}
                   placeholder="https://example.com/venue-blueprint.png"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Or Upload Local Image (PNG, JPG, SVG)</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Or Upload Local Image (PNG, JPG, SVG)</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -3451,17 +3445,17 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                       reader.readAsDataURL(file);
                     }
                   }}
-                  className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-slate-800 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 cursor-pointer"
                 />
               </div>
 
               {backgroundImageUrl && (
-                <div className="space-y-3 pt-1 border-t border-slate-100">
+                <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800">
                   {/* Canvas Visibility Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Show Blueprint on Canvas</span>
-                      <span className="text-[11px] text-slate-500">Toggle overlay in exact same position (Shortcut: B)</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">Show Blueprint on Canvas</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Toggle overlay in exact same position (Shortcut: B)</span>
                     </div>
                     <button
                       type="button"
@@ -3469,7 +3463,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         showBlueprint
                           ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'
                       }`}
                     >
                       {showBlueprint ? 'ON (Visible)' : 'OFF (Hidden)'}
@@ -3478,15 +3472,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
                   {/* Layer Position: Under stalls vs Over stalls */}
                   <div className="space-y-1">
-                    <span className="text-xs font-bold text-slate-800 block">Comparison Layer Placement</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">Comparison Layer Placement</span>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setBlueprintLayerPosition('under')}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
                           blueprintLayerPosition === 'under'
-                            ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-xs'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 dark:border-blue-600 text-blue-800 dark:text-blue-300 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
                         Under Stalls (Tracing)
@@ -3496,8 +3490,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         onClick={() => setBlueprintLayerPosition('over')}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
                           blueprintLayerPosition === 'over'
-                            ? 'bg-blue-50 border-blue-400 text-blue-800 shadow-xs'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 dark:border-blue-600 text-blue-800 dark:text-blue-300 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
                         Over Stalls (Transparent)
@@ -3507,7 +3501,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
                   {/* Opacity Slider */}
                   <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
+                    <div className="flex justify-between items-center text-xs font-semibold text-slate-700 dark:text-slate-300">
                       <span>Blueprint Opacity</span>
                       <span>{Math.round(backgroundOpacity * 100)}%</span>
                     </div>
@@ -3525,7 +3519,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               )}
 
               {backgroundImageUrl && (
-                <div className="h-36 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative flex items-center justify-center">
+                <div className="h-36 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative flex items-center justify-center">
                   <img
                     src={backgroundImageUrl}
                     alt="Blueprint Preview"
@@ -3542,10 +3536,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setIsBgModalOpen(false)}
-                className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
                 Done
               </button>

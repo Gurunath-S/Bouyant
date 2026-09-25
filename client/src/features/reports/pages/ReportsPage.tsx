@@ -144,47 +144,47 @@ export const ReportsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {isSuperAdmin ? 'Platform Gross Revenue' : 'Confirmed Booking Revenue'}
                   </p>
-                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     <IndianRupee className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100 mt-2">
                   ₹{overview?.totalRevenue ? Number(overview.totalRevenue).toLocaleString() : '0'} INR
                 </p>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2">
                   <TrendingUp className="w-3.5 h-3.5" /> 100% Tax Compliant
                 </span>
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bookings Placed</p>
-                  <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bookings Placed</p>
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                     <BookmarkCheck className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                   {overview?.totalBookings || 0}
                 </p>
-                <span className="text-[11px] font-semibold text-slate-500 mt-2 block">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
                   {overview?.confirmedBookings || 0} Confirmed Reservations
                 </span>
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stall Occupancy</p>
-                  <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stall Occupancy</p>
+                  <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                     <Building className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                   {overview?.occupancyRate || 0}%
                 </p>
-                <span className="text-[11px] font-semibold text-purple-600 mt-2 block">
+                <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 mt-2 block">
                   {occupancy?.totalBooked || 0} / {occupancy?.totalStalls || 0} Stalls Reserved
                 </span>
               </div>
@@ -192,30 +192,30 @@ export const ReportsPage: React.FC = () => {
               {isSuperAdmin ? (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                   <div className="flex justify-between items-start">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Teams</p>
-                    <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Teams</p>
+                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                       <Users className="w-4 h-4" />
                     </div>
                   </div>
                   <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                     {(overview?.activeAdmins || 0) + (overview?.activeStaff || 0)}
                   </p>
-                  <span className="text-[11px] font-semibold text-amber-700 mt-2 block">
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-2 block">
                     {overview?.activeAdmins || 0} Admins • {overview?.activeStaff || 0} Staff
                   </span>
                 </div>
               ) : (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                   <div className="flex justify-between items-start">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Exhibitions</p>
-                    <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Exhibitions</p>
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                       <Layers className="w-4 h-4" />
                     </div>
                   </div>
                   <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                     {overview?.totalExhibitions || 0}
                   </p>
-                  <span className="text-[11px] font-semibold text-slate-500 mt-2 block">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
                     Across Platform Portfolios
                   </span>
                 </div>
@@ -228,45 +228,45 @@ export const ReportsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">My Registered Events</p>
-                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">My Registered Events</p>
+                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     <Layers className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                   {overview?.totalEventsRegistered || 0}
                 </p>
-                <span className="text-[11px] font-semibold text-emerald-600 mt-2 block">
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-2 block">
                   Attributed to SP: {user?.spcode || 'N/A'}
                 </span>
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Upcoming Expos</p>
-                  <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upcoming Expos</p>
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                     <Calendar className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                   {overview?.upcomingEvents || 0}
                 </p>
-                <span className="text-[11px] font-semibold text-slate-500 mt-2 block">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
                   Active schedules on platform
                 </span>
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stalls In My Events</p>
-                  <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stalls In My Events</p>
+                  <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                     <Building className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
                   {overview?.totalStallsInRegisteredEvents || 0}
                 </p>
-                <span className="text-[11px] font-semibold text-purple-600 mt-2 block">
+                <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 mt-2 block">
                   Total planned capacity
                 </span>
               </div>

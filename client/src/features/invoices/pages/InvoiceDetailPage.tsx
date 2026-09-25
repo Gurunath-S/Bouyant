@@ -51,10 +51,10 @@ export const InvoiceDetailPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6 print:m-0 print:p-0 print:bg-white print:text-black">
       {/* Actions (Hidden during print) */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4 print:hidden">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
         <button
           onClick={() => navigate('/invoices')}
-          className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline"
+          className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Invoices
         </button>
@@ -65,49 +65,49 @@ export const InvoiceDetailPage: React.FC = () => {
       </div>
 
       {/* Printable Invoice Container */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg space-y-8 print:border-none print:shadow-none print:p-0">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-lg space-y-8 print:border-none print:shadow-none print:p-0">
         {/* Invoice Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 pb-6 print:border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 print:border-gray-200">
           <div>
-            <div className="flex items-center gap-2 font-extrabold text-2xl text-slate-900 print:text-black">
-              <Award className="w-7 h-7 text-blue-600 print:text-blue-700" />
+            <div className="flex items-center gap-2 font-extrabold text-2xl text-slate-900 dark:text-slate-100 print:text-black">
+              <Award className="w-7 h-7 text-blue-600 dark:text-blue-400 print:text-blue-700" />
               <span>Buoyant Media Ltd.</span>
             </div>
-            <p className="text-xs text-slate-500 print:text-gray-600 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-gray-600 mt-1">
               Global Exhibition & Stall Management SaaS Platform
             </p>
           </div>
 
           <div className="text-right">
-            <span className="inline-block px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-xs rounded uppercase tracking-wider print:border-emerald-600 print:text-emerald-700">
+            <span className="inline-block px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs rounded uppercase tracking-wider print:border-emerald-600 print:text-emerald-700">
               OFFICIAL TAX INVOICE
             </span>
-            <h3 className="text-xl font-mono font-bold text-slate-900 print:text-black mt-2">
+            <h3 className="text-xl font-mono font-bold text-slate-900 dark:text-slate-100 print:text-black mt-2">
               {invoice.invoiceNumber}
             </h3>
-            <p className="text-xs text-slate-500 print:text-gray-600">
+            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-gray-600">
               Date: {formatDisplayDate(invoice.issueDate)}
             </p>
           </div>
         </div>
 
         {/* Billed To / Exhibition Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-700 print:text-gray-800">
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
-            <p className="font-bold text-blue-700 uppercase text-[10px] tracking-wider">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-700 dark:text-slate-300 print:text-gray-800">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
+            <p className="font-bold text-blue-700 dark:text-blue-400 uppercase text-[10px] tracking-wider">
               Billed To (Exhibitor Corporate Entity):
             </p>
-            <p className="text-sm font-bold text-slate-900 print:text-black">{invoice.company?.name}</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 print:text-black">{invoice.company?.name}</p>
             <p>Client Code: {invoice.company?.companyCode}</p>
             <p>Contact: {invoice.company?.contactPerson} ({invoice.company?.email})</p>
             <p>GST / Tax ID: {invoice.company?.gstNumber || 'N/A'}</p>
           </div>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
-            <p className="font-bold text-blue-700 uppercase text-[10px] tracking-wider">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
+            <p className="font-bold text-blue-700 dark:text-blue-400 uppercase text-[10px] tracking-wider">
               Exhibition Event Details:
             </p>
-            <p className="text-sm font-bold text-slate-900 print:text-black">
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 print:text-black">
               {invoice.booking?.exhibition?.title}
             </p>
             <p>Venue: {invoice.booking?.exhibition?.venue}, {invoice.booking?.exhibition?.city}</p>
@@ -120,23 +120,23 @@ export const InvoiceDetailPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 uppercase tracking-wider font-bold print:bg-gray-100 print:text-black">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase tracking-wider font-bold print:bg-gray-100 print:text-black">
                 <th className="py-3 px-4 font-semibold">Line Item Description</th>
                 <th className="py-3 px-4 font-semibold">Category</th>
                 <th className="py-3 px-4 font-semibold">Stall #</th>
                 <th className="py-3 px-4 font-semibold text-right">Amount (INR)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 print:divide-gray-200 text-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-gray-200 text-slate-800 dark:text-slate-200">
               {invoice.booking?.stalls?.map(bs => (
                 <tr key={bs.id}>
-                  <td className="py-4 px-4 font-semibold text-slate-900 print:text-black">
+                  <td className="py-4 px-4 font-semibold text-slate-900 dark:text-slate-100 print:text-black">
                     Exhibition Stall Rental Fee
                   </td>
-                  <td className="py-4 px-4 text-slate-600 print:text-gray-700 uppercase font-medium">
+                  <td className="py-4 px-4 text-slate-600 dark:text-slate-400 print:text-gray-700 uppercase font-medium">
                     {bs.stall?.category}
                   </td>
-                  <td className="py-4 px-4 font-bold text-blue-700 print:text-blue-800">
+                  <td className="py-4 px-4 font-bold text-blue-700 dark:text-blue-400 print:text-blue-800">
                     Stall {bs.stall?.stallNumber}
                   </td>
                   <td className="py-4 px-4 text-right font-mono font-bold text-slate-900 print:text-black">

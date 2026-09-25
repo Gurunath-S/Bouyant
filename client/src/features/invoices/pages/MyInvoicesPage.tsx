@@ -28,33 +28,33 @@ export const MyInvoicesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             Tax Invoices & Financial Receipts
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Official B2B GST tax invoices, line-item stall rental records, and downloadable PDFs.
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-slate-500 animate-pulse font-medium">
+        <div className="p-12 text-center text-slate-500 dark:text-slate-400 animate-pulse font-medium">
           Loading Invoices...
         </div>
       ) : invoices.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-2">
-          <FileText className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="text-base font-bold text-slate-800">No Invoices Issued</h3>
-          <p className="text-xs text-slate-500">Invoices will appear here automatically upon stall booking completion.</p>
+        <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+          <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Invoices Issued</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Invoices will appear here automatically upon stall booking completion.</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="py-3.5 px-4">Invoice #</th>
                 <th className="py-3.5 px-4">Exhibitor Company</th>
                 <th className="py-3.5 px-4">Issue Date</th>
@@ -64,15 +64,15 @@ export const MyInvoicesPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{inv.invoiceNumber}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">{inv.company?.name}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{formatDisplayDate(inv.issueDate)}</td>
+                <tr key={inv.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
+                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{inv.invoiceNumber}</td>
+                  <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{inv.company?.name}</td>
+                  <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{formatDisplayDate(inv.issueDate)}</td>
                   <td className="py-3.5 px-4 text-right font-mono">₹{Number(inv.totalAmount).toLocaleString()}</td>
                   <td className="py-3.5 px-4 text-right font-mono">₹{Number(inv.taxAmount).toLocaleString()}</td>
-                  <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900">
+                  <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
                     ₹{Number(inv.grandTotal).toLocaleString()} INR
                   </td>
                   <td className="py-3.5 px-4 text-center">

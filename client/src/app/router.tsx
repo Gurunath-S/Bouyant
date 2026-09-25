@@ -42,7 +42,7 @@ import { ReportsPage } from '../features/reports/pages/ReportsPage';
 
 const DashboardLayout = () => {
   return (
-    <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-[#012970] dark:text-slate-100 flex flex-col justify-between font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between font-sans transition-colors duration-200">
       <Navbar />
       <div className="flex flex-1 items-start relative">
         <Sidebar />
@@ -57,7 +57,7 @@ const DashboardLayout = () => {
 
 const PublicLayout = () => {
   return (
-    <div className="min-h-screen bg-white text-[#121B3D] flex flex-col justify-between font-sans selection:bg-[#0E8074] selection:text-white">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 flex flex-col justify-between font-sans selection:bg-[#0E8074] selection:text-white transition-colors duration-200">
       <PublicNavbar />
       <main className="flex-1 w-full">
         <Outlet />

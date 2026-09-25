@@ -29,13 +29,13 @@ export const MyBookingsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <BookmarkCheck className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <BookmarkCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             My Stall Bookings
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Complete record of your reserved exhibition stalls, payment verification status, and tax invoices.
           </p>
         </div>
@@ -48,14 +48,14 @@ export const MyBookingsPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-slate-500 animate-pulse font-medium">
+        <div className="p-12 text-center text-slate-500 dark:text-slate-400 animate-pulse font-medium">
           Loading Bookings...
         </div>
       ) : bookings.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-3">
-          <BookmarkCheck className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="text-base font-bold text-slate-800">No Stall Bookings Yet</h3>
-          <p className="text-xs text-slate-500">Explore trade fairs to select and reserve exhibition stalls.</p>
+        <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+          <BookmarkCheck className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Stall Bookings Yet</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Explore trade fairs to select and reserve exhibition stalls.</p>
           <Link to="/exhibitions" className="inline-block pt-2">
             <Button variant="primary" size="sm">
               Explore Exhibitions
@@ -63,10 +63,10 @@ export const MyBookingsPage: React.FC = () => {
           </Link>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="py-3.5 px-4">Booking Ref</th>
                 <th className="py-3.5 px-4">Exhibition Event</th>
                 <th className="py-3.5 px-4">Stall Number</th>
@@ -76,17 +76,17 @@ export const MyBookingsPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {bookings.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{b.bookingReference}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">{b.exhibition?.title}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-700">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
+                <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
+                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{b.bookingReference}</td>
+                  <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
                   <td className="py-3.5 px-4">{b.company?.name}</td>
                   <td className="py-3.5 px-4">
                     <BookingStatusBadge status={b.status} />
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
                     ₹{Number(b.grandTotal).toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-center">
@@ -97,7 +97,7 @@ export const MyBookingsPage: React.FC = () => {
                         </Button>
                       </Link>
                     ) : (
-                      <span className="text-[10px] text-slate-400">Processing</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Processing</span>
                     )}
                   </td>
                 </tr>
