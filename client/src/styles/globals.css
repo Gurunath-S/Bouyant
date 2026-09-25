@@ -69,7 +69,7 @@
 body {
   margin: 0;
   background-color: #f6f9ff;
-  color: #012970;
+  color: #0f172a;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -77,8 +77,29 @@ body {
 }
 
 .dark body {
-  background-color: #030712;
-  color: #f9fafb;
+  background-color: #020617;
+  color: #f8fafc;
+}
+
+/* Base utility overrides for dark mode readability */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f8fafc;
+}
+
+/* Map dark theme styling */
+.dark .leaflet-tile-pane {
+  filter: brightness(0.7) invert(1) contrast(1.4) hue-rotate(190deg) saturate(0.4);
+}
+
+.dark .leaflet-container {
+  background: #0f172a !important;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155;
 }
 
 /* Reusable sleek enterprise scrollbar */
