@@ -70,20 +70,32 @@ const PublicLayout = () => {
   );
 };
 
+const RootLayout = () => {
+  return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+    </>
+  );
+};
+
 export const router = createBrowserRouter([
-  // Public Homepage & Exhibition Discovery Routes
   {
-    path: '/',
-    element: <HomePage />,
-  },
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
-  {
-    path: '/register',
-    element: <RegisterPage />,
-  },
+    element: <RootLayout />,
+    children: [
+      // Public Homepage & Exhibition Discovery Routes
+      {
+        path: '/',
+        element: <HomePage />,
+      },
+      {
+        path: '/login',
+        element: <LoginPage />,
+      },
+      {
+        path: '/register',
+        element: <RegisterPage />,
+      },
 
   // Public Exhibition Discovery Routes
   {
@@ -276,5 +288,5 @@ export const router = createBrowserRouter([
         ),
       },
     ],
-  },
-]);
+  }],
+}]);
