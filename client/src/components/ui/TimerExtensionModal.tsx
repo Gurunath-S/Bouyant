@@ -26,7 +26,7 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
   const timeFormatted = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden transform transition-all scale-100">
         
         {/* Visual Top Decorative Banner */}
@@ -116,14 +116,22 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
               Please restart your reservation to re-select available stalls on the interactive hall layout.
             </p>
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
               <Button
                 variant="primary"
+                onClick={onExtendHold}
+                className="w-full justify-center bg-gradient-to-r from-[#09539b] to-[#1E3FA0] hover:from-[#073d74] hover:to-[#152B75] text-white font-extrabold py-3.5 shadow-md hover:shadow-lg"
+                leftIcon={<RefreshCw className="w-4 h-4" />}
+              >
+                Add Timer (+5 Mins)
+              </Button>
+              <Button
+                variant="outline"
                 onClick={onRestartBooking}
-                className="w-full justify-center bg-[#09539b] hover:bg-[#073d74] text-white font-extrabold py-3.5 shadow-md"
+                className="w-full justify-center border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold py-3.5"
                 leftIcon={<RotateCcw className="w-4 h-4" />}
               >
-                Re-select Stalls on Floor Plan
+                Re-select Stalls
               </Button>
             </div>
           </>

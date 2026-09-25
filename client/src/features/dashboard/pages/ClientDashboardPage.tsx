@@ -18,6 +18,7 @@ import {
   Sparkles,
   FileText,
   ExternalLink,
+  X,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
@@ -30,6 +31,19 @@ export const ClientDashboardPage: React.FC = () => {
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Show welcome banner only on first visit or after long absence (1 day threshold)
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => {
+    const lastSeen = localStorage.getItem('client_dashboard_last_seen');
+    if (!lastSeen) return true;
+    const timeDiff = Date.now() - parseInt(lastSeen, 10);
+    return timeDiff > 86400000;
+  });
+
+  const dismissWelcomeBanner = () => {
+    localStorage.setItem('client_dashboard_last_seen', Date.now().toString());
+    setShowWelcomeBanner(false);
+  };
 
   // Payment Modal State
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
@@ -70,48 +84,62 @@ export const ClientDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-10">
-      {/* 1. WELCOME HEADER BANNER */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-slate-800 text-white rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 font-bold text-xs rounded-full">
-              <Building className="w-3.5 h-3.5 text-blue-400" />
-              {user?.company?.name || 'Corporate Account'}
-            </span>
-            {user?.company?.gstNumber && (
+      {/* 1. WELCOME HEADER BANNER (Shown only on first visit or after long absence) */}
+      {showWelcomeBanner && (
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-slate-800 text-white rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden animate-in fade-in duration-200">
+          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <button
+            type="button"
+            onClick={dismissWelcomeBanner}
+            className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition-colors z-20"
+            title="Dismiss Welcome Message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          <div className="relative z-10 max-w-3xl space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 font-bold text-xs rounded-full">
+                <Building className="w-3.5 h-3.5 text-blue-400" />
+                {user?.company?.name || 'Buoyant Media Tech Solutions Pvt Ltd'}
+              </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-semibold text-[11px] rounded-full">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" /> GST Verified
               </span>
-            )}
-          </div>
+            </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Welcome back, {user?.name || 'Exhibitor'}!
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl font-normal">
-            Track your active stall bookings, inspect payment installments, access official GST invoices, and manage your company profile.
-          </p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              Welcome back, {user?.name || 'Client User'}!
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl font-normal">
+              Track your active stall bookings, inspect payment installments, access official GST invoices, and manage your company profile.
+            </p>
 
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Link to="/my-bookings">
-              <Button variant="primary" leftIcon={<BookmarkCheck className="w-4 h-4" />}>
-                My Stall Bookings ({myBookings.length})
-              </Button>
-            </Link>
-            <Link to="/invoices">
-              <Button variant="secondary" leftIcon={<Receipt className="w-4 h-4" />}>
-                Tax Invoices
-              </Button>
-            </Link>
-            <Link to="/exhibitions">
-              <Button variant="outline" className="text-white border-slate-700 hover:bg-slate-800" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Book New Stall
-              </Button>
-            </Link>
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <Link to="/my-bookings">
+                <Button variant="primary" leftIcon={<BookmarkCheck className="w-4 h-4" />}>
+                  My Stall Bookings ({myBookings.length})
+                </Button>
+              </Link>
+              <Link to="/invoices">
+                <Button variant="secondary" leftIcon={<Receipt className="w-4 h-4" />}>
+                  Tax Invoices
+                </Button>
+              </Link>
+              <Link to="/exhibitions">
+                <Button
+                  variant="ghost"
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-xs"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Book New Stall
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 2. SUMMARY METRICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
