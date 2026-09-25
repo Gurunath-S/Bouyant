@@ -13,6 +13,13 @@ export class InvoicesService {
             stalls: { include: { stall: true } },
             exhibition: true,
             user: { select: { name: true, email: true, phone: true } },
+            payments: {
+              where: { status: 'SUCCESS' },
+              orderBy: { createdAt: 'asc' },
+            },
+            invoices: {
+              orderBy: { createdAt: 'asc' },
+            },
           },
         },
       },

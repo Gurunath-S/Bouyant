@@ -225,7 +225,7 @@ model Booking {
   exhibition       Exhibition    @relation(fields: [exhibitionId], references: [id], onDelete: Restrict)
   stalls           BookingStall[]
   payments         Payment[]
-  invoice          Invoice?
+  invoices         Invoice[]
 
   @@index([bookingReference])
   @@index([userId])
@@ -285,7 +285,7 @@ model Payment {
 model Invoice {
   id            String        @id @default(uuid())
   invoiceNumber String        @unique
-  bookingId     String        @unique
+  bookingId     String
   paymentId     String?       @unique
   companyId     String
   totalAmount   Decimal       @db.Decimal(12, 2)
@@ -302,6 +302,7 @@ model Invoice {
   company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([invoiceNumber])
+  @@index([bookingId])
   @@index([companyId])
 }
 

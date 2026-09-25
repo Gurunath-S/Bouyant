@@ -91,35 +91,24 @@ export class PaymentsService {
           },
         });
 
-        // 4. Update or Generate Invoice
-        const existingInvoice = await tx.invoice.findFirst({ where: { bookingId } });
-        let invoice;
-        if (existingInvoice) {
-          invoice = await tx.invoice.update({
-            where: { id: existingInvoice.id },
-            data: {
-              status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
-              totalAmount: booking.totalAmount,
-              taxAmount: booking.taxAmount,
-              grandTotal: booking.grandTotal,
-            },
-          });
-        } else {
-          const invoiceNum = generateReference('INV', 6);
-          invoice = await tx.invoice.create({
-            data: {
-              invoiceNumber: invoiceNum,
-              bookingId,
-              paymentId: payment.id,
-              companyId: booking.companyId,
-              totalAmount: booking.totalAmount,
-              taxAmount: booking.taxAmount,
-              grandTotal: booking.grandTotal,
-              status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
-              issueDate: new Date(),
-            },
-          });
-        }
+        // 4. Generate Dedicated Transaction Invoice for this Payment
+        const invoiceNum = generateReference('INV', 6);
+        const payBase = paymentAmount / 1.18;
+        const payTax = paymentAmount - payBase;
+
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber: invoiceNum,
+            bookingId,
+            paymentId: payment.id,
+            companyId: booking.companyId,
+            totalAmount: payBase.toFixed(2),
+            taxAmount: payTax.toFixed(2),
+            grandTotal: paymentAmount.toFixed(2),
+            status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
+            issueDate: new Date(),
+          },
+        });
 
         // 5. Trigger System Notification for Client
         await tx.notification.create({

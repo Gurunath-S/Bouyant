@@ -326,7 +326,7 @@ export class BookingsService {
         exhibition: true,
         company: true,
         payments: true,
-        invoice: true,
+        invoices: true,
       },
     });
   }
@@ -339,7 +339,7 @@ export class BookingsService {
         exhibition: true,
         company: true,
         payments: true,
-        invoice: true,
+        invoices: true,
         user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
       },
     });
@@ -413,7 +413,7 @@ export class BookingsService {
               paidAt: true,
             },
           },
-          invoice: { select: { id: true, invoiceNumber: true, status: true } },
+          invoices: { select: { id: true, invoiceNumber: true, status: true } },
           user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
         },
       }),
