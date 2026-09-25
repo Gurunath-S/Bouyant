@@ -9,25 +9,51 @@ export class StallsService {
    */
   static async releaseExpiredHolds() {
     const now = new Date();
-    const result = await prisma.stall.updateMany({
-      where: {
-        status: 'TEMPORARILY_HELD',
-        heldUntil: {
-          lt: now,
+    return await prisma.$transaction(async (tx) => {
+      // 1. Find stalls with expired hold timers (TEMPORARILY_HELD or PAYMENT_PENDING)
+      const expiredStalls = await tx.stall.findMany({
+        where: {
+          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING'] },
+          heldUntil: { lt: now },
         },
-      },
-      data: {
-        status: 'AVAILABLE',
-        heldUntil: null,
-        heldByUserId: null,
-      },
+        select: { id: true },
+      });
+
+      if (expiredStalls.length === 0) return 0;
+      const expiredStallIds = expiredStalls.map((s) => s.id);
+
+      // 2. Mark associated unconfirmed bookings as EXPIRED
+      await tx.booking.updateMany({
+        where: {
+          status: { in: ['INITIATED', 'PENDING_PAYMENT'] },
+          stalls: { some: { stallId: { in: expiredStallIds } } },
+          expiresAt: { lt: now },
+        },
+        data: {
+          status: 'EXPIRED',
+        },
+      });
+
+      // 3. Atomically release stall statuses back to AVAILABLE
+      const result = await tx.stall.updateMany({
+        where: {
+          id: { in: expiredStallIds },
+          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING'] },
+          heldUntil: { lt: now },
+        },
+        data: {
+          status: 'AVAILABLE',
+          heldUntil: null,
+          heldByUserId: null,
+        },
+      });
+
+      if (result.count > 0) {
+        console.log(`⏰ Automatically released ${result.count} expired stall hold(s) and expired associated unconfirmed bookings.`);
+      }
+
+      return result.count;
     });
-
-    if (result.count > 0) {
-      console.log(`⏰ Automatically released ${result.count} expired stall hold(s).`);
-    }
-
-    return result.count;
   }
 
   static async getStallsByFloorPlan(floorPlanId: string) {
