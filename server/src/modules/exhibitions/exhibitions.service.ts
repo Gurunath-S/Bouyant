@@ -195,6 +195,7 @@ export class ExhibitionsService {
         endDate: endDt,
         bookingEndDate: bookingEndDt,
         bannerUrl: input.bannerUrl || null,
+        notificationEmails: input.notificationEmails || null,
         totalStalls: Number(input.totalStalls) || 0,
         status: exhibitionStatus as any,
       },
@@ -219,23 +220,18 @@ export class ExhibitionsService {
       },
     });
 
+    // Seed initial stalls if provided
     if (initialStalls.length > 0) {
       const validCategories = ['STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
-      const validStatuses = ['AVAILABLE', 'TEMPORARILY_HELD', 'BOOKING_IN_PROGRESS', 'PAYMENT_PENDING', 'BOOKED_CONFIRMED', 'BLOCKED'];
+      const validStatuses = ['AVAILABLE', 'HELD', 'BOOKED_CONFIRMED', 'BLOCKED'];
 
-      const seenNumbers = new Set<string>();
       const stallsToCreate = initialStalls.map((s, idx) => {
-        let stallNum = (s.stallNumber || `S-${idx + 1}`).trim();
-        if (seenNumbers.has(stallNum)) {
-          stallNum = `${stallNum}-${idx + 1}`;
-        }
-        seenNumbers.add(stallNum);
+        const stallNum = s.stallNumber ? String(s.stallNumber).trim() : `A-${String(idx + 1).padStart(3, '0')}`;
+        const rawCategory = s.category ? String(s.category).toUpperCase() : 'STANDARD';
+        const category = validCategories.includes(rawCategory) ? rawCategory : 'STANDARD';
 
-        const rawCat = s.category ? String(s.category).toUpperCase() : 'STANDARD';
-        const category = validCategories.includes(rawCat) ? rawCat : 'STANDARD';
-
-        const rawStat = s.status ? String(s.status).toUpperCase() : 'AVAILABLE';
-        const status = validStatuses.includes(rawStat) ? rawStat : 'AVAILABLE';
+        const rawStatus = s.status ? String(s.status).toUpperCase() : 'AVAILABLE';
+        const status = validStatuses.includes(rawStatus) ? rawStatus : 'AVAILABLE';
 
         return {
           floorPlanId: floorPlan.id,
@@ -290,6 +286,9 @@ export class ExhibitionsService {
       cleanUpdateData.bookingEndDate = input.bookingEndDate ? new Date(input.bookingEndDate) : null;
     }
     if (input.bannerUrl !== undefined) cleanUpdateData.bannerUrl = input.bannerUrl || null;
+    if (input.notificationEmails !== undefined) {
+      cleanUpdateData.notificationEmails = input.notificationEmails || null;
+    }
     if (input.totalStalls !== undefined) cleanUpdateData.totalStalls = Number(input.totalStalls) || 0;
 
     if (input.status) {

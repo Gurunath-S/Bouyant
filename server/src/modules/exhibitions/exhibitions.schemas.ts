@@ -14,6 +14,7 @@ export const CreateExhibitionSchema = z
     endDate: z.string(),
     bookingEndDate: z.string().optional().nullable().or(z.literal('')),
     bannerUrl: z.string().optional().or(z.literal('')),
+    notificationEmails: z.string().optional().nullable().or(z.literal('')),
     totalStalls: z.number().optional(),
     status: z
       .preprocess(
