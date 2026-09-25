@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { floorPlanService } from '../../../services/floor-plans/floorPlanService';
@@ -11,6 +11,7 @@ import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
+import { useAuthStore } from '../../../stores/authStore';
 import {
   Layers,
   Plus,
@@ -37,6 +38,10 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  Mail,
+  Bell,
+  AtSign,
+  UserCheck,
 } from 'lucide-react';
 
 export interface DraftStall {
@@ -186,6 +191,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { user } = useAuthStore();
 
   const isViewMode = location.pathname.endsWith('/view') || new URLSearchParams(location.search).get('mode') === 'view';
   const isEditMode = !!id && !isViewMode;
@@ -196,6 +202,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
+  const [hallConfig, setHallConfig] = useState({
+    hallName: 'Hall A',
+    widthFt: 100,
+    heightFt: 80,
+  });
+  const [stalls, setStalls] = useState<DraftStall[]>([]);
+  const [selectedStallId, setSelectedStallId] = useState<string | null>(null);
 
   // Existing exhibitions loaded from DB to guarantee unique short codes
   const [existingEvents, setExistingEvents] = useState<{ id: string; slug?: string; title: string; eventCode: string; edition: string }[]>([]);
@@ -237,6 +250,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     state: 'Maharashtra',
     bannerUrl: '',
     images: [] as string[],
+    notificationEmails: '',
     latitude: 19.1551,
     longitude: 72.8553,
     status: 'DRAFT',
@@ -247,13 +261,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [isBookingEndDateCustom, setIsBookingEndDateCustom] = useState<boolean>(false);
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (id) {
-      loadEventData(id);
-    }
-  }, [id]);
-
-  const loadEventData = async (eventId: string) => {
+  const loadEventData = useCallback(async (eventId: string) => {
     try {
       setIsLoadingEvent(true);
       setLoadError(null);
@@ -302,6 +310,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           state: 'Maharashtra',
           bannerUrl: data.bannerUrl || '',
           images: data.bannerUrl ? [data.bannerUrl] : [],
+          notificationEmails: (data as any).notificationEmails || '',
           latitude: (data as any).latitude || 19.1551,
           longitude: (data as any).longitude || 72.8553,
           status: data.status || 'PUBLISHED',
@@ -357,7 +366,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     } finally {
       setIsLoadingEvent(false);
     }
-  };
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    if (id) {
+      loadEventData(id);
+    }
+  }, [id, loadEventData]);
 
   const calculateDurationDays = () => {
     if (!basicInfo.startDate || !basicInfo.endDate) return null;
@@ -368,21 +384,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   };
   const durationDays = calculateDurationDays();
 
-  // Step 2: Hall Configuration
-  const [hallConfig, setHallConfig] = useState({
-    hallName: 'Hall A',
-    widthFt: 100,
-    heightFt: 80,
-  });
-
   // Derived Usable Area
-  const totalUsableArea = hallConfig.widthFt * hallConfig.heightFt;
+  const _totalUsableArea = hallConfig.widthFt * hallConfig.heightFt;
 
-  // Step 3: Visual Floor Plan Stalls (Always created from scratch by user)
-  const [stalls, setStalls] = useState<DraftStall[]>([]);
-
-  const [selectedStallId, setSelectedStallId] = useState<string | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [_zoomLevel, _setZoomLevel] = useState<number>(100);
 
   // Crash Recovery & Auto-Save
   const DRAFT_STORAGE_KEY = id ? `buoyant_exhibition_draft_${id}` : 'buoyant_exhibition_draft_new';
@@ -390,6 +395,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const hasAttemptedRestoreRef = useRef(false);
 
   // Crash Recovery: Auto-restore if session crashed or tab was closed (run only once on mount)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!id && !hasAttemptedRestoreRef.current) {
       hasAttemptedRestoreRef.current = true;
@@ -471,23 +477,25 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const handleAddStall = () => {
     const existingNums = new Set(stalls.map((s) => s.stallNumber.toUpperCase()));
     let nextNum = stalls.length + 1;
-    let numStr = nextNum < 10 ? '0' + nextNum : `${nextNum}`;
-    while (existingNums.has(`S-${numStr}`.toUpperCase())) {
+    let candidate = `A-${String(nextNum).padStart(3, '0')}`;
+    while (existingNums.has(candidate)) {
       nextNum++;
-      numStr = nextNum < 10 ? '0' + nextNum : `${nextNum}`;
+      candidate = `A-${String(nextNum).padStart(3, '0')}`;
     }
+
     const newStall: DraftStall = {
-      id: Date.now().toString(),
-      stallNumber: `S-${numStr}`,
-      xPosition: 100 + (nextNum % 5) * 90,
-      yPosition: 360 + Math.floor(nextNum / 5) * 90,
-      width: 80,
-      height: 80,
+      id: `stall_draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      stallNumber: candidate,
+      xPosition: 40 + (stalls.length % 5) * 120,
+      yPosition: 40 + Math.floor(stalls.length / 5) * 120,
+      width: 100,
+      height: 100,
       areaSqFt: 100,
       category: 'STANDARD',
-      price: 1200,
+      price: 50000,
       status: 'AVAILABLE',
     };
+
     setStalls([...stalls, newStall]);
     setSelectedStallId(newStall.id);
   };
@@ -498,8 +506,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         if (s.id !== id) return s;
         const updated = { ...s, ...updates };
         if (updates.width !== undefined || updates.height !== undefined) {
-          // Derive area
-          updated.areaSqFt = Math.round((updated.width * updated.height) / 64) * 100;
+          updated.areaSqFt = Math.round((updated.width * updated.height) / 100);
         }
         return updated;
       })
@@ -535,6 +542,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+          notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
         };
@@ -575,6 +583,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+          notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
           floorPlans: [
@@ -640,16 +649,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
       {/* Header & Stepper */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
           <div>
             <button
               onClick={() => navigate('/admin/events')}
-              className="text-xs font-semibold text-purple-600 hover:underline flex items-center gap-1 mb-1"
+              className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 mb-1"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibitions Console
             </button>
-            <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-              <Layers className="w-6 h-6 text-purple-600" />
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               {isViewMode
                 ? `View Exhibition — ${basicInfo.title}`
                 : isEditMode
@@ -699,16 +708,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
         {/* Status Mode Banner */}
         {id && isViewMode && (
-          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-3 text-xs text-blue-900">
+          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between gap-3 text-xs text-blue-900 dark:text-blue-200">
             <div className="flex items-center gap-2.5">
-              <Eye className="w-4 h-4 text-blue-600 shrink-0" />
+              <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>
                 <strong>Viewing Mode:</strong> You are inspecting <strong>"{basicInfo.title}"</strong> in the full Studio interface. All 4 cards, interactive location map, and stalls are loaded below.
               </span>
             </div>
             <button
               onClick={() => navigate(`/admin/events/${id}/edit`)}
-              className="text-xs font-bold text-blue-700 underline hover:text-blue-900 shrink-0"
+              className="text-xs font-bold text-blue-700 dark:text-blue-300 underline hover:text-blue-900 dark:hover:text-blue-100 shrink-0"
             >
               Click here to edit
             </button>
@@ -716,81 +725,81 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         )}
 
         {id && isEditMode && (
-          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
             <div className="flex items-center gap-2.5">
-              <Pencil className="w-4 h-4 text-amber-600 shrink-0" />
+              <Pencil className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
                 <strong>Editing Mode:</strong> Any modifications you make to basic information, map pin, media gallery, or canvas stalls will be saved to this event.
               </span>
             </div>
-            <span className="font-semibold text-amber-800 text-[11px] bg-amber-100 px-2 py-0.5 rounded">
+            <span className="font-semibold text-amber-800 dark:text-amber-200 text-[11px] bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded">
               Active Edit Session
             </span>
           </div>
         )}
 
         {loadError && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-800">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-xs text-rose-800 dark:text-rose-200">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             <span>{loadError}</span>
           </div>
         )}
 
         {isLoadingEvent && (
-          <div className="p-6 text-center bg-white border border-slate-200 rounded-xl shadow-xs space-y-2">
-            <Loader2 className="w-6 h-6 text-purple-600 animate-spin mx-auto" />
-            <p className="text-xs font-semibold text-slate-700">Loading Event & Floor Plan...</p>
+          <div className="p-6 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs space-y-2">
+            <Loader2 className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-spin mx-auto" />
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Loading Event & Floor Plan...</p>
           </div>
         )}
 
         {/* Stepper Header (Streamlined 3 Steps) */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs font-bold text-slate-600 shadow-xs overflow-x-auto">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 shadow-xs overflow-x-auto">
           <button
             type="button"
             onClick={() => setCurrentStep(1)}
             className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
-              currentStep === 1 ? 'text-purple-700' : 'text-slate-500'
+              currentStep === 1 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <span
               className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
-                currentStep >= 1 ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-600'
+                currentStep >= 1 ? 'bg-purple-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}
             >
               1
             </span>
             <span>Event Details</span>
           </button>
-          <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
+          <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1 mx-2 min-w-[20px]" />
 
           <button
             type="button"
             onClick={() => setCurrentStep(2)}
             className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
-              currentStep === 2 ? 'text-purple-700' : 'text-slate-500'
+              currentStep === 2 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <span
               className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
-                currentStep >= 2 ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-600'
+                currentStep >= 2 ? 'bg-purple-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}
             >
               2
             </span>
             <span>Floor Plan Designer</span>
           </button>
-          <div className="h-px bg-slate-200 flex-1 mx-2 min-w-[20px]" />
+          <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1 mx-2 min-w-[20px]" />
 
           <button
             type="button"
             onClick={() => setCurrentStep(3)}
             className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
-              currentStep === 3 ? 'text-purple-700' : 'text-slate-500'
+              currentStep === 3 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <span
               className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
-                currentStep >= 3 ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-600'
+                currentStep >= 3 ? 'bg-purple-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}
             >
               3
@@ -804,16 +813,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       {currentStep === 1 && (
         <div className="space-y-6">
           {/* Header Summary Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 mb-2">
-                <Building className="w-3.5 h-3.5 text-purple-600" />
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 mb-2">
+                <Building className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                 <span>Step 1 of 3: Event Details</span>
               </div>
-              <h2 className="text-xl font-extrabold text-slate-900">
+              <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
                 Event Details & Location Setup
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Configure event identity, dates, venue location, and promotional images.
               </p>
             </div>
@@ -828,16 +837,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           </div>
 
           {/* Card 1: Event Identity & Category */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 flex items-center justify-center">
                 <Tag className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
                   1. Event Overview & Schedule
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Event name, unique codes, timings, and category
                 </p>
               </div>
@@ -861,7 +870,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .replace(/(^-|-$)+/g, '');
 
                     let newEventCode = basicInfo.eventCode;
-                    // Only auto-derive short code when creating a new event and user hasn't customized it
                     if (!id && !isEventCodeCustom) {
                       newEventCode = title.trim() ? getUniqueEventShortCode(title, existingEvents, id) : '';
                     }
@@ -876,10 +884,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   placeholder="e.g. India Industrial & Automation Expo 2026"
                   required
                 />
-                {/* Small & simple Client Reg No preview directly below event name */}
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1.5 pl-1">
+                {/* Client Reg No preview directly below event name */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 pl-1">
                   <span className="font-semibold text-slate-400">Client Reg No:</span>
-                  <code className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                  <code className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 shadow-2xs">
                     {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'EX'}/01
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
@@ -888,7 +896,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Event Short Code & Edition Code Row with Client Reg No Live Preview */}
+              {/* Event Short Code & Edition Code Row */}
               <div className="md:col-span-6 flex flex-col justify-between">
                 <div className="grid grid-cols-12 gap-3">
                   {/* Event Short Code */}
@@ -906,7 +914,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                             setBasicInfo((prev) => ({ ...prev, eventCode: auto }));
                           }}
                           title="Re-generate automatically from event title"
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 transition-colors cursor-pointer"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
                           <span>{isEventCodeCustom ? 'Reset Auto' : 'Auto-Sync'}</span>
@@ -929,16 +937,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         }}
                         placeholder="Auto-generated on title typing"
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500 truncate">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                       {isViewMode
                         ? 'Unique event short code • registered in catalog'
                         : isEventCodeCustom
-                        ? 'Custom short code • click Auto-Sync to re-generate from title'
+                        ? 'Custom short code • click Auto-Sync to re-generate'
                         : basicInfo.eventCode
-                        ? 'Auto-generated from title • edit to customize'
+                        ? 'Auto-generated from title'
                         : 'Type event name above to auto-generate short code'}
                     </p>
                   </div>
@@ -958,7 +966,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                             setBasicInfo((prev) => ({ ...prev, edition: autoEd }));
                           }}
                           title="Sync edition code with start date month"
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors cursor-pointer"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
                           <span>Sync Month</span>
@@ -982,10 +990,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         placeholder="e.g. 10"
                         maxLength={4}
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
                       {getMonthNameByEdition(basicInfo.edition)
                         ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition}) • ${isEditionCustom ? 'Custom' : 'Matches start date'}`
                         : `Edition ${basicInfo.edition || 'Current'}`}
@@ -993,7 +1001,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Collision Notice if this code is already taken by another event */}
+                {/* Collision Notice */}
                 {(() => {
                   if (isViewMode || !basicInfo.eventCode || !basicInfo.eventCode.trim()) return null;
                   const collision = existingEvents.find(
@@ -1010,7 +1018,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     id
                   );
                   return (
-                    <div className="mt-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded-md text-[10px] text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-1 animate-in fade-in">
+                    <div className="mt-1.5 p-1.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-md text-[10px] text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 animate-in fade-in">
                       <span className="truncate">
                         ⚠️ Code <strong>{basicInfo.eventCode}</strong> is already used by "{collision.title}".
                       </span>
@@ -1020,7 +1028,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                           setBasicInfo((prev) => ({ ...prev, eventCode: suggestedNewer }));
                           setIsEventCodeCustom(true);
                         }}
-                        className="font-bold underline text-amber-900 hover:text-amber-700 shrink-0 cursor-pointer text-[10px] bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded transition-colors"
+                        className="font-bold underline text-amber-900 dark:text-amber-300 hover:text-amber-700 shrink-0 cursor-pointer text-[10px] bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.5 rounded transition-colors"
                       >
                         Use Newer ({suggestedNewer})
                       </button>
@@ -1030,10 +1038,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
             </div>
 
-            {/* DIRECTLY BELOW: Dates & Exhibition Schedule / Timings */}
-            <div className="pt-3 border-t border-slate-100 space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wide">
-                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+            {/* Dates & Exhibition Schedule / Timings */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Exhibition Dates & Daily Visiting Timings</span>
               </div>
 
@@ -1072,7 +1080,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
                 {/* Event Time: Opening Time */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Daily Opening Time
                   </label>
                   <div className="relative rounded-lg shadow-xs">
@@ -1087,7 +1095,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         if (isViewMode) return;
                         setBasicInfo({ ...basicInfo, startTime: e.target.value });
                       }}
-                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">Visiting start time</p>
@@ -1095,7 +1103,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
                 {/* Event Time: Closing Time */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Daily Closing Time
                   </label>
                   <div className="relative rounded-lg shadow-xs">
@@ -1110,7 +1118,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         if (isViewMode) return;
                         setBasicInfo({ ...basicInfo, endTime: e.target.value });
                       }}
-                      className="w-full bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">Visiting close time</p>
@@ -1119,8 +1127,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
               {/* Quick Time Presets */}
               {!isViewMode && (
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-                  <span className="text-[11px] font-semibold text-slate-500">Quick Hours Presets:</span>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Quick Hours Presets:</span>
                   {[
                     { label: '10:00 AM – 06:00 PM', start: '10:00', end: '18:00' },
                     { label: '09:30 AM – 06:30 PM', start: '09:30', end: '18:30' },
@@ -1139,8 +1147,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       }
                       className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-colors cursor-pointer ${
                         basicInfo.startTime === preset.start && basicInfo.endTime === preset.end
-                          ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 font-bold'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                       }`}
                     >
                       {preset.label}
@@ -1149,18 +1157,18 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Stall Booking Cut-Off Date (Closing Date) Card */}
-              <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-3">
+              {/* Stall Booking Cut-Off Date Card */}
+              <div className="p-4 bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/80 rounded-xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <div className="flex items-center gap-2 font-bold text-xs text-purple-950">
-                      <Calendar className="w-4 h-4 text-purple-600" />
+                    <div className="flex items-center gap-2 font-bold text-xs text-purple-950 dark:text-purple-200">
+                      <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                       <span>Stall Booking Closing Date (Registration Cut-Off)</span>
-                      <span className="text-[10px] font-bold uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md border border-purple-200">
+                      <span className="text-[10px] font-bold uppercase bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800">
                         Default: 15 Days Prior
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-600 mt-0.5">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
                       New stall reservations, holds, and public checkouts will automatically stop after this date.
                     </p>
                   </div>
@@ -1173,7 +1181,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         setBasicInfo((prev) => ({ ...prev, bookingEndDate: autoDate }));
                         setIsBookingEndDateCustom(false);
                       }}
-                      className="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 hover:bg-purple-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
+                      className="text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
                       title="Reset booking cut-off date to 15 days prior to event start"
                     >
                       Reset to 15 Days Before Start
@@ -1205,12 +1213,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     }
                   />
 
-                  <div className="p-3 bg-white border border-purple-100 rounded-lg flex items-center gap-2.5 text-slate-600">
-                    <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
+                  <div className="p-3 bg-white dark:bg-slate-900 border border-purple-100 dark:border-purple-900/50 rounded-lg flex items-center gap-2.5 text-slate-600 dark:text-slate-300">
+                    <AlertCircle className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                     <p className="text-[11px] leading-relaxed">
                       {basicInfo.bookingEndDate ? (
                         <>
-                          Stall bookings will stop on <strong className="text-purple-900 font-bold">{formatDisplayDate(basicInfo.bookingEndDate)}</strong>. After this cut-off, public exhibitors cannot select or hold stalls.
+                          Stall bookings will stop on <strong className="text-purple-900 dark:text-purple-200 font-bold">{formatDisplayDate(basicInfo.bookingEndDate)}</strong>. After this cut-off, public exhibitors cannot select or hold stalls.
                         </>
                       ) : (
                         'Select an Exhibition Start Date above to automatically compute the 15-day cut-off date.'
@@ -1221,22 +1229,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </div>
 
               {durationDays !== null && durationDays > 0 ? (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-900">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-900 dark:text-blue-200">
                   <div className="flex items-center gap-2 font-medium">
-                    <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                    <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>
                       Total Duration: <strong className="font-bold">{durationDays} Days</strong> ({formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)}) • Daily Visiting Hours: <strong className="font-bold">{formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)}</strong>
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold uppercase bg-blue-100 text-blue-800 px-2 py-0.5 rounded shrink-0 self-start sm:self-auto">
+                  <span className="text-[11px] font-bold uppercase bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded shrink-0 self-start sm:self-auto">
                     Active Schedule
                   </span>
                 </div>
               ) : null}
             </div>
 
-            {/* Category and Registration Format Template Strip */}
-            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+            {/* Category and Registration Format */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
               <div className="md:col-span-8 space-y-2">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Industry / Sector Category *
@@ -1258,7 +1266,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         setBasicInfo({ ...basicInfo, category: val });
                       }
                     }}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 h-[38px] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                   >
                     {PRESET_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -1281,14 +1289,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     />
                   )}
                 </div>
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
                   Choose from industry sector presets or select "Other" to type your own custom sector.
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Exhibition Description & Highlights
               </label>
               <textarea
@@ -1300,22 +1308,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   setBasicInfo({ ...basicInfo, description: e.target.value });
                 }}
                 placeholder="Summarize key industry sectors, visitor profiles, major pavilions, and trade opportunities..."
-                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-colors disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
           </div>
 
           {/* Card 2: Venue Location & Interactive Pin Placement */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 flex items-center justify-center">
                 <MapPin className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
                   2. Venue & Location
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Enter venue address and set the location pin on the map.
                 </p>
               </div>
@@ -1369,7 +1377,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               />
             </div>
 
-            {/* Interactive Pin Map with Sync vs Separate option */}
+            {/* Interactive Pin Map */}
             <InteractivePinMap
               latitude={basicInfo.latitude}
               longitude={basicInfo.longitude}
@@ -1397,16 +1405,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           </div>
 
           {/* Card 3: Event Visuals & Media Gallery */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 flex items-center justify-center">
                 <ImageIcon className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
                   3. Photos & Banners
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Upload event banners or paste image links. Click the star icon to set the primary cover image.
                 </p>
               </div>
@@ -1427,9 +1435,122 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             />
           </div>
 
+          {/* Card 4: Event Alert & Notification Email Recipients */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
+                  4. Notification Routing & Admin Email Recipients
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Targeted alerts: Event registrations, stall reservations, and booking payment notices will be routed to these email addresses.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Recipient Email Addresses <span className="text-slate-400 font-normal">(Separate multiple emails with commas)</span>
+                  </label>
+
+                  {/* Quick-Add Logged-in Admin Email Action */}
+                  {!isViewMode && user?.email && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentEmails = basicInfo.notificationEmails
+                          ? basicInfo.notificationEmails.split(',').map((e) => e.trim()).filter(Boolean)
+                          : [];
+                        if (!currentEmails.includes(user.email)) {
+                          const updated = [...currentEmails, user.email].join(', ');
+                          setBasicInfo((prev) => ({ ...prev, notificationEmails: updated }));
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:text-[#012970] bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                      title="Add your current admin email to the notification list"
+                    >
+                      <UserCheck className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
+                      <span>+ Add My Email ({user.email})</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative rounded-lg shadow-xs">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={basicInfo.notificationEmails}
+                    disabled={isViewMode}
+                    onChange={(e) => {
+                      if (isViewMode) return;
+                      setBasicInfo((prev) => ({ ...prev, notificationEmails: e.target.value }));
+                    }}
+                    placeholder="e.g. event-director@buoyant.com, accounts@company.com, admin@expo.org"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-9 pr-3 py-2.5 transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Active Recipient Tags Preview */}
+              {basicInfo.notificationEmails && basicInfo.notificationEmails.trim() ? (
+                <div className="p-3 bg-[#f8faff] dark:bg-slate-800/40 border border-blue-100 dark:border-slate-700 rounded-xl space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <AtSign className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Active Alert Recipients for this Exhibition:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {basicInfo.notificationEmails
+                      .split(',')
+                      .map((e) => e.trim())
+                      .filter(Boolean)
+                      .map((email, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-[#09539b] dark:text-blue-300 px-2.5 py-1 rounded-md text-[11px] font-semibold font-mono shadow-2xs"
+                        >
+                          <Mail className="w-3 h-3 text-blue-500" />
+                          <span>{email}</span>
+                          {!isViewMode && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const filtered = basicInfo.notificationEmails
+                                  .split(',')
+                                  .map((x) => x.trim())
+                                  .filter((x) => x && x !== email)
+                                  .join(', ');
+                                setBasicInfo((prev) => ({ ...prev, notificationEmails: filtered }));
+                              }}
+                              className="ml-1 text-slate-400 hover:text-rose-600 text-xs font-bold leading-none cursor-pointer"
+                              title="Remove recipient"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <span>
+                    No specific emails entered. System default: All platform super-administrators and the event creator will receive registration and payment notifications.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Step 1 Footer Action */}
-          <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-xs">
-            <span className="text-xs text-slate-500 font-medium">
+          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between shadow-xs">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Next step: Design your halls and stalls on the interactive floor plan.
             </span>
             <Button
@@ -1444,7 +1565,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         </div>
       )}
 
-      {/* STEP 2: INTERACTIVE VISUAL EXHIBITION STUDIO (Direct from Step 1) */}
+      {/* STEP 2: INTERACTIVE VISUAL EXHIBITION STUDIO */}
       {currentStep === 2 && (
         <div className="space-y-4">
           <GenericVisualStudio
@@ -1534,7 +1655,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             onBack={() => setCurrentStep(1)}
           />
 
-          <div className="pt-2 flex justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <div className="pt-2 flex justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
             <Button variant="outline" size="lg" onClick={() => setCurrentStep(1)}>
               Back to Event Details
             </Button>
@@ -1552,13 +1673,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
       {/* STEP 3: PREVIEW & PUBLISH */}
       {currentStep === 3 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600" /> Step 3: Review & Publish Exhibition
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Eye className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Step 3: Review & Publish Exhibition
               </h2>
-              <p className="text-xs text-slate-500 mt-1">Review event details and stall layout before publishing.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Review event details and stall layout before publishing.</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
               Back to Floor Plan Designer
@@ -1567,35 +1688,35 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-bold text-slate-900 text-sm uppercase text-purple-700">Event Overview</h4>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2 text-xs text-slate-800 dark:text-slate-200">
+                <h4 className="font-bold text-sm uppercase text-purple-700 dark:text-purple-400">Event Overview</h4>
                 {basicInfo.bannerUrl && (
-                  <div className="h-28 w-full rounded-lg overflow-hidden mb-2 border border-slate-200">
+                  <div className="h-28 w-full rounded-lg overflow-hidden mb-2 border border-slate-200 dark:border-slate-700">
                     <img src={basicInfo.bannerUrl} alt="Event Banner" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <p><span className="font-semibold text-slate-500">Title:</span> {basicInfo.title}</p>
-                <p><span className="font-semibold text-slate-500">Category:</span> {basicInfo.category}</p>
-                <p><span className="font-semibold text-slate-500">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
-                <p><span className="font-semibold text-slate-500">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
-                <p><span className="font-semibold text-slate-500">SP Code (Admin/Staff):</span> <span className="font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded text-[11px]">{basicInfo.spcode || 'B001'}</span></p>
-                <p><span className="font-semibold text-slate-500">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700">{basicInfo.edition || '10'}</span> / <span className="font-mono font-bold text-indigo-700">{basicInfo.eventCode || 'IIAE'}</span></p>
-                <p><span className="font-semibold text-slate-500">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01</code></p>
-                <p><span className="font-semibold text-slate-500">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
-                <p><span className="font-semibold text-slate-500">Dates & Timings:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)} ({formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)})</p>
-                <p><span className="font-semibold text-slate-500">Stall Booking Cut-Off:</span> <span className="font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded text-[11px]">{formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}</span></p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Title:</span> {basicInfo.title}</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Category:</span> {basicInfo.category}</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">SP Code (Admin/Staff):</span> <span className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.spcode || 'B001'}</span></p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700 dark:text-indigo-400">{basicInfo.edition || '10'}</span> / <span className="font-mono font-bold text-indigo-700 dark:text-indigo-400">{basicInfo.eventCode || 'IIAE'}</span></p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01</code></p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Dates & Timings:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)} ({formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)})</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Stall Booking Cut-Off:</span> <span className="font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded text-[11px]">{formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}</span></p>
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <h4 className="font-bold text-slate-900 text-sm uppercase text-purple-700">Hall Layout</h4>
-                <p><span className="font-semibold text-slate-500">Primary Hall:</span> {hallConfig.hallName}</p>
-                <p><span className="font-semibold text-slate-500">Halls / Pavilions:</span> {layoutData?.halls?.length || 1} Configured (Dynamic Canvas Scale)</p>
-                <p><span className="font-semibold text-slate-500">Total Configured Stalls:</span> {stalls.length} Stalls</p>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2 text-xs text-slate-800 dark:text-slate-200">
+                <h4 className="font-bold text-sm uppercase text-purple-700 dark:text-purple-400">Hall Layout</h4>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Primary Hall:</span> {hallConfig.hallName}</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Halls / Pavilions:</span> {layoutData?.halls?.length || 1} Configured (Dynamic Canvas Scale)</p>
+                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Total Configured Stalls:</span> {stalls.length} Stalls</p>
               </div>
             </div>
 
             {/* Inventory Valuation Card */}
-            <div className="p-6 bg-slate-900 text-white rounded-xl space-y-4 shadow-md flex flex-col justify-between">
+            <div className="p-6 bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white rounded-xl space-y-4 shadow-md flex flex-col justify-between">
               <div className="space-y-3">
                 <h4 className="text-sm font-bold border-b border-slate-800 pb-2 uppercase text-purple-400">Inventory Valuation</h4>
                 <div className="space-y-2 text-xs text-slate-300">

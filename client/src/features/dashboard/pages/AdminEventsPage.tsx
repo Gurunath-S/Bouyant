@@ -28,31 +28,31 @@ const getStatusConfig = (status: Exhibition['status']) => {
     case 'PUBLISHED':
       return {
         label: 'Published',
-        dotColor: 'bg-emerald-500 ring-emerald-200',
+        dotColor: 'bg-emerald-500 ring-emerald-200 dark:ring-emerald-800',
         badgeClass:
-          'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100/70 hover:border-emerald-400 focus-within:ring-emerald-400/40',
+          'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/60 hover:border-emerald-400 focus-within:ring-emerald-400/40',
       };
     case 'COMPLETED':
       return {
         label: 'Completed',
-        dotColor: 'bg-blue-500 ring-blue-200',
+        dotColor: 'bg-blue-500 ring-blue-200 dark:ring-blue-800',
         badgeClass:
-          'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100/70 hover:border-blue-400 focus-within:ring-blue-400/40',
+          'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100/70 dark:hover:bg-blue-900/60 hover:border-blue-400 focus-within:ring-blue-400/40',
       };
     case 'CANCELLED':
       return {
         label: 'Cancelled',
-        dotColor: 'bg-rose-500 ring-rose-200',
+        dotColor: 'bg-rose-500 ring-rose-200 dark:ring-rose-800',
         badgeClass:
-          'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100/70 hover:border-rose-400 focus-within:ring-rose-400/40',
+          'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 hover:bg-rose-100/70 dark:hover:bg-rose-900/60 hover:border-rose-400 focus-within:ring-rose-400/40',
       };
     case 'DRAFT':
     default:
       return {
         label: 'Draft',
-        dotColor: 'bg-amber-500 ring-amber-200',
+        dotColor: 'bg-amber-500 ring-amber-200 dark:ring-amber-800',
         badgeClass:
-          'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100/70 hover:border-amber-400 focus-within:ring-amber-400/40',
+          'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100/70 dark:hover:bg-amber-900/60 hover:border-amber-400 focus-within:ring-amber-400/40',
       };
   }
 };
@@ -171,32 +171,31 @@ export const AdminEventsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Layers className="w-6 h-6 text-purple-600" />
-            Manage Exhibitions
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            Exhibitions & Trade Fairs
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Create exhibitions, design interactive floor plans, and track stall bookings.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage your scheduled B2B trade fairs, interactive floor plan builders, and booking availability statuses.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate('/admin/events/register')}
-            leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600" />}
-            className="border-purple-200 hover:border-purple-300 text-purple-700 hover:bg-purple-50"
+            leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+            className="border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
           >
             Register Event
           </Button>
-
           <Button
             variant="primary"
             size="sm"
-            onClick={() => navigate('/admin/events/create')}
+            onClick={() => navigate('/admin/events/builder/new')}
             leftIcon={<Plus className="w-4 h-4" />}
             className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
           >
@@ -210,15 +209,15 @@ export const AdminEventsPage: React.FC = () => {
         <div
           className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
             notification.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
+              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
+              : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
             {notification.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             )}
             <span className="font-semibold">{notification.message}</span>
           </div>
@@ -240,14 +239,14 @@ export const AdminEventsPage: React.FC = () => {
             placeholder="Search exhibitions by title, code, slug, venue or SP code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30 text-slate-800 dark:text-slate-200 placeholder-slate-400"
           />
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <label className="text-xs font-bold text-slate-500 shrink-0">Status Filter:</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">Status Filter:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -268,23 +267,23 @@ export const AdminEventsPage: React.FC = () => {
       </div>
 
       {/* Events Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400">Loading exhibitions...</div>
         ) : filteredExhibitions.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-400 space-y-2">
-            <Layers className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="font-bold text-slate-600">No Exhibitions Found</p>
+            <Layers className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="font-bold text-slate-600 dark:text-slate-300">No Exhibitions Found</p>
             <p>No event matched your search query or status filter.</p>
           </div>
         ) : (
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="py-3.5 px-4">
                   <div className="flex items-center gap-1 group relative cursor-help">
                     <span>Event Title & Slug</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
                     {/* Tooltip explanation */}
                     <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
                       <strong>What is a Slug?</strong>
@@ -302,34 +301,34 @@ export const AdminEventsPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {filteredExhibitions.map((e) => (
               <tr
                 key={e.id}
                 onClick={() => navigate(`/admin/events/${e.id}/view`)}
-                className="hover:bg-purple-50/40 cursor-pointer transition-colors group"
+                className="hover:bg-purple-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
               >
-                <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
                   <div className="flex items-center gap-3">
                     {e.bannerUrl ? (
                       <img
                         src={e.bannerUrl}
                         alt={e.title}
-                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
+                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs"
                         onError={(err) => {
                           (err.currentTarget as HTMLElement).style.display = 'none';
                         }}
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
+                      <div className="w-12 h-12 rounded-lg bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
                         <Layers className="w-5 h-5" />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-900 leading-snug group-hover:text-purple-700 transition-colors">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 leading-snug group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
                         {e.title}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-normal font-mono truncate mt-0.5">
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 font-normal font-mono truncate mt-0.5">
                         {e.slug}
                       </div>
                     </div>
@@ -337,26 +336,26 @@ export const AdminEventsPage: React.FC = () => {
                 </td>
                 <td className="py-3.5 px-4">
                   {e.spcode ? (
-                    <span className="bg-amber-50 text-amber-800 font-mono font-bold text-[11px] px-2 py-0.5 rounded border border-amber-200 inline-block">
+                    <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold text-[11px] px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 inline-block">
                       {e.spcode}
                     </span>
                   ) : (
-                    <span className="text-slate-400 text-xs font-mono">—</span>
+                    <span className="text-slate-400 dark:text-slate-500 text-xs font-mono">—</span>
                   )}
                 </td>
-                <td className="py-3.5 px-4">{e.venue}, {e.city}</td>
-                <td className="py-3.5 px-4 text-slate-500">
+                <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300">{e.venue}, {e.city}</td>
+                <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
                   {formatDisplayDate(e.startDate)} – {formatDisplayDate(e.endDate)}
                 </td>
-                <td className="py-3.5 px-4 text-center font-bold text-purple-700">{e.totalStalls} Stalls</td>
+                <td className="py-3.5 px-4 text-center font-bold text-purple-700 dark:text-purple-400">{e.totalStalls} Stalls</td>
                 <td className="py-3.5 px-4 text-center">
                   <div
                     className="inline-flex items-center justify-center relative"
                     onClick={(evt) => evt.stopPropagation()}
                   >
                     {updatingStatusId === e.id ? (
-                      <div className="w-[130px] h-8 inline-flex items-center justify-center gap-1.5 px-2.5 text-[10px] font-bold rounded-lg border bg-slate-50 text-slate-500 border-slate-200 shadow-2xs">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                      <div className="w-[130px] h-8 inline-flex items-center justify-center gap-1.5 px-2.5 text-[10px] font-bold rounded-lg border bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 shadow-2xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600 dark:text-purple-400" />
                         <span>Updating...</span>
                       </div>
                     ) : (() => {
@@ -379,16 +378,16 @@ export const AdminEventsPage: React.FC = () => {
                             className="w-full h-full appearance-none bg-transparent cursor-pointer pl-6 pr-6 text-[11px] font-bold tracking-wider uppercase focus:outline-none font-mono"
                             title="Click to quickly change event status"
                           >
-                            <option value="DRAFT" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                            <option value="DRAFT" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1 font-semibold normal-case">
                               Draft
                             </option>
-                            <option value="PUBLISHED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                            <option value="PUBLISHED" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1 font-semibold normal-case">
                               Published
                             </option>
-                            <option value="COMPLETED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                            <option value="COMPLETED" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1 font-semibold normal-case">
                               Completed
                             </option>
-                            <option value="CANCELLED" className="bg-white text-slate-800 py-1 font-semibold normal-case">
+                            <option value="CANCELLED" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1 font-semibold normal-case">
                               Cancelled
                             </option>
                           </select>
@@ -409,7 +408,7 @@ export const AdminEventsPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate(`/admin/events/${e.id}/edit`)}
-                      className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg shadow-2xs transition-all"
+                      className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700 rounded-lg shadow-2xs transition-all"
                       title="Edit Exhibition & Floor Plan"
                     >
                       <Pencil className="w-3.5 h-3.5" />
@@ -422,7 +421,7 @@ export const AdminEventsPage: React.FC = () => {
                         setDeleteError(null);
                         setExhibitionToDelete(e);
                       }}
-                      className="p-1.5 text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-lg shadow-2xs transition-all"
+                      className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-700 rounded-lg shadow-2xs transition-all"
                       title="Delete Exhibition"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

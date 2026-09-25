@@ -99,13 +99,13 @@ export const AdminDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-purple-600" />
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             Admin Dashboard
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Monitor real-time stall occupancy, recent bookings, payments, and registered exhibitors.
           </p>
         </div>
@@ -115,8 +115,8 @@ export const AdminDashboardPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600" />}
-              className="border-purple-200 hover:border-purple-300 text-purple-700 hover:bg-purple-50"
+              leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+              className="border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
             >
               Register Event
             </Button>
@@ -146,11 +146,11 @@ export const AdminDashboardPage: React.FC = () => {
             </h2>
             <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 flex-wrap font-medium">
               <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                 {currentUpcomingEvent.venue}, {currentUpcomingEvent.city}
               </span>
               <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                 {formatDisplayDate(currentUpcomingEvent.startDate)} – {formatDisplayDate(currentUpcomingEvent.endDate)}
               </span>
             </div>
@@ -170,86 +170,86 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-semibold">
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-2xl text-xs font-semibold">
           No current active upcoming event with open bookings.
         </div>
       )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Event Revenue</p>
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Event Revenue</p>
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">
               <IndianRupee className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold font-mono text-slate-900 mt-2">
+          <p className="text-2xl font-extrabold font-mono text-slate-900 dark:text-slate-100 mt-2">
             ₹{stats?.totalRevenue ? Number(stats.totalRevenue).toLocaleString() : '0'} INR
           </p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-2">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2">
             <TrendingUp className="w-3 h-3" /> Confirmed Event Revenue
           </span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stall Occupancy</p>
-              <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stall Occupancy</p>
+              <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800">
                 <BookmarkCheck className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline justify-between mt-2">
-              <p className="text-2xl font-extrabold text-slate-900 font-mono">
-                {stats?.bookedStallsCount || 0} <span className="text-xs font-normal text-slate-500">/ {stats?.totalStalls || 50} Stalls Filled</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+                {stats?.bookedStallsCount || 0} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">/ {stats?.totalStalls || 50} Stalls Filled</span>
               </p>
-              <span className="text-xs font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+              <span className="text-xs font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
                 {stats?.fillPercent || 0}%
               </span>
             </div>
           </div>
 
           <div className="mt-3">
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
               <div
-                className="h-full bg-purple-600 rounded-full transition-all duration-500"
+                className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
                 style={{ width: `${stats?.fillPercent || 0}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-slate-500 mt-1.5 font-medium">
-              <span>Remaining: <strong className="text-emerald-600 font-mono">{stats?.remainingStalls || 0} Stalls</strong></span>
+            <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
+              <span>Remaining: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{stats?.remainingStalls || 0} Stalls</strong></span>
               <span>{stats?.totalBookings || 0} Total Orders</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Event Code & Edition</p>
-            <div className="p-2 rounded-lg bg-purple-50 text-purple-600 border border-purple-100">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Event Code & Edition</p>
+            <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800">
               <Tag className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-lg font-extrabold font-mono text-purple-700 mt-2 truncate">
+          <p className="text-lg font-extrabold font-mono text-purple-700 dark:text-purple-300 mt-2 truncate">
             {currentUpcomingEvent ? `${currentUpcomingEvent.eventCode || 'EX'}-${currentUpcomingEvent.edition || '01'}` : 'N/A'}
           </p>
-          <span className="text-[11px] font-semibold text-slate-500 mt-2 block truncate" title={currentUpcomingEvent?.title}>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block truncate" title={currentUpcomingEvent?.title}>
             {currentUpcomingEvent ? currentUpcomingEvent.title : 'No active event'}
           </span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Event Venue</p>
-            <div className="p-2 rounded-lg bg-amber-50 text-amber-600 border border-amber-100">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Event Venue</p>
+            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800">
               <Building className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-sm font-extrabold text-slate-900 mt-2 truncate">
+          <p className="text-sm font-extrabold text-slate-900 dark:text-slate-100 mt-2 truncate">
             {currentUpcomingEvent ? currentUpcomingEvent.city : 'N/A'}
           </p>
-          <span className="text-[11px] font-semibold text-slate-500 mt-2 block truncate" title={currentUpcomingEvent?.venue}>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block truncate" title={currentUpcomingEvent?.venue}>
             {currentUpcomingEvent ? currentUpcomingEvent.venue : 'N/A'}
           </span>
         </div>
@@ -258,16 +258,16 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Recent Ledger Audit */}
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <h3 className="text-base font-bold text-slate-900">Recent Bookings</h3>
-          <Link to="/admin/bookings" className="text-xs text-blue-600 font-bold hover:underline">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Recent Bookings</h3>
+          <Link to="/admin/bookings" className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline">
             View All Bookings →
           </Link>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase tracking-wider font-bold">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="py-3 px-4">Booking Ref</th>
                 <th className="py-3 px-4">Exhibition Event</th>
                 <th className="py-3 px-4">Stall #</th>
@@ -277,24 +277,24 @@ export const AdminDashboardPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {stats?.recentBookings?.map((b: any) => (
                 <tr
                   key={b.id}
                   onClick={() => setInspectedBooking(b)}
-                  className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                  className="hover:bg-blue-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                 >
-                  <td className="py-3 px-4 font-mono font-bold text-blue-700 group-hover:underline">
+                  <td className="py-3 px-4 font-mono font-bold text-blue-700 dark:text-blue-400 group-hover:underline">
                     {b.bookingReference}
                   </td>
-                  <td className="py-3 px-4 font-semibold text-slate-900">{b.exhibition?.title}</td>
-                  <td className="py-3 px-4 font-bold text-slate-700">Stall {b.stall?.stallNumber}</td>
+                  <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
+                  <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300">Stall {b.stall?.stallNumber}</td>
                   <td className="py-3 px-4">{b.company?.name}</td>
-                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
                     ₹{Number(b.grandTotal).toLocaleString()}
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px] rounded">
+                    <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold text-[10px] rounded">
                       {b.status}
                     </span>
                   </td>
@@ -305,7 +305,7 @@ export const AdminDashboardPage: React.FC = () => {
                         e.stopPropagation();
                         setInspectedBooking(b);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 border border-blue-200 dark:border-slate-700 rounded transition-colors"
                       title="Inspect full booking details"
                     >
                       <Eye className="w-3.5 h-3.5" />
