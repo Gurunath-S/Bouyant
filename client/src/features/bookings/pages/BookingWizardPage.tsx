@@ -18,6 +18,8 @@ import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
 import { Step4PaymentCheckout } from '../components/wizard/Step4PaymentCheckout';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
+import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
+import { Clock, RefreshCw } from 'lucide-react';
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -48,6 +50,13 @@ export const BookingWizardPage: React.FC = () => {
   const [stallHoldError, setStallHoldError] = useState('');
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // 10-Minute Hold Timer & Extension Popup State
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(600); // 10 minutes = 600s
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
+  const [timerModalType, setTimerModalType] = useState<'EXTENSION_PROMPT' | 'EXPIRED_TIMEOUT'>('EXTENSION_PROMPT');
+  const [hasExtendedOnce, setHasExtendedOnce] = useState<boolean>(false);
 
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;
@@ -82,6 +91,70 @@ export const BookingWizardPage: React.FC = () => {
       });
     }
   }, [searchParams, stalls, clearStallSelection, toggleStallSelection]);
+
+  // Start Hold Countdown Timer when user advances to Step 2, 3, or 4
+  useEffect(() => {
+    if (selectedStallIds.length > 0 && (currentStep === 2 || currentStep === 3 || currentStep === 4)) {
+      if (!isTimerActive && remainingSeconds > 0) {
+        setIsTimerActive(true);
+      }
+    } else if (currentStep === 1 || currentStep === 5) {
+      setIsTimerActive(false);
+    }
+  }, [currentStep, selectedStallIds.length, isTimerActive, remainingSeconds]);
+
+  // Timer Tick Interval
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isTimerActive && remainingSeconds > 0) {
+      interval = setInterval(() => {
+        setRemainingSeconds((prev) => {
+          if (prev <= 1) {
+            setIsTimerActive(false);
+            setTimerModalType('EXPIRED_TIMEOUT');
+            setIsExtensionModalOpen(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTimerActive, remainingSeconds]);
+
+  // Trigger 60-Second Prompt Warning Popup if not extended yet
+  useEffect(() => {
+    if (remainingSeconds === 60 && isTimerActive && !hasExtendedOnce) {
+      setTimerModalType('EXTENSION_PROMPT');
+      setIsExtensionModalOpen(true);
+    }
+  }, [remainingSeconds, isTimerActive, hasExtendedOnce]);
+
+  const handleExtendHoldTimer = () => {
+    setRemainingSeconds(300); // Add +5 minutes (300s)
+    setHasExtendedOnce(true);
+    setIsExtensionModalOpen(false);
+    setIsTimerActive(true);
+  };
+
+  const handleCancelBookingFromTimer = () => {
+    setIsTimerActive(false);
+    setIsExtensionModalOpen(false);
+    clearStallSelection();
+    setCurrentStep(1);
+    setRemainingSeconds(600);
+    setHasExtendedOnce(false);
+  };
+
+  const handleRestartBookingFromExpired = () => {
+    setIsExtensionModalOpen(false);
+    clearStallSelection();
+    setCurrentStep(1);
+    setRemainingSeconds(600);
+    setHasExtendedOnce(false);
+  };
 
   const loadInitialData = async () => {
     try {
@@ -317,17 +390,17 @@ export const BookingWizardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-16 text-center text-slate-500 font-medium animate-pulse space-y-3">
-        <div className="w-12 h-12 border-4 border-[#09539b] border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs font-bold uppercase tracking-wider text-[#012970]">Initializing Exhibition Booking Wizard...</p>
+      <div className="p-16 text-center text-slate-500 dark:text-slate-400 font-medium animate-pulse space-y-3">
+        <div className="w-12 h-12 border-4 border-[#09539b] dark:border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs font-bold uppercase tracking-wider text-[#012970] dark:text-slate-200">Initializing Exhibition Booking Wizard...</p>
       </div>
     );
   }
 
   if (!exhibition) {
     return (
-      <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl space-y-4 max-w-xl mx-auto my-12">
-        <h3 className="text-lg font-bold text-[#012970]">Exhibition Event Not Found</h3>
+      <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 max-w-xl mx-auto my-12 shadow-xs">
+        <h3 className="text-lg font-bold text-[#012970] dark:text-slate-100">Exhibition Event Not Found</h3>
         <Button variant="outline" onClick={() => navigate('/exhibitions')}>
           Back to Exhibition Catalog
         </Button>
@@ -349,7 +422,7 @@ export const BookingWizardPage: React.FC = () => {
       className={`mx-auto font-sans transition-all duration-300 ${
         currentStep === 1
           ? isFullscreen
-            ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
+            ? 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 p-2 sm:p-4 flex flex-col m-0 w-screen h-screen'
             : 'w-full max-w-[1200px] mx-auto px-2 sm:px-4 pb-6 space-y-3'
           : 'max-w-5xl mx-auto px-4 pb-16 space-y-8'
       }`}
@@ -357,22 +430,63 @@ export const BookingWizardPage: React.FC = () => {
       {/* Header & Stepper */}
       {!isFullscreen && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+          <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5 gap-3">
             <div>
               <button
                 onClick={() => navigate(`/exhibitions/${slug}`)}
-                className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1 mb-0.5"
+                className="text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline flex items-center gap-1 mb-0.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibition Profile
               </button>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] leading-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] dark:text-slate-100 leading-tight">
                 Stall Reservation — {exhibition.title}
               </h1>
             </div>
+
+            {/* Right-Aligned Theme-Matched Stall Hold Timer Widget (Shown during steps 2, 3, & 4) */}
+            {selectedStallIds.length > 0 && (currentStep === 2 || currentStep === 3 || currentStep === 4) && (
+              <div className="bg-white dark:bg-slate-900 border border-[#0E8074]/30 dark:border-slate-700 rounded-xl p-2 px-3.5 flex items-center gap-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#E4F5F2] dark:bg-emerald-950/80 border border-[#0E8074]/30 text-[#0E8074] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Clock className="w-3.5 h-3.5 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-[#0E8074] dark:text-emerald-400 uppercase tracking-wider block leading-none">
+                      Hold Lock
+                    </span>
+                    <span className="text-[11px] text-slate-700 dark:text-slate-300 font-bold leading-tight">
+                      Stall {selectedStallsObj.map((s) => s.stallNumber).join(', ')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-800 mx-0.5" />
+
+                <div className="flex items-center gap-2.5">
+                  <div className="text-right">
+                    <span className="text-[8px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block font-bold leading-none">Time Left</span>
+                    <span className={`text-base font-black font-mono tracking-tight leading-tight ${remainingSeconds <= 120 ? 'text-red-600 dark:text-red-400 animate-bounce' : 'text-[#012970] dark:text-blue-400'}`}>
+                      {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+
+                  {/* Dev / Test Fast-Forward Button to test timeout popup */}
+                  <button
+                    onClick={() => {
+                      setRemainingSeconds(5); // Fast forward to 5 seconds remaining to test run out!
+                    }}
+                    title="DEV TEST: Fast Forward Timer to 5s"
+                    className="text-[10px] bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-bold py-1 px-2 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                  >
+                    ⚡ Fast 5s
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stepper Tabs */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-extrabold text-slate-600 shadow-2xs overflow-x-auto gap-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs font-extrabold text-slate-600 dark:text-slate-300 shadow-2xs overflow-x-auto gap-2">
             {[
               { num: 1, label: 'Stall Selection' },
               { num: 2, label: 'Company Details' },
@@ -386,7 +500,11 @@ export const BookingWizardPage: React.FC = () => {
                 <React.Fragment key={step.num}>
                   <div
                     className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
-                      isCurrent ? 'text-[#09539b]' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                      isCurrent
+                        ? 'text-[#09539b] dark:text-blue-400'
+                        : isCompleted
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     <span
@@ -394,8 +512,8 @@ export const BookingWizardPage: React.FC = () => {
                         isCompleted
                           ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
                           : isCurrent
-                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20'
-                          : 'bg-slate-100 text-slate-400 border border-slate-200'
+                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20 dark:ring-blue-400/30'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.num}
@@ -405,7 +523,9 @@ export const BookingWizardPage: React.FC = () => {
                   {idx < arr.length - 1 && (
                     <div
                       className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
-                        currentStep > step.num ? 'bg-[#9cc542]' : 'bg-slate-200'
+                        currentStep > step.num
+                          ? 'bg-[#9cc542]'
+                          : 'bg-slate-200 dark:bg-slate-800'
                       }`}
                     />
                   )}
@@ -498,6 +618,16 @@ export const BookingWizardPage: React.FC = () => {
           onRetryPayment={() => setCurrentStep(4)}
         />
       )}
+
+      {/* Timer Extension & Timeout Popup Modal */}
+      <TimerExtensionModal
+        isOpen={isExtensionModalOpen}
+        type={timerModalType}
+        remainingSeconds={remainingSeconds}
+        onExtendHold={handleExtendHoldTimer}
+        onCancelBooking={handleCancelBookingFromTimer}
+        onRestartBooking={handleRestartBookingFromExpired}
+      />
     </div>
   );
 };

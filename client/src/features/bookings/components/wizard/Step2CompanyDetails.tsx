@@ -263,16 +263,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-      <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-[#012970] flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-[#09539b]" /> Corporate Exhibitor Information
+          <h2 className="text-lg font-bold text-[#012970] dark:text-slate-100 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-[#09539b] dark:text-blue-400" /> Corporate Exhibitor Information
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {selectedStalls.length > 0 ? (
               <>
-                Selected: <b className="text-[#09539b] font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
+                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
               </>
             ) : null}
             Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
@@ -287,10 +287,10 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       {companies.length > 0 && !isAddingNewCompany && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Select Saved Corporate Profile:</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Select Saved Corporate Profile:</label>
             <button
               onClick={() => setIsAddingNewCompany(true)}
-              className="text-xs font-bold text-[#09539b] hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" /> Fill New Corporate Details
             </button>
@@ -303,37 +303,37 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 onClick={() => onSelectCompany(c)}
                 className={`p-4 border rounded-xl cursor-pointer transition-all flex flex-col justify-between space-y-3 ${
                   selectedCompany?.id === c.id
-                    ? 'bg-[#f6f9ff] border-[#09539b] ring-2 ring-[#09539b]'
-                    : 'bg-white border-slate-200 hover:border-slate-300'
+                    ? 'bg-[#f6f9ff] dark:bg-blue-950/40 border-[#09539b] dark:border-blue-500 ring-2 ring-[#09539b] dark:ring-blue-500'
+                    : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                 }`}
               >
                 <div>
                   <div className="flex justify-between items-start">
-                    <h4 className="text-sm font-extrabold text-[#012970]">{c.name}</h4>
+                    <h4 className="text-sm font-extrabold text-[#012970] dark:text-slate-100">{c.name}</h4>
                     {selectedCompany?.id === c.id && (
                       <span className="p-1 bg-[#09539b] text-white rounded-full">
                         <Check className="w-3 h-3" />
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Code: {c.companyCode}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Code: {c.companyCode}</p>
                 </div>
 
-                <div className="space-y-1 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 pt-2 border-t border-slate-100 dark:border-slate-800">
                   <p>
-                    <span className="font-semibold text-slate-500">Reg No:</span>{' '}
-                    <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px]">
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">Reg No:</span>{' '}
+                    <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 rounded text-[11px]">
                       {c.regNo || assignedRegNo || 'Pending'}
                     </span>
                   </p>
-                  <p><span className="font-semibold text-slate-500">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
-                  <p><span className="font-semibold text-slate-500">Contact:</span> {c.contactPerson} ({c.email})</p>
+                  <p><span className="font-semibold text-slate-500 dark:text-slate-400">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
+                  <p><span className="font-semibold text-slate-500 dark:text-slate-400">Contact:</span> {c.contactPerson} ({c.email})</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+          <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
             <Button variant="outline" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
               Back to Stall Selection
             </Button>
@@ -358,24 +358,24 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             <button
               type="button"
               onClick={() => setIsAddingNewCompany(false)}
-              className="text-xs font-semibold text-[#09539b] hover:underline mb-2 block"
+              className="text-xs font-semibold text-[#09539b] dark:text-blue-400 hover:underline mb-2 block"
             >
               ← Select Existing Saved Company
             </button>
           )}
 
           {/* GSTIN Verification Header Card */}
-          <div className="bg-[#f6f9ff] border-2 border-blue-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="bg-[#f6f9ff] dark:bg-slate-800/60 border-2 border-blue-200 dark:border-blue-900/60 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#09539b]" />
-                  <h4 className="text-sm font-bold text-[#012970]">GSTIN Verification & Auto-Fill</h4>
-                  <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <ShieldCheck className="w-5 h-5 text-[#09539b] dark:text-blue-400" />
+                  <h4 className="text-sm font-bold text-[#012970] dark:text-slate-100">GSTIN Verification & Auto-Fill</h4>
+                  <span className="text-[10px] bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                     Official Tax Entity
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Enter your 15-character GSTIN to auto-fetch legal company name, PAN, and tax address.
                 </p>
               </div>
@@ -386,7 +386,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   placeholder="e.g. 27AAACT1029F1Z5"
                   maxLength={15}
                   {...register('gstNumber')}
-                  className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white shadow-xs"
+                  className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs"
                 />
                 <Button
                   type="button"
@@ -401,44 +401,44 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               </div>
             </div>
 
-            {errors.gstNumber && <p className="text-xs text-red-600 font-medium">{errors.gstNumber.message}</p>}
+            {errors.gstNumber && <p className="text-xs text-red-600 dark:text-red-400 font-medium">{errors.gstNumber.message}</p>}
 
             {/* Verified Details Card */}
             {gstVerificationSuccess && gstVerifiedDetails && (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs space-y-1.5 animate-fadeIn">
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs space-y-1.5 animate-fadeIn">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2 font-bold text-emerald-900">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="flex items-center gap-2 font-bold text-emerald-900 dark:text-emerald-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>Verified Entity: {gstVerifiedDetails.legalName || gstVerifiedDetails.tradeName}</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-200 text-emerald-900 border border-emerald-300">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
                     Status: {gstVerifiedDetails.status || 'Active'}
                   </span>
                 </div>
                 {assignedRegNo && (
                   <div className="flex items-center gap-2 pl-6 py-1">
-                    <span className="font-bold text-emerald-900">Assigned Reg No:</span>
-                    <span className="font-mono font-extrabold bg-white border border-emerald-400 text-indigo-800 px-2 py-0.5 rounded text-[11px] shadow-xs">
+                    <span className="font-bold text-emerald-900 dark:text-emerald-200">Assigned Reg No:</span>
+                    <span className="font-mono font-extrabold bg-white dark:bg-slate-900 border border-emerald-400 dark:border-emerald-700 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded text-[11px] shadow-xs">
                       {assignedRegNo}
                     </span>
                   </div>
                 )}
-                <p className="text-emerald-800 text-[11px] pl-6">
+                <p className="text-emerald-800 dark:text-emerald-300 text-[11px] pl-6">
                   <span className="font-semibold">Registered Location:</span> {gstVerifiedDetails.address}, {gstVerifiedDetails.city}, {gstVerifiedDetails.state} - {gstVerifiedDetails.pincode}
                 </p>
               </div>
             )}
 
             {gstNotice && (
-              <div className="p-3 bg-blue-50 border border-blue-300 text-blue-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-300 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <span className="font-medium">{gstNotice}</span>
               </div>
             )}
 
             {gstError && (
-              <div className="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span className="font-medium">{gstError}</span>
               </div>
             )}
@@ -454,21 +454,21 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
 
             {/* Portal Username Field with Real-Time Uniqueness Verification & Auto-Generation */}
-            <div className="sm:col-span-2 bg-[#f8faff] border border-blue-100 rounded-xl p-3.5 space-y-2">
+            <div className="sm:col-span-2 bg-[#f8faff] dark:bg-slate-800/60 border border-blue-100 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <label className="text-xs font-bold text-[#012970] flex items-center gap-1.5">
-                    <AtSign className="w-3.5 h-3.5 text-[#09539b]" />
+                  <label className="text-xs font-bold text-[#012970] dark:text-slate-100 flex items-center gap-1.5">
+                    <AtSign className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
                     Exhibitor Portal Username <span className="text-slate-400 font-normal">(Auto-generated & Customizable)</span>
                   </label>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     Unique handle for logging in, downloading badges & tax receipts. You can also sign in with your email.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleRegenerateUsername}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] hover:text-[#012970] bg-white border border-blue-200 hover:border-blue-400 px-2.5 py-1 rounded-lg shadow-2xs transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:text-[#012970] dark:hover:text-blue-300 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 hover:border-blue-400 px-2.5 py-1 rounded-lg shadow-2xs transition-colors shrink-0"
                   title="Generate another unique username suggestion"
                 >
                   <Sparkles className="w-3 h-3 text-[#9cc542]" /> Suggest New
@@ -483,12 +483,12 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   {...register('username', {
                     onChange: () => setIsUsernameManuallyEdited(true),
                   })}
-                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border bg-white shadow-2xs transition-colors pr-24 ${
+                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs transition-colors pr-24 ${
                     errors.username || usernameStatus === 'taken' || usernameStatus === 'invalid'
                       ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-500'
                       : usernameStatus === 'available'
                       ? 'border-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
-                      : 'border-slate-300 focus:border-[#09539b] focus:ring-1 focus:ring-[#09539b]'
+                      : 'border-slate-300 dark:border-slate-700 focus:border-[#09539b] focus:ring-1 focus:ring-[#09539b]'
                   }`}
                 />
 
@@ -496,17 +496,17 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] pointer-events-none">
                   {usernameStatus === 'checking' && (
                     <span className="flex items-center gap-1 text-slate-400 font-medium animate-pulse">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#09539b]" /> Checking
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#09539b] dark:text-blue-400" /> Checking
                     </span>
                   )}
                   {usernameStatus === 'available' && (
-                    <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Available
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Available
                     </span>
                   )}
                   {usernameStatus === 'taken' && (
-                    <span className="flex items-center gap-1 text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Taken
+                    <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Taken
                     </span>
                   )}
                 </div>
@@ -514,15 +514,15 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
               {/* Status or Validation message */}
               {errors.username ? (
-                <p className="text-[11px] text-red-600 font-medium">{errors.username.message}</p>
+                <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{errors.username.message}</p>
               ) : usernameMessage && usernameStatus !== 'idle' ? (
                 <p
                   className={`text-[11px] font-medium flex items-center gap-1 ${
                     usernameStatus === 'available'
-                      ? 'text-emerald-700'
+                      ? 'text-emerald-700 dark:text-emerald-400'
                       : usernameStatus === 'taken' || usernameStatus === 'invalid'
-                      ? 'text-rose-600'
-                      : 'text-slate-500'
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   {usernameMessage}
