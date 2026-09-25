@@ -3,6 +3,7 @@ import { ApiError } from '../../utils/apiError.js';
 import { CreateBookingInput } from './bookings.schemas.js';
 import { StallsService } from '../stalls/stalls.service.js';
 import { Prisma } from '@prisma/client';
+import { generateReference } from '../../utils/reference.js';
 
 export class BookingsService {
   /**
@@ -74,13 +75,50 @@ export class BookingsService {
       throw ApiError.badRequest('This exhibition event has ended. Stall bookings are closed.');
     }
 
+    // Sort stall IDs deterministically to prevent multi-stall deadlocks (PostgreSQL 40P01)
+    const sortedStallIds = [...input.stallIds].sort();
+
+    // 1. Idempotency Check: Return existing booking if idempotencyKey is provided
+    if (input.idempotencyKey) {
+      const existingIdempotentBooking = await prisma.booking.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        include: {
+          stalls: { include: { stall: true } },
+          exhibition: true,
+          company: true,
+          user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
+        },
+      });
+      if (existingIdempotentBooking) {
+        return existingIdempotentBooking;
+      }
+    }
+
+    // 2. Prevent duplicate active pending booking for the exact same stalls by the same user
+    const existingActiveBooking = await prisma.booking.findFirst({
+      where: {
+        userId,
+        status: { in: ['INITIATED', 'PENDING_PAYMENT'] },
+        stalls: { some: { stallId: { in: sortedStallIds } } },
+      },
+      include: {
+        stalls: { include: { stall: true } },
+        exhibition: true,
+        company: true,
+        user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
+      },
+    });
+    if (existingActiveBooking) {
+      return existingActiveBooking;
+    }
+
     // 3. Verify Stalls & Exhibition
     const stalls = await prisma.stall.findMany({
-      where: { id: { in: input.stallIds } },
+      where: { id: { in: sortedStallIds } },
       include: { floorPlan: true },
     });
 
-    if (stalls.length !== input.stallIds.length) {
+    if (stalls.length !== sortedStallIds.length) {
       throw ApiError.notFound('One or more target stalls not found.');
     }
 
@@ -102,13 +140,14 @@ export class BookingsService {
     const taxAmount = basePrice.mul(taxRate);
     const grandTotal = basePrice.add(taxAmount);
 
-    const bookingRef = `BKG-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const bookingRef = generateReference('BKG', 6);
 
-    // 5. ATOMIC POSTGRESQL TRANSACTION (DOUBLE-BOOKING PROTECTION)
+    // 5. ATOMIC POSTGRESQL TRANSACTION WITH DETERMINISTIC SORTED LOCK ORDER
     return await prisma.$transaction(async (tx) => {
-      // Re-verify and lock stalls atomically within transaction
+      // Re-verify and lock stalls atomically within transaction using sorted IDs
       const currentStalls = await tx.stall.findMany({
-        where: { id: { in: input.stallIds } },
+        where: { id: { in: sortedStallIds } },
+        orderBy: { id: 'asc' }, // Explicit deterministic lock order
       });
 
       for (const currentStall of currentStalls) {
@@ -128,9 +167,15 @@ export class BookingsService {
       const isDirectConfirm = input.confirmDirectly && isAdminUser;
 
       if (isDirectConfirm) {
-        // Direct Admin Allocation: immediately confirm stalls and booking
-        await tx.stall.updateMany({
-          where: { id: { in: input.stallIds } },
+        // Direct Admin Allocation: atomically update only if available/held
+        const updateResult = await tx.stall.updateMany({
+          where: {
+            id: { in: sortedStallIds },
+            OR: [
+              { status: 'AVAILABLE' },
+              { status: 'TEMPORARILY_HELD' },
+            ],
+          },
           data: {
             status: 'BOOKED_CONFIRMED',
             heldUntil: null,
@@ -138,9 +183,14 @@ export class BookingsService {
           },
         });
 
+        if (updateResult.count !== sortedStallIds.length) {
+          throw ApiError.conflict('Double Booking Conflict: One or more selected stalls were booked or held by another user just now.');
+        }
+
         const booking = await tx.booking.create({
           data: {
             bookingReference: bookingRef,
+            idempotencyKey: input.idempotencyKey || null,
             userId,
             companyId: targetCompanyId,
             exhibitionId: input.exhibitionId,
@@ -167,7 +217,7 @@ export class BookingsService {
         });
 
         // Create Payment Record for Admin Allocation
-        const paymentRef = `PAY-${Math.floor(10000 + Math.random() * 90000)}`;
+        const paymentRef = generateReference('PAY', 8, false);
         const payment = await tx.payment.create({
           data: {
             paymentReference: paymentRef,
@@ -183,7 +233,7 @@ export class BookingsService {
         });
 
         // Generate Invoice
-        const invoiceNum = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+        const invoiceNum = generateReference('INV', 6);
         await tx.invoice.create({
           data: {
             invoiceNumber: invoiceNum,
@@ -201,9 +251,15 @@ export class BookingsService {
         return booking;
       }
 
-      // Standard / Client Hold Flow: Update stall statuses to PAYMENT_PENDING
-      await tx.stall.updateMany({
-        where: { id: { in: input.stallIds } },
+      // Standard / Client Hold Flow: Atomically claim stalls for payment pending using sorted IDs
+      const updateResult = await tx.stall.updateMany({
+        where: {
+          id: { in: sortedStallIds },
+          OR: [
+            { status: 'AVAILABLE' },
+            { status: 'TEMPORARILY_HELD', heldByUserId: userId },
+          ],
+        },
         data: {
           status: 'PAYMENT_PENDING',
           heldUntil: new Date(Date.now() + 15 * 60 * 1000), // 15 mins to complete payment
@@ -211,10 +267,15 @@ export class BookingsService {
         },
       });
 
-      // Create Booking record
+      if (updateResult.count !== sortedStallIds.length) {
+        throw ApiError.conflict('Double Booking Conflict: One or more selected stalls are no longer available for booking.');
+      }
+
+      // Create Booking record with Idempotency Key
       const booking = await tx.booking.create({
         data: {
           bookingReference: bookingRef,
+          idempotencyKey: input.idempotencyKey || null,
           userId,
           companyId: targetCompanyId,
           exhibitionId: input.exhibitionId,
@@ -239,7 +300,7 @@ export class BookingsService {
       });
 
       // Initialize Payment Record
-      const paymentRef = `PAY-${Math.floor(10000 + Math.random() * 90000)}`;
+      const paymentRef = generateReference('PAY', 8, false);
       await tx.payment.create({
         data: {
           paymentReference: paymentRef,
