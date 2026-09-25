@@ -58,11 +58,13 @@ export const Navbar: React.FC = () => {
           to={getLogoDestination()}
           className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
-          <img
-            src="/assets/logo.png"
-            alt="BUOYANT Media"
-            className="h-8 sm:h-9 object-contain"
-          />
+          <div className="dark:bg-white/95 dark:px-2.5 dark:py-1 dark:rounded-xl dark:shadow-xs transition-all flex items-center">
+            <img
+              src="/assets/logo.png"
+              alt="BUOYANT Media"
+              className="h-8 sm:h-9 object-contain"
+            />
+          </div>
         </Link>
       </div>
 
