@@ -23,10 +23,10 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans">
         {/* Header */}
-        <div className="p-6 bg-[#012970] text-white flex justify-between items-center shrink-0">
+        <div className="p-6 bg-[#012970] dark:bg-slate-800 text-white flex justify-between items-center shrink-0 border-b border-blue-900 dark:border-slate-700">
           <div>
             <span className="px-2.5 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded">
               Official Exhibition Contract Clauses
@@ -47,25 +47,25 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
         </div>
 
         {/* Scrollable Terms Content */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 leading-relaxed flex-1">
-          <div className="p-3.5 bg-[#f6f9ff] border border-[#09539b]/30 rounded-xl flex items-center gap-3">
-            <ShieldAlert className="w-5 h-5 text-[#09539b] shrink-0" />
-            <p className="text-slate-600 font-medium">
+        <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+          <div className="p-3.5 bg-[#f6f9ff] dark:bg-slate-800/60 border border-[#09539b]/30 dark:border-blue-700/40 rounded-xl flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 text-[#09539b] dark:text-blue-400 shrink-0" />
+            <p className="text-slate-600 dark:text-slate-300 font-medium">
               Please read the official exhibition terms and conditions overleaf below. By checking the agreement box or completing stall reservation, the exhibitor undertakes full compliance with these clauses.
             </p>
           </div>
 
           {/* Section 01 */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection(1)}
-              className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center text-left font-bold text-[#012970]"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 flex justify-between items-center text-left font-bold text-[#012970] dark:text-slate-100"
             >
               <span className="text-sm">01. PARTICIPATION & PAYMENT TERMS</span>
               {openSection === 1 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
-            <div className={`p-4 space-y-2 bg-white ${openSection === 1 ? 'block' : 'hidden'}`}>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+            <div className={`p-4 space-y-2 bg-white dark:bg-slate-900 ${openSection === 1 ? 'block' : 'hidden'}`}>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
                 <li>To participate in the exhibition, the participant shall submit the application form completely filled with all the details along with relevant participation stall charges.</li>
                 <li>The organizer reserves all rights to accept or refuse any application of any applicant to participate in the exhibition. The organizer shall further have rights to decide which items / products may or may not be displayed by any exhibitor. Organizer&apos;s decision shall be final and binding.</li>
                 <li><b>Payment Terms:</b> All applicants are liable to pay a minimum of 50% participation charges at the time of submitting application. Full and final payment must be cleared at least 15 days before the event (on or before 25th October 2026).</li>
@@ -77,36 +77,36 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
           </div>
 
           {/* Section 02 */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection(2)}
-              className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center text-left font-bold text-[#012970]"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 flex justify-between items-center text-left font-bold text-[#012970] dark:text-slate-100"
             >
               <span className="text-sm">02. CANCELLATION POLICY & REFUND SCALE</span>
               {openSection === 2 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </button>
-            <div className={`p-4 space-y-2 bg-white ${openSection === 2 ? 'block' : 'hidden'}`}>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+            <div className={`p-4 space-y-2 bg-white dark:bg-slate-900 ${openSection === 2 ? 'block' : 'hidden'}`}>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
                 <li>The organizer reserves all rights to cancel the exhibition or any day thereof at any time without assigning any reason.</li>
                 <li><b>Cancellation Charges Scale:</b></li>
-                <li className="font-semibold text-slate-800">If cancelled on or before 25th October, 2026: 50% of participation charges shall be deducted and remaining 50% shall be refunded.</li>
-                <li className="font-semibold text-rose-700">If cancelled after 25th October, 2026: The exhibitor shall NOT be entitled to any refund and the entire participation fee shall be forfeited.</li>
+                <li className="font-semibold text-slate-800 dark:text-slate-200">If cancelled on or before 25th October, 2026: 50% of participation charges shall be deducted and remaining 50% shall be refunded.</li>
+                <li className="font-semibold text-rose-700 dark:text-rose-400">If cancelled after 25th October, 2026: The exhibitor shall NOT be entitled to any refund and the entire participation fee shall be forfeited.</li>
                 <li>Notice of cancellation must be submitted in writing via official letter or email.</li>
               </ul>
             </div>
           </div>
 
           {/* Section 03 */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection(3)}
-              className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center text-left font-bold text-[#012970]"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 flex justify-between items-center text-left font-bold text-[#012970] dark:text-slate-100"
             >
               <span className="text-sm">03. STALL CONSTRUCTION & DESIGNING</span>
               {openSection === 3 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </button>
-            <div className={`p-4 space-y-2 bg-white ${openSection === 3 ? 'block' : 'hidden'}`}>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+            <div className={`p-4 space-y-2 bg-white dark:bg-slate-900 ${openSection === 3 ? 'block' : 'hidden'}`}>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
                 <li>Built-in stalls are of designated size and design including fascia board. No alterations to standard fascia lettering are permitted.</li>
                 <li>Exhibitors assigning custom contractors must submit detailed stall design plans for organizer approval latest by October 25, 2026. Erection must be completed by 12 AM on 20th November 2026.</li>
                 <li><b>No Drilling, Screws, or Glue:</b> No posters, wallpapers, paint, drills, nails, glue, or screws may be applied to standard aluminum frames, panels, floors, or pillars. Exhibitors are liable for any physical frame damage.</li>
@@ -116,16 +116,16 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
           </div>
 
           {/* Section 04 */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection(4)}
-              className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center text-left font-bold text-[#012970]"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 flex justify-between items-center text-left font-bold text-[#012970] dark:text-slate-100"
             >
               <span className="text-sm">04. STALL OPERATIONS & MEDICAL COMPLIANCE</span>
               {openSection === 4 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </button>
-            <div className={`p-4 space-y-2 bg-white ${openSection === 4 ? 'block' : 'hidden'}`}>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+            <div className={`p-4 space-y-2 bg-white dark:bg-slate-900 ${openSection === 4 ? 'block' : 'hidden'}`}>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
                 <li>Stalls must be attended at all times during exhibition opening hours. Staff must arrive at least 30 minutes prior to opening.</li>
                 <li>All business activity and canvassing must take place strictly inside the allocated stall space. No canvassing allowed in registration areas or hall gangways.</li>
                 <li>Audio-visual sound levels must be adjusted so as not to annoy neighboring stalls.</li>
@@ -136,16 +136,16 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
           </div>
 
           {/* Section 05 */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection(5)}
-              className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center text-left font-bold text-[#012970]"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 flex justify-between items-center text-left font-bold text-[#012970] dark:text-slate-100"
             >
               <span className="text-sm">05. INSURANCE, INDEMNITY & LIABILITY</span>
               {openSection === 5 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </button>
-            <div className={`p-4 space-y-2 bg-white ${openSection === 5 ? 'block' : 'hidden'}`}>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+            <div className={`p-4 space-y-2 bg-white dark:bg-slate-900 ${openSection === 5 ? 'block' : 'hidden'}`}>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
                 <li>Exhibitors must maintain valid insurance coverage against theft, fire, public liability, personal injury, and natural calamities.</li>
                 <li>All exhibitor property is brought and stored at the exhibitor&apos;s own risk.</li>
                 <li>Exhibitor agrees to indemnify Buoyant Media against any claims or damages arising from their exhibition activities.</li>
@@ -155,10 +155,10 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
             {isAccepted && (
-              <span className="flex items-center gap-1 text-emerald-600 font-bold">
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
                 <CheckCircle2 className="w-4 h-4" /> Accepted & Verified
               </span>
             )}
@@ -166,7 +166,7 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors"
             >
               Close
             </button>
@@ -176,7 +176,7 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
                   onAccept();
                   onClose();
                 }}
-                className="px-5 py-2 bg-[#09539b] hover:bg-[#012970] text-white font-bold text-xs rounded-xl shadow-xs"
+                className="px-5 py-2 bg-[#09539b] hover:bg-[#012970] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
               >
                 I Accept Terms & Conditions
               </button>
