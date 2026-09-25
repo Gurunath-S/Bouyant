@@ -25,13 +25,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantStyles = {
     primary:
-      'bg-[#09539b] hover:bg-[#012970] active:bg-[#012058] text-white shadow-xs focus:ring-[#09539b] border border-[#09539b]',
+      'bg-[#09539b] hover:bg-[#012970] active:bg-[#012058] dark:bg-blue-600 dark:hover:bg-blue-700 dark:active:bg-blue-800 text-white shadow-xs focus:ring-[#09539b] dark:focus:ring-blue-500 border border-transparent',
     secondary:
-      'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 border border-slate-200 focus:ring-slate-400',
+      'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:active:bg-slate-600 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 focus:ring-slate-400',
     outline:
-      'bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-300 shadow-xs focus:ring-blue-500',
+      'bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 dark:active:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs focus:ring-blue-500',
     ghost:
-      'bg-transparent hover:bg-slate-100 text-slate-700 active:bg-slate-200 focus:ring-slate-400',
+      'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-slate-400',
     danger:
       'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-sm focus:ring-rose-500 border border-rose-600',
   };
