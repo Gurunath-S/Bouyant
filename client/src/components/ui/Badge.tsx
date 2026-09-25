@@ -1,5 +1,5 @@
 import React from 'react';
-import { StallStatus, BookingStatus, PaymentStatus } from '../../types';
+import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus } from '../../types';
 
 export interface BadgeProps {
   children: React.ReactNode;
@@ -64,12 +64,18 @@ export const BookingStatusBadge: React.FC<{ status: BookingStatus }> = ({ status
   }
 };
 
-export const PaymentStatusBadge: React.FC<{ status: PaymentStatus }> = ({ status }) => {
+export const PaymentStatusBadge: React.FC<{ status: PaymentStatus | BookingPaymentStatus | string }> = ({ status }) => {
   switch (status) {
     case 'SUCCESS':
+    case 'PAID':
+    case 'PAID_FULL':
       return <Badge variant="success">Paid & Verified</Badge>;
+    case 'PARTIALLY_PAID':
+    case 'PARTIAL':
+      return <Badge variant="info">Partially Paid</Badge>;
     case 'PENDING':
-      return <Badge variant="warning">Pending</Badge>;
+    case 'UNPAID':
+      return <Badge variant="warning">{status === 'UNPAID' ? 'Unpaid' : 'Pending'}</Badge>;
     case 'FAILED':
     case 'CANCELLED':
       return <Badge variant="danger">Failed</Badge>;

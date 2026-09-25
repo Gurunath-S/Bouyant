@@ -127,3 +127,11 @@ export function isValidInputDate(input: string): boolean {
   const daysInMonth = new Date(year, month, 0).getDate();
   return day >= 1 && day <= daysInMonth;
 }
+
+/**
+ * Format numeric amount into INR Currency (e.g. ₹1,18,000)
+ */
+export function formatCurrency(amount: number | string | null | undefined): string {
+  const val = Number(amount || 0);
+  return `₹${val.toLocaleString('en-IN')}`;
+}

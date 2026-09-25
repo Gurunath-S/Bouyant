@@ -30,7 +30,10 @@ export const bookingService = {
 
   getMyBookings: async (): Promise<Booking[]> => {
     const res: any = await apiClient.get('/bookings/my-bookings');
-    return res.data;
+    const rawData = res?.data ?? res;
+    if (Array.isArray(rawData)) return rawData;
+    if (Array.isArray(rawData?.bookings)) return rawData.bookings;
+    return rawData || [];
   },
 
   getBookingById: async (id: string): Promise<Booking> => {

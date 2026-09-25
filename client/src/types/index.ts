@@ -20,6 +20,8 @@ export type BookingStatus =
 
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
 
+export type BookingPaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED';
+
 export type InvoiceStatus = 'ISSUED' | 'PAID' | 'VOID';
 
 export interface User {
