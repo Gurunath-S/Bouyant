@@ -390,6 +390,131 @@ async function main() {
     },
   });
 
+  // 8b. Second Exhibition — Global Tech Expo 2026
+  const exhibition2 = await prisma.exhibition.upsert({
+    where: { slug: 'global-tech-expo-2026' },
+    update: {
+      status: ExhibitionStatus.PUBLISHED,
+    },
+    create: {
+      title: 'Global Tech Expo 2026',
+      slug: 'global-tech-expo-2026',
+      description: 'The World\'s Largest Technology & Innovation Summit bringing together AI, Robotics, Cloud, and Cybersecurity leaders',
+      venue: 'Pragati Maidan Exhibition Complex',
+      city: 'New Delhi',
+      startDate: new Date('2026-12-05T10:00:00Z'),
+      endDate: new Date('2026-12-08T18:00:00Z'),
+      bookingEndDate: new Date('2026-11-30T23:59:59Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=1200',
+      totalStalls: 6,
+      edition: '5',
+      eventCode: 'GT26',
+      createdByUserId: admin.id,
+    },
+  });
+
+  let floorPlan2 = await prisma.floorPlan.findFirst({
+    where: { exhibitionId: exhibition2.id },
+  });
+
+  if (!floorPlan2) {
+    floorPlan2 = await prisma.floorPlan.create({
+      data: {
+        exhibitionId: exhibition2.id,
+        name: 'Hall of Innovation — Main Floor',
+        width: 1600,
+        height: 1000,
+        isPublished: true,
+      },
+    });
+  }
+
+  // Stalls for Global Tech Expo 2026
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-A01' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-A01',
+      name: 'Premium Corner — GT A01',
+      category: StallCategory.PREMIUM,
+      price: 150000,
+      areaSqFt: 200,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-A02' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-A02',
+      name: 'Island Innovation Hub — GT A02',
+      category: StallCategory.ISLAND,
+      price: 250000,
+      areaSqFt: 400,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-B01' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-B01',
+      name: 'Standard Booth — GT B01',
+      category: StallCategory.STANDARD,
+      price: 60000,
+      areaSqFt: 90,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-B02' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-B02',
+      name: 'Standard Booth — GT B02',
+      category: StallCategory.STANDARD,
+      price: 60000,
+      areaSqFt: 90,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-C01' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-C01',
+      name: 'Corner Showcase — GT C01',
+      category: StallCategory.CORNER,
+      price: 90000,
+      areaSqFt: 120,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.stall.upsert({
+    where: { floorPlanId_stallNumber: { floorPlanId: floorPlan2.id, stallNumber: 'GT-C02' } },
+    update: { status: StallStatus.AVAILABLE },
+    create: {
+      floorPlanId: floorPlan2.id,
+      stallNumber: 'GT-C02',
+      name: 'Corner Showcase — GT C02',
+      category: StallCategory.CORNER,
+      price: 90000,
+      areaSqFt: 120,
+      status: StallStatus.AVAILABLE,
+    },
+  });
+
   // 9. Sample Notifications for Client User
   await prisma.notification.deleteMany({
     where: { userId: clientUser.id },
@@ -419,14 +544,25 @@ async function main() {
   });
 
   console.log('✅ Accounts & Sample Data provisioned successfully:');
+  console.log('====================================================');
+  console.log('👥 Admin Accounts:');
+  console.log('   superadmin@buoyantmedia.com  /  SuperAdminPassword123!');
+  console.log('   admin@buoyantmedia.com       /  AdminPassword123!');
+  console.log('   staff@buoyantmedia.com       /  StaffPassword123!');
   console.log('----------------------------------------------------');
-  console.log('👤 Client User Data Seeded:');
+  console.log('👤 Client User:');
   console.log(`   Email:        ${clientUser.email}`);
   console.log(`   Password:     UserPassword123!`);
   console.log(`   Company:      ${company.name}`);
   console.log(`   Bookings:     BK-2026-8801 (PAID), BK-2026-8802 (PARTIAL), BK-2026-8803 (PENDING)`);
   console.log(`   Stalls:       A-101, A-102, B-201`);
   console.log('----------------------------------------------------');
+  console.log('🏛️  Exhibitions Seeded:');
+  console.log(`   1. AutoTech Expo 2026       (${exhibition.id})`);
+  console.log(`      Stalls: A-101 (BOOKED), A-102 (BOOKED), B-201 (PAYMENT_PENDING)`);
+  console.log(`   2. Global Tech Expo 2026    (${exhibition2.id})`);
+  console.log(`      Stalls: GT-A01, GT-A02, GT-B01, GT-B02, GT-C01, GT-C02 (all AVAILABLE)`);
+  console.log('====================================================');
 }
 
 main()

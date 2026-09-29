@@ -2,228 +2,760 @@ import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { EmailService } from '../../services/email.service.js';
 import { generateReference } from '../../utils/reference.js';
+import {Prisma} from '@prisma/client';
+import crypto from "crypto";
+import { env } from '../../config/env.js';
+import { razorpay } from '../../config/razorpay.js';
 
 export class PaymentsService {
   /**
    * VERIFY PAYMENT SERVER-SIDE
    */
-  static async verifyAndProcessPayment(
-    bookingId: string,
-    userId: string,
-    userRole = 'CLIENT',
-    action: 'SUCCESS' | 'FAILED' | 'CANCELLED',
-    paymentMethod = 'CREDIT_CARD_VISA',
-    transactionId?: string,
-    temporaryPassword?: string,
-    payAmount?: number
+ static async verifyAndProcessPayment(data: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}) {
+  // =========================================================
+  // 1. BASIC INPUT VALIDATION
+  // =========================================================
+
+  if (
+    !data.razorpay_order_id ||
+    !data.razorpay_payment_id ||
+    !data.razorpay_signature
   ) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        stalls: { include: { stall: true } },
-        company: true,
-        exhibition: true,
-        user: { select: { id: true, name: true, email: true, phone: true } },
-        payments: true,
+    throw ApiError.badRequest(
+      'Razorpay payment details are required.'
+    );
+  }
+
+  // =========================================================
+  // 2. FIND OUR PAYMENT
+  // =========================================================
+
+  const payment = await prisma.payment.findUnique({
+    where: {
+      razorpayOrderId: data.razorpay_order_id,
+    },
+  });
+
+  if (!payment) {
+    throw ApiError.notFound(
+      'Payment record not found for this Razorpay order.'
+    );
+  }
+
+  // =========================================================
+  // 3. IDEMPOTENCY CHECK
+  //
+  // If this exact payment was already processed successfully,
+  // don't process the booking again.
+  // =========================================================
+
+  if (payment.status === 'SUCCESS') {
+    return {
+      success: true,
+      message: 'Payment has already been processed.',
+      data: {
+        paymentId: payment.id,
+        bookingId: payment.bookingId,
+        paymentStatus: 'SUCCESS',
       },
-    });
+    };
+  }
 
-    if (!booking) throw ApiError.notFound('Booking record not found.');
+  // Only PENDING payment can continue.
+  if (payment.status !== 'PENDING') {
+    throw ApiError.badRequest(
+      `Payment verification is not allowed because payment status is ${payment.status}.`
+    );
+  }
 
-    const isStaffOrAdmin = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(userRole);
-    if (!isStaffOrAdmin && booking.userId !== userId) {
-      throw ApiError.forbidden('Unauthorized access to booking.');
-    }
+  // =========================================================
+  // 4. VERIFY RAZORPAY SIGNATURE
+  // =========================================================
 
-    const generatedTxnId = transactionId || `txn_mock_${Date.now()}_${generateReference('TXN', 4, false)}`;
+  const signatureBody =
+    `${data.razorpay_order_id}|${data.razorpay_payment_id}`;
 
-    if (action === 'SUCCESS') {
-      const result = await prisma.$transaction(async (tx) => {
-        // Calculate partial / balance payments
-        const currentPaid = Number(booking.paidAmount || 0);
-        const grandTotal = Number(booking.grandTotal);
-        const balanceLeft = Number(booking.balanceAmount || Math.max(0, grandTotal - currentPaid));
+  const expectedSignature = crypto
+    .createHmac(
+      'sha256',
+      env.RAZORPAY_API_SECRET
+    )
+    .update(signatureBody)
+    .digest('hex');
 
-        const paymentAmount = payAmount && payAmount > 0
-          ? Math.min(payAmount, balanceLeft > 0 ? balanceLeft : grandTotal)
-          : (balanceLeft > 0 ? balanceLeft : grandTotal);
+  const receivedSignature = data.razorpay_signature;
 
-        const newPaidAmount = Math.min(grandTotal, currentPaid + paymentAmount);
-        const newBalanceAmount = Math.max(0, grandTotal - newPaidAmount);
-        const newPaymentStatus = newBalanceAmount === 0 ? 'PAID_FULL' : 'PARTIALLY_PAID';
+  const expectedBuffer = Buffer.from(
+    expectedSignature,
+    'utf8'
+  );
 
-        // 1. Create or Update Payment Record
-        const payment = await tx.payment.create({
-          data: {
-            paymentReference: generateReference('PAY', 8, false),
-            bookingId,
-            userId: booking.userId,
-            amount: paymentAmount,
-            currency: 'INR',
-            status: 'SUCCESS',
-            provider: isStaffOrAdmin ? 'ADMIN_OFFLINE_RECORD' : 'RAZORPAY',
-            transactionId: generatedTxnId,
-            paymentMethod: paymentMethod || (isStaffOrAdmin ? 'ADMIN_CASH_DIRECT' : 'CREDIT_CARD_VISA'),
-            installmentType: newBalanceAmount > 0 ? 'PARTIAL' : 'FULL',
-            paidAt: new Date(),
-          },
-        });
+  const receivedBuffer = Buffer.from(
+    receivedSignature,
+    'utf8'
+  );
 
-        // 2. Mark Booking as CONFIRMED with updated paidAmount and balanceAmount
-        await tx.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: 'CONFIRMED',
-            paidAmount: newPaidAmount,
-            balanceAmount: newBalanceAmount,
-            paymentStatus: newPaymentStatus,
-          },
-        });
+  const isAuthentic =
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(
+      expectedBuffer,
+      receivedBuffer
+    );
 
-        // 3. Re-verify stall hold ownership before confirming payment
-        const stallIds = booking.stalls.map((s) => s.stallId);
-        await tx.stall.updateMany({
-          where: { id: { in: stallIds } },
-          data: {
-            status: 'BOOKED_CONFIRMED',
-            heldUntil: null,
-            heldByUserId: null,
-          },
-        });
+  if (!isAuthentic) {
+    throw ApiError.badRequest(
+      'Payment signature verification failed.'
+    );
+  }
 
-        // 4. Generate Dedicated Transaction Invoice for this Payment
-        const invoiceNum = generateReference('INV', 6);
-        const payBase = paymentAmount / 1.18;
-        const payTax = paymentAmount - payBase;
+  // =========================================================
+  // 5. FETCH PAYMENT FROM RAZORPAY
+  //
+  // Never trust only the frontend response.
+  // Ask Razorpay for the actual payment information.
+  // =========================================================
 
-        const invoice = await tx.invoice.create({
-          data: {
-            invoiceNumber: invoiceNum,
-            bookingId,
-            paymentId: payment.id,
-            companyId: booking.companyId,
-            totalAmount: payBase.toFixed(2),
-            taxAmount: payTax.toFixed(2),
-            grandTotal: paymentAmount.toFixed(2),
-            status: newBalanceAmount === 0 ? 'PAID' : 'ISSUED',
-            issueDate: new Date(),
-          },
-        });
+  let razorpayPayment;
 
-        // 5. Trigger System Notification for Client
-        await tx.notification.create({
-          data: {
-            userId: booking.userId,
-            title: 'Booking Confirmed!',
-            message: `Your booking for ${booking.stalls.length} stall(s) has been successfully paid and confirmed. Invoice #${invoice?.invoiceNumber || 'INV-REF'} generated.`,
-            type: 'SUCCESS',
-          },
-        });
+  try {
+    razorpayPayment =
+      await razorpay.payments.fetch(
+        data.razorpay_payment_id
+      );
+  } catch (error) {
+    throw ApiError.internal(
+      'Unable to verify the payment with the payment gateway.'
+    );
+  }
 
-        // 6. Notify System Administrators or Designated Event Admins about confirmed booking payment
-        const eventEmails = booking.exhibition?.notificationEmails
-          ? booking.exhibition.notificationEmails.split(',').map((e) => e.trim().toLowerCase())
-          : [];
+  // =========================================================
+  // 6. VERIFY PAYMENT BELONGS TO OUR RAZORPAY ORDER
+  // =========================================================
 
-        let targetAdmins = await tx.user.findMany({
-          where: {
-            OR: [
-              ...(eventEmails.length > 0 ? [{ email: { in: eventEmails, mode: 'insensitive' as const } }] : []),
-              ...(booking.exhibition?.createdByUserId ? [{ id: booking.exhibition.createdByUserId }] : []),
-              { role: { in: ['ADMIN', 'SUPERADMIN'] } },
-            ],
-          },
-          select: { id: true },
-        });
+  if (
+    razorpayPayment.order_id !==
+    payment.razorpayOrderId
+  ) {
+    throw ApiError.badRequest(
+      'Razorpay payment does not belong to this order.'
+    );
+  }
 
-        // Deduplicate target admin IDs
-        const uniqueAdminIds = Array.from(new Set(targetAdmins.map((a) => a.id)));
+  // =========================================================
+  // 7. VERIFY CURRENCY
+  // =========================================================
 
-        if (uniqueAdminIds.length > 0) {
-          await tx.notification.createMany({
-            data: uniqueAdminIds.map((adminId) => ({
-              userId: adminId,
-              title: 'Booking Payment Received',
-              message: `Payment of ₹${Number(booking.grandTotal).toLocaleString()} received from "${booking.company.name}" for "${booking.exhibition?.title}" (Ref: ${booking.bookingReference}).`,
-              type: 'SUCCESS',
-            })),
+  if (razorpayPayment.currency !== 'INR') {
+    throw ApiError.badRequest(
+      'Invalid payment currency.'
+    );
+  }
+
+  // =========================================================
+  // 8. VERIFY AMOUNT
+  //
+  // payment.amount comes from OUR database.
+  // Never trust amount from frontend.
+  // =========================================================
+
+  const expectedAmountPaise = new Prisma.Decimal(
+    payment.amount.toString()
+  )
+    .mul(100)
+    .toNumber();
+
+  if (
+    razorpayPayment.amount !==
+    expectedAmountPaise
+  ) {
+    throw ApiError.badRequest(
+      'Payment amount does not match the expected payment amount.'
+    );
+  }
+
+  // =========================================================
+  // 9. HANDLE FAILED PAYMENT
+  // =========================================================
+
+  if (razorpayPayment.status === 'failed') {
+    return await prisma.$transaction(
+      async (tx) => {
+        const currentPayment =
+          await tx.payment.findUnique({
+            where: {
+              id: payment.id,
+            },
           });
+
+        if (!currentPayment) {
+          throw ApiError.notFound(
+            'Payment record not found.'
+          );
         }
 
-        return { bookingStatus: 'CONFIRMED', payment, invoice };
-      });
+        // Another request may have already succeeded.
+        if (currentPayment.status === 'SUCCESS') {
+          return {
+            success: true,
+            message:
+              'Payment has already been processed.',
+            data: {
+              paymentId: currentPayment.id,
+              bookingId:
+                currentPayment.bookingId,
+              paymentStatus: 'SUCCESS',
+            },
+          };
+        }
 
-      const stallNumbers = booking.stalls.map((s) => s.stall.stallNumber);
+        if (currentPayment.status !== 'PENDING') {
+          throw ApiError.badRequest(
+            `Payment is already ${currentPayment.status}.`
+          );
+        }
 
-      // Background Email Dispatches: Client Invoice & Admin Notification
-      EmailService.sendInvoiceAndCredentialsEmail({
-        toEmail: booking.user.email,
-        toName: booking.user.name,
-        companyName: booking.company.name,
-        bookingRef: booking.bookingReference,
-        invoiceNumber: result.invoice.invoiceNumber,
-        grandTotal: Number(booking.grandTotal),
-        paidAmount: Number(booking.grandTotal),
-        stalls: stallNumbers,
-        exhibitionTitle: booking.exhibition?.title || 'Buoyant Exhibition',
-        temporaryPassword,
-      }).catch((e) => console.error('Client invoice email dispatch error:', e));
+        // -----------------------------------------------------
+        // Get booking
+        // -----------------------------------------------------
 
-      EmailService.sendAdminAlert({
-        type: 'PAYMENT_RECEIVED',
-        companyName: booking.company.name,
-        contactPerson: booking.user.name,
-        email: booking.user.email,
-        mobile: booking.user.phone || booking.company.mobile,
-        bookingRef: booking.bookingReference,
-        invoiceNumber: result.invoice.invoiceNumber,
-        amount: Number(booking.grandTotal),
-        stalls: stallNumbers,
-        exhibitionTitle: booking.exhibition?.title,
-        customRecipients: booking.exhibition?.notificationEmails,
-      }).catch((e) => console.error('Admin payment email alert error:', e));
+        const booking =
+          await tx.booking.findUnique({
+            where: {
+              id: currentPayment.bookingId,
+            },
+            include: {
+              stalls: true,
+            },
+          });
 
-      return result;
-    } else {
-      // Payment Failed or Cancelled
-      const existingPayment = await prisma.payment.findFirst({
-        where: { bookingId },
-      });
+        if (!booking) {
+          throw ApiError.notFound(
+            'Booking not found.'
+          );
+        }
 
-      if (existingPayment) {
-        await prisma.payment.update({
-          where: { id: existingPayment.id },
+        // -----------------------------------------------------
+        // Mark payment failed
+        // -----------------------------------------------------
+
+        const updatedPayment =
+          await tx.payment.updateMany({
+            where: {
+              id: currentPayment.id,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'FAILED',
+              razorpayPaymentId:
+                data.razorpay_payment_id,
+              razorpaySignature:
+                data.razorpay_signature,
+              failureReason:
+                razorpayPayment.error_description ||
+                'Razorpay payment failed.',
+            },
+          });
+
+        if (updatedPayment.count !== 1) {
+          throw ApiError.conflict(
+            'Payment was already processed.'
+          );
+        }
+
+        // -----------------------------------------------------
+        // IMPORTANT:
+        //
+        // Do NOT immediately release the stall if your
+        // business rule is to keep the 15-minute hold.
+        //
+        // Keep:
+        // Booking = PENDING_PAYMENT
+        // Stall   = PAYMENT_PENDING
+        //
+        // The expiry mechanism will release it later.
+        // -----------------------------------------------------
+
+        return {
+          success: false,
+          message:
+            'Payment failed. Your payment attempt was unsuccessful. The stall hold remains active until it expires.',
           data: {
-            status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
-            failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
+            paymentId: currentPayment.id,
+            bookingId: booking.id,
+            paymentStatus: 'FAILED',
+            bookingStatus: booking.status,
+            balanceAmount:
+              booking.balanceAmount,
+          },
+        };
+      },
+      {
+        timeout: 10000,
+      }
+    );
+  }
+
+  // =========================================================
+  // 10. ONLY CAPTURED PAYMENT CAN CONFIRM BOOKING
+  // =========================================================
+
+  if (razorpayPayment.status !== 'captured') {
+    throw ApiError.badRequest(
+      `Payment is not captured. Current status: ${razorpayPayment.status}`
+    );
+  }
+
+  // =========================================================
+  // 11. FINAL DATABASE TRANSACTION
+  // =========================================================
+
+  return await prisma.$transaction(
+    async (tx) => {
+      // =====================================================
+      // Re-read Payment inside transaction
+      // =====================================================
+
+      const currentPayment =
+        await tx.payment.findUnique({
+          where: {
+            id: payment.id,
           },
         });
-      } else {
-        await prisma.payment.create({
-          data: {
-            paymentReference: generateReference('PAY', 8, false),
-            bookingId,
-            userId,
-            amount: booking.grandTotal,
-            currency: 'INR',
-            status: action === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
-            failureReason: action === 'CANCELLED' ? 'User cancelled checkout' : 'Simulated bank authorization decline',
-          },
-        });
+
+      if (!currentPayment) {
+        throw ApiError.notFound(
+          'Payment record not found.'
+        );
       }
 
-      await prisma.notification.create({
+      // =====================================================
+      // IDEMPOTENCY
+      // =====================================================
+
+      if (currentPayment.status === 'SUCCESS') {
+        return {
+          success: true,
+          message:
+            'Payment has already been processed.',
+          data: {
+            paymentId: currentPayment.id,
+            bookingId:
+              currentPayment.bookingId,
+            paymentStatus: 'SUCCESS',
+          },
+        };
+      }
+
+      if (currentPayment.status !== 'PENDING') {
+        throw ApiError.badRequest(
+          `Payment is already ${currentPayment.status}.`
+        );
+      }
+
+      // =====================================================
+      // GET BOOKING
+      // =====================================================
+
+      const booking =
+        await tx.booking.findUnique({
+          where: {
+            id: currentPayment.bookingId,
+          },
+          include: {
+            stalls: true,
+          },
+        });
+
+      if (!booking) {
+        throw ApiError.notFound(
+          'Booking not found.'
+        );
+      }
+
+      // =====================================================
+      // BOOKING STATE VALIDATION
+      // =====================================================
+
+      if (booking.status !== 'PENDING_PAYMENT') {
+        throw ApiError.conflict(
+          `Booking cannot be completed because its current status is ${booking.status}.`
+        );
+      }
+
+      // =====================================================
+      // BOOKING EXPIRY CHECK
+      // =====================================================
+
+     
+
+      // =====================================================
+      // VERIFY BOOKING HAS STALLS
+      // =====================================================
+
+
+      const stallIds =
+        booking.stalls.map(
+          (item) => item.stallId
+        );
+
+      // =====================================================
+      // VERIFY ALL STALLS ARE STILL HELD
+      // =====================================================
+
+  
+      // =====================================================
+      // CALCULATE BALANCE
+      // =====================================================
+
+      const paymentAmount =
+        new Prisma.Decimal(
+          currentPayment.amount.toString()
+        );
+
+      const currentBalance =
+        new Prisma.Decimal(
+          booking.balanceAmount.toString()
+        );
+
+      // Prevent payment from exceeding balance.
+      if (
+        paymentAmount.greaterThan(
+          currentBalance
+        )
+      ) {
+        throw ApiError.badRequest(
+          'Payment amount exceeds the remaining booking balance.'
+        );
+      }
+
+      const remainingBalance =
+        currentBalance.minus(
+          paymentAmount
+        );
+
+      const finalBalance =
+        remainingBalance.lessThan(0)
+          ? new Prisma.Decimal(0)
+          : remainingBalance;
+
+      const bookingIsFullyPaid =
+        finalBalance.equals(0);
+
+      // =====================================================
+      // ATOMIC PAYMENT STATE CHANGE
+      // =====================================================
+
+      const paymentUpdate =
+        await tx.payment.updateMany({
+          where: {
+            id: currentPayment.id,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'SUCCESS',
+            razorpayPaymentId:
+              data.razorpay_payment_id,
+            razorpaySignature:
+              data.razorpay_signature,
+            paidAt:  new Date(),
+          },
+        });
+
+      // =====================================================
+      // CONCURRENCY PROTECTION
+      // =====================================================
+
+      if (paymentUpdate.count !== 1) {
+        throw ApiError.conflict(
+          'This payment has already been processed.'
+        );
+      }
+
+      // =====================================================
+      // UPDATE BOOKING
+      // =====================================================
+
+      await tx.booking.update({
+        where: {
+          id: booking.id,
+        },
         data: {
-          userId,
-          title: 'Payment Failed',
-          message: `Payment attempt for your stall booking failed. You may retry payment before the session expires.`,
-          type: 'ERROR',
+          balanceAmount:
+            finalBalance,
+          status:
+            bookingIsFullyPaid
+              ? 'CONFIRMED'
+              : 'PENDING_PAYMENT',
+          paymentStatus:
+                bookingIsFullyPaid
+                  ? 'PAID_FULL'
+                  : 'PARTIALLY_PAID',
         },
       });
 
-      return { bookingStatus: booking.status, paymentStatus: action };
+      // =====================================================
+      // FULL PAYMENT → CONFIRM ALL STALLS
+      // =====================================================
+
+      if (bookingIsFullyPaid) {
+        const stallUpdate =
+          await tx.stall.updateMany({
+            where: {
+              id: {
+                in: stallIds,
+              },
+              status: 'TEMPORARILY_HELD',
+
+              // If you add heldByBookingId:
+              //
+              // heldByBookingId: booking.id,
+            },
+            data: {
+              status: 'BOOKED_CONFIRMED',
+              heldUntil: null,
+
+              // If you add heldByBookingId:
+              //
+              // heldByBookingId: null,
+            },
+          });
+
+        // VERY IMPORTANT:
+        // Every stall belonging to this booking
+        // must be confirmed.
+        if (
+          stallUpdate.count !==
+          stallIds.length
+        ) {
+          throw ApiError.conflict(
+            'One or more stalls could not be confirmed.'
+          );
+        }
+      }
+
+      // =====================================================
+      // RESPONSE
+      // =====================================================
+
+      return {
+        success: true,
+
+        message: bookingIsFullyPaid
+          ? 'Payment successful. Booking confirmed.'
+          : 'Payment successful. Remaining balance is pending.',
+
+        data: {
+          paymentId:
+            currentPayment.id,
+
+          paymentReference:
+            currentPayment.paymentReference,
+
+          paymentStatus:
+            'SUCCESS',
+
+          bookingId:
+            booking.id,
+
+          bookingStatus:
+            bookingIsFullyPaid
+              ? 'CONFIRMED'
+              : 'PENDING_PAYMENT',
+
+          paidAmount:
+            paymentAmount,
+
+          balanceAmount:
+            finalBalance,
+
+          paidAt: new Date()
+        },
+      };
+    },
+    {
+      timeout: 10000,
     }
+  );
+}
+
+static async createBalancePaymentOrder(
+  bookingId: string
+) {
+  // -----------------------------------------
+  // 1. Validate bookingId
+  // -----------------------------------------
+
+  if (!bookingId) {
+    throw ApiError.badRequest(
+      'Booking ID is required.'
+    );
   }
+
+  // -----------------------------------------
+  // 2. Find booking
+  // -----------------------------------------
+
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+
+    include: {
+      company: true,
+      exhibition: true,
+      stalls: {
+        include: {
+          stall: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw ApiError.notFound(
+      'Booking not found.'
+    );
+  }
+
+  // -----------------------------------------
+  // 3. Validate booking status
+  // -----------------------------------------
+
+  if (booking.status !== 'PENDING_PAYMENT') {
+    throw ApiError.badRequest(
+      `Balance payment is not allowed for booking with status ${booking.status}.`
+    );
+  }
+
+  // -----------------------------------------
+  // 4. Validate balance amount
+  // -----------------------------------------
+
+  const balanceAmount =
+    new Prisma.Decimal(
+      booking.balanceAmount.toString()
+    );
+
+  if (balanceAmount.lessThanOrEqualTo(0)) {
+    throw ApiError.badRequest(
+      'No balance amount is pending for this booking.'
+    );
+  }
+
+  // -----------------------------------------
+  // 5. Validate booking expiry
+  // -----------------------------------------
+
+  // if (
+  //   booking.expiresAt &&
+  //   booking.expiresAt <= new Date()
+  // ) {
+  //   throw ApiError.badRequest(
+  //     'This booking has expired. Balance payment is no longer allowed.'
+  //   );
+  // }
+
+  // -----------------------------------------
+  // 6. Validate stalls
+  // -----------------------------------------
+
+  if (!booking.stalls.length) {
+    throw ApiError.badRequest(
+      'No stalls are associated with this booking.'
+    );
+  }
+
+  // -----------------------------------------
+  // 7. Validate stall status
+  // -----------------------------------------
+
+  const invalidStall = booking.stalls.find(
+    (item) =>
+      item.stall.status !== 'PAYMENT_PENDING' &&
+      item.stall.status !== 'BOOKED_CONFIRMED'
+  );
+
+  if (invalidStall) {
+    throw ApiError.badRequest(
+      'One or more stalls are no longer available for balance payment.'
+    );
+  }
+
+  // -----------------------------------------
+  // 8. Create Razorpay Order
+  // -----------------------------------------
+
+  let razorpayOrder;
+
+try {
+  razorpayOrder = await razorpay.orders.create({
+    amount: balanceAmount
+      .mul(100)
+      .toNumber(),
+
+    currency: 'INR',
+
+    receipt: `BAL-${booking.bookingReference}`,
+
+    notes: {
+      bookingId: booking.id,
+      bookingReference: booking.bookingReference,
+      paymentType: 'BALANCE',
+    },
+  });
+   } catch (error) {
+
+      throw ApiError.internal(
+        'Payment gateway is currently unavailable. Please try again later.'
+      );
+    }
+  // -----------------------------------------
+  // 9. Create Payment record
+  // -----------------------------------------
+  const paymentReference = `PAY-${Date.now()}`;
+
+  const payment = await prisma.payment.create({
+  data: {
+    paymentReference,
+
+    bookingId: booking.id,
+
+    amount: balanceAmount,
+
+    status: 'PENDING',
+
+    razorpayOrderId: razorpayOrder.id,
+  },
+});
+
+  // -----------------------------------------
+  // 10. Return Razorpay details
+  // -----------------------------------------
+
+  return {
+    bookingId: booking.id,
+
+    bookingReference:
+      booking.bookingReference,
+
+    paymentId: payment.id,
+
+    razorpayOrderId:
+      razorpayOrder.id,
+
+    amount: razorpayOrder.amount,
+
+    currency: razorpayOrder.currency,
+
+    keyId: env.RAZORPAY_API_KEY,
+
+    balanceAmount,
+  };
+}
 
   static async listPayments(page = 1, limit = 50) {
     const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
@@ -242,7 +774,7 @@ export class PaymentsService {
               company: true,
             },
           },
-          user: { select: { name: true, email: true } },
+          // user: { select: { name: true, email: true } },
         },
       }),
     ]);

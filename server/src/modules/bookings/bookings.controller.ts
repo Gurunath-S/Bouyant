@@ -4,8 +4,11 @@ import { BookingsService } from './bookings.service.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class BookingsController {
-  static create = async (req: AuthenticatedRequest, res: Response) => {
-    const booking = await BookingsService.createBooking(req.user!.userId, req.body);
+ static create = async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user;
+
+    const booking = await BookingsService.createBooking(user, req.body);
+
     return sendResponse({
       res,
       statusCode: 201,

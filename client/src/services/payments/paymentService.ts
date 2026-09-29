@@ -15,15 +15,13 @@ export const paymentService = {
   },
 
   verifyPayment: async (data: {
-    bookingId: string;
-    action: 'SUCCESS' | 'FAILED' | 'CANCELLED';
-    paymentMethod?: string;
-    transactionId?: string;
-    payAmount?: number;
-  }) => {
-    const res: any = await apiClient.post('/payments/verify', data);
-    return res.data;
-  },
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }) => {
+        const res: any = await apiClient.post('/payments/verify', data);
+        return res.data;
+},
 
   getAllPayments: async () => {
     const res: any = await apiClient.get('/payments');

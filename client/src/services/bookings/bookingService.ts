@@ -9,23 +9,42 @@ export interface AdminBookingPayload {
   paymentMethod?: string;
   notes?: string;
 }
+export interface CreateBookingPayload {
+  exhibitionId?: string;
+  stallIds: string[];
+  companyId: string;
+  discountAmount?: number;
+  discountType?: 'PERCENT' | 'AMOUNT';
+  paymentType: 'Partial' | 'FullPayment';
+  percentage: number;
+}
+
+export interface CreateBookingResponse {
+  amount: number;
+  bookingId: string;
+  bookingReference: string;
+  currency: string;
+  paymentId: string;
+  razorpayKeyId: string;
+  razorpayOrderId: string;
+}
+
+interface CreateBookingApiResponse {
+  success: boolean;
+  message: string;
+  data: CreateBookingResponse;
+}
 
 export const bookingService = {
-  createBooking: async (data: {
-    exhibitionId?: string;
-    stallId?: string;
-    stallIds?: string[];
-    companyId?: string;
-    confirmDirectly?: boolean;
-    paymentMethod?: string;
-    notes?: string;
-  }): Promise<Booking> => {
-    const payload = {
-      ...data,
-      stallIds: data.stallIds || (data.stallId ? [data.stallId] : []),
-    };
-    const res: any = await apiClient.post('/bookings', payload);
-    return res.data;
+ createBooking: async (
+  payload: CreateBookingPayload
+): Promise<CreateBookingResponse> => {
+
+   const response = await apiClient.post<CreateBookingApiResponse>(
+    '/bookings',
+     payload
+   );
+   return response.data.data;
   },
 
   getMyBookings: async (): Promise<Booking[]> => {
