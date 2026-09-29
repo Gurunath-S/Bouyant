@@ -1,32 +1,38 @@
-import { Response } from 'express';
+import {Request,Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { PaymentsService } from './payments.service.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class PaymentsController {
-  static verifyPayment = async (req: AuthenticatedRequest, res: Response) => {
-    const { bookingId, action, paymentMethod, transactionId, payAmount } = req.body;
-    const userId = req.user!.userId;
-    const userRole = req.user!.role;
-
-    const result = await PaymentsService.verifyAndProcessPayment(
-      bookingId,
-      userId,
-      userRole,
-      action || 'SUCCESS',
-      paymentMethod,
-      transactionId,
-      undefined,
-      payAmount ? Number(payAmount) : undefined
-    );
+  static verifyPayment = async (req:Request, res: Response) => {
+    
+    const result = await PaymentsService.verifyAndProcessPayment(req.body);
 
     return sendResponse({
       res,
       statusCode: 200,
-      message: action === 'SUCCESS' ? 'Payment processed and booking updated successfully!' : 'Payment processing updated.',
+      message: 'Payment verified and booking confirmed!',
       data: result,
     });
   };
+
+   static async balancePayment(
+  req: Request,
+  res: Response
+) {
+  const { bookingId } = req.params;
+
+  const result =
+    await PaymentsService.createBalancePaymentOrder(
+      bookingId
+    );
+
+  res.status(201).json({
+    success: true,
+    message: 'Balance payment order created successfully.',
+    data: result,
+  });
+}
 
   static listAll = async (req: AuthenticatedRequest, res: Response) => {
     const payments = await PaymentsService.listPayments();

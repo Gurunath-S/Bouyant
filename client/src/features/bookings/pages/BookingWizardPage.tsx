@@ -12,7 +12,7 @@ import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
 import { ArrowLeft, Check } from 'lucide-react';
-
+import type { CreateBookingPayload } from '../../../services/bookings/bookingService';
 import { Step1StallSelection } from '../components/wizard/Step1StallSelection';
 import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2CompanyDetails';
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
@@ -20,6 +20,7 @@ import { Step4PaymentCheckout } from '../components/wizard/Step4PaymentCheckout'
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
 import { Clock, RefreshCw } from 'lucide-react';
+
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -295,53 +296,102 @@ export const BookingWizardPage: React.FC = () => {
   };
 
   // Step 3 -> Step 4
-  const handleProceedToPayment = async () => {
+  const handleProceedToPayment = async (payload:CreateBookingPayload) => {
+    
     if (selectedStallIds.length === 0 || !selectedCompany) return;
+
     try {
       setLoading(true);
+
       let realBooking: Booking | null = null;
+
       if (user && user.id && !user.id.startsWith('guest_')) {
         try {
-          realBooking = await bookingService.createBooking({
-            exhibitionId: exhibition?.id,
-            stallIds: selectedStallIds,
-            companyId: selectedCompany.id,
-          });
+          
+           const response = await bookingService.createBooking(payload);
+             const paymentData = response;
+
+console.log("Payment amount:", paymentData.amount);
+console.log("Payment currency:", paymentData.currency);
+console.log("Razorpay order:", paymentData.razorpayOrderId);
+console.log("Razorpay keyId:", paymentData.razorpayKeyId); 
+
+const options = {
+  key: paymentData.razorpayKeyId,
+
+  amount: paymentData.amount,
+
+  currency: paymentData.currency,
+
+  name: "Buoyant Media",
+
+  order_id: paymentData.razorpayOrderId,
+
+  handler: async function (paymentResponse: any) {
+    console.log("Payment successful:", paymentResponse);
+
+    const result = await paymentService.verifyPayment({
+      razorpay_order_id: paymentResponse.razorpay_order_id,
+      razorpay_payment_id: paymentResponse.razorpay_payment_id,
+      razorpay_signature: paymentResponse.razorpay_signature,
+    });
+
+    console.log("Payment verification result:", result);
+  },
+
+  prefill: {
+    name: "Buoyant Media",
+    email: "test@example.com",
+    contact: "9876543210",
+  },
+
+  theme: {
+    color: "#012970",
+  },
+};
+
+console.log("Razorpay SDK:", window.Razorpay);
+console.log("Razorpay options:", options);
+
+const razorpay = new window.Razorpay(options);
+
+razorpay.open();
+         
         } catch (e) {
           console.warn('Backend booking creation note:', e);
         }
       }
 
-      if (!realBooking) {
-        const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
-        const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
-        const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
-        const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
+      // if (!realBooking) {
+      //   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+      //   const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+      //   const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
+      //   const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
 
-        realBooking = {
-          id: 'bkg_' + Date.now(),
-          bookingReference: 'BKG-2026-' + Math.floor(1000 + Math.random() * 9000),
-          userId: user?.id || 'guest_user_id',
-          companyId: selectedCompany.id,
-          exhibitionId: exhibition?.id || 'expo_id',
-          status: 'HELD',
-          totalAmount: calculatedBasePrice,
-          taxAmount: calculatedTaxAmount,
-          grandTotal: calculatedGrandTotal,
-          createdAt: new Date().toISOString(),
-          stalls: selectedStallsObj.map((s) => ({
-            id: 'ms_' + Math.random(),
-            bookingId: 'bkg_mock',
-            stallId: s.id,
-            price: s.price,
-            stall: s,
-          })),
-          company: selectedCompany,
-          exhibition: exhibition || undefined,
-        };
-      }
+      //   realBooking = {
+      //     id: 'bkg_' + Date.now(),
+      //     bookingReference: 'BKG-2026-' + Math.floor(1000 + Math.random() * 9000),
+      //     userId: user?.id || 'guest_user_id',
+      //     companyId: selectedCompany.id,
+      //     exhibitionId: exhibition?.id || 'expo_id',
+      //     status: 'HELD',
+      //     totalAmount: calculatedBasePrice,
+      //     taxAmount: calculatedTaxAmount,
+      //     grandTotal: calculatedGrandTotal,
+      //     createdAt: new Date().toISOString(),
+      //     stalls: selectedStallsObj.map((s) => ({
+      //       id: 'ms_' + Math.random(),
+      //       bookingId: 'bkg_mock',
+      //       stallId: s.id,
+      //       price: s.price,
+      //       stall: s,
+      //     })),
+      //     company: selectedCompany,
+      //     exhibition: exhibition || undefined,
+      //   };
+      // }
 
-      setCreatedBooking(realBooking);
+      // setCreatedBooking(realBooking);
       setCurrentStep(4);
     } catch (err: any) {
       alert('Booking initialization failed.');
@@ -359,11 +409,11 @@ export const BookingWizardPage: React.FC = () => {
 
       if (createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
         try {
-          await paymentService.verifyPayment({
-            bookingId: createdBooking.id,
-            action: shouldFail ? 'FAILED' : 'SUCCESS',
-            paymentMethod: 'RAZORPAY_CARD',
-          });
+          // await paymentService.verifyPayment({
+          //   bookingId: createdBooking.id,
+          //   action: shouldFail ? 'FAILED' : 'SUCCESS',
+          //   paymentMethod: 'RAZORPAY_CARD',
+          // });
         } catch (err: any) {
           console.warn('Backend payment verification note:', err);
         }

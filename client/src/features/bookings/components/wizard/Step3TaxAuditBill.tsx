@@ -4,6 +4,7 @@ import { Button } from '../../../../components/ui/Button';
 import { OfficialContractForm } from '../OfficialContractForm';
 import { TermsAndConditionsModal } from '../TermsAndConditionsModal';
 import { formatDisplayDate } from '../../../../utils/date';
+import type { CreateBookingPayload } from '../../../../services/bookings/bookingService';
 import {
   FileText,
   CreditCard,
@@ -11,7 +12,9 @@ import {
   ArrowRight,
   ShieldCheck,
   Check,
+  Tag
 } from 'lucide-react';
+
 
 interface Step3TaxAuditBillProps {
   user: User | null;
@@ -24,7 +27,7 @@ interface Step3TaxAuditBillProps {
   setPartialPercentage: (pct: number) => void;
   isTermsAccepted: boolean;
   setIsTermsAccepted: (val: boolean) => void;
-  onProceedToPayment: () => void;
+  onProceedToPayment: (payload: CreateBookingPayload) => void;
   onBack: () => void;
 }
 
@@ -42,23 +45,90 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   onProceedToPayment,
   onBack,
 }) => {
+  
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [showContractPreview, setShowContractPreview] = useState(false);
+  const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
+  const [discountValue, setDiscountValue] = useState<number>(0);
 
   const basePrice = selectedStalls.reduce((sum, s) => sum + Number(s.price), 0);
 
   const isPartial = paymentType === 'PARTIAL';
-  const effectivePartialPercent = Math.max(50, Math.min(99, partialPercentage));
+  const effectivePartialPercent = Math.max(10, Math.min(99, partialPercentage));
   const payableToday = Math.round(basePrice * (effectivePartialPercent / 100));
-  const taxAmount = isPartial ? Math.round(payableToday * 0.18) : Math.round(basePrice * 0.18);
-
-  const billBaseAmount = isPartial ? payableToday : basePrice;
-  const billGrandTotal = billBaseAmount + taxAmount;
+  
+  const isAdmin =user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
+    // Calculate discount amounts based on mode (only for ADMIN)
+  const billBaseAmount=isPartial?payableToday:basePrice
+ 
+  const discountAmount = isAdmin
+  ? discountMode === 'PERCENT'
+    ? Math.round(billBaseAmount * (Math.min(Math.max(discountValue, 0), 100) / 100))
+    : Math.min(Math.max(discountValue, 0), billBaseAmount)
+  : 0;
+  // Amount after discount
+  const discountedAmount = billBaseAmount - discountAmount;
+  // Calculate GST AFTER discount
+  const taxAmount = Math.round(discountedAmount * 0.18);
+ 
+ // Final amount to pay today
+  const billGrandTotal = discountedAmount + taxAmount;
+ 
   const remainingBalance = isPartial ? basePrice - payableToday : 0;
+ 
 
   const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
   const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
   const formattedDeadline = formatDisplayDate(deadlineDate);
+
+
+//   const isAdmin =user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
+//   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+//   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+
+//   const isPartial = paymentType === 'PARTIAL';
+//   const effectivePartialPercent = Math.max(10, Math.min(99, partialPercentage));
+ 
+//   const payableToday = Math.round(basePrice * (effectivePartialPercent / 100))
+  
+//   // Calculate discount amounts based on mode (only for ADMIN)
+//   const billBaseAmount=isPartial?payableToday:basePrice
+ 
+//   const discountAmount = isAdmin
+//   ? discountMode === 'PERCENT'
+//     ? Math.round(billBaseAmount * (Math.min(Math.max(discountValue, 0), 100) / 100))
+//     : Math.min(Math.max(discountValue, 0), billBaseAmount)
+//   : 0;
+//   // Amount after discount
+//   const discountedAmount = billBaseAmount - discountAmount;
+//   // Calculate GST AFTER discount
+//   const taxAmount = Math.round(discountedAmount * 0.18);
+ 
+//  // Final amount to pay today
+//   const billGrandTotal = discountedAmount + taxAmount;
+ 
+//   const remainingBalance = isPartial ? basePrice - payableToday : 0;
+ const handlePaymentPayload = () => {
+  const apiPaymentType: CreateBookingPayload['paymentType'] = isPartial ? 'Partial' : 'FullPayment';
+  
+  if (selectedStalls.length === 0 || !selectedCompany) return;
+
+  const payload: CreateBookingPayload = {
+    companyId: selectedCompany.id,
+    stallIds: selectedStalls.map((s) => s.id), // send IDs, not full Stall objects
+    exhibitionId: exhibition?.id,
+    ...(user &&
+      ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role) &&
+      discountValue > 0 && {
+        discountAmount: discountValue,
+        discountType: discountMode,
+      }),
+    paymentType: apiPaymentType,
+    percentage: isPartial ? partialPercentage : 100,
+  };
+
+  onProceedToPayment(payload);
+};
 
   if (!selectedCompany) {
     return (
@@ -192,7 +262,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-[#012970] dark:text-slate-100 text-xs">Partial Advance Payment</span>
                     <span className="text-[9px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-extrabold px-1.5 py-0.5 rounded">
-                      &gt; 50% Required
+                      &gt; 10% Required
                     </span>
                   </div>
                   <input type="radio" checked={paymentType === 'PARTIAL'} onChange={() => setPaymentType('PARTIAL')} />
@@ -209,7 +279,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
             {paymentType === 'PARTIAL' && (
               <div className="p-4 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-3 animate-in fade-in">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Advance Percentage (Must be &gt; 50%):</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Advance Percentage (Must be &gt; 10%):</label>
                   <div className="flex items-center gap-2">
                     {[60, 70, 80].map((pct) => (
                       <button
@@ -232,7 +302,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Custom Advance %:</span>
                   <input
                     type="number"
-                    min="50"
+                    min="10"
                     max="99"
                     value={partialPercentage}
                     onChange={(e) => setPartialPercentage(Number(e.target.value))}
@@ -312,56 +382,146 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
         </div>
 
         {/* 1 Col: Financial Summary Card */}
-        <div className="space-y-4">
-          <div className="bg-[#012970] dark:bg-slate-800 text-white p-5 rounded-2xl shadow-lg space-y-4 sticky top-4 border border-blue-900 dark:border-slate-700">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-blue-200 border-b border-white/10 pb-3">
-              Tax Invoice Breakdown
-            </h3>
+      <div className="space-y-4">
+  <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white p-4 sm:p-5 rounded-2xl shadow-lg space-y-4 lg:sticky lg:top-4 border border-slate-200 dark:border-slate-700">
+    <h3 className="text-sm md:text-base lg:text-sm xl:text-base font-bold uppercase tracking-wider text-[#012970] dark:text-blue-200 border-b border-slate-200 dark:border-white/10 pb-3">
+      Payment Summary
+    </h3>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between text-slate-300">
-                <span>Base Rental:</span>
-                <span className="font-mono text-white font-bold">₹{basePrice.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>GST (18%):</span>
-                <span className="font-mono text-white font-bold">₹{taxAmount.toLocaleString()}</span>
-              </div>
+    <div className="space-y-2.5 md:space-y-3 text-sm md:text-base lg:text-xs xl:text-sm">
+      <div className="flex justify-between items-baseline gap-3 text-slate-600 dark:text-slate-300">
+        <span>Base Rental:</span>
+        <span className="font-mono tabular-nums text-slate-900 dark:text-white font-bold whitespace-nowrap">
+          ₹{(isPartial ? payableToday : basePrice).toLocaleString('en-IN')}
+        </span>
+      </div>
 
-              <div className="flex justify-between border-t border-white/10 pt-2 font-bold text-slate-100">
-                <span>Grand Total:</span>
-                <span className="font-mono text-[#9cc542]">₹{billGrandTotal.toLocaleString()}</span>
-              </div>
-
-              {paymentType === 'PARTIAL' && (
-                <>
-                  <div className="flex justify-between text-xs font-bold text-[#9cc542] pt-2 border-t border-white/20">
-                    <span>Advance Payable Today ({effectivePartialPercent}%):</span>
-                    <span className="font-mono text-base">₹{payableToday.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-amber-200 pt-1">
-                    <span>Remaining Balance Due:</span>
-                    <span className="font-mono">₹{remainingBalance.toLocaleString()}</span>
-                  </div>
-                  <p className="text-[10px] text-amber-300 font-medium italic pt-1">
-                    Due 15 days before event ({formattedDeadline})
-                  </p>
-                </>
-              )}
+      {/* Admin discount block */}
+      {isAdmin && (
+        <div className="space-y-1.5 py-1.5 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Discount</span>
+            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-md p-0.5">
+              <button
+                type="button"
+                onClick={() => setDiscountMode('AMOUNT')}
+                className={`px-2.5 py-1 lg:px-2 lg:py-0.5 text-xs lg:text-[10px] xl:text-xs font-bold rounded transition-colors ${
+                  discountMode === 'AMOUNT'
+                    ? 'bg-[#9cc542] text-[#012970]'
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                ₹
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountMode('PERCENT')}
+                className={`px-2.5 py-1 lg:px-2 lg:py-0.5 text-xs lg:text-[10px] xl:text-xs font-bold rounded transition-colors ${
+                  discountMode === 'PERCENT'
+                    ? 'bg-[#9cc542] text-[#012970]'
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                %
+              </button>
             </div>
-
-            <Button
-              variant="primary"
-              size="lg"
-              disabled={!isTermsAccepted || billGrandTotal === 0}
-              className="w-full font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50"
-              onClick={onProceedToPayment}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Pay ₹{paymentType === 'PARTIAL' ? payableToday.toLocaleString() : billGrandTotal.toLocaleString()} Now
-            </Button>
           </div>
+
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs lg:text-[10px] text-slate-400 font-bold">
+              {discountMode === 'AMOUNT' ? '₹' : '%'}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={discountMode === 'PERCENT' ? 100 : undefined}
+              value={discountValue || ''}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setDiscountValue(isNaN(val) ? 0 : val);
+              }}
+              placeholder="0"
+              className="w-full pl-6 pr-2 py-2 lg:py-1 text-base lg:text-xs xl:text-sm text-right font-mono font-bold rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#9cc542]"
+            />
+          </div>
+
+          {discountAmount > 0 && (
+            <div className="space-y-1.5 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex justify-between items-center gap-3 text-xs md:text-sm lg:text-[11px] xl:text-xs text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1 font-semibold">
+                  <Tag className="w-3 h-3 md:w-4 md:h-4 lg:w-3 lg:h-3" />
+                  Discount Savings
+                </span>
+                <span className="font-mono tabular-nums font-bold whitespace-nowrap">
+                  −₹{discountAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center gap-3 px-2.5 py-2 lg:py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                <div className="flex flex-col">
+                  <span className="text-xs md:text-sm lg:text-[11px] xl:text-xs font-bold text-slate-800 dark:text-slate-100 tracking-wide">
+                    Discounted Amount
+                  </span>
+                  <span className="text-[10px] md:text-xs lg:text-[9px] xl:text-[10px] text-slate-500 dark:text-slate-400">
+                    (Taxable Base)
+                  </span>
+                </div>
+                <span className="text-sm md:text-base lg:text-xs xl:text-sm font-mono tabular-nums font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                  ₹{discountedAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      <div className="flex justify-between items-baseline gap-3 text-slate-600 dark:text-slate-300">
+        <span>GST (18%):</span>
+        <span className="font-mono tabular-nums text-slate-900 dark:text-white font-bold whitespace-nowrap">
+          ₹{taxAmount.toLocaleString('en-IN')}
+        </span>
+      </div>
+
+      <div className="flex justify-between items-baseline gap-3 border-t border-slate-200 dark:border-white/10 pt-2 font-bold text-slate-800 dark:text-slate-100">
+        <span className="text-base md:text-lg lg:text-sm xl:text-base">Grand Total:</span>
+        <span className="font-mono tabular-nums text-base md:text-lg lg:text-base xl:text-lg text-[#012970] dark:text-[#9cc542] whitespace-nowrap">
+          ₹{billGrandTotal.toLocaleString('en-IN')}
+        </span>
+      </div>
+
+      {paymentType === 'PARTIAL' && (
+        <>
+          <div className="flex justify-between items-baseline gap-3 font-bold text-[#012970] dark:text-[#9cc542] pt-2 border-t border-slate-200 dark:border-white/20">
+            <span>Advance Payable Today ({effectivePartialPercent}%):</span>
+            <span className="font-mono tabular-nums text-lg md:text-xl lg:text-lg xl:text-xl whitespace-nowrap">
+              ₹{payableToday.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="flex justify-between items-baseline gap-3 text-xs md:text-sm lg:text-[11px] xl:text-xs text-amber-700 dark:text-amber-200 pt-1">
+            <span>Remaining Balance Due:</span>
+            <span className="font-mono tabular-nums whitespace-nowrap">
+              ₹{remainingBalance.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <p className="text-[11px] md:text-xs lg:text-[10px] xl:text-[11px] text-amber-600 dark:text-amber-300 font-medium italic pt-1">
+            Due 15 days before event ({formattedDeadline})
+          </p>
+        </>
+      )}
+    </div>
+
+    <Button
+      variant="primary"
+      size="lg"
+      disabled={!isTermsAccepted || billGrandTotal === 0}
+      className="w-full text-sm md:text-base font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50"
+      onClick={handlePaymentPayload}
+      rightIcon={<ArrowRight className="w-4 h-4" />}
+    >
+    {billGrandTotal<=0?`No Payment for ₹${billGrandTotal.toLocaleString()}`:`Pay ₹${billGrandTotal.toLocaleString()} Now`}  
+    </Button>
+  </div>
+</div>
       </div>
 
       <TermsAndConditionsModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />

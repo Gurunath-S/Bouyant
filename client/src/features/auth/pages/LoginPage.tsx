@@ -104,7 +104,7 @@ export const LoginPage: React.FC = () => {
                 alt="BuildinTec Expo 2026"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              
+
               {/* Gradient Vignette Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent" />
 
@@ -229,3 +229,4 @@ export const LoginPage: React.FC = () => {
     </div>
   );
 };
+
