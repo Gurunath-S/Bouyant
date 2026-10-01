@@ -348,25 +348,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                   heightClass="h-72"
                 />
 
-                {/* Quick Map Teaser in Overview */}
-                <div className="bg-gradient-to-r from-[#1E3FA0] to-[#0F294D] text-white rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
-                  <div className="space-y-1">
-                    <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] font-extrabold text-[10px] uppercase rounded-full">
-                      Real-time Floor Plan
-                    </span>
-                    <h4 className="text-lg font-black">View Interactive Stall Map & Floor Plan</h4>
-                    <p className="text-xs text-slate-200">
-                      Explore stall availability, corner locations, and reserve directly on the map.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => setActiveTab('map')}
-                    className="bg-white text-[#1E3FA0] hover:bg-slate-100 font-extrabold shadow-sm shrink-0"
-                    rightIcon={<Layers className="w-4 h-4 text-[#0E8074]" />}
-                  >
-                    Open Stall Map
-                  </Button>
-                </div>
+
               </div>
             )}
 
@@ -463,11 +445,17 @@ export const ExhibitionDetailPage: React.FC = () => {
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 1 Table, 2 Chairs, 1 Wastebin</li>
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 5A Power Point & 3 Lights</li>
                   </ul>
-                  <Link to={`/exhibitions/${slug}/book`}>
-                    <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
-                      Book Standard Stall
+                  {isBookingClosed ? (
+                    <Button variant="outline" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
+                      Booking Closed
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link to={`/exhibitions/${slug}/book`}>
+                      <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
+                        Book Standard Stall
+                      </Button>
+                    </Link>
+                  )}
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border-2 border-[#1E3FA0] dark:border-blue-500 rounded-2xl p-6 space-y-4 shadow-md relative">
@@ -485,11 +473,17 @@ export const ExhibitionDetailPage: React.FC = () => {
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Fascia Branding on 2 Sides</li>
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 2 Tables, 4 Chairs & Spotlights</li>
                   </ul>
-                  <Link to={`/exhibitions/${slug}/book`}>
-                    <Button variant="primary" className="w-full font-bold bg-[#1E3FA0] dark:bg-blue-600 mt-2">
-                      Book Corner Stall
+                  {isBookingClosed ? (
+                    <Button variant="primary" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
+                      Booking Closed
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link to={`/exhibitions/${slug}/book`}>
+                      <Button variant="primary" className="w-full font-bold bg-[#1E3FA0] dark:bg-blue-600 mt-2">
+                        Book Corner Stall
+                      </Button>
+                    </Link>
+                  )}
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
@@ -504,11 +498,17 @@ export const ExhibitionDetailPage: React.FC = () => {
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Heavy Power Connection</li>
                     <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> VIP Badges Included</li>
                   </ul>
-                  <Link to={`/exhibitions/${slug}/book`}>
-                    <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
-                      Book Island Pavilion
+                  {isBookingClosed ? (
+                    <Button variant="outline" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
+                      Booking Closed
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link to={`/exhibitions/${slug}/book`}>
+                      <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
+                        Book Island Pavilion
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

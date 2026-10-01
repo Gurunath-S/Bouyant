@@ -69,23 +69,33 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Flagship upcoming event (First in list or default Mediccon Expo 2026)
-  const featuredEvent: Exhibition = exhibitions[0] || {
-    id: 'mediccon-2026',
-    title: 'Mediccon Expo 2026',
-    slug: 'mediccon-expo-2026',
-    category: 'Medical & Healthcare',
-    venue: 'CODISSIA Trade Fair Complex',
-    city: 'Coimbatore, TN',
-    startDate: '2026-03-15T09:00:00Z',
-    endDate: '2026-03-18T18:00:00Z',
-    description:
-      'South India’s largest international exhibition for medical devices, healthcare technology, and hospital equipment. Connect with 15,000+ healthcare leaders and trade buyers.',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
-    totalStalls: 180,
-    availableStalls: 42,
-  };
+  // Active / Flagship upcoming event (First active published event in future, or fallback)
+  const featuredEvent: Exhibition = React.useMemo(() => {
+    const activeUpcoming = exhibitions
+      .filter((e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= new Date())
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    if (activeUpcoming.length > 0) {
+      return activeUpcoming[0];
+    }
+
+    return exhibitions[0] || {
+      id: 'mediccon-2026',
+      title: 'Mediccon Expo 2026',
+      slug: 'mediccon-expo-2026',
+      category: 'Medical & Healthcare',
+      venue: 'CODISSIA Trade Fair Complex',
+      city: 'Coimbatore, TN',
+      startDate: '2026-03-15T09:00:00Z',
+      endDate: '2026-03-18T18:00:00Z',
+      description:
+        'South India’s largest international exhibition for medical devices, healthcare technology, and hospital equipment. Connect with 15,000+ healthcare leaders and trade buyers.',
+      bannerUrl:
+        'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
+      totalStalls: 180,
+      availableStalls: 42,
+    };
+  }, [exhibitions]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans flex flex-col justify-between selection:bg-[#0E8074] selection:text-white">

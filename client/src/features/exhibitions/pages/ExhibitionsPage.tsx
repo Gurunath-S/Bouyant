@@ -4,7 +4,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
-import { Calendar, MapPin, Search, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
 
 export const ExhibitionsPage: React.FC = () => {
@@ -39,12 +39,26 @@ export const ExhibitionsPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
-  const filtered = exhibitions.filter(
-    (e) =>
+  const filtered = exhibitions.filter((e) => {
+    // Hide DRAFT or CANCELLED exhibitions from public page
+    if (e.status === 'DRAFT' || e.status === 'CANCELLED') {
+      return false;
+    }
+
+    // Hide completed events 3 days after their completion date
+    const endDate = new Date(e.endDate);
+    const threeDaysAfterCompletion = new Date(endDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+    if (now > threeDaysAfterCompletion) {
+      return false;
+    }
+
+    const matchesSearch =
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.city.toLowerCase().includes(search.toLowerCase()) ||
-      e.venue.toLowerCase().includes(search.toLowerCase())
-  );
+      e.venue.toLowerCase().includes(search.toLowerCase());
+
+    return matchesSearch;
+  });
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-8 space-y-8">
@@ -103,18 +117,13 @@ export const ExhibitionsPage: React.FC = () => {
                     className="w-full h-full object-cover opacity-90 dark:opacity-80"
                   />
                   <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                    <span
-                      className={`px-2.5 py-1 backdrop-blur-xs font-extrabold text-[10px] rounded uppercase shadow-2xs border ${
-                        isCurrentUpcoming
-                          ? 'bg-purple-600 text-white border-purple-400 font-black'
-                          : 'bg-slate-900/90 text-slate-300 border-slate-700'
-                      }`}
-                    >
-                      {isCurrentUpcoming ? '🔥 Current Upcoming Event' : expo.status}
-                    </span>
-                    {!isCurrentUpcoming && (
-                      <span className="px-2 py-0.5 bg-rose-950/80 text-rose-200 font-bold text-[9px] rounded border border-rose-800">
-                        🔒 Booking Closed
+                    {isCurrentUpcoming ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 backdrop-blur-md font-extrabold text-[10px] rounded uppercase shadow-xs bg-purple-600 text-white border border-purple-400">
+                        <Tag className="w-3 h-3 text-purple-200" /> Current Upcoming Event
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur-md text-slate-300 font-bold text-[10px] rounded border border-slate-700">
+                        <Lock className="w-3 h-3 text-slate-400" /> Booking Closed
                       </span>
                     )}
                   </div>
