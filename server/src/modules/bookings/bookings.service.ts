@@ -541,11 +541,16 @@ private static validateStalls(
       throw ApiError.badRequest('This exhibition event has already started. Stall bookings are closed.');
     }
 
-    // C. Strict 15-day cutoff: (startDate - 15 days in milliseconds)
-    const bookingCutoffDeadline = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
-    bookingCutoffDeadline.setHours(23, 59, 59, 999); // <--- (Allows booking until 11:59:59 PM of that day)
+    // C. Check cutoff deadline (use custom bookingEndDate if set, otherwise 15-day prior to startDate)
+    let bookingCutoffDeadline: Date;
+    if (exhibition.bookingEndDate) {
+      bookingCutoffDeadline = new Date(exhibition.bookingEndDate);
+    } else {
+      bookingCutoffDeadline = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+      bookingCutoffDeadline.setHours(23, 59, 59, 999);
+    }
 
-    // D. Block booking if current date has crossed the 15-day cutoff
+    // D. Block booking if current date has crossed the cutoff deadline
     if (now > bookingCutoffDeadline) {
       const formattedDeadline = bookingCutoffDeadline.toLocaleDateString('en-IN', {
         day: 'numeric',
@@ -553,7 +558,7 @@ private static validateStalls(
         year: 'numeric',
       });
       throw ApiError.badRequest(
-        `Stall booking for this exhibition is closed. The deadline was ${formattedDeadline} (bookings strictly close 15 days prior to event start).`
+        `Stall booking for this exhibition is closed. The deadline was ${formattedDeadline}.`
       );
     }
 
@@ -792,14 +797,11 @@ static async createBooking(
   ].includes(user?.role ?? '');
 
   for (const stall of stalls) {
+    const isAvailable = stall.status === StallStatus.AVAILABLE;
+    const isPaymentPending = stall.status === StallStatus.TEMPORARILY_HELD;
+    const isBlocked = stall.status === StallStatus.BLOCKED;
 
-    const isPaymentPending =
-      stall.status === StallStatus.TEMPORARILY_HELD;
-
-    const isBlocked =
-      stall.status === StallStatus.BLOCKED;
-
-    if (isPaymentPending) {
+    if (isAvailable || isPaymentPending) {
       continue;
     }
 
@@ -808,7 +810,7 @@ static async createBooking(
     }
 
     throw ApiError.conflict(
-      `Stall ${stall.id} is currently ${stall.status}.`
+      `Stall ${stall.name || stall.stallNumber || stall.id} is currently ${stall.status}.`
     );
   }
 
@@ -908,15 +910,11 @@ static async createBooking(
         // ----------------------------------------------
 
         for (const stall of currentStalls) {
-     
-          const isPaymentPending =
-            stall.status ===
-            StallStatus.TEMPORARILY_HELD;
+          const isAvailable = stall.status === StallStatus.AVAILABLE;
+          const isPaymentPending = stall.status === StallStatus.TEMPORARILY_HELD;
+          const isBlocked = stall.status === StallStatus.BLOCKED;
 
-          const isBlocked =
-            stall.status === StallStatus.BLOCKED;
-
-          if (isPaymentPending) {
+          if (isAvailable || isPaymentPending) {
             continue;
           }
 
@@ -925,7 +923,7 @@ static async createBooking(
           }
 
           throw ApiError.conflict(
-            `Stall ${stall.id} is no longer available for booking.`
+            `Stall ${stall.name || stall.stallNumber || stall.id} is no longer available for booking.`
           );
         }
 

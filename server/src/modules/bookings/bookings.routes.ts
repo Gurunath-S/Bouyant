@@ -9,7 +9,7 @@ import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
 
-router.post('/', validateRequest(CreateBookingSchema),optionalAuth,asyncHandler(BookingsController.create));
+router.post('/', optionalAuth, validateRequest(CreateBookingSchema), asyncHandler(BookingsController.create));
 
 router.use(authenticateToken);
 router.get('/my-bookings', asyncHandler(BookingsController.myBookings));
