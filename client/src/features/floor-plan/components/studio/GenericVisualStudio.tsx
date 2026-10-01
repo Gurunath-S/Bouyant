@@ -81,6 +81,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   // Active Tool & Mode
   const [activeTool, setActiveTool] = useState<StudioTool>('select');
   const [isReadOnly, setIsReadOnly] = useState<boolean>(isViewOnly);
+
+  // Sync isReadOnly whenever isViewOnly prop changes (e.g., when top Edit Mode button is clicked)
+  useEffect(() => {
+    setIsReadOnly(isViewOnly);
+  }, [isViewOnly]);
+
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRowModalOpen, setIsRowModalOpen] = useState<boolean>(false);
@@ -415,8 +421,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     []
   );
 
-  // Bounded pan calculation: keeps the floor plan and comfortable editing margin in view
-  // Prevents the user from wandering off into infinite empty space where the chart disappears
+  // Bounded pan calculation: smart, controlled bounds preventing canvas from disappearing into extreme void
+  // Strict viewport containment: keeps canvas firmly locked inside the screen container
+  // Prevents canvas from ever being pushed off screen or drifting out of sight
   const clampPan = useCallback(
     (newX: number, newY: number, currentZoom: number = zoomLevel) => {
       if (!containerRef.current) return { x: newX, y: newY };
@@ -426,14 +433,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       const scaledW = canvasWidth * scale;
       const scaledH = canvasHeight * scale;
 
-      // Allow panning up to the edges with ~220px extra margin on each side so users have working room
-      // for adding rows, resizing stalls, but CANNOT lose the canvas in an infinite void!
-      const limitX = Math.max(120, (scaledW / 2) + (containerW / 2) - 180);
-      const limitY = Math.max(120, (scaledH / 2) + (containerH / 2) - 180);
+      // Strict bounds: max offset is half the difference between scaled canvas & container, plus 100px max margin
+      const maxLimitX = Math.max(80, Math.abs(scaledW - containerW) / 2 + 100);
+      const maxLimitY = Math.max(80, Math.abs(scaledH - containerH) / 2 + 100);
 
       return {
-        x: Math.round(Math.max(-limitX, Math.min(limitX, newX))),
-        y: Math.round(Math.max(-limitY, Math.min(limitY, newY))),
+        x: Math.round(Math.max(-maxLimitX, Math.min(maxLimitX, newX))),
+        y: Math.round(Math.max(-maxLimitY, Math.min(maxLimitY, newY))),
       };
     },
     [canvasWidth, canvasHeight, zoomLevel]
@@ -2356,6 +2362,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 minWidth: canvasWidth,
                 minHeight: canvasHeight,
                 backgroundColor: backgroundImageUrl ? 'transparent' : '#ffffff',
+                overflow: 'visible',
               }}
             >
               {/* SVG Definitions for Grid & Patterns */}
@@ -2404,7 +2411,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         width={hall.width}
                         height={hall.height}
                         rx="14"
-                        fill="#fafafa"
+                        fill={backgroundImageUrl ? 'rgba(255, 255, 255, 0.08)' : '#fafafa'}
                         stroke={strokeColor}
                         strokeWidth={isSelected ? 3.5 : 2}
                         strokeDasharray={isSelected ? 'none' : '8 6'}
@@ -2441,63 +2448,112 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
                       />
 
-                      {/* Hall Title Banner (Dedicated drag handle to move Hall + Direct Delete Button) */}
-                      <g className="group select-none">
-                        <rect
-                          x={hall.x + 16}
-                          y={hall.y + 12}
-                          width={bannerWidth}
-                          height={32}
-                          rx="8"
-                          fill={strokeColor}
-                          fillOpacity={isSelected ? 0.25 : 0.15}
-                          stroke={strokeColor}
-                          strokeWidth={isSelected ? 2 : 1.5}
-                          className="cursor-move"
-                          onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
-                        />
-                        <text
-                          x={hall.x + 28}
-                          y={hall.y + 33}
-                          fill={strokeColor}
-                          fontSize="13"
-                          fontWeight="900"
-                          letterSpacing="1"
-                          className="uppercase select-none font-sans pointer-events-none cursor-move"
-                        >
-                          {hall.name}
-                        </text>
+                      {/* Hall Title Banner (Positioned dynamically according to namePosition + Custom Typography) */}
+                      {(() => {
+                        const pos = hall.namePosition || 'top-left';
+                        const fontSize = hall.fontSize || 13;
+                        const fontWeight = hall.fontWeight || 'bold';
+                        const bannerHeight = Math.max(30, fontSize + 16);
+                        const bannerWidth = Math.min(
+                          hall.width - 24,
+                          Math.max(140, hall.name.length * (fontSize * 0.65) + 60)
+                        );
 
-                        {/* Direct Delete Hall Trash Button right on header banner */}
-                        {!isReadOnly && (
-                          <g
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteHall(hall.id);
-                            }}
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                          >
+                        let bx = hall.x + 16;
+                        let by = hall.y + 12;
+
+                        if (pos === 'top-center') {
+                          bx = hall.x + (hall.width - bannerWidth) / 2;
+                          by = hall.y + 12;
+                        } else if (pos === 'top-right') {
+                          bx = hall.x + hall.width - bannerWidth - 16;
+                          by = hall.y + 12;
+                        } else if (pos === 'center') {
+                          bx = hall.x + (hall.width - bannerWidth) / 2;
+                          by = hall.y + (hall.height - bannerHeight) / 2;
+                        } else if (pos === 'bottom-left') {
+                          bx = hall.x + 16;
+                          by = hall.y + hall.height - bannerHeight - 12;
+                        } else if (pos === 'bottom-center') {
+                          bx = hall.x + (hall.width - bannerWidth) / 2;
+                          by = hall.y + hall.height - bannerHeight - 12;
+                        } else if (pos === 'bottom-right') {
+                          bx = hall.x + hall.width - bannerWidth - 16;
+                          by = hall.y + hall.height - bannerHeight - 12;
+                        }
+
+                        // Clamp inside hall bounds
+                        bx = Math.max(hall.x + 8, Math.min(hall.x + hall.width - bannerWidth - 8, bx));
+                        by = Math.max(hall.y + 8, Math.min(hall.y + hall.height - bannerHeight - 8, by));
+
+                        return (
+                          <g className="group select-none">
                             <rect
-                              x={hall.x + bannerWidth - 28}
-                              y={hall.y + 17}
-                              width={22}
-                              height={22}
-                              rx="6"
-                              fill="#fee2e2"
-                              stroke="#f87171"
-                              strokeWidth="1"
+                              x={bx}
+                              y={by}
+                              width={bannerWidth}
+                              height={bannerHeight}
+                              rx="8"
+                              fill={strokeColor}
+                              fillOpacity={isSelected ? 0.3 : 0.16}
+                              stroke={strokeColor}
+                              strokeWidth={isSelected ? 2 : 1.5}
+                              className="cursor-move"
+                              onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
                             />
-                            <path
-                              d={`M ${hall.x + bannerWidth - 23} ${hall.y + 23} h 12 m -10 0 v 8 a 1 1 0 0 0 1 1 h 6 a 1 1 0 0 0 1 -1 v -8 m -5 0 v -2 a 1 1 0 0 1 1 -1 h 2 a 1 1 0 0 1 1 1 v 2`}
-                              fill="none"
-                              stroke="#dc2626"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
+                            <text
+                              x={bx + 14}
+                              y={by + bannerHeight / 2 + 1}
+                              dominantBaseline="central"
+                              fill={strokeColor}
+                              fontSize={fontSize}
+                              fontWeight={
+                                fontWeight === 'black'
+                                  ? '900'
+                                  : fontWeight === 'bold'
+                                  ? '700'
+                                  : fontWeight === 'semibold'
+                                  ? '600'
+                                  : '400'
+                              }
+                              letterSpacing="0.05em"
+                              className="uppercase select-none font-sans pointer-events-none cursor-move"
+                            >
+                              {hall.name}
+                            </text>
+
+                            {/* Direct Delete Hall Trash Button right on header banner */}
+                            {!isReadOnly && (
+                              <g
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteHall(hall.id);
+                                }}
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                              >
+                                <rect
+                                  x={bx + bannerWidth - 26}
+                                  y={by + (bannerHeight - 20) / 2}
+                                  width={20}
+                                  height={20}
+                                  rx="5"
+                                  fill="#fee2e2"
+                                  stroke="#f87171"
+                                  strokeWidth="1"
+                                />
+                                <path
+                                  d={`M ${bx + bannerWidth - 21} ${by + (bannerHeight - 20) / 2 + 5} h 10 m -8 0 v 7 a 1 1 0 0 0 1 1 h 4 a 1 1 0 0 0 1 -1 v -7 m -4 0 v -2 a 1 1 0 0 1 1 -1 h 1 a 1 1 0 0 1 1 1 v 2`}
+                                  fill="none"
+                                  stroke="#dc2626"
+                                  strokeWidth="1.2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </g>
+                            )}
                           </g>
-                        )}
-                      </g>
+                        );
+                      })()}
 
                       {/* Hall Resize Handles when selected (All 8 Cardinal & Diagonal Handles) */}
                       {isSelected && !isReadOnly && (
@@ -2741,6 +2797,63 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   }
 
                   const transformAttr = fac.rotation ? `rotate(${fac.rotation} ${fac.x + fac.width / 2} ${fac.y + fac.height / 2})` : undefined;
+                  const mode = fac.displayMode || 'both';
+                  const fontSize = fac.fontSize || 10;
+                  const iconSize = fac.iconSize || (fac.height >= 40 ? 20 : 16);
+                  const fontWeight = fac.fontWeight || 'bold';
+
+                  // SVG Icon helper for facility types
+                  const renderFacilityIconGraphics = (iconKey: string, cx: number, cy: number, size: number) => {
+                    const half = size / 2;
+                    if (iconKey === 'log-in' || (iconKey === 'default' && fac.type === 'entrance')) {
+                      return (
+                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                          <polyline points="10 17 15 12 10 7" />
+                          <line x1="15" y1="12" x2="3" y2="12" />
+                        </g>
+                      );
+                    }
+                    if (iconKey === 'log-out' || (iconKey === 'default' && fac.type === 'exit')) {
+                      return (
+                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <polyline points="16 17 21 12 16 7" />
+                          <line x1="21" y1="12" x2="9" y2="12" />
+                        </g>
+                      );
+                    }
+                    if (iconKey === 'utensils' || (iconKey === 'default' && (fac.type === 'dining' || fac.type === 'food-court'))) {
+                      return (
+                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 2v6h3V2z" />
+                          <path d="M18 8a3 3 0 0 0 3 3v11" />
+                          <path d="M5 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2" />
+                          <path d="M8 12v10" />
+                        </g>
+                      );
+                    }
+                    if (iconKey === 'restroom' || (iconKey === 'default' && fac.type === 'restroom')) {
+                      return (
+                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="9" cy="5" r="2" />
+                          <path d="M7 10h4l1 6H6z" />
+                          <path d="M8 16v5" />
+                          <path d="M10 16v5" />
+                          <circle cx="17" cy="5" r="2" />
+                          <path d="M15 10l1 5h2l1-5z" />
+                        </g>
+                      );
+                    }
+                    // Default door/gate
+                    return (
+                      <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
+                        <path d="M2 20h20" />
+                        <circle cx="14" cy="12" r="1" fill={textCol} />
+                      </g>
+                    );
+                  };
 
                   return (
                     <g
@@ -2759,18 +2872,108 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         stroke={isSelected ? '#2563eb' : strokeCol}
                         strokeWidth={isSelected ? 3 : 1.5}
                       />
-                      <text
-                        x={fac.x + fac.width / 2}
-                        y={fac.y + fac.height / 2 + 4}
-                        textAnchor="middle"
-                        fill={textCol}
-                        fontSize="10"
-                        fontWeight="bold"
-                        letterSpacing="0.8"
-                        className="select-none pointer-events-none uppercase"
-                      >
-                        {fac.label}
-                      </text>
+
+                      {/* Display Mode: Icon Only */}
+                      {mode === 'icon-only' && (
+                        renderFacilityIconGraphics(
+                          fac.iconName || 'default',
+                          fac.x + fac.width / 2,
+                          fac.y + fac.height / 2,
+                          iconSize
+                        )
+                      )}
+
+                      {/* Display Mode: Text Only */}
+                      {mode === 'text-only' && (
+                        <text
+                          x={fac.x + fac.width / 2}
+                          y={fac.y + fac.height / 2}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={textCol}
+                          fontSize={fontSize}
+                          fontWeight={
+                            fontWeight === 'black'
+                              ? '900'
+                              : fontWeight === 'bold'
+                              ? '700'
+                              : fontWeight === 'semibold'
+                              ? '600'
+                              : '400'
+                          }
+                          letterSpacing="0.8"
+                          className="select-none pointer-events-none uppercase"
+                        >
+                          {fac.label}
+                        </text>
+                      )}
+
+                      {/* Display Mode: Both (Icon + Text) */}
+                      {mode === 'both' && (
+                        <g>
+                          {fac.height >= 48 ? (
+                            <>
+                              {renderFacilityIconGraphics(
+                                fac.iconName || 'default',
+                                fac.x + fac.width / 2,
+                                fac.y + fac.height / 2 - 7,
+                                iconSize
+                              )}
+                              <text
+                                x={fac.x + fac.width / 2}
+                                y={fac.y + fac.height / 2 + iconSize / 2 + 2}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fill={textCol}
+                                fontSize={fontSize}
+                                fontWeight={
+                                  fontWeight === 'black'
+                                    ? '900'
+                                    : fontWeight === 'bold'
+                                    ? '700'
+                                    : fontWeight === 'semibold'
+                                    ? '600'
+                                    : '400'
+                                }
+                                letterSpacing="0.8"
+                                className="select-none pointer-events-none uppercase"
+                              >
+                                {fac.label}
+                              </text>
+                            </>
+                          ) : (
+                            <>
+                              {renderFacilityIconGraphics(
+                                fac.iconName || 'default',
+                                fac.x + 16,
+                                fac.y + fac.height / 2,
+                                iconSize
+                              )}
+                              <text
+                                x={fac.x + 28}
+                                y={fac.y + fac.height / 2}
+                                textAnchor="start"
+                                dominantBaseline="central"
+                                fill={textCol}
+                                fontSize={fontSize}
+                                fontWeight={
+                                  fontWeight === 'black'
+                                    ? '900'
+                                    : fontWeight === 'bold'
+                                    ? '700'
+                                    : fontWeight === 'semibold'
+                                    ? '600'
+                                    : '400'
+                                }
+                                letterSpacing="0.8"
+                                className="select-none pointer-events-none uppercase"
+                              >
+                                {fac.label}
+                              </text>
+                            </>
+                          )}
+                        </g>
+                      )}
 
                       {/* Facility Resize Handles when selected (All 8 Cardinal & Diagonal Handles) */}
                       {isSelected && !isReadOnly && (
@@ -2973,22 +3176,66 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               <g id="annotations-layer" opacity={isBlueprintInspectMode ? 0.25 : 1} className="transition-opacity duration-200">
                 {annotations.map((ann) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'annotation' && r.id === ann.id);
+                  const color = isSelected ? '#2563eb' : ann.color || '#475569';
+                  const fontSize = ann.fontSize || 12;
+                  const fontWeight = ann.fontWeight || 'bold';
+                  const mode = ann.displayMode || 'text-only';
+                  const iconSize = ann.iconSize || fontSize + 4;
+
                   return (
                     <g
                       key={ann.id}
                       onMouseDown={(e) => handleItemMouseDown(e, 'annotation', ann.id)}
                       className="cursor-move"
                     >
-                      <text
-                        x={ann.x}
-                        y={ann.y}
-                        fill={isSelected ? '#2563eb' : ann.color || '#475569'}
-                        fontSize={ann.fontSize || 12}
-                        fontWeight="bold"
-                        className="select-none"
-                      >
-                        {ann.text}
-                      </text>
+                      {mode === 'text-only' && (
+                        <text
+                          x={ann.x}
+                          y={ann.y}
+                          fill={color}
+                          fontSize={fontSize}
+                          fontWeight={
+                            fontWeight === 'black'
+                              ? '900'
+                              : fontWeight === 'bold'
+                              ? '700'
+                              : fontWeight === 'semibold'
+                              ? '600'
+                              : '400'
+                          }
+                          className="select-none"
+                        >
+                          {ann.text}
+                        </text>
+                      )}
+
+                      {mode === 'icon-only' && (
+                        <circle cx={ann.x} cy={ann.y - fontSize / 2} r={iconSize / 2} fill={color} />
+                      )}
+
+                      {mode === 'both' && (
+                        <g>
+                          <circle cx={ann.x - 10} cy={ann.y - fontSize / 3} r={iconSize / 2.5} fill={color} />
+                          <text
+                            x={ann.x + 4}
+                            y={ann.y}
+                            fill={color}
+                            fontSize={fontSize}
+                            fontWeight={
+                              fontWeight === 'black'
+                                ? '900'
+                                : fontWeight === 'bold'
+                                ? '700'
+                                : fontWeight === 'semibold'
+                                ? '600'
+                                : '400'
+                            }
+                            className="select-none"
+                          >
+                            {ann.text}
+                          </text>
+                        </g>
+                      )}
                     </g>
                   );
                 })}

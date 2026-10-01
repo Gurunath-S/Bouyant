@@ -958,6 +958,65 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             <span className="text-[10px] text-slate-400">e.g. Hall A, Hall B, Pavilion 1</span>
           </div>
 
+          {/* Hall Name Position & Typography Controls */}
+          <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
+              Title Banner Customization
+            </span>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Name Position / Alignment
+              </label>
+              <select
+                disabled={readOnly}
+                value={hall.namePosition || 'top-left'}
+                onChange={(e) => onUpdateHall(hall.id, { namePosition: e.target.value as any })}
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
+              >
+                <option value="top-left">Top-Left Banner</option>
+                <option value="top-center">Top-Center Banner</option>
+                <option value="top-right">Top-Right Banner</option>
+                <option value="center">Center Banner</option>
+                <option value="bottom-left">Bottom-Left Banner</option>
+                <option value="bottom-center">Bottom-Center Banner</option>
+                <option value="bottom-right">Bottom-Right Banner</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Size (px)
+                </label>
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  min="10"
+                  max="36"
+                  value={hall.fontSize || 13}
+                  onChange={(e) => onUpdateHall(hall.id, { fontSize: Number(e.target.value) })}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Weight
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={hall.fontWeight || 'bold'}
+                  onChange={(e) => onUpdateHall(hall.id, { fontWeight: e.target.value as any })}
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="semibold">SemiBold</option>
+                  <option value="bold">Bold</option>
+                  <option value="black">Black</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 leading-relaxed">
             <span className="font-bold text-blue-600">Freehand Sizing:</span> No need to calculate rigid measurements. Simply drag the white handles on the corners or edges of <strong>{hall.name}</strong> on the canvas to resize it.
           </div>
@@ -1034,6 +1093,21 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     const fac = facilities.find((f) => f.id === singleRef.id);
     if (!fac) return null;
 
+    const availableIcons = [
+      { id: 'door', label: 'Door / Gate' },
+      { id: 'log-in', label: 'Entrance' },
+      { id: 'log-out', label: 'Exit' },
+      { id: 'badge', label: 'Registration' },
+      { id: 'restroom', label: 'Restroom' },
+      { id: 'utensils', label: 'Food / Dining' },
+      { id: 'coffee', label: 'Cafeteria' },
+      { id: 'presentation', label: 'Stage' },
+      { id: 'shield', label: 'Security' },
+      { id: 'info', label: 'Info Booth' },
+      { id: 'zap', label: 'Power / Tech' },
+      { id: 'star', label: 'Vip / Zone' },
+    ];
+
     return (
       <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 select-none shadow-xs overflow-y-auto z-20">
         <div className="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
@@ -1076,6 +1150,117 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               onChange={(e) => onUpdateFacility(fac.id, { label: e.target.value })}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-bold uppercase text-slate-900"
             />
+          </div>
+
+          {/* Custom Display Mode (Icon / Text / Both) */}
+          <div className="space-y-3 p-3 bg-amber-50/50 border border-amber-200/80 rounded-xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
+              Icon & Typography Customization
+            </span>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Display Format
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'both', label: 'Icon + Text' },
+                  { id: 'icon-only', label: 'Icon Only' },
+                  { id: 'text-only', label: 'Text Only' },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => onUpdateFacility(fac.id, { displayMode: mode.id as any })}
+                    className={`py-1.5 px-1 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
+                      (fac.displayMode || 'both') === mode.id
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Icon Picker */}
+            {(fac.displayMode || 'both') !== 'text-only' && (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Choose Icon
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={fac.iconName || 'default'}
+                  onChange={(e) => onUpdateFacility(fac.id, { iconName: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
+                >
+                  <option value="default">Default Type Icon</option>
+                  {availableIcons.map((ic) => (
+                    <option key={ic.id} value={ic.id}>
+                      {ic.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Font & Icon Size Customization */}
+            <div className="grid grid-cols-2 gap-2">
+              {(fac.displayMode || 'both') !== 'icon-only' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Font Size (px)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={readOnly}
+                    min="8"
+                    max="28"
+                    value={fac.fontSize || 10}
+                    onChange={(e) => onUpdateFacility(fac.id, { fontSize: Number(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                  />
+                </div>
+              )}
+              {(fac.displayMode || 'both') !== 'text-only' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Icon Size (px)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={readOnly}
+                    min="12"
+                    max="48"
+                    value={fac.iconSize || 18}
+                    onChange={(e) => onUpdateFacility(fac.id, { iconSize: Number(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                  />
+                </div>
+              )}
+            </div>
+
+            {(fac.displayMode || 'both') !== 'icon-only' && (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Weight
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={fac.fontWeight || 'bold'}
+                  onChange={(e) => onUpdateFacility(fac.id, { fontWeight: e.target.value as any })}
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="semibold">SemiBold</option>
+                  <option value="bold">Bold</option>
+                  <option value="black">Black</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Dimensions in Meters & Pixels */}
@@ -1289,19 +1474,111 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Font Size (px)
-            </label>
-            <input
-              type="number"
-              disabled={readOnly}
-              min="8"
-              max="48"
-              value={ann.fontSize || 12}
-              onChange={(e) => onUpdateAnnotation(ann.id, { fontSize: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono"
-            />
+          <div className="space-y-3 p-3 bg-purple-50/50 border border-purple-200/80 rounded-xl">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
+              Label Styling & Icon Customization
+            </span>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Display Format
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'both', label: 'Icon + Text' },
+                  { id: 'icon-only', label: 'Icon Only' },
+                  { id: 'text-only', label: 'Text Only' },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => onUpdateAnnotation(ann.id, { displayMode: mode.id as any })}
+                    className={`py-1.5 px-1 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
+                      (ann.displayMode || 'text-only') === mode.id
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(ann.displayMode || 'text-only') !== 'text-only' && (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Choose Icon
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={ann.iconName || 'info'}
+                  onChange={(e) => onUpdateAnnotation(ann.id, { iconName: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
+                >
+                  <option value="info">Info Circle</option>
+                  <option value="star">Star Mark</option>
+                  <option value="door">Door / Gate</option>
+                  <option value="badge">Badge</option>
+                  <option value="zap">Power / Electric</option>
+                  <option value="shield">Security</option>
+                  <option value="coffee">Coffee / Refreshment</option>
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Size (px)
+                </label>
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  min="8"
+                  max="48"
+                  value={ann.fontSize || 12}
+                  onChange={(e) => onUpdateAnnotation(ann.id, { fontSize: Number(e.target.value) })}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Weight
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={ann.fontWeight || 'bold'}
+                  onChange={(e) => onUpdateAnnotation(ann.id, { fontWeight: e.target.value as any })}
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="semibold">SemiBold</option>
+                  <option value="bold">Bold</option>
+                  <option value="black">Black</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Text & Icon Color
+              </label>
+              <div className="flex gap-2">
+                {['#475569', '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed'].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => onUpdateAnnotation(ann.id, { color: c })}
+                    style={{ backgroundColor: c }}
+                    className={`w-6 h-6 rounded-full transition-transform ${
+                      (ann.color || '#475569') === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : 'opacity-80'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </aside>

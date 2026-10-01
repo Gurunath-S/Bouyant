@@ -1,5 +1,14 @@
 import { StallCategory, StallStatus } from './index';
 
+export type HallNamePosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
 export interface HallZone {
   id: string;
   name: string;
@@ -8,6 +17,9 @@ export interface HallZone {
   width: number;
   height: number;
   color?: string;
+  namePosition?: HallNamePosition;
+  fontSize?: number;
+  fontWeight?: 'normal' | 'semibold' | 'bold' | 'black';
 }
 
 export type FacilityType =
@@ -22,6 +34,8 @@ export type FacilityType =
   | 'custom-zone'
   | 'corridor';
 
+export type DisplayMode = 'both' | 'icon-only' | 'text-only';
+
 export interface FacilityObject {
   id: string;
   type: FacilityType;
@@ -32,6 +46,11 @@ export interface FacilityObject {
   height: number;
   rotation?: number; // 0, 90, 180, 270
   color?: string;
+  displayMode?: DisplayMode;
+  iconName?: string;
+  iconSize?: number;
+  fontSize?: number;
+  fontWeight?: 'normal' | 'semibold' | 'bold' | 'black';
 }
 
 export interface AnnotationObject {
@@ -40,8 +59,12 @@ export interface AnnotationObject {
   x: number;
   y: number;
   fontSize?: number;
+  fontWeight?: 'normal' | 'semibold' | 'bold' | 'black';
   rotation?: number;
   color?: string;
+  displayMode?: DisplayMode;
+  iconName?: string;
+  iconSize?: number;
 }
 
 export interface FloorPlanLayoutData {
