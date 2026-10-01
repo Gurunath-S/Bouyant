@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
@@ -8,16 +9,24 @@ import { BookingDetailModal } from '../../bookings/components/BookingDetailModal
 import { Button } from '../../../components/ui/Button';
 
 export const AdminBookingsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
 
-  // Filters state
+  // Filters state initialized from URL search params if present
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [exhibitionFilter, setExhibitionFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
+  const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState('ALL');
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const exParam = searchParams.get('exhibitionId');
+    if (statusParam) setStatusFilter(statusParam);
+    if (exParam) setExhibitionFilter(exParam);
+  }, [searchParams]);
 
   useEffect(() => {
     fetchInitialData();
@@ -50,7 +59,17 @@ export const AdminBookingsPage: React.FC = () => {
         (b.exhibition?.title && b.exhibition.title.toLowerCase().includes(q)) ||
         (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber.toLowerCase().includes(q)));
 
-      const matchesStatus = statusFilter === 'ALL' || b.status === statusFilter;
+      const matchesStatus =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'PENDING_PAYMENT'
+          ? (b.status === 'PENDING_PAYMENT' ||
+             b.paymentStatus === 'UNPAID' ||
+             b.paymentStatus === 'PARTIALLY_PAID' ||
+             Number(b.balanceAmount) > 0 ||
+             (b.paymentStatus !== 'PAID' && Number(b.grandTotal) - Number(b.paidAmount || 0) > 0)) &&
+            b.status !== 'CANCELLED' &&
+            b.status !== 'EXPIRED'
+          : b.status === statusFilter);
       const matchesExhibition = exhibitionFilter === 'ALL' || b.exhibitionId === exhibitionFilter;
       const matchesRegistrar =
         registrarFilter === 'ALL' ||

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Company, Exhibition } from '../../../types';
@@ -26,14 +26,15 @@ import {
 
 export const AdminCompaniesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  // Filtering criteria
-  const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('');
+  // Filtering criteria initialized from query params
+  const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>(searchParams.get('exhibitionId') || '');
   const [activeTab, setActiveTab] = useState<'ALL' | 'REGISTERED' | 'UNREGISTERED'>('ALL');
 
   // Modals state
@@ -53,8 +54,23 @@ export const AdminCompaniesPage: React.FC = () => {
         exhibitionService.getExhibitions(),
       ]);
 
+      const allExhibitions: Exhibition[] = exhibitionsData || [];
       setCompanies(companiesRes.data || []);
-      setExhibitions(exhibitionsData || []);
+      setExhibitions(allExhibitions);
+
+      // Default to current active event if no query param is provided
+      const paramExId = searchParams.get('exhibitionId');
+      if (paramExId) {
+        setSelectedExhibitionId(paramExId);
+      } else if (allExhibitions.length > 0) {
+        const now = new Date();
+        const activeUpcoming = allExhibitions
+          .filter((e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now)
+          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0] || allExhibitions[0];
+        if (activeUpcoming) {
+          setSelectedExhibitionId(activeUpcoming.id);
+        }
+      }
     } catch (err) {
       console.error('Failed to load companies or exhibitions:', err);
     } finally {
@@ -62,31 +78,49 @@ export const AdminCompaniesPage: React.FC = () => {
     }
   };
 
-  // Metrics
+  // Metrics (Filtered by selected exhibition if selected)
   const totalCount = companies.length;
-  const registeredCount = companies.filter(
-    (c) => c.bookings && c.bookings.length > 0
-  ).length;
-  const unregisteredCount = companies.filter(
-    (c) => !c.bookings || c.bookings.length === 0
-  ).length;
+
+  const { registeredCount, unregisteredCount } = useMemo(() => {
+    let registered = 0;
+    let unregistered = 0;
+
+    companies.forEach((c) => {
+      const hasMatchingBooking = selectedExhibitionId
+        ? c.bookings?.some(
+            (b) =>
+              b.exhibitionId === selectedExhibitionId ||
+              b.exhibition?.id === selectedExhibitionId
+          )
+        : c.bookings && c.bookings.length > 0;
+
+      if (hasMatchingBooking) {
+        registered++;
+      } else {
+        unregistered++;
+      }
+    });
+
+    return { registeredCount: registered, unregisteredCount: unregistered };
+  }, [companies, selectedExhibitionId]);
 
   // Filtered companies based on search, exhibition selector, and tab
   const filteredCompanies = companies.filter((c) => {
-    // 1. Tab filter
-    const hasBookings = c.bookings && c.bookings.length > 0;
-    if (activeTab === 'REGISTERED' && !hasBookings) return false;
-    if (activeTab === 'UNREGISTERED' && hasBookings) return false;
+    // 1. Check matching bookings based on selected exhibition
+    const hasMatchingBooking = selectedExhibitionId
+      ? c.bookings?.some(
+          (b) =>
+            b.exhibitionId === selectedExhibitionId ||
+            b.exhibition?.id === selectedExhibitionId
+        )
+      : c.bookings && c.bookings.length > 0;
 
-    // 2. Exhibition filter
-    if (selectedExhibitionId) {
-      const matchExhibition = c.bookings?.some(
-        (b) =>
-          b.exhibitionId === selectedExhibitionId ||
-          b.exhibition?.id === selectedExhibitionId
-      );
-      if (!matchExhibition) return false;
-    }
+    // 2. Tab filter
+    if (activeTab === 'REGISTERED' && !hasMatchingBooking) return false;
+    if (activeTab === 'UNREGISTERED' && hasMatchingBooking) return false;
+
+    // 3. Exhibition filter (for 'ALL' tab or when activeTab is not filtering matching bookings)
+    if (selectedExhibitionId && !hasMatchingBooking) return false;
 
     // 3. Search query
     if (!search.trim()) return true;
@@ -259,21 +293,25 @@ export const AdminCompaniesPage: React.FC = () => {
           {/* Exhibition Dropdown & Search Input */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Exhibition Filter Dropdown */}
-            <div className="relative min-w-[240px]">
+            <div className="relative min-w-[280px]">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Layers className="w-4 h-4 text-purple-600" />
               </div>
               <select
                 value={selectedExhibitionId}
                 onChange={(e) => setSelectedExhibitionId(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30 cursor-pointer"
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30 cursor-pointer shadow-2xs"
               >
-                <option value="">All Exhibitions / Expos</option>
-                {exhibitions.map((expo) => (
-                  <option key={expo.id} value={expo.id}>
-                    {expo.title} {expo.edition ? `(Ed. ${expo.edition})` : ''} - {expo.city}
-                  </option>
-                ))}
+                <option value="">All Exhibitions & Historical Expos</option>
+                {exhibitions.map((expo) => {
+                  const now = new Date();
+                  const isCurrent = expo.status === 'PUBLISHED' && new Date(expo.endDate) >= now;
+                  return (
+                    <option key={expo.id} value={expo.id}>
+                      {expo.title} {isCurrent ? '(Active Event)' : ''} - {expo.city}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -290,36 +328,72 @@ export const AdminCompaniesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Active Filter Notice */}
-        {(selectedExhibitionId || activeTab !== 'ALL' || search) && (
+        {/* Selected Event Context Banner */}
+        {selectedExhibitionId ? (
+          (() => {
+            const currentExpo = exhibitions.find((e) => e.id === selectedExhibitionId);
+            if (!currentExpo) return null;
+            return (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="px-2 py-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    <span>Event Context:</span>
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                      {currentExpo.title}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      <span className="flex items-center gap-1 font-medium">
+                        <MapPin className="w-3 h-3 text-purple-600 shrink-0" />
+                        {currentExpo.venue || 'Convention Center'}, {currentExpo.city}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 font-medium">
+                        <Clock className="w-3 h-3 text-purple-600 shrink-0" />
+                        {formatDisplayDate(currentExpo.startDate)} – {formatDisplayDate(currentExpo.endDate)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800">
+                    {filteredCompanies.length} Exhibitors Registered
+                  </span>
+                  <button
+                    onClick={() => setSelectedExhibitionId('')}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    title="View All Events"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
             <div className="flex items-center gap-2">
               <Filter className="w-3.5 h-3.5 text-purple-600" />
               <span>
                 Showing <strong>{filteredCompanies.length}</strong> of{' '}
-                <strong>{totalCount}</strong> exhibitors
-                {selectedExhibitionId && (
-                  <>
-                    {' '}
-                    registered for{' '}
-                    <span className="font-semibold text-purple-700 dark:text-purple-300">
-                      "{exhibitions.find((e) => e.id === selectedExhibitionId)?.title}"
-                    </span>
-                  </>
-                )}
+                <strong>{totalCount}</strong> exhibitors across all historical trade fairs.
               </span>
             </div>
-
-            <button
-              onClick={() => {
-                setSelectedExhibitionId('');
-                setActiveTab('ALL');
-                setSearch('');
-              }}
-              className="text-purple-600 hover:text-purple-800 font-bold hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <X className="w-3.5 h-3.5" /> Clear Filters
-            </button>
+            {(activeTab !== 'ALL' || search) && (
+              <button
+                onClick={() => {
+                  setSelectedExhibitionId('');
+                  setActiveTab('ALL');
+                  setSearch('');
+                }}
+                className="text-purple-600 hover:text-purple-800 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" /> Clear Filters
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -196,7 +196,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const isViewMode = location.pathname.endsWith('/view') || new URLSearchParams(location.search).get('mode') === 'view';
   const isEditMode = !!id && !isViewMode;
 
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const urlStep = Number(new URLSearchParams(location.search).get('step'));
+  const [currentStep, setCurrentStep] = useState<number>(urlStep === 2 ? 2 : 1);
+
+  useEffect(() => {
+    const s = Number(new URLSearchParams(location.search).get('step'));
+    if (s === 1 || s === 2) {
+      setCurrentStep(s);
+    }
+  }, [location.search]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEvent, setIsLoadingEvent] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -673,7 +682,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => navigate(`/admin/events/${id}/edit`)}
+                onClick={() => navigate(`/admin/events/${id}/edit?step=${currentStep}`)}
                 leftIcon={<Pencil className="w-3.5 h-3.5" />}
                 className="bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
               >
@@ -686,7 +695,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/admin/events/${id}/view`)}
+                  onClick={() => navigate(`/admin/events/${id}/view?step=${currentStep}`)}
                   leftIcon={<Eye className="w-3.5 h-3.5" />}
                 >
                   View Mode
@@ -716,8 +725,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </span>
             </div>
             <button
-              onClick={() => navigate(`/admin/events/${id}/edit`)}
-              className="text-xs font-bold text-blue-700 dark:text-blue-300 underline hover:text-blue-900 dark:hover:text-blue-100 shrink-0"
+              onClick={() => navigate(`/admin/events/${id}/edit?step=${currentStep}`)}
+              className="text-xs font-bold text-blue-700 dark:text-blue-300 underline hover:text-blue-900 dark:hover:text-blue-100 shrink-0 cursor-pointer"
             >
               Click here to edit
             </button>
