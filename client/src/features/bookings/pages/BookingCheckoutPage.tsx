@@ -91,19 +91,24 @@ export const BookingCheckoutPage: React.FC = () => {
 
       // Step 1: Create atomic server booking
       const booking = await bookingService.createBooking({
-        stallId: stall.id,
+        stallIds: [stall.id],
         companyId: activeCompanyId,
+        paymentType: 'FullPayment',
+        percentage: 100,
       });
+
+      const bId = booking.bookingId || booking.id;
+      const bTotal = booking.amount || booking.grandTotal;
 
       // Step 2: Simulate Payment processing
       const paymentRes = await paymentService.processPayment({
-        bookingId: booking.id,
-        amount: Number(booking.grandTotal),
+        bookingId: bId,
+        amount: Number(bTotal),
         paymentMethod: 'CORPORATE_CARD',
       });
 
       // Step 3: Navigate to confirmation page
-      navigate(`/payment-success?bookingId=${booking.id}&paymentId=${paymentRes.id}`);
+      navigate(`/payment-success?bookingId=${bId}&paymentId=${paymentRes.id}`);
     } catch (err: any) {
       setErrorMsg(err.message || err.response?.data?.message || 'Payment processing failed.');
     } finally {
