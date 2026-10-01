@@ -86,33 +86,34 @@ export const ClientDashboardPage: React.FC = () => {
     <div className="space-y-8 pb-10">
       {/* 1. WELCOME HEADER BANNER (Shown only on first visit or after long absence) */}
       {showWelcomeBanner && (
-        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-slate-800 text-white rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden animate-in fade-in duration-200">
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs relative overflow-hidden transition-all">
+          {/* Subtle left accent bar */}
+          <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#1B37A0] dark:bg-blue-500" />
           
           <button
             type="button"
             onClick={dismissWelcomeBanner}
-            className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition-colors z-20"
+            className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full transition-colors z-20"
             title="Dismiss Welcome Message"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="relative z-10 max-w-3xl space-y-4">
+          <div className="relative z-10 max-w-3xl space-y-3.5 pl-2 sm:pl-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 font-bold text-xs rounded-full">
-                <Building className="w-3.5 h-3.5 text-blue-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-bold text-xs rounded-lg">
+                <Building className="w-3.5 h-3.5 text-[#1B37A0] dark:text-blue-400" />
                 {user?.company?.name || 'Buoyant Media Tech Solutions Pvt Ltd'}
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-semibold text-[11px] rounded-full">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> GST Verified
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-semibold text-[11px] rounded-lg">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> GST Verified
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Welcome back, {user?.name || 'Client User'}!
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+              Welcome back, <span className="text-[#1B37A0] dark:text-blue-400">{user?.name || 'Client User'}</span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl font-normal">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl font-medium">
               Track your active stall bookings, inspect payment installments, access official GST invoices, and manage your company profile.
             </p>
 
