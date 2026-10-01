@@ -13,6 +13,7 @@ export const validateRequest = (schema: ZodSchema) => {
           field: err.path.join('.'),
           message: err.message,
         }));
+        console.error('[VALIDATION ERROR]:', JSON.stringify(formattedErrors, null, 2));
         return next(ApiError.badRequest('Validation error', formattedErrors));
       }
       next(error);

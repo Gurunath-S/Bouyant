@@ -6,6 +6,7 @@ import { GST_STATE_CODES } from './utils/gstUtils.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { EmailService } from '../../services/email.service.js';
+import { generateTokens } from '../../utils/jwt.js';
 
 export class CompaniesService {
 
@@ -181,7 +182,10 @@ export class CompaniesService {
     }
 
     const cleanGst = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber.trim().toUpperCase() : null;
-    const cleanPan = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
+    let cleanPan = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
+    if (!cleanPan && cleanGst && cleanGst.length === 15) {
+      cleanPan = cleanGst.substring(2, 12);
+    }
     const normalizedEmail = input.email.trim().toLowerCase();
     const cleanMobile = input.mobile.trim();
 
@@ -198,7 +202,19 @@ export class CompaniesService {
       requestedUsername = await this.generateUniqueUsername(input.contactPerson || input.name);
     }
 
-    // 2. SMART CHECK: Check if Company already exists in database
+    // 2. SMART CHECK: Check if User or Company already exists in database
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { phone: cleanMobile },
+        ],
+      },
+      include: {
+        company: true,
+      },
+    });
+
     let existingCompany = cleanGst
       ? await prisma.company.findUnique({ where: { gstNumber: cleanGst } })
       : null;
@@ -207,78 +223,35 @@ export class CompaniesService {
       existingCompany = await prisma.company.findUnique({ where: { panNumber: cleanPan } });
     }
 
-    if (existingCompany) {
-      // Check if user with same email or phone exists
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: normalizedEmail },
-            { phone: cleanMobile },
-          ],
-        },
-      });
+    if (!existingCompany && existingUser?.company) {
+      existingCompany = existingUser.company;
+    }
 
-      // CASE 1: EXACT MATCH (Same GST and same Email or Phone) -> Reuse existing data, no duplication
-      if (existingUser && existingUser.companyId === existingCompany.id) {
-        if (requestedUsername && !existingUser.username) {
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: { username: requestedUsername },
-          });
-        }
-
-        return {
-          company: existingCompany,
-          user: existingUser,
-          temporaryPassword: null,
-        };
-      }
-
-      // CASE 2: Same Company (GST), but new Email or Phone -> Create new User under this Company
-      if (existingUser && existingUser.companyId !== existingCompany.id) {
-        throw ApiError.conflict('An account with this email is already registered with another corporate entity.');
-      }
-
-      const temporaryPassword = crypto.randomBytes(8).toString('base64url');
-      const passwordHash = await bcrypt.hash(temporaryPassword, 12);
-
-      const newUser = await prisma.user.create({
-        data: {
-          email: normalizedEmail,
-          username: requestedUsername,
-          passwordHash,
-          name: input.contactPerson,
-          phone: cleanMobile,
-          role: 'CLIENT',
-          companyId: existingCompany.id,
-        },
-      });
-
-      // Notify Admins about new representative under existing company
-      const admins = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'SUPERADMIN'] } },
-        select: { id: true },
-      });
-
-      if (admins.length > 0) {
-        await prisma.notification.createMany({
-          data: admins.map((admin) => ({
-            userId: admin.id,
-            title: 'New User Added to Company',
-            message: `New user ${input.contactPerson} (${normalizedEmail}) registered under company "${existingCompany!.name}".`,
-            type: 'INFO',
-          })),
+    // CASE 1: Re-use Existing User & Company
+    if (existingUser && existingCompany) {
+      if (requestedUsername && !existingUser.username) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { username: requestedUsername },
         });
       }
 
+      const tokens = generateTokens({
+        userId: existingUser.id,
+        email: existingUser.email,
+        role: existingUser.role,
+        companyId: existingCompany.id,
+      });
+
       return {
         company: existingCompany,
-        user: newUser,
-        temporaryPassword,
+        user: existingUser,
+        tokens,
+        temporaryPassword: null,
       };
     }
 
-    // 3. CASE 3: Completely New Company & User Registration
+    // 3. CASE 2: Create New Company or User safely
     let effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
       ? input.tanNumber.trim().toUpperCase()
       : null;
@@ -302,7 +275,7 @@ export class CompaniesService {
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
 
     const result = await prisma.$transaction(async (tx) => {
-      const company = await tx.company.create({
+      const company = existingCompany || await tx.company.create({
         data: {
           name: input.name,
           contactPerson: input.contactPerson,
@@ -325,7 +298,7 @@ export class CompaniesService {
         },
       });
 
-      const user = await tx.user.create({
+      const user = existingUser || await tx.user.create({
         data: {
           email: normalizedEmail,
           username: requestedUsername,
@@ -336,6 +309,13 @@ export class CompaniesService {
           companyId: company.id,
         },
       });
+
+      if (existingUser && !existingUser.companyId) {
+        await tx.user.update({
+          where: { id: existingUser.id },
+          data: { companyId: company.id },
+        });
+      }
 
       // Find associated exhibition for event-specific admin notification routing
       const targetExpo = await tx.exhibition.findFirst({
@@ -396,9 +376,17 @@ export class CompaniesService {
       customRecipients: result.targetExpo?.notificationEmails,
     }).catch((e) => console.error('Admin registration email alert error:', e));
 
+    const tokens = generateTokens({
+      userId: result.user.id,
+      email: result.user.email,
+      role: result.user.role,
+      companyId: result.company.id,
+    });
+
     return {
       company: result.company,
       user: result.user,
+      tokens,
       temporaryPassword: result.temporaryPassword,
     };
   }
