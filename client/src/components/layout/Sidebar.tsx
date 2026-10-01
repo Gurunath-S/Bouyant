@@ -58,6 +58,7 @@ export const Sidebar: React.FC = () => {
 
   const superAdminLinks = [
     { to: '/super-admin/dashboard', label: 'Platform Overview', icon: ShieldAlert },
+    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
     { to: '/super-admin/users', label: 'User Governance', icon: Users },
     { to: '/admin/events', label: 'Exhibitions & Floor Plans', icon: Layers },
     { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
@@ -68,6 +69,7 @@ export const Sidebar: React.FC = () => {
 
   const adminLinks = [
     { to: '/admin/dashboard', label: 'Admin Dashboard', icon: ShieldCheck },
+    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
     { to: '/admin/events', label: 'Manage Exhibitions', icon: Layers },
     { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
     { to: '/admin/bookings', label: 'Bookings & Allocations', icon: BookmarkCheck },
@@ -77,6 +79,7 @@ export const Sidebar: React.FC = () => {
 
   const staffLinks = [
     { to: '/staff/dashboard', label: 'Staff Dashboard', icon: LayoutDashboard },
+    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
     { to: '/staff/events', label: 'Exhibitions & Events', icon: Layers },
     { to: '/staff/events/register', label: 'Register New Event', icon: CalendarPlus },
     { to: '/reports', label: 'Operational Reports', icon: BarChart3 },
@@ -93,7 +96,7 @@ export const Sidebar: React.FC = () => {
     if (isSuperAdmin) return 'Platform Control';
     if (isAdmin) return 'Management Console';
     if (isStaff) return 'Field Operations';
-    return 'Client Dashboard';
+    return null;
   };
 
   return (
@@ -133,9 +136,11 @@ export const Sidebar: React.FC = () => {
               <span className="block text-xs font-black text-[#012970] dark:text-slate-100 tracking-wide truncate">
                 {getWorkspaceTitle()}
               </span>
-              <span className="block text-[10px] text-slate-400 font-medium truncate">
-                {getWorkspaceSubtitle()}
-              </span>
+              {getWorkspaceSubtitle() && (
+                <span className="block text-[10px] text-slate-400 font-medium truncate">
+                  {getWorkspaceSubtitle()}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -255,9 +260,6 @@ export const Sidebar: React.FC = () => {
         {!isCollapsed ? (
           <>
             <span className="font-semibold text-[#012970] dark:text-slate-300">© 2026 Buoyant</span>
-            <span className="font-mono text-[10px] bg-[#9cc542]/20 text-[#012970] dark:text-slate-200 font-bold px-1.5 py-0.5 rounded">
-              v2.5.0
-            </span>
           </>
         ) : (
           <span className="font-mono text-[10px] text-slate-400">v2.5</span>

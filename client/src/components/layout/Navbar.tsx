@@ -113,7 +113,7 @@ export const Navbar: React.FC = () => {
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   {getRoleLabel()}
                 </span>
-                {user?.spcode && (
+                {user?.spcode && user?.role !== 'CLIENT' && (
                   <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded font-mono text-[9px] font-bold shadow-xs">
                     {user.spcode}
                   </span>
@@ -130,10 +130,12 @@ export const Navbar: React.FC = () => {
                 <p className="font-bold text-slate-900 dark:text-slate-100">{user?.name}</p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                 <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className={`inline-block px-1.5 py-0.5 font-semibold text-[10px] rounded border ${getRoleBadgeStyle()}`}>
-                    {user?.role}
-                  </span>
-                  {user?.spcode && (
+                  {user?.role !== 'CLIENT' && (
+                    <span className={`inline-block px-1.5 py-0.5 font-semibold text-[10px] rounded border ${getRoleBadgeStyle()}`}>
+                      {user?.role}
+                    </span>
+                  )}
+                  {user?.spcode && user?.role !== 'CLIENT' && (
                     <span className="inline-block px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-mono font-bold text-[10px] rounded">
                       SP: {user.spcode}
                     </span>

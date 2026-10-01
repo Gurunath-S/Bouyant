@@ -41,6 +41,8 @@ import { StaffEventsPage } from '../features/staff/pages/StaffEventsPage';
 import { ReportsPage } from '../features/reports/pages/ReportsPage';
 import { ScrollToTop } from '../components/common/ScrollToTop';
 
+import { useAuthStore } from '../stores/authStore';
+
 const DashboardLayout = () => {
   return (
     <div className="min-h-screen bg-[#f6f9ff] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between font-sans transition-colors duration-200">
@@ -58,6 +60,12 @@ const DashboardLayout = () => {
 };
 
 const PublicLayout = () => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (isAuthenticated && user) {
+    return <DashboardLayout />;
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 flex flex-col justify-between font-sans selection:bg-[#0E8074] selection:text-white transition-colors duration-200">
       <ScrollToTop />
