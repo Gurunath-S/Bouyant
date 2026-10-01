@@ -36,15 +36,14 @@ interface CreateBookingApiResponse {
 }
 
 export const bookingService = {
- createBooking: async (
-  payload: CreateBookingPayload
-): Promise<CreateBookingResponse> => {
-
-   const response = await apiClient.post<CreateBookingApiResponse>(
-    '/bookings',
-     payload
-   );
-   return response.data.data;
+  createBooking: async (
+    payload: CreateBookingPayload | AdminBookingPayload
+  ): Promise<any> => {
+    const response = await apiClient.post<any>(
+      '/bookings',
+      payload
+    );
+    return response.data?.data || response.data || response;
   },
 
   getMyBookings: async (): Promise<Booking[]> => {
