@@ -8,6 +8,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
+import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import {
   Lock,
   Mail,
@@ -76,21 +77,8 @@ export const LoginPage: React.FC = () => {
         }}
       />
 
-      {/* Top Header Bar */}
-      <header className="relative z-10 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-3.5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain dark:brightness-0 dark:invert" />
-          </Link>
-
-          <Link
-            to="/"
-            className="text-xs font-bold text-[#1E3FA0] hover:text-[#152B75] dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 transition-all bg-[#EEF4FC] dark:bg-slate-800 px-4 py-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 hover:shadow-xs"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
-          </Link>
-        </div>
-      </header>
+      {/* Shared Unified Navbar */}
+      <PublicNavbar />
 
       {/* Main Content Body */}
       <main className="relative z-10 flex-1 max-w-[1600px] w-full mx-auto px-6 lg:px-12 py-6 sm:py-10 flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-14">
