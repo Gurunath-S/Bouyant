@@ -119,6 +119,19 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   const watchedContactPerson = watch('contactPerson');
   const watchedName = watch('name');
   const watchedUsername = watch('username');
+  const watchedGstNumber = watch('gstNumber');
+  const verifiedGstRef = React.useRef<string>('');
+
+  // Automatically reset GST verified status if user modifies the GST number input
+  React.useEffect(() => {
+    const currentGst = (watchedGstNumber || '').trim().toUpperCase();
+    if (gstVerificationSuccess && verifiedGstRef.current && currentGst !== verifiedGstRef.current) {
+      setGstVerificationSuccess(false);
+      setGstVerifiedDetails(null);
+      setGstNotice('');
+      setGstError('');
+    }
+  }, [watchedGstNumber, gstVerificationSuccess]);
 
   // Debounced check for username availability
   React.useEffect(() => {
@@ -221,6 +234,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       if (res && res.gstVerified) {
         setGstVerificationSuccess(true);
         setGstVerifiedDetails(res.gstDetails);
+        verifiedGstRef.current = cleanGst;
 
         if (res.companyExists && res.existingCompany) {
           const comp = res.existingCompany;
@@ -386,17 +400,21 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   placeholder="e.g. 27AAACT1029F1Z5"
                   maxLength={15}
                   {...register('gstNumber')}
-                  className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs"
+                  className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs h-9"
                 />
                 <Button
                   type="button"
                   size="sm"
                   onClick={() => handleVerifyGst()}
                   isLoading={isVerifyingGst}
-                  className="bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0"
+                  leftIcon={gstVerificationSuccess ? <CheckCircle2 className="w-4 h-4 text-white" /> : <ShieldCheck className="w-4 h-4 text-white" />}
+                  className={
+                    gstVerificationSuccess
+                      ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs shrink-0 h-9 px-3.5 shadow-sm border border-emerald-600 transition-colors"
+                      : "bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0 h-9 px-3.5 shadow-sm transition-colors"
+                  }
                 >
-                  <Check className="w-3.5 h-3.5 mr-1" />
-                  Verify GST
+                  {gstVerificationSuccess ? 'GST Verified' : 'Verify GST'}
                 </Button>
               </div>
             </div>
