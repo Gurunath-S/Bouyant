@@ -400,7 +400,7 @@ export class BookingsService {
 
     let paymentBaseAmount = basePrice;
 
-    if (input.paymentType === 'Partial') {
+    if (input.paymentType === 'PARTIAL') {
       if (input.percentage === undefined) {
         throw ApiError.badRequest(
           'Percentage is required for partial payment.'
@@ -732,17 +732,27 @@ static async createBooking(
   // 2. Validate company
   // ==================================================
 
-  const company = await prisma.company.findUnique({
+	  const company = await prisma.company.findUnique({
     where: {
       id: input.companyId,
     },
   });
 
-  if (!company) {
+	  if (!company) {
     throw ApiError.badRequest(
       'Company not found. Please complete your Company Profile before making a stall booking.'
     );
-  }
+	  }
+
+	  const isPrivilegedUser = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role ?? '');
+
+	  if (!user) {
+	    throw ApiError.unauthorized('Please log in before creating a booking.');
+	  }
+
+	  if (!isPrivilegedUser && user.companyId !== input.companyId) {
+	    throw ApiError.forbidden('You can only create bookings for your own company.');
+	  }
 
   // ==================================================
   // 3. Get selected stalls
@@ -780,28 +790,23 @@ static async createBooking(
   // ==================================================
   // 5. Validate stall status
   //
-  // TESTING FLOW:
-  //
-  // AVAILABLE          -> allow
-  // TEMPORARILY_HELD    -> allow
-  //
-  // BLOCKED:
-  // ADMIN/SUPERADMIN/STAFF -> allow
-  // NORMAL USER            -> reject
+	  // AVAILABLE          -> allow
+	  // TEMPORARILY_HELD   -> allow only for the same user
+	  // BLOCKED:
+	  // ADMIN/SUPERADMIN/STAFF -> allow
+	  // NORMAL USER            -> reject
   // ==================================================
 
-  const canBookBlockedStalls = [
-    'ADMIN',
-    'SUPERADMIN',
-    'STAFF',
-  ].includes(user?.role ?? '');
+	  const canBookBlockedStalls = isPrivilegedUser;
 
   for (const stall of stalls) {
     const isAvailable = stall.status === StallStatus.AVAILABLE;
-    const isPaymentPending = stall.status === StallStatus.TEMPORARILY_HELD;
+    const isHeldByUser =
+      stall.status === StallStatus.TEMPORARILY_HELD &&
+      stall.heldByUserId === user.userId;
     const isBlocked = stall.status === StallStatus.BLOCKED;
 
-    if (isAvailable || isPaymentPending) {
+    if (isAvailable || isHeldByUser) {
       continue;
     }
 
@@ -834,20 +839,14 @@ static async createBooking(
     .substring(0, 10)
     .toUpperCase()}`;
 
-  // ==================================================
-  // 8. Existing hold timer
-  //
-  // IMPORTANT:
-  // For this testing version we are NOT creating a
-  // new Redis hold here.
-  //
-  // If stall is already PAYMENT_PENDING, we keep it.
-  // ==================================================
+	  // ==================================================
+	  // 8. Existing hold timer
+	  // ==================================================
 
-  const existingPaymentPendingStall =
-    stalls.find(
+	  const existingPaymentPendingStall = stalls.find(
       (stall) =>
-        stall.status === StallStatus.TEMPORARILY_HELD
+        stall.status === StallStatus.TEMPORARILY_HELD &&
+        stall.heldByUserId === user.userId
     );
 
   const holdUntil =
@@ -911,10 +910,12 @@ static async createBooking(
 
         for (const stall of currentStalls) {
           const isAvailable = stall.status === StallStatus.AVAILABLE;
-          const isPaymentPending = stall.status === StallStatus.TEMPORARILY_HELD;
+          const isHeldByUser =
+            stall.status === StallStatus.TEMPORARILY_HELD &&
+            stall.heldByUserId === user.userId;
           const isBlocked = stall.status === StallStatus.BLOCKED;
 
-          if (isAvailable || isPaymentPending) {
+          if (isAvailable || isHeldByUser) {
             continue;
           }
 
@@ -928,17 +929,34 @@ static async createBooking(
         }
 
         // ----------------------------------------------
-        // IMPORTANT:
-        //
-        // We are NOT changing the stall to
-        // PAYMENT_PENDING again here.
-        //
-        // The stall is already PAYMENT_PENDING
-        // from your previous flow.
-        //
-        // For testing, we only make sure the stall
-        // is in an acceptable state.
+        // Atomically claim stalls for the payment window
         // ----------------------------------------------
+        const stallUpdate = await tx.stall.updateMany({
+          where: {
+            id: {
+              in: input.stallIds,
+            },
+	            OR: [
+	              { status: StallStatus.AVAILABLE },
+	              {
+	                status: StallStatus.TEMPORARILY_HELD,
+	                heldByUserId: user.userId,
+	              },
+	              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
+	            ],
+          },
+          data: {
+            status: StallStatus.PAYMENT_PENDING,
+            heldUntil: holdUntil,
+            heldByUserId: user.userId,
+          },
+        });
+
+        if (stallUpdate.count !== input.stallIds.length) {
+          throw ApiError.conflict(
+            'One or more selected stalls were reserved by another user. Please refresh and choose available stalls.'
+          );
+        }
 
         // ----------------------------------------------
         // Create Booking
@@ -1163,7 +1181,11 @@ static async createBooking(
 }
 
 
-  static async getUserBookings(companyId: string) {
+  static async getUserBookings(companyId?: string | null) {
+    if (!companyId) {
+      return [];
+    }
+
     return await prisma.booking.findMany({
       where: { companyId},
       orderBy: { createdAt: 'desc' },
@@ -1177,7 +1199,7 @@ static async createBooking(
     });
   }
 
-  static async getBookingById(bookingId: string, userId?: string) {
+  static async getBookingById(bookingId: string, companyId?: string | null) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -1191,9 +1213,9 @@ static async createBooking(
     });
 
     if (!booking) throw ApiError.notFound('Booking record not found.');
-    // if (userId && booking.userId !== userId) {
-    //   throw ApiError.forbidden('Not authorized to access this booking record.');
-    // }
+    if (companyId && booking.companyId !== companyId) {
+      throw ApiError.forbidden('Not authorized to access this booking record.');
+    }
 
     return booking;
   }
@@ -1211,9 +1233,9 @@ static async createBooking(
     if (exhibitionId) where.exhibitionId = exhibitionId;
     if (registeredByRole) {
       if (registeredByRole === 'ADMIN') {
-        where.user = { role: { in: ['ADMIN', 'SUPERADMIN'] } };
+        where.company = { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } };
       } else {
-        where.user = { role: registeredByRole };
+        where.company = { users: { some: { role: registeredByRole } } };
       }
     }
 

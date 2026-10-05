@@ -6,6 +6,7 @@ import {Prisma} from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
+import { TokenPayload } from '../../utils/jwt.js';
 
 export class PaymentsService {
   /**
@@ -222,15 +223,28 @@ export class PaymentsService {
         // Get booking
         // -----------------------------------------------------
 
-        const booking =
-          await tx.booking.findUnique({
-            where: {
-              id: currentPayment.bookingId,
-            },
-            include: {
-              stalls: true,
-            },
-          });
+	      const booking =
+	        await tx.booking.findUnique({
+	          where: {
+	            id: currentPayment.bookingId,
+	          },
+	          include: {
+	            company: {
+	              include: {
+	                users: {
+	                  select: {
+	                    id: true,
+	                  },
+	                },
+	              },
+	            },
+	            stalls: {
+	              include: {
+	                stall: true,
+	              },
+	            },
+	          },
+	        });
 
         if (!booking) {
           throw ApiError.notFound(
@@ -364,11 +378,24 @@ export class PaymentsService {
         await tx.booking.findUnique({
           where: {
             id: currentPayment.bookingId,
-          },
-          include: {
-            stalls: true,
-          },
-        });
+	          },
+	          include: {
+	            company: {
+	              include: {
+	                users: {
+	                  select: {
+	                    id: true,
+	                  },
+	                },
+	              },
+	            },
+	            stalls: {
+	              include: {
+	                stall: true,
+	              },
+	            },
+	          },
+	        });
 
       if (!booking) {
         throw ApiError.notFound(
@@ -380,36 +407,57 @@ export class PaymentsService {
       // BOOKING STATE VALIDATION
       // =====================================================
 
-      if (booking.status !== 'PENDING_PAYMENT') {
-        throw ApiError.conflict(
-          `Booking cannot be completed because its current status is ${booking.status}.`
-        );
-      }
+	      if (booking.status !== 'PENDING_PAYMENT') {
+	        throw ApiError.conflict(
+	          `Booking cannot be completed because its current status is ${booking.status}.`
+	        );
+	      }
 
-      // =====================================================
-      // BOOKING EXPIRY CHECK
-      // =====================================================
+	      if (
+	        booking.paymentStatus === 'UNPAID' &&
+	        booking.expiresAt &&
+	        booking.expiresAt <= new Date()
+	      ) {
+	        await tx.booking.update({
+	          where: {
+	            id: booking.id,
+	          },
+	          data: {
+	            status: 'EXPIRED',
+	          },
+	        });
 
-     
+	        throw ApiError.badRequest(
+	          'This booking hold has expired. Please create a new booking.'
+	        );
+	      }
 
-      // =====================================================
-      // VERIFY BOOKING HAS STALLS
-      // =====================================================
+	      const stallIds =
+	        booking.stalls.map(
+	          (item) => item.stallId
+	        );
 
+	      if (booking.paymentStatus === 'UNPAID') {
+	        const companyUserIds = new Set(
+	          booking.company.users.map((companyUser) => companyUser.id)
+	        );
+	        const invalidHeldStall = booking.stalls.find(
+	          (item) =>
+	            !['TEMPORARILY_HELD', 'PAYMENT_PENDING'].includes(item.stall.status) ||
+	            !item.stall.heldByUserId ||
+	            !companyUserIds.has(item.stall.heldByUserId)
+	        );
 
-      const stallIds =
-        booking.stalls.map(
-          (item) => item.stallId
-        );
+	        if (invalidHeldStall) {
+	          throw ApiError.conflict(
+	            'One or more stalls are no longer held for this booking.'
+	          );
+	        }
+	      }
 
-      // =====================================================
-      // VERIFY ALL STALLS ARE STILL HELD
-      // =====================================================
-
-  
-      // =====================================================
-      // CALCULATE BALANCE
-      // =====================================================
+	      // =====================================================
+	      // CALCULATE BALANCE
+	      // =====================================================
 
       const paymentAmount =
         new Prisma.Decimal(
@@ -497,45 +545,34 @@ export class PaymentsService {
         },
       });
 
-      // =====================================================
-      // FULL PAYMENT → CONFIRM ALL STALLS
-      // =====================================================
+	      // =====================================================
+	      // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
+	      // =====================================================
 
-      if (bookingIsFullyPaid) {
-        const stallUpdate =
-          await tx.stall.updateMany({
-            where: {
-              id: {
-                in: stallIds,
-              },
-              status: 'TEMPORARILY_HELD',
+	      if (booking.paymentStatus === 'UNPAID') {
+	        const stallUpdate =
+	          await tx.stall.updateMany({
+	            where: {
+	              id: {
+	                in: stallIds,
+	              },
+	              status: {
+	                in: ['AVAILABLE', 'TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BLOCKED'],
+	              },
+	            },
+	            data: {
+	              status: 'BOOKED_CONFIRMED',
+	              heldUntil: null,
+	              heldByUserId: null,
+	            },
+	          });
 
-              // If you add heldByBookingId:
-              //
-              // heldByBookingId: booking.id,
-            },
-            data: {
-              status: 'BOOKED_CONFIRMED',
-              heldUntil: null,
-
-              // If you add heldByBookingId:
-              //
-              // heldByBookingId: null,
-            },
-          });
-
-        // VERY IMPORTANT:
-        // Every stall belonging to this booking
-        // must be confirmed.
-        if (
-          stallUpdate.count !==
-          stallIds.length
-        ) {
-          throw ApiError.conflict(
-            'One or more stalls could not be confirmed.'
-          );
-        }
-      }
+	        if (stallUpdate.count !== stallIds.length) {
+	          throw ApiError.conflict(
+	            'One or more stalls could not be confirmed.'
+	          );
+	        }
+	      }
 
       // =====================================================
       // RESPONSE
@@ -583,7 +620,8 @@ export class PaymentsService {
 }
 
 static async createBalancePaymentOrder(
-  bookingId: string
+  bookingId: string,
+  user?: TokenPayload
 ) {
   // -----------------------------------------
   // 1. Validate bookingId
@@ -619,6 +657,20 @@ static async createBalancePaymentOrder(
     throw ApiError.notFound(
       'Booking not found.'
     );
+  }
+
+  const canManagePayments = [
+    'ADMIN',
+    'SUPERADMIN',
+    'STAFF',
+  ].includes(user?.role ?? '');
+
+  if (!user) {
+    throw ApiError.unauthorized('Authentication is required to create a balance payment order.');
+  }
+
+  if (!canManagePayments && booking.companyId !== user.companyId) {
+    throw ApiError.forbidden('You can only pay the balance for your own booking.');
   }
 
   // -----------------------------------------

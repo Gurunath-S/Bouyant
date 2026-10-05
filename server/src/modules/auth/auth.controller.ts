@@ -4,13 +4,22 @@ import { sendResponse } from '../../utils/response.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 
 export class AuthController {
+  private static cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+  };
+
   static register = async (req: Request, res: Response) => {
     const { user, tokens } = await AuthService.register(req.body);
 
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      ...AuthController.cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.cookie('refreshToken', tokens.refreshToken, {
+      ...AuthController.cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return sendResponse({
@@ -36,9 +45,12 @@ export class AuthController {
     const { user, tokens } = await AuthService.login(req.body);
 
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      ...AuthController.cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.cookie('refreshToken', tokens.refreshToken, {
+      ...AuthController.cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return sendResponse({
@@ -54,9 +66,12 @@ export class AuthController {
     const tokens = await AuthService.refreshSession(refreshToken);
 
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      ...AuthController.cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.cookie('refreshToken', tokens.refreshToken, {
+      ...AuthController.cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return sendResponse({

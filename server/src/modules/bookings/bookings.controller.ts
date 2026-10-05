@@ -18,7 +18,7 @@ export class BookingsController {
   };
 
   static myBookings = async (req: AuthenticatedRequest, res: Response) => {
-    const bookings = await BookingsService.getUserBookings(req.user!.userId);
+    const bookings = await BookingsService.getUserBookings(req.user!.companyId);
     return sendResponse({
       res,
       statusCode: 200,
@@ -31,7 +31,7 @@ export class BookingsController {
     const isClient = req.user!.role === 'CLIENT';
     const booking = await BookingsService.getBookingById(
       req.params.id,
-      isClient ? req.user!.userId : undefined
+      isClient ? req.user!.companyId : undefined
     );
 
     return sendResponse({

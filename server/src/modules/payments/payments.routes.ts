@@ -8,7 +8,7 @@ import { Permissions } from '../../config/permissions.js';
 const router = Router();
 
 router.post('/verify', asyncHandler(PaymentsController.verifyPayment));
-router.post('/balance/:bookingId',asyncHandler(PaymentsController.balancePayment));
+router.post('/balance/:bookingId', authenticateToken, asyncHandler(PaymentsController.balancePayment));
 router.use(authenticateToken);
 
 router.get('/', requirePermission(Permissions.PAYMENT_MANAGE), asyncHandler(PaymentsController.listAll));

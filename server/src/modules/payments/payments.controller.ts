@@ -17,15 +17,16 @@ export class PaymentsController {
   };
 
    static async balancePayment(
-  req: Request,
-  res: Response
-) {
-  const { bookingId } = req.params;
+	  req: AuthenticatedRequest,
+	  res: Response
+	) {
+	  const { bookingId } = req.params;
 
-  const result =
-    await PaymentsService.createBalancePaymentOrder(
-      bookingId
-    );
+	  const result =
+	    await PaymentsService.createBalancePaymentOrder(
+	      bookingId,
+        req.user
+	    );
 
   res.status(201).json({
     success: true,
