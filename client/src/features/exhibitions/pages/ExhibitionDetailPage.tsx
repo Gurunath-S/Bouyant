@@ -71,6 +71,15 @@ export const ExhibitionDetailPage: React.FC = () => {
     return '';
   }, [exhibition]);
 
+  const lowestStallPrice = React.useMemo(() => {
+    if (!stalls || stalls.length === 0) return null;
+    const validPrices = stalls
+      .map((s) => Number(s.price))
+      .filter((p) => !isNaN(p) && p > 0);
+    if (validPrices.length === 0) return null;
+    return Math.min(...validPrices);
+  }, [stalls]);
+
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
   useEffect(() => {
@@ -579,9 +588,18 @@ export const ExhibitionDetailPage: React.FC = () => {
           {/* Register Card */}
           <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 shadow-md space-y-6">
             {/* Price Row */}
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#121B3D] dark:text-slate-100 font-sora">₹499</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">per attendee / stall booking available</span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-[#121B3D] dark:text-slate-100 font-sora">
+                  {lowestStallPrice !== null ? `₹${lowestStallPrice.toLocaleString('en-IN')}` : 'Stalls Available'}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {lowestStallPrice !== null ? 'starting stall price' : 'for booking'}
+                </span>
+              </div>
+              <p className="text-[11px] text-[#09539b] dark:text-blue-400 font-semibold">
+                Lowest available booth rate for this exhibition
+              </p>
             </div>
 
             {/* LIVE EVENT COUNTDOWN TIMER */}
