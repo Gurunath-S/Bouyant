@@ -37,11 +37,17 @@ interface CreateBookingApiResponse {
 
 export const bookingService = {
   createBooking: async (
-    payload: CreateBookingPayload | AdminBookingPayload
+    payload: CreateBookingPayload | AdminBookingPayload,
+    options?: { token?: string }
   ): Promise<any> => {
+    const config: any = {};
+    if (options?.token) {
+      config.headers = { Authorization: `Bearer ${options.token}` };
+    }
     const response = await apiClient.post<any>(
       '/bookings',
-      payload
+      payload,
+      config
     );
     return response.data?.data || response.data || response;
   },

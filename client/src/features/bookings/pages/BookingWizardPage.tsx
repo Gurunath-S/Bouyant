@@ -235,9 +235,8 @@ export const BookingWizardPage: React.FC = () => {
         setCompanies((prev) => [...prev.filter((c) => c.id !== createdComp.id), createdComp]);
         setSelectedCompany(createdComp);
 
-        if (createdUser) {
-          setPendingUserAuth({
-            user: {
+	        if (createdUser) {
+            const authenticatedUser = {
               id: createdUser.id,
               email: createdUser.email,
               username: createdUser.username,
@@ -247,10 +246,13 @@ export const BookingWizardPage: React.FC = () => {
               companyId: createdComp.id,
               company: createdComp,
               createdAt: createdUser.createdAt || new Date().toISOString(),
-            },
-            tokens: tokens,
-          });
-        }
+            };
+
+	          setPendingUserAuth({
+	            user: authenticatedUser,
+	            tokens: tokens,
+	          });
+	        }
         if (tempPass) {
           setGeneratedOTP(tempPass);
         }
@@ -272,12 +274,19 @@ export const BookingWizardPage: React.FC = () => {
     try {
       setLoading(true);
 
-      const response = await bookingService.createBooking(payload);
+      const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+      const response = await bookingService.createBooking(
+        payload,
+        tokenToUse ? { token: tokenToUse } : undefined
+      );
       if (!response || !response.razorpayOrderId) {
         throw new Error('Failed to generate Razorpay payment order from backend.');
       }
 
-      const keyId = response.razorpayKeyId || 'rzp_test_ThoMbxHjNbMlJa';
+	      const keyId = response.razorpayKeyId;
+	      if (!keyId) {
+	        throw new Error('Payment gateway key is missing from backend response.');
+	      }
       setRazorpayOrderInfo({
         razorpayOrderId: response.razorpayOrderId,
         razorpayKeyId: keyId,
@@ -312,8 +321,15 @@ export const BookingWizardPage: React.FC = () => {
         exhibition: exhibition || undefined,
       };
 
-      setCreatedBooking(realBooking as Booking);
-      setCurrentStep(4);
+	      setCreatedBooking(realBooking as Booking);
+
+      // Directly launch Razorpay Gateway Modal from Step 3
+      await executeRazorpayGateway(realBooking as Booking, {
+        razorpayOrderId: response.razorpayOrderId,
+        razorpayKeyId: keyId,
+        amount: response.amount,
+        currency: response.currency || 'INR',
+      });
     } catch (err: any) {
       console.error('Booking order creation error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Booking order initialization failed.';
@@ -323,44 +339,27 @@ export const BookingWizardPage: React.FC = () => {
     }
   };
 
-  // Step 4 -> Step 5 (Razorpay Checkout Trigger)
-  const handleExecuteRazorpayPayment = async (shouldFail = false) => {
-    if (!createdBooking) {
-      alert('No active booking found. Please complete the booking wizard step.');
-      return;
-    }
-
-    if (shouldFail) {
-      setCurrentStep(5);
-      setPaymentStatusState('FAILED');
-      setPaymentErrorMessage('Razorpay Transaction Declined: Card Authorization Failure (Code: RZP_PAY_DECLINED).');
-      return;
-    }
-
+  // Launch Razorpay Payment Gateway directly
+  const executeRazorpayGateway = async (booking: Booking, orderInfo: any) => {
     // Ensure Razorpay SDK script is loaded
     if (typeof (window as any).Razorpay === 'undefined') {
       alert('Razorpay SDK is loading. Please check your internet connection or try again in a moment.');
       return;
     }
 
-    if (!razorpayOrderInfo || !razorpayOrderInfo.razorpayOrderId) {
-      alert('Razorpay payment order was not initialized. Please go back to Step 3 and click Proceed to Payment.');
-      return;
-    }
-
     const options: any = {
-      key: razorpayOrderInfo.razorpayKeyId || 'rzp_test_ThoMbxHjNbMlJa',
-      amount: razorpayOrderInfo.amount,
-      currency: razorpayOrderInfo.currency || 'INR',
+	      key: orderInfo.razorpayKeyId,
+      amount: orderInfo.amount,
+      currency: orderInfo.currency || 'INR',
       name: 'Buoyant Media',
-      description: `Stall Reservation Booking — Ref: ${createdBooking.bookingReference}`,
-      order_id: razorpayOrderInfo.razorpayOrderId,
+      description: `Stall Reservation Booking — Ref: ${booking.bookingReference}`,
+      order_id: orderInfo.razorpayOrderId,
       handler: async function (paymentResponse: any) {
         setPaymentStatusState('PROCESSING');
-        setCurrentStep(5);
+        setCurrentStep(4); // Move to Confirmation & Pass view
 
         try {
-          if (createdBooking.id && !createdBooking.id.startsWith('bkg_') && paymentResponse.razorpay_signature) {
+          if (booking.id && !booking.id.startsWith('bkg_') && paymentResponse.razorpay_signature) {
             await paymentService.verifyPayment({
               razorpay_order_id: paymentResponse.razorpay_order_id,
               razorpay_payment_id: paymentResponse.razorpay_payment_id,
@@ -412,16 +411,6 @@ export const BookingWizardPage: React.FC = () => {
       alert('Unable to launch Razorpay popup: ' + err.message);
     }
   };
-
-  // Auto-launch Razorpay Payment Gateway popup by default upon reaching Step 4
-  useEffect(() => {
-    if (currentStep === 4 && createdBooking) {
-      const timer = setTimeout(() => {
-        handleExecuteRazorpayPayment(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [currentStep, createdBooking]);
 
   if (loading) {
     return (
@@ -480,54 +469,54 @@ export const BookingWizardPage: React.FC = () => {
 
           </div>
 
-          {/* Stepper Tabs */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs font-extrabold text-slate-600 dark:text-slate-300 shadow-2xs overflow-x-auto gap-2">
-            {[
-              { num: 1, label: 'Stall Selection' },
-              { num: 2, label: 'Company Details' },
-              { num: 3, label: 'Tax Audit & Bill' },
-              { num: 4, label: 'Razorpay Payment' },
-              { num: 5, label: 'Pass & Credentials' },
-            ].map((step, idx, arr) => {
-              const isCompleted = currentStep > step.num;
-              const isCurrent = currentStep === step.num;
-              return (
-                <React.Fragment key={step.num}>
-                  <div
-                    className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
-                      isCurrent
-                        ? 'text-[#09539b] dark:text-blue-400'
-                        : isCompleted
-                        ? 'text-emerald-700 dark:text-emerald-400'
-                        : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
-                        isCompleted
-                          ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
-                          : isCurrent
-                          ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20 dark:ring-blue-400/30'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+          {/* Stepper Tabs (Active during wizard steps 1, 2, & 3) */}
+          {currentStep <= 3 && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs font-extrabold text-slate-600 dark:text-slate-300 shadow-2xs overflow-x-auto gap-2">
+              {[
+                { num: 1, label: 'Stall Selection' },
+                { num: 2, label: 'Company Details' },
+                { num: 3, label: 'Review & Pay' },
+              ].map((step, idx, arr) => {
+                const isCompleted = currentStep > step.num;
+                const isCurrent = currentStep === step.num;
+                return (
+                  <React.Fragment key={step.num}>
+                    <div
+                      className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
+                        isCurrent
+                          ? 'text-[#09539b] dark:text-blue-400'
+                          : isCompleted
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-slate-400 dark:text-slate-500'
                       }`}
                     >
-                      {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.num}
-                    </span>
-                    <span>{step.label}</span>
-                  </div>
-                  {idx < arr.length - 1 && (
-                    <div
-                      className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
-                        currentStep > step.num
-                          ? 'bg-[#9cc542]'
-                          : 'bg-slate-200 dark:bg-slate-800'
-                      }`}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
+                          isCompleted
+                            ? 'bg-[#9cc542] text-[#012970] shadow-2xs'
+                            : isCurrent
+                            ? 'bg-[#09539b] text-white shadow-2xs ring-2 ring-[#09539b]/20 dark:ring-blue-400/30'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.num}
+                      </span>
+                      <span>{step.label}</span>
+                    </div>
+                    {idx < arr.length - 1 && (
+                      <div
+                        className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
+                          currentStep > step.num
+                            ? 'bg-[#9cc542]'
+                            : 'bg-slate-200 dark:bg-slate-800'
+                        }`}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -567,7 +556,7 @@ export const BookingWizardPage: React.FC = () => {
         />
       )}
 
-      {/* STEP 3: TAX AUDIT & BILL */}
+      {/* STEP 3: REVIEW & PAY */}
       {currentStep === 3 && (
         <Step3TaxAuditBill
           user={user}
@@ -585,22 +574,8 @@ export const BookingWizardPage: React.FC = () => {
         />
       )}
 
-      {/* STEP 4: PAYMENT CHECKOUT */}
-      {currentStep === 4 && createdBooking && (
-        <Step4PaymentCheckout
-          booking={createdBooking}
-          paymentType={paymentType}
-          payableToday={payableToday}
-          remainingBalance={remainingBalance}
-          effectivePartialPercent={effectivePartialPercent}
-          formattedDeadline={formattedDeadline}
-          onExecutePayment={handleExecuteRazorpayPayment}
-          onBack={() => setCurrentStep(3)}
-        />
-      )}
-
-      {/* STEP 5: PASS & CREDENTIALS */}
-      {currentStep === 5 && (
+      {/* STEP 4: BOOKING CONFIRMATION & PASS RECEIPT */}
+      {currentStep === 4 && (
         <Step5PassCredentials
           paymentStatus={paymentStatusState}
           paymentErrorMessage={paymentErrorMessage}
@@ -610,7 +585,7 @@ export const BookingWizardPage: React.FC = () => {
           exhibition={exhibition}
           user={user}
           generatedOTP={generatedOTP}
-          onRetryPayment={() => setCurrentStep(4)}
+          onRetryPayment={() => setCurrentStep(3)}
         />
       )}
 
