@@ -527,13 +527,15 @@ export class PaymentsService {
       // UPDATE BOOKING
       // =====================================================
 
+      const newPaidAmount = new Prisma.Decimal(booking.paidAmount?.toString() || '0').add(paymentAmount);
+
       await tx.booking.update({
         where: {
           id: booking.id,
         },
         data: {
-          balanceAmount:
-            finalBalance,
+          paidAmount: newPaidAmount,
+          balanceAmount: finalBalance,
           status:
             bookingIsFullyPaid
               ? 'CONFIRMED'

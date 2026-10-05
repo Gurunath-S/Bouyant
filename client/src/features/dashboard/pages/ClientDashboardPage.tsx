@@ -71,15 +71,35 @@ export const ClientDashboardPage: React.FC = () => {
 
   // Derived financial metrics
   const totalPaid = useMemo(() => {
-    return myBookings.reduce((acc, b) => acc + Number(b.paidAmount || 0), 0);
+    return myBookings.reduce((acc, b) => {
+      const paid = Number(b.paidAmount);
+      if (!isNaN(paid) && paid > 0) return acc + paid;
+      if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' || b.status === 'CONFIRMED') {
+        return acc + Number(b.grandTotal || b.totalAmount || 0);
+      }
+      return acc;
+    }, 0);
   }, [myBookings]);
 
   const totalBalanceDue = useMemo(() => {
-    return myBookings.reduce((acc, b) => acc + Number(b.balanceAmount || 0), 0);
+    return myBookings.reduce((acc, b) => {
+      if (b.status === 'EXPIRED' || b.status === 'CANCELLED') return acc;
+      const balance = Number(b.balanceAmount);
+      if (!isNaN(balance) && balance >= 0) {
+        if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' || b.status === 'CONFIRMED') {
+          return acc;
+        }
+        return acc + balance;
+      }
+      if (b.paymentStatus === 'UNPAID' || b.status === 'PENDING_PAYMENT') {
+        return acc + Number(b.grandTotal || b.totalAmount || 0);
+      }
+      return acc;
+    }, 0);
   }, [myBookings]);
 
   const confirmedBookingsCount = useMemo(() => {
-    return myBookings.filter((b) => b.status === 'CONFIRMED' || b.paymentStatus === 'PAID').length;
+    return myBookings.filter((b) => b.status === 'CONFIRMED' || b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL').length;
   }, [myBookings]);
 
   return (
