@@ -79,6 +79,10 @@ export class UsersService {
             endDate: true,
             totalStalls: true,
             spcode: true,
+            createdAt: true,
+            _count: {
+              select: { bookings: true }
+            }
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -89,7 +93,67 @@ export class UsersService {
       throw ApiError.notFound('User not found.');
     }
 
-    return user;
+    let attributedBookings: any[] = [];
+    let heldStalls: any[] = [];
+
+    // Fetch attributed bookings based on SP Code or User ID
+    if (user.spcode) {
+      attributedBookings = await prisma.booking.findMany({
+        where: {
+          OR: [
+            { company: { users: { some: { id: user.id } } } },
+            { company: { spcode: user.spcode } },
+            { exhibition: { spcode: user.spcode } },
+          ],
+        },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          bookingReference: true,
+          status: true,
+          paymentStatus: true,
+          grandTotal: true,
+          paidAmount: true,
+          createdAt: true,
+          company: {
+            select: { name: true, spcode: true }
+          },
+          exhibition: {
+            select: { title: true, spcode: true }
+          },
+          stalls: {
+            select: {
+              stall: { select: { stallNumber: true } }
+            }
+          }
+        },
+      });
+    }
+
+    // Fetch active/recent stall holds placed by this Admin/Staff member
+    heldStalls = await prisma.stall.findMany({
+      where: { heldByUserId: user.id },
+      take: 15,
+      select: {
+        id: true,
+        stallNumber: true,
+        status: true,
+        heldUntil: true,
+        price: true,
+        floorPlan: {
+          select: {
+            exhibition: { select: { title: true } }
+          }
+        }
+      }
+    });
+
+    return {
+      ...user,
+      attributedBookings,
+      heldStalls,
+    };
   }
 
   static async createAdmin(input: CreateAdminInput) {

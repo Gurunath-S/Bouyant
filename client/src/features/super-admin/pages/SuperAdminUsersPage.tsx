@@ -37,6 +37,7 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [editUser, setEditUser] = useState<AdminStaffUser | null>(null);
   const [statusTargetUser, setStatusTargetUser] = useState<AdminStaffUser | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<AdminStaffUser | null>(null);
+  const [viewDetailsUser, setViewDetailsUser] = useState<any | null>(null);
 
   // Form states
   const [createForm, setCreateForm] = useState<CreateAdminStaffPayload>({
@@ -445,6 +446,24 @@ export const SuperAdminUsersPage: React.FC = () => {
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={async () => {
+                            try {
+                              setActionLoading(true);
+                              const fullUserData = await userService.getUserById(user.id);
+                              setViewDetailsUser(fullUserData);
+                            } catch (err) {
+                              console.error(err);
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }}
+                          className="p-1.5 text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
+                          title="View User Performance & Activity Log"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
                           onClick={() => handleOpenEdit(user)}
                           className="p-1.5 text-slate-600 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-300 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors"
                           title="Edit User Details"
@@ -745,6 +764,152 @@ export const SuperAdminUsersPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* 5. USER ACTIVITY & PERFORMANCE AUDIT MODAL */}
+      <Modal
+        isOpen={!!viewDetailsUser}
+        onClose={() => setViewDetailsUser(null)}
+        title={`Performance & Activity Audit: ${viewDetailsUser?.name}`}
+      >
+        <div className="space-y-5 text-xs max-h-[75vh] overflow-y-auto pr-1">
+          {/* User Profile Header Card */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full font-extrabold text-sm flex items-center justify-center ${
+                viewDetailsUser?.role === 'ADMIN'
+                  ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                  : 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+              }`}>
+                {viewDetailsUser?.name?.charAt(0)}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">{viewDetailsUser?.name}</h3>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                    viewDetailsUser?.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {viewDetailsUser?.role}
+                  </span>
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 text-[11px]">{viewDetailsUser?.email}</p>
+              </div>
+            </div>
+
+            {viewDetailsUser?.spcode && (
+              <div className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                <p className="text-[9px] font-bold text-indigo-500 uppercase">Sales SP Code</p>
+                <p className="font-mono font-black text-sm text-indigo-700 dark:text-indigo-300">{viewDetailsUser.spcode}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Performance Summary Metrics */}
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3 bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 rounded-xl">
+              <p className="text-[10px] font-bold text-purple-600 uppercase">Exhibitions Created</p>
+              <p className="text-lg font-black text-purple-950 dark:text-purple-200 mt-0.5">
+                {viewDetailsUser?.createdExhibitions?.length || 0}
+              </p>
+            </div>
+            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl">
+              <p className="text-[10px] font-bold text-blue-600 uppercase">Attributed Sales</p>
+              <p className="text-lg font-black text-blue-950 dark:text-blue-200 mt-0.5">
+                {viewDetailsUser?.attributedBookings?.length || 0} Bookings
+              </p>
+            </div>
+            <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl">
+              <p className="text-[10px] font-bold text-amber-600 uppercase">Booths Held</p>
+              <p className="text-lg font-black text-amber-950 dark:text-amber-200 mt-0.5">
+                {viewDetailsUser?.heldStalls?.length || 0} Stalls
+              </p>
+            </div>
+          </div>
+
+          {/* 1. Created Exhibitions Section */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-purple-600" />
+              Exhibitions Managed ({viewDetailsUser?.createdExhibitions?.length || 0})
+            </h4>
+            {!viewDetailsUser?.createdExhibitions || viewDetailsUser.createdExhibitions.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">No exhibitions created by this account yet.</p>
+            ) : (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="px-3 py-2">Event Title</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Total Stalls</th>
+                      <th className="px-3 py-2">Date Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {viewDetailsUser.createdExhibitions.map((ex: any) => (
+                      <tr key={ex.id} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2 font-bold text-slate-800 dark:text-slate-200">{ex.title}</td>
+                        <td className="px-3 py-2">
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono font-bold rounded text-[10px]">
+                            {ex.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-semibold">{ex.totalStalls} Stalls</td>
+                        <td className="px-3 py-2 text-slate-400">{formatDisplayDate(ex.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Attributed Sales & Bookings Section */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              Attributed Sales & Bookings ({viewDetailsUser?.attributedBookings?.length || 0})
+            </h4>
+            {!viewDetailsUser?.attributedBookings || viewDetailsUser.attributedBookings.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">No sales bookings linked to this user's SP code.</p>
+            ) : (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="px-3 py-2">Booking Ref</th>
+                      <th className="px-3 py-2">Company / Client</th>
+                      <th className="px-3 py-2">Grand Total</th>
+                      <th className="px-3 py-2">Payment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {viewDetailsUser.attributedBookings.map((bk: any) => (
+                      <tr key={bk.id} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2 font-mono font-bold text-blue-700 dark:text-blue-300">{bk.bookingReference}</td>
+                        <td className="px-3 py-2 font-medium">{bk.company?.name || 'Guest'}</td>
+                        <td className="px-3 py-2 font-bold font-mono">₹{Number(bk.grandTotal || 0).toLocaleString()}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-1.5 py-0.5 font-bold rounded text-[10px] ${
+                            bk.paymentStatus === 'PAID' || bk.paymentStatus === 'PAID_FULL' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {bk.paymentStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="secondary" size="sm" onClick={() => setViewDetailsUser(null)}>
+              Close Performance Audit
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
