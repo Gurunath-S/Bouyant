@@ -149,12 +149,6 @@ export const BookingCheckoutPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Hold Countdown Timer */}
-        {stall.heldUntil && (
-          <div>
-            <CountdownTimer targetDate={stall.heldUntil} />
-          </div>
-        )}
       </div>
 
       {/* Progress Indicator */}

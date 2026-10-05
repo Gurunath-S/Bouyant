@@ -59,12 +59,6 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
         </div>
       </div>
 
-      {/* Timer if held */}
-      {isHeld && stall.heldUntil && (
-        <div className="text-center py-1">
-          <CountdownTimer targetDate={stall.heldUntil} />
-        </div>
-      )}
 
       {/* Actions */}
       <div className="pt-2">
