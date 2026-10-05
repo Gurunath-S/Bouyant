@@ -47,50 +47,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
   const grandTotal = basePrice + taxAmount;
 
   return (
-    <div className={`flex flex-col gap-2 ${isFullscreen ? 'flex-1 min-h-0' : 'space-y-2'}`}>
-      {/* Fullscreen Mode Top Bar */}
-      {isFullscreen && (
-        <div className="bg-[#012970] text-white px-4 py-2.5 rounded-xl flex items-center justify-between shadow-lg shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-              {exhibition.title}
-            </span>
-            <span className="text-slate-400">|</span>
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#9cc542]" /> Interactive Hall Floor Plan
-            </span>
-            {selectedStallsObj.length > 0 && (
-              <span className="px-2.5 py-0.5 bg-[#9cc542] text-[#012970] font-black text-xs rounded-full">
-                {selectedStallsObj.length} Stall(s) Selected (₹{grandTotal.toLocaleString()})
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {selectedStallsObj.length > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={onProceed}
-                className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black text-xs shadow-sm"
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              >
-                Proceed to Details ({selectedStallsObj.length})
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFullscreen(false)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold"
-              leftIcon={<Minimize2 className="w-3.5 h-3.5" />}
-            >
-              Exit Full Screen
-            </Button>
-          </div>
-        </div>
-      )}
-
+    <div className="flex flex-col gap-2 space-y-2">
       {stallHoldError && (
         <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0">
           <AlertTriangle className="w-4 h-4 text-rose-600" />
@@ -114,25 +71,10 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
         <div className="flex-1 min-w-0">
           <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
         </div>
-        {!isFullscreen && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFullscreen(true)}
-            className="text-xs font-bold border-[#09539b]/30 text-[#09539b] hover:bg-blue-50 flex items-center gap-1.5 shrink-0 hidden sm:inline-flex"
-            leftIcon={<Maximize2 className="w-3.5 h-3.5" />}
-          >
-            Full Screen
-          </Button>
-        )}
       </div>
 
       {/* Canvas Wrapper */}
-      <div
-        className={`relative w-full max-w-[1200px] mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm ${
-          isFullscreen ? 'flex-1 h-full min-h-0' : 'h-[500px] sm:h-[540px] lg:h-[560px]'
-        }`}
-      >
+      <div className="relative w-full max-w-[1200px] mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm h-[500px] sm:h-[540px] lg:h-[560px]">
         <FloorPlanCanvas
           stalls={stalls}
           layoutData={layoutData}

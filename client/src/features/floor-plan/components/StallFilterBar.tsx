@@ -82,20 +82,7 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Pricing Rates Display */}
-        {prices.length > 0 && (
-          <div className="flex items-center gap-3 text-[11px] font-bold flex-wrap">
-            <span className="px-2.5 py-1 bg-[#EEF4FC] dark:bg-blue-950/60 text-[#09539b] dark:text-blue-300 rounded-lg border border-[#09539b]/20 dark:border-blue-700/50">
-              Starting from: <b className="font-mono">₹{minPrice.toLocaleString()}</b>
-            </span>
-            {maxPrice > minPrice && (
-              <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 rounded-lg border border-amber-300 dark:border-amber-700">
-                Premium up to: <b className="font-mono text-amber-950 dark:text-amber-200">₹{maxPrice.toLocaleString()}</b>
-              </span>
-            )}
-            <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px]">* GST 18% Applicable</span>
-          </div>
-        )}
+
       </div>
 
       {/* Bottom Row: Category Chips, Legend Indicators & Zoom Controls */}

@@ -25,7 +25,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
-import { StallFilterBar } from '../../floor-plan/components/StallFilterBar';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { formatDisplayDate } from '../../../utils/date';
@@ -364,17 +363,6 @@ export const ExhibitionDetailPage: React.FC = () => {
             {/* Tab: Interactive Floor Plan Stall Map */}
             {activeTab === 'map' && (
               <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-6 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E6EAF0] dark:border-slate-800 pb-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-[#1B37A0] dark:text-blue-400 flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-[#0E8074] dark:text-emerald-400" /> Interactive Hall Floor Plan & Stall Availability
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Click any available green stall on the map to inspect position, price, and reserve immediately.
-                    </p>
-                  </div>
-                  <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
-                </div>
 
                 {isBookingClosed && (
                   <div className="p-3.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
