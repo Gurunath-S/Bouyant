@@ -1,5 +1,5 @@
 import React from 'react';
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
@@ -105,14 +105,15 @@ export const router = createBrowserRouter([
         element: <RegisterPage />,
       },
 
-  // Public Exhibition Discovery Routes
+  // Public Exhibition Discovery & Booking Confirmation Routes
   {
-    path: '/exhibitions',
+    path: '/',
     element: <PublicLayout />,
     children: [
-      { path: '', element: <ExhibitionsPage /> },
-      { path: ':slug', element: <ExhibitionDetailPage /> },
-      { path: ':slug/book', element: <BookingWizardPage /> },
+      { path: 'exhibitions', element: <ExhibitionsPage /> },
+      { path: 'exhibitions/:slug', element: <ExhibitionDetailPage /> },
+      { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
+      { path: 'booking/success', element: <PaymentSuccessPage /> },
     ],
   },
 
@@ -217,6 +218,22 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/events/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/events/new',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/events/builder/new',
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminExhibitionBuilderPage />

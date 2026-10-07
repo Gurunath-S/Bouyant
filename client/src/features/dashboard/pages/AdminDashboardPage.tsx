@@ -25,7 +25,9 @@ import {
   ExternalLink,
   ChevronRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
@@ -33,6 +35,8 @@ import { formatDisplayDate } from '../../../utils/date';
 
 export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
+  const [publishedExhibitions, setPublishedExhibitions] = useState<Exhibition[]>([]);
+  const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('');
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<any | null>(null);
@@ -41,9 +45,24 @@ export const AdminDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  // Searchable Event Selector Popover State
+  const [isEventMenuOpen, setIsEventMenuOpen] = useState(false);
+  const [eventSearchQuery, setEventSearchQuery] = useState('');
+
+  const filteredPublishedExhibitions = useMemo(() => {
+    if (!eventSearchQuery.trim()) return publishedExhibitions;
+    const q = eventSearchQuery.toLowerCase().trim();
+    return publishedExhibitions.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        (e.city && e.city.toLowerCase().includes(q)) ||
+        (e.eventCode && e.eventCode.toLowerCase().includes(q))
+    );
+  }, [publishedExhibitions, eventSearchQuery]);
+
   useEffect(() => {
     fetchAdminDashboardData();
-  }, []);
+  }, [selectedExhibitionId]);
 
   const fetchAdminDashboardData = async () => {
     try {
@@ -57,27 +76,51 @@ export const AdminDashboardPage: React.FC = () => {
       const allExhibitions: Exhibition[] = exhibitionsRes || [];
       const allBookings: any[] = bookingsRes.data || [];
 
-      // Find Current Active Upcoming Event (PUBLISHED, endDate >= now, earliest startDate)
-      const now = new Date();
-      const activeUpcomingSummary = allExhibitions
-        .filter((e) => new Date(e.endDate) >= now)
-        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0] || null;
+      setPublishedExhibitions(allExhibitions);
 
-      let fullActiveUpcoming = activeUpcomingSummary;
-      if (activeUpcomingSummary) {
+      // Chronologically sorted upcoming published exhibitions
+      const now = new Date();
+      const upcomingPublishedEvents = allExhibitions
+        .filter((e) => new Date(e.endDate) >= now)
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+      const defaultEvent = upcomingPublishedEvents[0] || allExhibitions[0] || null;
+
+      // Determine target active event
+      let targetSummary = null;
+      if (selectedExhibitionId) {
+        targetSummary = allExhibitions.find((e) => e.id === selectedExhibitionId) || defaultEvent;
+      } else {
+        targetSummary = defaultEvent;
+        if (defaultEvent) {
+          setSelectedExhibitionId(defaultEvent.id);
+        }
+      }
+
+      let fullActiveUpcoming = targetSummary;
+      if (targetSummary) {
         try {
-          fullActiveUpcoming = await exhibitionService.getExhibitionBySlug(activeUpcomingSummary.slug || activeUpcomingSummary.id);
+          fullActiveUpcoming = await exhibitionService.getExhibitionBySlug(targetSummary.slug || targetSummary.id);
         } catch (e) {
-          console.warn('Could not load full stalls details for active event', e);
+          console.warn('Could not load full stalls details for selected event', e);
         }
       }
 
       setCurrentUpcomingEvent(fullActiveUpcoming);
 
       // Filter bookings strictly for the current active upcoming event (or all bookings if no single event)
-      const currentBookings = fullActiveUpcoming
+      const rawCurrentBookings = fullActiveUpcoming
         ? allBookings.filter((b) => b.exhibitionId === fullActiveUpcoming.id)
         : allBookings;
+
+      // Only paid bookings are considered as valid bookings in Admin areas
+      const currentBookings = rawCurrentBookings.filter(
+        (b) =>
+          b.status === 'CONFIRMED' ||
+          b.paymentStatus === 'PAID' ||
+          b.paymentStatus === 'PARTIALLY_PAID' ||
+          (Number(b.paidAmount || 0) > 0 && b.status !== 'CANCELLED' && b.status !== 'EXPIRED')
+      );
 
       // Calculate Stall Occupancy numerical metrics
       let totalStalls = fullActiveUpcoming?.totalStalls || 50;
@@ -88,7 +131,7 @@ export const AdminDashboardPage: React.FC = () => {
         if (stallsList.length > 0) {
           totalStalls = stallsList.length;
           bookedStallsCount = stallsList.filter(
-            (s) => s.status === 'BOOKED_CONFIRMED' || s.status === 'PAYMENT_PENDING' || s.status === 'TEMPORARILY_HELD' || s.status === 'BOOKING_IN_PROGRESS'
+            (s) => s.status === 'BOOKED_CONFIRMED'
           ).length;
         }
       }
@@ -101,22 +144,22 @@ export const AdminDashboardPage: React.FC = () => {
       const fillPercent = Math.min(100, Math.round((bookedStallsCount / totalStalls) * 100));
 
       const totalRevenue = currentBookings.reduce(
-        (sum, b) => sum + (Number(b.grandTotal) || 0),
+        (sum, b) => sum + (Number(b.paidAmount) || Number(b.grandTotal) || 0),
         0
       );
-      const confirmedBookings = currentBookings.filter((b) => b.status === 'CONFIRMED');
+      const confirmedBookings = currentBookings.length;
 
-      // Calculate total registered exhibitors & pending payment amount
-      const activeBookings = currentBookings.filter(
+      // Calculate total paid exhibitors
+      const uniqueExhibitorsCount = new Set(
+        currentBookings.map((b) => b.companyId || b.company?.id || b.userId || b.user?.id).filter(Boolean)
+      ).size;
+
+      // Calculate pending payment / balance for active non-cancelled bookings
+      const activeBookingsForPending = rawCurrentBookings.filter(
         (b) => b.status !== 'CANCELLED' && b.status !== 'EXPIRED'
       );
 
-      const uniqueExhibitorsCount = new Set(
-        activeBookings.map((b) => b.companyId || b.company?.id || b.userId || b.user?.id).filter(Boolean)
-      ).size;
-
-      // Calculate pending payment bookings (UNPAID, PARTIALLY_PAID, PENDING_PAYMENT, or balance > 0)
-      const pendingPaymentBookings = activeBookings.filter((b) => {
+      const pendingPaymentBookings = activeBookingsForPending.filter((b) => {
         const bal = Number(b.balanceAmount);
         if (!isNaN(bal) && bal > 0) return true;
         if (b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIALLY_PAID' || b.status === 'PENDING_PAYMENT') return true;
@@ -135,7 +178,7 @@ export const AdminDashboardPage: React.FC = () => {
 
       setStats({
         totalBookings: currentBookings.length,
-        confirmedBookings: confirmedBookings.length,
+        confirmedBookings: confirmedBookings,
         totalRevenue,
         recentBookings: currentBookings,
         totalStalls,
@@ -217,24 +260,89 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {/* Searchable Event Selector Dropdown Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsEventMenuOpen(!isEventMenuOpen)}
+              className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800/80 text-purple-900 dark:text-purple-200 rounded-xl shadow-xs hover:border-purple-300 dark:hover:border-purple-700 transition-all flex items-center gap-2 max-w-[260px] truncate cursor-pointer"
+              title="Click to search and switch active exhibition event"
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="truncate">
+                {currentUpcomingEvent?.title || 'Select Exhibition Event'}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 transition-transform ${isEventMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isEventMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsEventMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2.5 space-y-2 animate-in fade-in duration-150">
+                  {/* Search Input inside Popover */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search published events..."
+                      value={eventSearchQuery}
+                      onChange={(e) => setEventSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500/30"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Scrollable Event List */}
+                  <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+                    {filteredPublishedExhibitions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                        No published exhibitions found.
+                      </div>
+                    ) : (
+                      filteredPublishedExhibitions.map((e) => {
+                        const isSelected = selectedExhibitionId === e.id;
+                        return (
+                          <button
+                            key={e.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedExhibitionId(e.id);
+                              setIsEventMenuOpen(false);
+                            }}
+                            className={`w-full text-left p-2 rounded-xl text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                              isSelected
+                                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 font-bold border border-purple-200 dark:border-purple-800'
+                                : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 font-medium'
+                            }`}
+                          >
+                            <div className="truncate">
+                              <span className="block truncate font-semibold">{e.title}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate">
+                                {e.city || 'India'} {e.eventCode ? `• ${e.eventCode}` : ''}
+                              </span>
+                            </div>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             onClick={fetchAdminDashboardData}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+            className="p-2 text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
             title="Refresh Dashboard"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
-          <Link to="/admin/events/register">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
-              className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 font-semibold shadow-xs transition-colors text-xs"
-            >
-              Register Event
-            </Button>
-          </Link>
           <Link to="/admin/events">
             <Button
               variant="primary"
@@ -301,25 +409,16 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Aligned Buttons */}
+            {/* Action Button */}
             <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
-              <Link to={`/exhibitions/${currentUpcomingEvent.slug || currentUpcomingEvent.id}`}>
+              <Link to={`/exhibitions/${currentUpcomingEvent.slug || currentUpcomingEvent.id}/book`}>
                 <Button
                   variant="outline"
                   size="sm"
-                  rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  leftIcon={<BookmarkCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
+                  className="bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors shadow-xs"
                 >
-                  Public View
-                </Button>
-              </Link>
-              <Link to="/admin/events/register">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors shadow-xs"
-                >
-                  Register Exhibitor
+                  Book Stall for Exhibitor
                 </Button>
               </Link>
             </div>
@@ -339,40 +438,40 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Modern High-Taste KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Confirmed Revenue (Clickable -> /admin/bookings?status=CONFIRMED) */}
-        <Link
-          to={`/admin/bookings?status=CONFIRMED${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
-          className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden block cursor-pointer"
-          title="Click to view confirmed bookings ledger for this event"
-        >
+        {/* Card 1: Confirmed Revenue */}
+        <div className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden select-text">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirmed Revenue</p>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform flex items-center gap-1">
+            <Link
+              to={`/admin/bookings?status=CONFIRMED${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
+              title="Click to view confirmed bookings ledger for this event"
+            >
               <IndianRupee className="w-4 h-4" />
-              <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-3 tracking-tight">
+          <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-3 tracking-tight select-text">
             ₹{stats?.totalRevenue ? Number(stats.totalRevenue).toLocaleString() : '0'}
           </p>
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-2.5">
             <TrendingUp className="w-3.5 h-3.5" /> Total Active Event Receipts
           </div>
-        </Link>
+        </div>
 
-        {/* Card 2: Stall Occupancy (Non-clickable / Info metric) */}
-        <div className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden flex flex-col justify-between">
+        {/* Card 2: Stall Occupancy */}
+        <div className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden flex flex-col justify-between select-text">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
           <div>
             <div className="flex justify-between items-start">
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stall Occupancy</p>
-              <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                 <BookmarkCheck className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline justify-between mt-3">
-              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight">
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight select-text">
                 {stats?.bookedStallsCount || 0}{' '}
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-sans">
                   / {stats?.totalStalls || 50} Stalls
@@ -400,21 +499,21 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Total Registered Exhibitors (Clickable -> /admin/companies?exhibitionId=...) */}
-        <Link
-          to={`/admin/companies${currentUpcomingEvent?.id ? `?exhibitionId=${currentUpcomingEvent.id}` : ''}`}
-          className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden block cursor-pointer"
-          title="Click to view registered exhibitor directory for this event"
-        >
+        {/* Card 3: Total Registered Exhibitors */}
+        <div className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden select-text">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-blue-500" />
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Registered</p>
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition-transform flex items-center gap-1">
+            <Link
+              to={`/admin/companies${currentUpcomingEvent?.id ? `?exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
+              title="Click to view registered exhibitor directory for this event"
+            >
               <Users className="w-4 h-4" />
-              <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-3 tracking-tight">
+          <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-3 tracking-tight select-text">
             {stats?.uniqueExhibitorsCount || 0}{' '}
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-sans">
               Exhibitors
@@ -423,29 +522,29 @@ export const AdminDashboardPage: React.FC = () => {
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2.5 block truncate">
             Across <strong className="text-slate-700 dark:text-slate-300 font-mono">{stats?.totalBookings || 0}</strong> registered bookings
           </span>
-        </Link>
+        </div>
 
-        {/* Card 4: Pending Payment Amount (Clickable -> /admin/bookings?status=PENDING_PAYMENT) */}
-        <Link
-          to={`/admin/bookings?status=PENDING_PAYMENT${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
-          className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden block cursor-pointer"
-          title="Click to view pending payment bookings for this event"
-        >
+        {/* Card 4: Pending Balance */}
+        <div className="group bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden select-text">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
           <div className="flex justify-between items-start">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Payment</p>
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform flex items-center gap-1">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Balance</p>
+            <Link
+              to={`/admin/bookings?status=PENDING_PAYMENT${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
+              title="Click to view pending payment bookings for this event"
+            >
               <Clock className="w-4 h-4" />
-              <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <p className="text-2xl sm:text-3xl font-black font-mono text-amber-600 dark:text-amber-400 mt-3 tracking-tight">
+          <p className="text-2xl sm:text-3xl font-black font-mono text-amber-600 dark:text-amber-400 mt-3 tracking-tight select-text">
             ₹{stats?.pendingPaymentAmount ? Number(stats.pendingPaymentAmount).toLocaleString() : '0'}
           </p>
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 mt-2.5 block truncate">
-            <strong className="font-mono">{stats?.pendingPaymentCount || 0}</strong> orders awaiting payment
+            <strong className="font-mono">{stats?.pendingPaymentCount || 0}</strong> bookings awaiting balance
           </span>
-        </Link>
+        </div>
       </div>
 
       {/* Interactive Recent Bookings Audit Table Section */}

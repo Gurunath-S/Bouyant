@@ -30,7 +30,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   showBackgroundImage = false,
   showGrid = false,
 }) => {
-  const { selectedStallIds, zoomLevel, setZoomLevel, baseZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
+  const { selectedStallIds, conflictingStallIds, zoomLevel, setZoomLevel, baseZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -155,7 +155,17 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   });
 
   const getStallStyles = (stall: Stall) => {
+    const isConflicting = conflictingStallIds.includes(stall.id);
     const isSelected = selectedStallIds.includes(stall.id);
+
+    if (isConflicting) {
+      return {
+        fill: isDark ? '#7f1d1d' : '#fef2f2',
+        stroke: '#dc2626',
+        strokeWidth: 3,
+        textColor: isDark ? '#fca5a5' : '#991b1b',
+      };
+    }
 
     if (isSelected) {
       return {

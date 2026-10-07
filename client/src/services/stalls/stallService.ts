@@ -12,6 +12,16 @@ export const stallService = {
     return res.data;
   },
 
+  syncHoldStalls: async (stallIds: string[]) => {
+    const res: any = await apiClient.post('/stalls/hold/sync', { stallIds });
+    return res.data;
+  },
+
+  cancelAllHolds: async () => {
+    const res: any = await apiClient.delete('/stalls/hold/cancel-all');
+    return res.data;
+  },
+
   releaseHold: async (stallId: string) => {
     const res: any = await apiClient.delete(`/stalls/hold/${stallId}`);
     return res.data;

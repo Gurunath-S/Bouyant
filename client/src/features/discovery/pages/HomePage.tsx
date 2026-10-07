@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Exhibition } from '../../../types';
-import { Button } from '../../../components/ui/Button';
 import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
 import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
@@ -21,40 +20,12 @@ import {
   FileCheck2,
 } from 'lucide-react';
 
-const HERO_SLIDES = [
-  {
-    url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
-    title: 'BuildinTec Trade Fair Floor',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200&auto=format&fit=crop',
-    title: 'B2B Trade Show Booths',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?q=80&w=1200&auto=format&fit=crop',
-    title: 'Industrial & Healthcare Summit',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop',
-    title: 'Engineering & Machinery Expo',
-  },
-];
-
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   useEffect(() => {
     fetchExhibitions();
-  }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % HERO_SLIDES.length);
-    }, 4000);
-    return () => clearInterval(timer);
   }, []);
 
   const fetchExhibitions = async () => {
@@ -69,33 +40,30 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Active / Flagship upcoming event (First active published event in future, or fallback)
-  const featuredEvent: Exhibition = React.useMemo(() => {
+  // Active / Flagship upcoming event strictly from database exhibitions
+  const featuredEvent: Exhibition | null = React.useMemo(() => {
+    if (!exhibitions || exhibitions.length === 0) return null;
     const activeUpcoming = exhibitions
       .filter((e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= new Date())
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-    if (activeUpcoming.length > 0) {
-      return activeUpcoming[0];
-    }
-
-    return exhibitions[0] || {
-      id: 'mediccon-2026',
-      title: 'Mediccon Expo 2026',
-      slug: 'mediccon-expo-2026',
-      category: 'Medical & Healthcare',
-      venue: 'CODISSIA Trade Fair Complex',
-      city: 'Coimbatore, TN',
-      startDate: '2026-03-15T09:00:00Z',
-      endDate: '2026-03-18T18:00:00Z',
-      description:
-        'South India’s largest international exhibition for medical devices, healthcare technology, and hospital equipment. Connect with 15,000+ healthcare leaders and trade buyers.',
-      bannerUrl:
-        'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop',
-      totalStalls: 180,
-      availableStalls: 42,
-    };
+    return activeUpcoming[0] || exhibitions[0] || null;
   }, [exhibitions]);
+
+  if (loading || !featuredEvent) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans flex flex-col justify-between">
+        <PublicNavbar />
+        <main className="flex-1 flex items-center justify-center p-12">
+          <div className="text-center space-y-4">
+            <div className="w-10 h-10 border-4 border-[#1E3FA0] border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm font-semibold text-slate-500">Loading upcoming exhibitions...</p>
+          </div>
+        </main>
+        <PublicFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans flex flex-col justify-between selection:bg-[#0E8074] selection:text-white">
@@ -167,47 +135,24 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Multi-Image Animated Exhibition Showcase (6 Spans) — Proportional Height */}
+            {/* Right Single-Image Featured Exhibition Showcase (6 Spans) */}
             <div className="lg:col-span-6 relative">
               {/* Decorative Background Glow Plate */}
               <div className="absolute -inset-2 bg-gradient-to-r from-[#1E3FA0]/15 to-[#0E8074]/15 dark:from-[#1E3FA0]/30 dark:to-[#0E8074]/30 rounded-3xl blur-xl opacity-70 pointer-events-none" />
 
-              {/* Multi-Image Animated Container */}
+              {/* Featured Event Image Display Container */}
               <div className="w-full h-72 sm:h-[380px] lg:h-[430px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg relative border-3 border-white dark:border-slate-800 bg-white dark:bg-slate-900 group">
-                {HERO_SLIDES.map((slide, index) => (
-                  <div
-                    key={index}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                      index === currentSlideIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                    }`}
-                  >
-                    <img
-                      src={slide.url}
-                      alt={slide.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                  </div>
-                ))}
+                <img
+                  src={featuredEvent.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop'}
+                  alt={featuredEvent.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
 
                 {/* Category Pill Tag Top Left */}
                 <div className="absolute top-4 left-4 z-20">
                   <span className="px-3.5 py-1.5 bg-[#0E8074] text-white font-extrabold text-[11px] uppercase tracking-wider rounded-full shadow-xs backdrop-blur-md">
-                    {featuredEvent.category || 'Flagship Exhibition'}
+                    {featuredEvent.category || 'Upcoming Event'}
                   </span>
-                </div>
-
-                {/* Animated Pagination Indicators Bottom Right */}
-                <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/60 dark:border-slate-700 shadow-xs">
-                  {HERO_SLIDES.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentSlideIndex(index)}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        index === currentSlideIndex ? 'w-6 bg-[#1E3FA0] dark:bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
-                      }`}
-                      title={`Slide ${index + 1}`}
-                    />
-                  ))}
                 </div>
               </div>
             </div>
