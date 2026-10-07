@@ -1208,7 +1208,6 @@ static async createBooking(
         company: true,
         payments: true,
         invoices: true,
-        // user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
       },
     });
 
@@ -1217,6 +1216,77 @@ static async createBooking(
       throw ApiError.forbidden('Not authorized to access this booking record.');
     }
 
+    return booking;
+  }
+
+  static async getPublicBookingSummary(bookingIdOrRef: string) {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        OR: [
+          { id: bookingIdOrRef },
+          { bookingReference: bookingIdOrRef },
+        ],
+      },
+      select: {
+        id: true,
+        bookingReference: true,
+        status: true,
+        paymentStatus: true,
+        totalAmount: true,
+        taxAmount: true,
+        grandTotal: true,
+        paidAmount: true,
+        balanceAmount: true,
+        createdAt: true,
+        company: {
+          select: {
+            name: true,
+            email: true,
+            mobile: true,
+            contactPerson: true,
+          },
+        },
+        exhibition: {
+          select: {
+            title: true,
+            venue: true,
+            city: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+        stalls: {
+          select: {
+            price: true,
+            stall: {
+              select: {
+                id: true,
+                stallNumber: true,
+                areaSqFt: true,
+                category: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            paymentReference: true,
+            status: true,
+            amount: true,
+            paidAt: true,
+          },
+        },
+        invoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) throw ApiError.notFound('Booking confirmation summary not found.');
     return booking;
   }
 

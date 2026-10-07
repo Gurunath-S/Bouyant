@@ -20,5 +20,10 @@ export const HoldStallSchema = z.object({
   stallId: z.string().uuid('Invalid stall ID'),
 });
 
+export const SyncHoldStallsSchema = z.object({
+  stallIds: z.array(z.string().uuid('Invalid stall ID')),
+});
+
 export type CreateStallInput = z.infer<typeof CreateStallSchema>;
 export type UpdateStallInput = z.infer<typeof UpdateStallSchema>;
+

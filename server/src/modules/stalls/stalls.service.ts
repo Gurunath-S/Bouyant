@@ -215,6 +215,190 @@ export class StallsService {
     });
   }
 
+  /**
+   * ATOMIC DELTA SYNCHRONIZATION OF HELD STALLS FOR A USER/SESSION
+   * Keeps active holds, releases unselected holds, and attempts to lock new stalls.
+   * If any requested new stall is unavailable, returns a structured conflict error
+   * with details without releasing pre-existing valid holds.
+   */
+  static async syncHoldStalls(userId: string, requestedStallIds: string[]) {
+    await this.releaseExpiredHolds();
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Find all currently held stalls by this user
+      const currentlyHeld = await tx.stall.findMany({
+        where: {
+          heldByUserId: userId,
+          status: 'TEMPORARILY_HELD',
+        },
+      });
+
+      const currentHeldIds = currentlyHeld.map((s) => s.id);
+
+      // Calculate DELTA
+      const toKeepIds = requestedStallIds.filter((id) => currentHeldIds.includes(id));
+      const toReleaseIds = currentHeldIds.filter((id) => !requestedStallIds.includes(id));
+      const toAddIds = requestedStallIds.filter((id) => !currentHeldIds.includes(id));
+
+      // 2. Release stalls removed from selection by current user
+      if (toReleaseIds.length > 0) {
+        await tx.stall.updateMany({
+          where: {
+            id: { in: toReleaseIds },
+            heldByUserId: userId,
+            status: 'TEMPORARILY_HELD',
+          },
+          data: {
+            status: 'AVAILABLE',
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+      }
+
+      // 3. Attempt to acquire new stalls (toAddIds)
+      const conflicts: { stallId: string; stallNumber: string; reason: string }[] = [];
+      const holdUntil = new Date(Date.now() + env.STALL_HOLD_DURATION_MINUTES * 60 * 1000);
+
+      // Sort toAddIds deterministically to prevent PostgreSQL deadlocks
+      const sortedToAddIds = [...toAddIds].sort();
+
+      for (const stallId of sortedToAddIds) {
+        const targetStall = await tx.stall.findUnique({
+          where: { id: stallId },
+          include: { floorPlan: { include: { exhibition: true } } },
+        });
+
+        if (!targetStall) {
+          conflicts.push({
+            stallId,
+            stallNumber: 'Unknown',
+            reason: 'NOT_FOUND',
+          });
+          continue;
+        }
+
+        const exhibition = targetStall.floorPlan.exhibition;
+        const now = new Date();
+        const bookingDeadline = exhibition.bookingEndDate
+          ? new Date(exhibition.bookingEndDate)
+          : new Date(exhibition.startDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+
+        if (
+          exhibition.status === 'COMPLETED' ||
+          exhibition.status === 'CANCELLED' ||
+          exhibition.status === 'DRAFT' ||
+          now > bookingDeadline ||
+          now > exhibition.endDate
+        ) {
+          conflicts.push({
+            stallId,
+            stallNumber: targetStall.stallNumber,
+            reason: 'EXHIBITION_CLOSED',
+          });
+          continue;
+        }
+
+        // Atomic lock attempt
+        const updated = await tx.stall.updateMany({
+          where: {
+            id: stallId,
+            OR: [
+              { status: 'AVAILABLE' },
+              { status: 'TEMPORARILY_HELD', heldByUserId: userId },
+            ],
+          },
+          data: {
+            status: 'TEMPORARILY_HELD',
+            heldUntil: holdUntil,
+            heldByUserId: userId,
+          },
+        });
+
+        if (updated.count === 0) {
+          conflicts.push({
+            stallId,
+            stallNumber: targetStall.stallNumber,
+            reason: 'NO_LONGER_AVAILABLE',
+          });
+        }
+      }
+
+      // If conflicts exist among newly requested additions:
+      if (conflicts.length > 0) {
+        // Roll back any newly acquired stalls in this sync batch (keep toKeepIds untouched)
+        const newlyAcquiredIds = sortedToAddIds.filter(
+          (id) => !conflicts.some((c) => c.stallId === id)
+        );
+
+        if (newlyAcquiredIds.length > 0) {
+          await tx.stall.updateMany({
+            where: {
+              id: { in: newlyAcquiredIds },
+              heldByUserId: userId,
+              status: 'TEMPORARILY_HELD',
+            },
+            data: {
+              status: 'AVAILABLE',
+              heldUntil: null,
+              heldByUserId: null,
+            },
+          });
+        }
+
+        // Re-fetch remaining valid held stalls for response
+        const validHeldStalls = await tx.stall.findMany({
+          where: {
+            heldByUserId: userId,
+            status: 'TEMPORARILY_HELD',
+          },
+        });
+
+        return {
+          success: false,
+          code: 'STALL_CONFLICT',
+          message: 'Some selected stalls are no longer available.',
+          conflicts,
+          heldStalls: validHeldStalls,
+          heldUntil: holdUntil,
+        };
+      }
+
+      // Refresh hold expiration for all currently kept/added held stalls
+      const finalHeldStalls = await tx.stall.findMany({
+        where: {
+          heldByUserId: userId,
+          status: 'TEMPORARILY_HELD',
+        },
+      });
+
+      return {
+        success: true,
+        code: 'HOLD_SUCCESS',
+        heldStalls: finalHeldStalls,
+        heldUntil: holdUntil,
+        durationMinutes: env.STALL_HOLD_DURATION_MINUTES,
+      };
+    });
+  }
+
+  /**
+   * CANCEL ALL TEMPORARY HOLDS FOR A USER/SESSION
+   */
+  static async cancelUserHolds(userId: string) {
+    return await prisma.stall.updateMany({
+      where: {
+        heldByUserId: userId,
+        status: 'TEMPORARILY_HELD',
+      },
+      data: {
+        status: 'AVAILABLE',
+        heldUntil: null,
+        heldByUserId: null,
+      },
+    });
+  }
+
   static async toggleBlockStall(stallId: string, block: boolean) {
     const stall = await prisma.stall.findUnique({ where: { id: stallId } });
     if (!stall) throw ApiError.notFound('Stall not found.');
@@ -229,3 +413,4 @@ export class StallsService {
     });
   }
 }
+

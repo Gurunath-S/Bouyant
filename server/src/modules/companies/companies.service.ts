@@ -202,19 +202,7 @@ export class CompaniesService {
       requestedUsername = await this.generateUniqueUsername(input.contactPerson || input.name);
     }
 
-    // 2. SMART CHECK: Check if User or Company already exists in database
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: normalizedEmail },
-          { phone: cleanMobile },
-        ],
-      },
-      include: {
-        company: true,
-      },
-    });
-
+    // 2. SMART CHECK: Company & User Identity Resolution according to business rules
     let existingCompany = cleanGst
       ? await prisma.company.findUnique({ where: { gstNumber: cleanGst } })
       : null;
@@ -223,31 +211,86 @@ export class CompaniesService {
       existingCompany = await prisma.company.findUnique({ where: { panNumber: cleanPan } });
     }
 
-    if (!existingCompany && existingUser?.company) {
-      existingCompany = existingUser.company;
+    // Find user by EXACT email (Primary login identifier)
+    const existingUserByEmail = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: { company: true },
+    });
+
+    // Find user by phone
+    const existingUserByPhone = await prisma.user.findFirst({
+      where: { phone: cleanMobile },
+      include: { company: true },
+    });
+
+    // Check for exact identity match (Same Email + Same Phone)
+    const exactMatchingUser = (existingUserByEmail && existingUserByEmail.phone === cleanMobile)
+      ? existingUserByEmail
+      : null;
+
+    // CASE 1: EXACT MATCH (Same GST + Same Email + Same Phone) or same email+phone
+    // -> DO NOT create new user. Reuse existing user and existing company.
+    if (exactMatchingUser) {
+      const companyToUse = existingCompany || exactMatchingUser.company;
+
+      if (companyToUse && !exactMatchingUser.companyId) {
+        await prisma.user.update({
+          where: { id: exactMatchingUser.id },
+          data: { companyId: companyToUse.id },
+        });
+      }
+
+      if (requestedUsername && !exactMatchingUser.username) {
+        const checkU = await prisma.user.findUnique({ where: { username: requestedUsername } });
+        if (!checkU) {
+          await prisma.user.update({
+            where: { id: exactMatchingUser.id },
+            data: { username: requestedUsername },
+          });
+        }
+      }
+
+      const tokens = generateTokens({
+        userId: exactMatchingUser.id,
+        email: exactMatchingUser.email,
+        role: exactMatchingUser.role,
+        companyId: companyToUse?.id || exactMatchingUser.companyId || undefined,
+      });
+
+      return {
+        company: companyToUse || exactMatchingUser.company,
+        user: exactMatchingUser,
+        tokens,
+        temporaryPassword: null,
+        isExistingUser: true,
+      };
     }
 
-    // CASE 1: Re-use Existing User & Company
-    if (existingUser && existingCompany) {
-      if (requestedUsername && !existingUser.username) {
+    // CASE 4: SAME EMAIL + DIFFERENT PHONE
+    // Email is a globally unique login identifier (User.email @unique).
+    // If the email exists, we MUST reuse the existing user record rather than crashing or throwing duplicate error.
+    if (existingUserByEmail) {
+      const companyToUse = existingCompany || existingUserByEmail.company;
+      if (companyToUse && !existingUserByEmail.companyId) {
         await prisma.user.update({
-          where: { id: existingUser.id },
-          data: { username: requestedUsername },
+          where: { id: existingUserByEmail.id },
+          data: { companyId: companyToUse.id },
         });
       }
 
       const tokens = generateTokens({
-        userId: existingUser.id,
-        email: existingUser.email,
-        role: existingUser.role,
-        companyId: existingCompany.id,
+        userId: existingUserByEmail.id,
+        email: existingUserByEmail.email,
+        role: existingUserByEmail.role,
+        companyId: companyToUse?.id || existingUserByEmail.companyId || undefined,
       });
 
       return {
-        company: existingCompany,
-        user: existingUser,
+        company: companyToUse || existingUserByEmail.company,
+        user: existingUserByEmail,
         tokens,
         temporaryPassword: null,
+        isExistingUser: true,
       };
     }
 
@@ -298,7 +341,8 @@ export class CompaniesService {
         },
       });
 
-      const user = existingUser || await tx.user.create({
+      const targetUser = existingUserByEmail || existingUserByPhone;
+      const user = targetUser || await tx.user.create({
         data: {
           email: normalizedEmail,
           username: requestedUsername,
@@ -310,9 +354,9 @@ export class CompaniesService {
         },
       });
 
-      if (existingUser && !existingUser.companyId) {
+      if (targetUser && !targetUser.companyId) {
         await tx.user.update({
-          where: { id: existingUser.id },
+          where: { id: targetUser.id },
           data: { companyId: company.id },
         });
       }

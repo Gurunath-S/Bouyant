@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { BookingsService } from './bookings.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class BookingsController {
@@ -8,6 +9,16 @@ export class BookingsController {
     const user = req.user;
 
     const booking = await BookingsService.createBooking(user, req.body);
+
+    const targetBookingId = (booking as any)?.data?.bookingId || (booking as any)?.id;
+
+    if (targetBookingId) {
+      NotificationsService.dispatchEvent({
+        event: 'BOOKING_CREATED',
+        bookingId: targetBookingId,
+        userId: user?.userId,
+      });
+    }
 
     return sendResponse({
       res,
@@ -38,6 +49,16 @@ export class BookingsController {
       res,
       statusCode: 200,
       message: 'Booking details retrieved.',
+      data: booking,
+    });
+  };
+
+  static getPublicSummary = async (req: any, res: Response) => {
+    const booking = await BookingsService.getPublicBookingSummary(req.params.id);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: 'Public booking summary retrieved.',
       data: booking,
     });
   };

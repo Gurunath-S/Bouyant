@@ -4,7 +4,7 @@ import { authenticateToken } from '../../middlewares/auth.js';
 import { requirePermission } from '../../middlewares/permission.js';
 import { validateRequest } from '../../middlewares/validate.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import { CreateStallSchema, UpdateStallSchema, HoldStallSchema } from './stalls.schemas.js';
+import { CreateStallSchema, UpdateStallSchema, HoldStallSchema, SyncHoldStallsSchema } from './stalls.schemas.js';
 import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
@@ -14,7 +14,10 @@ router.get('/floor-plan/:floorPlanId', asyncHandler(StallsController.getByFloorP
 
 // Authenticated client hold routes
 router.post('/hold', authenticateToken, validateRequest(HoldStallSchema), asyncHandler(StallsController.hold));
+router.post('/hold/sync', authenticateToken, validateRequest(SyncHoldStallsSchema), asyncHandler(StallsController.syncHold));
+router.delete('/hold/cancel-all', authenticateToken, asyncHandler(StallsController.cancelUserHolds));
 router.delete('/hold/:stallId', authenticateToken, asyncHandler(StallsController.releaseHold));
+
 
 // Stall management routes (restricted to Super Admin and Admin)
 router.post(

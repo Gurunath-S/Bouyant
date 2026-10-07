@@ -1,7 +1,5 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { EmailService } from '../../services/email.service.js';
-import { generateReference } from '../../utils/reference.js';
 import {Prisma} from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
@@ -127,7 +125,7 @@ export class PaymentsService {
       await razorpay.payments.fetch(
         data.razorpay_payment_id
       );
-  } catch (error) {
+  } catch (_error) {
     throw ApiError.internal(
       'Unable to verify the payment with the payment gateway.'
     );
@@ -761,7 +759,7 @@ try {
       paymentType: 'BALANCE',
     },
   });
-   } catch (error) {
+   } catch (_error) {
 
       throw ApiError.internal(
         'Payment gateway is currently unavailable. Please try again later.'
