@@ -32,24 +32,31 @@ export class ReportsService {
         prisma.stall.count({ where: { status: 'BOOKED_CONFIRMED' } }),
       ]);
 
-      const totalRevenue = bookings
-        .filter((b) => b.status === 'CONFIRMED')
-        .reduce((sum, b) => sum + (Number(b.grandTotal) || 0), 0);
+      const paidBookings = bookings.filter(
+        (b) =>
+          b.status === 'CONFIRMED' ||
+          (b as any).paymentStatus === 'PAID' ||
+          (b as any).paymentStatus === 'PARTIALLY_PAID' ||
+          Number((b as any).paidAmount || 0) > 0
+      );
 
-      const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED').length;
+      const totalRevenue = paidBookings.reduce(
+        (sum, b) => sum + (Number((b as any).paidAmount) || Number(b.grandTotal) || 0),
+        0
+      );
 
       return {
         roleScope: 'SUPERADMIN',
         totalRevenue,
-        totalBookings: bookings.length,
-        confirmedBookings,
+        totalBookings: paidBookings.length,
+        confirmedBookings: paidBookings.length,
         totalExhibitions: exhibitionsCount,
         activeAdmins: activeAdminsCount,
         activeStaff: activeStaffCount,
         totalStalls: stallsCount,
         occupiedStalls: occupiedStallsCount,
         occupancyRate: stallsCount > 0 ? Math.round((occupiedStallsCount / stallsCount) * 100) : 0,
-        recentBookings: bookings.slice(0, 5),
+        recentBookings: paidBookings.slice(0, 5),
       };
     }
 
@@ -61,6 +68,8 @@ export class ReportsService {
             id: true,
             bookingReference: true,
             status: true,
+            paymentStatus: true,
+            paidAmount: true,
             grandTotal: true,
             createdAt: true,
             company: { select: { name: true } },
@@ -73,22 +82,29 @@ export class ReportsService {
         prisma.stall.count({ where: { status: 'BOOKED_CONFIRMED' } }),
       ]);
 
-      const totalRevenue = bookings
-        .filter((b) => b.status === 'CONFIRMED')
-        .reduce((sum, b) => sum + (Number(b.grandTotal) || 0), 0);
+      const paidBookings = bookings.filter(
+        (b) =>
+          b.status === 'CONFIRMED' ||
+          (b as any).paymentStatus === 'PAID' ||
+          (b as any).paymentStatus === 'PARTIALLY_PAID' ||
+          Number((b as any).paidAmount || 0) > 0
+      );
 
-      const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED').length;
+      const totalRevenue = paidBookings.reduce(
+        (sum, b) => sum + (Number((b as any).paidAmount) || Number(b.grandTotal) || 0),
+        0
+      );
 
       return {
         roleScope: 'ADMIN',
         totalRevenue,
-        totalBookings: bookings.length,
-        confirmedBookings,
+        totalBookings: paidBookings.length,
+        confirmedBookings: paidBookings.length,
         totalExhibitions: exhibitionsCount,
         totalStalls: stallsCount,
         occupiedStalls: occupiedStallsCount,
         occupancyRate: stallsCount > 0 ? Math.round((occupiedStallsCount / stallsCount) * 100) : 0,
-        recentBookings: bookings.slice(0, 5),
+        recentBookings: paidBookings.slice(0, 5),
       };
     }
 

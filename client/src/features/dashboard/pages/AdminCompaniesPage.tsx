@@ -35,7 +35,7 @@ export const AdminCompaniesPage: React.FC = () => {
 
   // Filtering criteria initialized from query params
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>(searchParams.get('exhibitionId') || '');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'REGISTERED' | 'UNREGISTERED'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'PAID' | 'NOT_PAID'>('ALL');
 
   // Modals state
   const [inspectedCompany, setInspectedCompany] = useState<Company | null>(null);
@@ -81,46 +81,45 @@ export const AdminCompaniesPage: React.FC = () => {
   // Metrics (Filtered by selected exhibition if selected)
   const totalCount = companies.length;
 
-  const { registeredCount, unregisteredCount } = useMemo(() => {
-    let registered = 0;
-    let unregistered = 0;
+  const { paidCount, notPaidCount } = useMemo(() => {
+    let paid = 0;
+    let notPaid = 0;
 
     companies.forEach((c) => {
-      const hasMatchingBooking = selectedExhibitionId
-        ? c.bookings?.some(
-            (b) =>
-              b.exhibitionId === selectedExhibitionId ||
-              b.exhibition?.id === selectedExhibitionId
-          )
-        : c.bookings && c.bookings.length > 0;
+      const hasPaidBooking = c.bookings?.some((b) => {
+        const matchesExpo = !selectedExhibitionId || b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId;
+        const isPaid = b.status === 'CONFIRMED' || b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIALLY_PAID' || Number(b.paidAmount || 0) > 0;
+        return matchesExpo && isPaid;
+      });
 
-      if (hasMatchingBooking) {
-        registered++;
+      if (hasPaidBooking) {
+        paid++;
       } else {
-        unregistered++;
+        notPaid++;
       }
     });
 
-    return { registeredCount: registered, unregisteredCount: unregistered };
+    return { paidCount: paid, notPaidCount: notPaid };
   }, [companies, selectedExhibitionId]);
 
   // Filtered companies based on search, exhibition selector, and tab
   const filteredCompanies = companies.filter((c) => {
-    // 1. Check matching bookings based on selected exhibition
-    const hasMatchingBooking = selectedExhibitionId
-      ? c.bookings?.some(
-          (b) =>
-            b.exhibitionId === selectedExhibitionId ||
-            b.exhibition?.id === selectedExhibitionId
-        )
+    const hasPaidBooking = c.bookings?.some((b) => {
+      const matchesExpo = !selectedExhibitionId || b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId;
+      const isPaid = b.status === 'CONFIRMED' || b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIALLY_PAID' || Number(b.paidAmount || 0) > 0;
+      return matchesExpo && isPaid;
+    });
+
+    const hasAnyBookingForExpo = selectedExhibitionId
+      ? c.bookings?.some((b) => b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId)
       : c.bookings && c.bookings.length > 0;
 
-    // 2. Tab filter
-    if (activeTab === 'REGISTERED' && !hasMatchingBooking) return false;
-    if (activeTab === 'UNREGISTERED' && hasMatchingBooking) return false;
+    // Tab filter: PAID vs NOT_PAID
+    if (activeTab === 'PAID' && !hasPaidBooking) return false;
+    if (activeTab === 'NOT_PAID' && hasPaidBooking) return false;
 
-    // 3. Exhibition filter (for 'ALL' tab or when activeTab is not filtering matching bookings)
-    if (selectedExhibitionId && !hasMatchingBooking) return false;
+    // Exhibition filter (if selected)
+    if (selectedExhibitionId && !hasAnyBookingForExpo) return false;
 
     // 3. Search query
     if (!search.trim()) return true;
@@ -249,43 +248,44 @@ export const AdminCompaniesPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('REGISTERED')}
+              onClick={() => setActiveTab('PAID')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                activeTab === 'REGISTERED'
+                activeTab === 'PAID'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Registered to Events</span>
+              <span>Paid Exhibitors</span>
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  activeTab === 'REGISTERED'
+                  activeTab === 'PAID'
                     ? 'bg-emerald-700 text-emerald-100'
                     : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200'
                 }`}
               >
-                {registeredCount}
+                {paidCount}
               </span>
             </button>
 
             <button
-              onClick={() => setActiveTab('UNREGISTERED')}
+              onClick={() => setActiveTab('NOT_PAID')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                activeTab === 'UNREGISTERED'
-                  ? 'bg-slate-700 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                activeTab === 'NOT_PAID'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
               }`}
             >
-              <span>Not Registered Yet</span>
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Not Paid Exhibitors</span>
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  activeTab === 'UNREGISTERED'
-                    ? 'bg-slate-800 text-slate-200'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  activeTab === 'NOT_PAID'
+                    ? 'bg-amber-700 text-amber-100'
+                    : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
                 }`}
               >
-                {unregisteredCount}
+                {notPaidCount}
               </span>
             </button>
           </div>
@@ -439,6 +439,13 @@ export const AdminCompaniesPage: React.FC = () => {
                 filteredCompanies.map((c) => {
                   const companyBookings = c.bookings || [];
                   const isRegistered = companyBookings.length > 0;
+                  const hasPaidCompanyBooking = companyBookings.some(
+                    (b) =>
+                      b.status === 'CONFIRMED' ||
+                      b.paymentStatus === 'PAID' ||
+                      b.paymentStatus === 'PARTIALLY_PAID' ||
+                      Number(b.paidAmount || 0) > 0
+                  );
 
                   return (
                     <tr
@@ -447,8 +454,17 @@ export const AdminCompaniesPage: React.FC = () => {
                     >
                       {/* Entity Name & Code */}
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                          {c.name}
+                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
+                          <span className="truncate">{c.name}</span>
+                          {hasPaidCompanyBooking ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 shrink-0">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 shrink-0">
+                              Not Paid
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-mono text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">

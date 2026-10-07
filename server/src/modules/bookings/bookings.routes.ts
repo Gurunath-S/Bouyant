@@ -9,6 +9,9 @@ import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
 
+// Public unauthenticated route for booking confirmation success page
+router.get('/public/summary/:id', asyncHandler(BookingsController.getPublicSummary));
+
 router.use(authenticateToken);
 router.post('/', validateRequest(CreateBookingSchema), asyncHandler(BookingsController.create));
 router.get('/my-bookings', asyncHandler(BookingsController.myBookings));

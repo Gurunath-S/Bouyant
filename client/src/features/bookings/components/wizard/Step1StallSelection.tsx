@@ -3,15 +3,13 @@ import { Exhibition, Stall } from '../../../../types';
 import { FloorPlanLayoutData } from '../../../../types/floorPlanStudio';
 import { FloorPlanCanvas } from '../../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../../floor-plan/components/StallFilterBar';
+import { useFloorPlanStore } from '../../../../stores/floorPlanStore';
 import { Button } from '../../../../components/ui/Button';
 import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Layers,
   X,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 
 interface Step1StallSelectionProps {
@@ -41,14 +39,50 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
   setIsFullscreen,
   onProceed,
 }) => {
-  const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+  const { conflicts, removeStallFromSelection } = useFloorPlanStore();
+
+  // Exclude conflicting stalls from price, count, area calculations
+  const validSelectedStallIds = selectedStallIds.filter(
+    (id) => !conflicts.some((c) => c.stallId === id)
+  );
+  const selectedStallsObj = stalls.filter((s) => validSelectedStallIds.includes(s.id));
   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
   const taxAmount = Math.round(basePrice * 0.18);
   const grandTotal = basePrice + taxAmount;
 
   return (
     <div className="flex flex-col gap-2 space-y-2">
-      {stallHoldError && (
+      {/* Conflicts Banner */}
+      {conflicts.length > 0 && (
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 rounded-xl text-rose-800 dark:text-rose-200 text-xs shadow-md space-y-2 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 font-bold text-sm text-rose-700 dark:text-rose-400">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{conflicts.length} selected stall(s) are no longer available</span>
+          </div>
+          <p className="text-rose-600 dark:text-rose-300">
+            Another user has reserved or booked the following stall(s). Please remove them to proceed with your remaining selection:
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {conflicts.map((c) => (
+              <div
+                key={c.stallId}
+                className="flex items-center gap-2 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/60 border border-rose-300 dark:border-rose-700 rounded-lg text-rose-900 dark:text-rose-100 font-mono font-bold"
+              >
+                <span>Stall #{c.stallNumber} — No longer available</span>
+                <button
+                  onClick={() => removeStallFromSelection(c.stallId)}
+                  className="p-1 hover:bg-rose-200 dark:hover:bg-rose-800 rounded-md text-rose-700 dark:text-rose-300 transition-colors cursor-pointer"
+                  title={`Remove stall ${c.stallNumber}`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stallHoldError && conflicts.length === 0 && (
         <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0">
           <AlertTriangle className="w-4 h-4 text-rose-600" />
           {stallHoldError}
@@ -83,7 +117,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
           className="w-full h-full min-h-full"
           onStallSelect={(s) => {
             if (isBookingClosed) return;
-            if (s.status === 'AVAILABLE') toggleStallSelection(s);
+            if (s.status === 'AVAILABLE' || selectedStallIds.includes(s.id)) toggleStallSelection(s);
           }}
         />
       </div>
@@ -132,7 +166,12 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               variant="primary"
               size="lg"
               onClick={onProceed}
-              className="bg-[#9cc542] hover:bg-[#8bb433] text-[#012970] font-black shadow-lg px-6 py-3 text-sm flex items-center gap-2"
+              disabled={conflicts.length > 0}
+              className={`font-black shadow-lg px-6 py-3 text-sm flex items-center gap-2 ${
+                conflicts.length > 0
+                  ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-[#9cc542] hover:bg-[#8bb433] text-[#012970]'
+              }`}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               Proceed to Booking
@@ -148,3 +187,4 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
     </div>
   );
 };
+

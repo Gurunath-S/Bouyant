@@ -58,7 +58,7 @@ export const Sidebar: React.FC = () => {
 
   const superAdminLinks = [
     { to: '/super-admin/dashboard', label: 'Platform Overview', icon: ShieldAlert },
-    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
+    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
     { to: '/super-admin/users', label: 'User Governance', icon: Users },
     { to: '/admin/events', label: 'Exhibitions & Floor Plans', icon: Layers },
     { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
@@ -69,7 +69,7 @@ export const Sidebar: React.FC = () => {
 
   const adminLinks = [
     { to: '/admin/dashboard', label: 'Admin Dashboard', icon: ShieldCheck },
-    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
+    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
     { to: '/admin/events', label: 'Manage Exhibitions', icon: Layers },
     { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
     { to: '/admin/bookings', label: 'Bookings & Allocations', icon: BookmarkCheck },
@@ -79,9 +79,8 @@ export const Sidebar: React.FC = () => {
 
   const staffLinks = [
     { to: '/staff/dashboard', label: 'Staff Dashboard', icon: LayoutDashboard },
-    { to: '/exhibitions', label: 'Browse Exhibitions', icon: Calendar },
+    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
     { to: '/staff/events', label: 'Exhibitions & Events', icon: Layers },
-    { to: '/staff/events/register', label: 'Register New Event', icon: CalendarPlus },
     { to: '/reports', label: 'Operational Reports', icon: BarChart3 },
   ];
 

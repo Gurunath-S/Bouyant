@@ -161,16 +161,16 @@ export const ReportsPage: React.FC = () => {
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
                 <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bookings Placed</p>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirmed Paid Bookings</p>
                   <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                     <BookmarkCheck className="w-4 h-4" />
                   </div>
                 </div>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                  {overview?.totalBookings || 0}
+                  {overview?.confirmedBookings || overview?.totalBookings || 0}
                 </p>
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
-                  {overview?.confirmedBookings || 0} Confirmed Reservations
+                  Completed Paid Stall Reservations
                 </span>
               </div>
 

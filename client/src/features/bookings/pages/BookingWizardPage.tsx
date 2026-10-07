@@ -27,7 +27,16 @@ export const BookingWizardPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, setUser, setTokens } = useAuthStore();
-  const { selectedStallIds, clearStallSelection, toggleStallSelection } = useFloorPlanStore();
+  const {
+    selectedStallIds,
+    heldStallIds,
+    setHeldStallIds,
+    setConflicts,
+    clearConflicts,
+    clearStallSelection,
+    toggleStallSelection,
+    removeStallFromSelection,
+  } = useFloorPlanStore();
 
   // Wizard Stepper (1 = Stall, 2 = Company, 3 = Tax Bill, 4 = Payment, 5 = Pass & Credentials)
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -183,7 +192,7 @@ export const BookingWizardPage: React.FC = () => {
     }
   };
 
-  // Step 1 -> Step 2
+  // Step 1 -> Step 2 (Atomic Delta Synchronization)
   const handleHoldSelectedStall = async () => {
     if (isBookingClosed) {
       setStallHoldError('Stall bookings for this exhibition are closed as the cut-off date has passed.');
@@ -192,13 +201,27 @@ export const BookingWizardPage: React.FC = () => {
     if (selectedStallIds.length === 0) return;
     try {
       setStallHoldError('');
+      clearConflicts();
+
       if (user) {
-        await Promise.all(selectedStallIds.map((id) => stallService.holdStall(id)));
+        const res = await stallService.syncHoldStalls(selectedStallIds);
+        if (res && res.heldStallIds) {
+          setHeldStallIds(res.heldStallIds);
+        }
       }
       setCurrentStep(2);
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'This stall is temporarily held. Please select another available green stall.';
-      setStallHoldError(msg);
+      const conflictData = err.response?.data?.data;
+      if (conflictData && conflictData.code === 'STALL_CONFLICT' && conflictData.conflicts) {
+        setConflicts(conflictData.conflicts);
+        if (conflictData.heldStalls) {
+          setHeldStallIds(conflictData.heldStalls.map((s: any) => s.id));
+        }
+        setStallHoldError('Some selected stalls are no longer available. Please review and remove conflicting stalls.');
+      } else {
+        const msg = err.response?.data?.message || 'Failed to hold stalls. Please try again.';
+        setStallHoldError(msg);
+      }
     }
   };
 
@@ -366,23 +389,12 @@ export const BookingWizardPage: React.FC = () => {
               razorpay_signature: paymentResponse.razorpay_signature,
             });
           } else {
-            await new Promise((res) => setTimeout(res, 1200));
+            await new Promise((res) => setTimeout(res, 1000));
           }
 
-          if (!generatedOTP) {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            setGeneratedOTP(otp);
-          }
-
-          // Activate user login session AFTER successful payment verification
-          if (pendingUserAuth) {
-            if (pendingUserAuth.tokens?.accessToken) {
-              setTokens(pendingUserAuth.tokens.accessToken, pendingUserAuth.tokens.refreshToken);
-            }
-            setUser(pendingUserAuth.user);
-          }
-
-          setPaymentStatusState('SUCCESS');
+          // STRICT REQUIREMENT: DO NOT auto-login the user after payment!
+          // Redirect to the unauthenticated dedicated Booking Success page
+          navigate(`/booking/success?bookingId=${booking.id}`);
         } catch (err: any) {
           setPaymentStatusState('FAILED');
           setPaymentErrorMessage(err.response?.data?.message || err.message || 'Razorpay payment verification failed.');
@@ -467,6 +479,29 @@ export const BookingWizardPage: React.FC = () => {
               </h1>
             </div>
 
+            {currentStep <= 3 && selectedStallIds.length > 0 && (
+              <button
+                onClick={async () => {
+                  const confirmCancel = window.confirm(
+                    'Are you sure you want to cancel this booking?\n\nAll temporarily held stalls will be released and may become available to other users.'
+                  );
+                  if (confirmCancel) {
+                    try {
+                      if (user) {
+                        await stallService.cancelAllHolds();
+                      }
+                    } catch (e) {
+                      console.warn('Failed to release holds on cancel:', e);
+                    }
+                    clearStallSelection();
+                    navigate(`/exhibitions/${slug}`);
+                  }
+                }}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel Booking
+              </button>
+            )}
           </div>
 
           {/* Stepper Tabs (Active during wizard steps 1, 2, & 3) */}

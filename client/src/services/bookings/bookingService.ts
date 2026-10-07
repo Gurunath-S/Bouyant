@@ -65,6 +65,11 @@ export const bookingService = {
     return res.data;
   },
 
+  getPublicBookingSummary: async (idOrRef: string): Promise<any> => {
+    const res: any = await apiClient.get(`/bookings/public/summary/${idOrRef}`);
+    return res.data;
+  },
+
   getAllBookings: async (params?: {
     page?: number;
     limit?: number;

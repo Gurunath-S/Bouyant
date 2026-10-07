@@ -50,6 +50,15 @@ export const AdminBookingsPage: React.FC = () => {
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
+      // Only include bookings where payment has been made (CONFIRMED, PAID_FULL, PARTIALLY_PAID, or paidAmount > 0)
+      const isPaid =
+        b.status === 'CONFIRMED' ||
+        b.paymentStatus === 'PAID' ||
+        b.paymentStatus === 'PARTIALLY_PAID' ||
+        (Number(b.paidAmount || 0) > 0 && b.status !== 'CANCELLED' && b.status !== 'EXPIRED');
+
+      if (!isPaid) return false;
+
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
@@ -60,16 +69,8 @@ export const AdminBookingsPage: React.FC = () => {
         (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber.toLowerCase().includes(q)));
 
       const matchesStatus =
-        statusFilter === 'ALL' ||
-        (statusFilter === 'PENDING_PAYMENT'
-          ? (b.status === 'PENDING_PAYMENT' ||
-             b.paymentStatus === 'UNPAID' ||
-             b.paymentStatus === 'PARTIALLY_PAID' ||
-             Number(b.balanceAmount) > 0 ||
-             (b.paymentStatus !== 'PAID' && Number(b.grandTotal) - Number(b.paidAmount || 0) > 0)) &&
-            b.status !== 'CANCELLED' &&
-            b.status !== 'EXPIRED'
-          : b.status === statusFilter);
+        statusFilter === 'ALL' || b.status === statusFilter || b.paymentStatus === statusFilter;
+
       const matchesExhibition = exhibitionFilter === 'ALL' || b.exhibitionId === exhibitionFilter;
       const matchesRegistrar =
         registrarFilter === 'ALL' ||

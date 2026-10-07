@@ -1,12 +1,22 @@
 import {Request,Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { PaymentsService } from './payments.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { sendResponse } from '../../utils/response.js';
 
 export class PaymentsController {
   static verifyPayment = async (req:Request, res: Response) => {
     
     const result = await PaymentsService.verifyAndProcessPayment(req.body);
+
+    // Trigger async notification dispatch after payment verification
+    if (result.success && result.data?.bookingId) {
+      NotificationsService.dispatchEvent({
+        event: 'PAYMENT_RECEIVED',
+        bookingId: result.data.bookingId,
+        paymentId: result.data.paymentId,
+      });
+    }
 
     return sendResponse({
       res,

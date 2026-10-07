@@ -42,9 +42,17 @@ export const AdminPaymentsPage: React.FC = () => {
     return Array.isArray(payments) ? payments : [];
   }, [payments]);
 
-  // Filter logic
+  // Filter logic: Only actual payments made (Full or Partial completed transactions)
   const filteredPayments = useMemo(() => {
     return safePayments.filter((p) => {
+      // Strictly exclude uncompleted PENDING attempts or FAILED transactions unless explicitly filtered
+      const isPaidTransaction =
+        p.status === 'SUCCESS' ||
+        p.status === 'COMPLETED' ||
+        (Number(p.amount || 0) > 0 && p.status !== 'FAILED' && p.status !== 'PENDING');
+
+      if (!isPaidTransaction && statusFilter === 'ALL') return false;
+
       // 1. Search filter (Payment Ref, Booking Ref, Payment Method)
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =

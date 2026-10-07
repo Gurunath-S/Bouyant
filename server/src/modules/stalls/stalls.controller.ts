@@ -47,6 +47,32 @@ export class StallsController {
     });
   };
 
+  static syncHold = async (req: AuthenticatedRequest, res: Response) => {
+    const { stallIds } = req.body;
+    const userId = req.user!.userId;
+    const result = await StallsService.syncHoldStalls(userId, stallIds);
+
+    const statusCode = result.success ? 200 : 409;
+    return sendResponse({
+      res,
+      statusCode,
+      message: result.message || 'Stalls synchronization completed.',
+      data: result,
+    });
+  };
+
+  static cancelUserHolds = async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!.userId;
+    await StallsService.cancelUserHolds(userId);
+
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: 'All temporary stall holds released.',
+      data: null,
+    });
+  };
+
   static releaseHold = async (req: AuthenticatedRequest, res: Response) => {
     const { stallId } = req.params;
     const userId = req.user!.userId;
