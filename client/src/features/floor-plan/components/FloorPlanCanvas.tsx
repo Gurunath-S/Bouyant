@@ -167,7 +167,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       };
     }
 
-    if (isSelected) {
+    if (isSelected && stall.status !== 'BOOKED_CONFIRMED' && stall.status !== 'BLOCKED') {
       return {
         fill: isDark ? '#1e3a8a' : '#dbeafe',
         stroke: '#2563eb',
