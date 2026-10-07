@@ -1,10 +1,13 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import {Prisma} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
 import { TokenPayload } from '../../utils/jwt.js';
+import { EmailService } from '../../services/email.service.js';
+import { InvoicePdfService } from '../../services/InvoicePdfService.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 export class PaymentsService {
   /**
@@ -325,7 +328,7 @@ export class PaymentsService {
   // 11. FINAL DATABASE TRANSACTION
   // =========================================================
 
-  return await prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       // =====================================================
       // Re-read Payment inside transaction
@@ -350,15 +353,18 @@ export class PaymentsService {
 
       if (currentPayment.status === 'SUCCESS') {
         return {
-          success: true,
-          message:
-            'Payment has already been processed.',
-          data: {
-            paymentId: currentPayment.id,
-            bookingId:
-              currentPayment.bookingId,
-            paymentStatus: 'SUCCESS',
+          response: {
+            success: true,
+            message:
+              'Payment has already been processed.',
+            data: {
+              paymentId: currentPayment.id,
+              bookingId:
+                currentPayment.bookingId,
+              paymentStatus: 'SUCCESS',
+            },
           },
+          emailData: null,
         };
       }
 
@@ -376,24 +382,25 @@ export class PaymentsService {
         await tx.booking.findUnique({
           where: {
             id: currentPayment.bookingId,
-	          },
-	          include: {
-	            company: {
-	              include: {
-	                users: {
-	                  select: {
-	                    id: true,
-	                  },
-	                },
-	              },
-	            },
-	            stalls: {
-	              include: {
-	                stall: true,
-	              },
-	            },
-	          },
-	        });
+          },
+          include: {
+            company: {
+              include: {
+                users: {
+                  select: {
+                    id: true,
+                  },
+                },
+              },
+            },
+            stalls: {
+              include: {
+                stall: true,
+              },
+            },
+            exhibition: true,
+          },
+        });
 
       if (!booking) {
         throw ApiError.notFound(
@@ -405,57 +412,57 @@ export class PaymentsService {
       // BOOKING STATE VALIDATION
       // =====================================================
 
-	      if (booking.status !== 'PENDING_PAYMENT') {
-	        throw ApiError.conflict(
-	          `Booking cannot be completed because its current status is ${booking.status}.`
-	        );
-	      }
+      if (booking.status !== 'PENDING_PAYMENT') {
+        throw ApiError.conflict(
+          `Booking cannot be completed because its current status is ${booking.status}.`
+        );
+      }
 
-	      if (
-	        booking.paymentStatus === 'UNPAID' &&
-	        booking.expiresAt &&
-	        booking.expiresAt <= new Date()
-	      ) {
-	        await tx.booking.update({
-	          where: {
-	            id: booking.id,
-	          },
-	          data: {
-	            status: 'EXPIRED',
-	          },
-	        });
+      if (
+        booking.paymentStatus === 'UNPAID' &&
+        booking.expiresAt &&
+        booking.expiresAt <= new Date()
+      ) {
+        await tx.booking.update({
+          where: {
+            id: booking.id,
+          },
+          data: {
+            status: 'EXPIRED',
+          },
+        });
 
-	        throw ApiError.badRequest(
-	          'This booking hold has expired. Please create a new booking.'
-	        );
-	      }
+        throw ApiError.badRequest(
+          'This booking hold has expired. Please create a new booking.'
+        );
+      }
 
-	      const stallIds =
-	        booking.stalls.map(
-	          (item) => item.stallId
-	        );
+      const stallIds =
+        booking.stalls.map(
+          (item) => item.stallId
+        );
 
-	      if (booking.paymentStatus === 'UNPAID') {
-	        const companyUserIds = new Set(
-	          booking.company.users.map((companyUser) => companyUser.id)
-	        );
-	        const invalidHeldStall = booking.stalls.find(
-	          (item) =>
-	            !['TEMPORARILY_HELD', 'PAYMENT_PENDING'].includes(item.stall.status) ||
-	            !item.stall.heldByUserId ||
-	            !companyUserIds.has(item.stall.heldByUserId)
-	        );
+      if (booking.paymentStatus === 'UNPAID') {
+        const companyUserIds = new Set(
+          booking.company.users.map((companyUser) => companyUser.id)
+        );
+        const invalidHeldStall = booking.stalls.find(
+          (item) =>
+            !['TEMPORARILY_HELD', 'PAYMENT_PENDING'].includes(item.stall.status) ||
+            !item.stall.heldByUserId ||
+            !companyUserIds.has(item.stall.heldByUserId)
+        );
 
-	        if (invalidHeldStall) {
-	          throw ApiError.conflict(
-	            'One or more stalls are no longer held for this booking.'
-	          );
-	        }
-	      }
+        if (invalidHeldStall) {
+          throw ApiError.conflict(
+            'One or more stalls are no longer held for this booking.'
+          );
+        }
+      }
 
-	      // =====================================================
-	      // CALCULATE BALANCE
-	      // =====================================================
+      // =====================================================
+      // CALCULATE BALANCE
+      // =====================================================
 
       const paymentAmount =
         new Prisma.Decimal(
@@ -545,40 +552,40 @@ export class PaymentsService {
         },
       });
 
-	      // =====================================================
-	      // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
-	      // =====================================================
+      // =====================================================
+      // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
+      // =====================================================
 
-	      if (booking.paymentStatus === 'UNPAID') {
-	        const stallUpdate =
-	          await tx.stall.updateMany({
-	            where: {
-	              id: {
-	                in: stallIds,
-	              },
-	              status: {
-	                in: ['AVAILABLE', 'TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BLOCKED'],
-	              },
-	            },
-	            data: {
-	              status: 'BOOKED_CONFIRMED',
-	              heldUntil: null,
-	              heldByUserId: null,
-	            },
-	          });
+      if (booking.paymentStatus === 'UNPAID') {
+        const stallUpdate =
+          await tx.stall.updateMany({
+            where: {
+              id: {
+                in: stallIds,
+              },
+              status: {
+                in: ['AVAILABLE', 'TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BLOCKED'],
+              },
+            },
+            data: {
+              status: 'BOOKED_CONFIRMED',
+              heldUntil: null,
+              heldByUserId: null,
+            },
+          });
 
-	        if (stallUpdate.count !== stallIds.length) {
-	          throw ApiError.conflict(
-	            'One or more stalls could not be confirmed.'
-	          );
-	        }
-	      }
+        if (stallUpdate.count !== stallIds.length) {
+          throw ApiError.conflict(
+            'One or more stalls could not be confirmed.'
+          );
+        }
+      }
 
       // =====================================================
       // RESPONSE
       // =====================================================
 
-      return {
+      const response = {
         success: true,
 
         message: bookingIsFullyPaid
@@ -612,12 +619,75 @@ export class PaymentsService {
           paidAt: new Date()
         },
       };
+
+      return {
+        response,
+        emailData: {
+          booking,
+          payment: currentPayment,
+          paymentAmount,
+          finalBalance,
+        },
+      };
     },
     {
       timeout: 10000,
     }
   );
+
+  // OUT OF BAND SIDE-EFFECTS (AFTER DB TRANSACTION COMMITS)
+  if (result.emailData) {
+    const { booking, payment, paymentAmount, finalBalance } = result.emailData;
+    setImmediate(async () => {
+      try {
+        const invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
+        if (invoice) {
+          const pdfData = InvoicePdfService.buildInvoicePdfData(invoice, booking);
+          const pdfBuffer = await InvoicePdfService.generateInvoicePdf(pdfData).catch((err: any) => {
+            console.error('⚠️ [PDF GENERATION FAILED] PDF creation error:', err?.message || err);
+            return null;
+          });
+
+          const stalls = (booking.stalls || []).map((s: any) => ({
+            stallNumber: s.stall?.stallNumber || s.stallId,
+            category: s.stall?.category || 'Standard',
+          }));
+
+          if (pdfBuffer) {
+            await EmailService.sendBookingConfirmationEmail({
+              toEmail: booking.company.email,
+              toName: booking.company.contactPerson || booking.company.name,
+              companyName: booking.company.name,
+              bookingReference: booking.bookingReference,
+              exhibitionTitle: booking.exhibition.title,
+              stalls,
+              invoiceNumber: invoice.invoiceNumber,
+              paymentPercentage: (payment as any).paymentPercentage || 100,
+              paymentAmount: paymentAmount.toNumber(),
+              remainingBalance: finalBalance.toNumber(),
+              paymentDate: payment.paidAt || new Date(),
+              paymentReference: payment.paymentReference,
+              pdfBuffer,
+            }).catch((err: any) => console.error('⚠️ [EMAIL SEND FAILED] Confirmation email error:', err?.message || err));
+          }
+        }
+
+        // Dispatch notifications & admin alerts
+        NotificationsService.dispatchEvent({
+          event: 'PAYMENT_RECEIVED',
+          bookingId: booking.id,
+          paymentId: payment.id,
+        });
+      } catch (err: any) {
+        console.error('⚠️ [AFTER-PAYMENT SIDE EFFECT FAILED]:', err?.message || err);
+      }
+    });
+  }
+
+  return result.response;
 }
+
+
 
 static async createBalancePaymentOrder(
   bookingId: string,

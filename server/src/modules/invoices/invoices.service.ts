@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 
 export class InvoicesService {
   static async getInvoiceById(invoiceId: string, _userId?: string) {
@@ -44,6 +45,12 @@ export class InvoicesService {
     });
   }
 
+  static async generateInvoicePdf(invoiceId: string) {
+    const invoice = await this.getInvoiceById(invoiceId);
+    const pdfData = InvoicePdfService.buildInvoicePdfData(invoice, invoice.booking);
+    return await InvoicePdfService.generateInvoicePdf(pdfData);
+  }
+
   static async listAllInvoices() {
     return await prisma.invoice.findMany({
       orderBy: { createdAt: 'desc' },
@@ -59,3 +66,4 @@ export class InvoicesService {
     });
   }
 }
+

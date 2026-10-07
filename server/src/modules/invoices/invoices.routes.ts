@@ -10,7 +10,9 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/my-invoices', asyncHandler(InvoicesController.myInvoices));
+router.get('/:id/pdf', asyncHandler(InvoicesController.downloadPdf));
 router.get('/:id', asyncHandler(InvoicesController.getById));
 router.get('/', requirePermission(Permissions.INVOICE_MANAGE), asyncHandler(InvoicesController.listAll));
 
 export const invoiceRoutes = router;
+
