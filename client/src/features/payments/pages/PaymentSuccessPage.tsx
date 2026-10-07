@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
+import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Button } from '../../../components/ui/Button';
 import {
   CheckCircle2,
@@ -29,6 +30,7 @@ export const PaymentSuccessPage: React.FC = () => {
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   useEffect(() => {
+    useFloorPlanStore.getState().clearStallSelection();
     if (bookingId) {
       bookingService
         .getPublicBookingSummary(bookingId)
