@@ -18,7 +18,9 @@ import {
   Phone,
   Clock,
   ShieldCheck,
+  Download,
 } from 'lucide-react';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 interface BookingDetailModalProps {
   booking: Booking | null;
@@ -250,12 +252,24 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 Pay / Record Balance
               </Button>
             )}
-            {booking.invoice && (
-              <Link to={`/invoices/${booking.invoice.id}`} target="_blank">
-                <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
-                  View & Print Tax Invoice
+            {(booking.invoice || booking.id) && (
+              <>
+                {booking.invoice?.id && (
+                  <Link to={`/invoices/${booking.invoice.id}`} target="_blank">
+                    <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5 text-blue-600" />}>
+                      View Tax Invoice
+                    </Button>
+                  </Link>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                  onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
+                >
+                  Download Official PDF
                 </Button>
-              </Link>
+              </>
             )}
             <Button variant="secondary" size="sm" onClick={onClose}>
               Close
