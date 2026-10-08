@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Printer, ArrowLeft, ShieldCheck, Award, FileCheck2, CreditCard, Layers } from 'lucide-react';
+import { Printer, ArrowLeft, ShieldCheck, Award, FileCheck2, CreditCard, Layers, Download } from 'lucide-react';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -95,9 +96,19 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
         )}
 
-        <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<Printer className="w-4 h-4" />}>
-          Print / Save PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadInvoicePdf(invoice.id || id || '', invoice.invoiceNumber)}
+            leftIcon={<Download className="w-4 h-4 text-blue-600" />}
+          >
+            Download Official PDF
+          </Button>
+          <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<Printer className="w-4 h-4" />}>
+            Print Page
+          </Button>
+        </div>
       </div>
 
       {/* Printable Invoice Container */}

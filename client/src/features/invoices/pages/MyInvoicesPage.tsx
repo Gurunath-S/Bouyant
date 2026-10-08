@@ -5,6 +5,7 @@ import { Invoice } from '../../../types';
 import { FileText, Download, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 export const MyInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -76,11 +77,21 @@ export const MyInvoicesPage: React.FC = () => {
                     ₹{Number(inv.grandTotal).toLocaleString()} INR
                   </td>
                   <td className="py-3.5 px-4 text-center">
-                    <Link to={`/invoices/${inv.id}`}>
-                      <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
-                        View & Print
+                    <div className="flex items-center justify-center gap-2">
+                      <Link to={`/invoices/${inv.id}`}>
+                        <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
+                          View
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />}
+                        onClick={() => downloadInvoicePdf(inv.id, inv.invoiceNumber)}
+                      >
+                        PDF
                       </Button>
-                    </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
