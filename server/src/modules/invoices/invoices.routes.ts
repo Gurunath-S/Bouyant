@@ -7,6 +7,8 @@ import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
 
+router.get('/public/:id/pdf', asyncHandler(InvoicesController.downloadPdf));
+
 router.use(authenticateToken);
 
 router.get('/my-invoices', asyncHandler(InvoicesController.myInvoices));

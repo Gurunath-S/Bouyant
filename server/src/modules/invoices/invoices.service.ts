@@ -3,9 +3,16 @@ import { ApiError } from '../../utils/apiError.js';
 import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 
 export class InvoicesService {
-  static async getInvoiceById(invoiceId: string, _userId?: string) {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
+  static async getInvoiceById(invoiceIdOrBookingId: string, _userId?: string) {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        OR: [
+          { id: invoiceIdOrBookingId },
+          { invoiceNumber: invoiceIdOrBookingId },
+          { bookingId: invoiceIdOrBookingId },
+          { booking: { bookingReference: invoiceIdOrBookingId } },
+        ],
+      },
       include: {
         company: true,
         payment: true,
