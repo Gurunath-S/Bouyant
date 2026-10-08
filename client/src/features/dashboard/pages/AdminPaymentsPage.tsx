@@ -14,11 +14,7 @@ export const AdminPaymentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
 
-  useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  const fetchPayments = async () => {
+  async function fetchPayments() {
     try {
       setLoading(true);
       const res: any = await apiClient.get('/payments');
@@ -37,7 +33,11 @@ export const AdminPaymentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
 
   const safePayments = useMemo(() => {
     return Array.isArray(payments) ? payments : [];

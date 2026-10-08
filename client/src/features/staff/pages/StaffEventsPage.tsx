@@ -19,11 +19,7 @@ export const StaffEventsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  async function fetchEvents() {
     try {
       setLoading(true);
       const data = await exhibitionService.getExhibitions();
@@ -33,7 +29,11 @@ export const StaffEventsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
 
   const filtered = exhibitions.filter((e) => {
     const q = search.toLowerCase();

@@ -52,11 +52,7 @@ export const AdminDashboardPage: React.FC = () => {
     );
   }, [publishedExhibitions, eventSearchQuery]);
 
-  useEffect(() => {
-    fetchAdminDashboardData();
-  }, [selectedExhibitionId]);
-
-  const fetchAdminDashboardData = async () => {
+  async function fetchAdminDashboardData() {
     try {
       setLoading(true);
 
@@ -186,7 +182,11 @@ export const AdminDashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchAdminDashboardData();
+  }, [selectedExhibitionId]);
 
   // Helper to extract stall numbers safely from booking object
   const getStallNumbers = (b: any) => {

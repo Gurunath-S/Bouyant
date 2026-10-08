@@ -69,11 +69,7 @@ export const AdminEventsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  async function fetchEvents() {
     try {
       setLoading(true);
       const data = await exhibitionService.getExhibitions();
@@ -83,7 +79,11 @@ export const AdminEventsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
 
   // Metric counts breakdown
   const statsCounts = React.useMemo(() => {

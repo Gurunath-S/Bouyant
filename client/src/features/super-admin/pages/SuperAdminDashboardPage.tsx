@@ -19,11 +19,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
   const [data, setData] = useState<ReportOverviewData | null>(null);
   const [_loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
+  async function fetchMetrics() {
     try {
       setLoading(true);
       const res = await reportService.getOverview();
@@ -33,7 +29,11 @@ export const SuperAdminDashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
 
   return (
     <div className="space-y-6">

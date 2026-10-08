@@ -15,11 +15,7 @@ export const InvoiceDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'SINGLE_RECEIPT' | 'CONSOLIDATED'>('SINGLE_RECEIPT');
 
-  useEffect(() => {
-    if (id) fetchInvoice();
-  }, [id]);
-
-  const fetchInvoice = async () => {
+  async function fetchInvoice() {
     try {
       setLoading(true);
       const res: any = await apiClient.get(`/invoices/${id}`);
@@ -29,7 +25,11 @@ export const InvoiceDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (id) fetchInvoice();
+  }, [id]);
 
   const handlePrint = () => {
     window.print();

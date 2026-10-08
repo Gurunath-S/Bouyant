@@ -368,9 +368,12 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   const panMoveRef = useRef(handleMouseMove);
-  panMoveRef.current = handleMouseMove;
   const panUpRef = useRef(handleMouseUp);
-  panUpRef.current = handleMouseUp;
+
+  useEffect(() => {
+    panMoveRef.current = handleMouseMove;
+    panUpRef.current = handleMouseUp;
+  }, [handleMouseMove, handleMouseUp]);
 
   // Window-level mouse move & mouse up to ensure panning never gets stuck or interrupted by browser
   useEffect(() => {

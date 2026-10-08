@@ -57,11 +57,7 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [activeTab]);
-
-  const fetchUsers = async () => {
+  async function fetchUsers() {
     try {
       setLoading(true);
       const roleParam = activeTab === 'ALL' ? undefined : activeTab;
@@ -72,7 +68,11 @@ export const SuperAdminUsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchUsers();
+  }, [activeTab]);
 
   const handleOpenCreate = (role: 'ADMIN' | 'STAFF') => {
     setCreateRole(role);

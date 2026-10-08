@@ -20,18 +20,18 @@ export const StaffDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [data, setData] = useState<ReportOverviewData | null>(null);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
+  async function fetchMetrics() {
     try {
       const res = await reportService.getOverview();
       setData(res);
     } catch (err) {
       console.error('Failed to load staff metrics:', err);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
 
   return (
     <div className="space-y-6">

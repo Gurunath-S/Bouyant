@@ -12,11 +12,7 @@ export const ExhibitionsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetchExhibitions();
-  }, []);
-
-  const fetchExhibitions = async () => {
+  async function fetchExhibitions() {
     try {
       setLoading(true);
       const data = await exhibitionService.getExhibitions();
@@ -26,10 +22,14 @@ export const ExhibitionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const now = new Date();
+  useEffect(() => {
+    fetchExhibitions();
+  }, []);
+
   const currentUpcomingEvent = React.useMemo(() => {
+    const now = new Date();
     const published = exhibitions.filter(
       (e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now
     );
@@ -39,6 +39,7 @@ export const ExhibitionsPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
+  const now = new Date();
   const filtered = exhibitions.filter((e) => {
     // Hide DRAFT or CANCELLED exhibitions from public page
     if (e.status === 'DRAFT' || e.status === 'CANCELLED') {

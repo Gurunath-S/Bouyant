@@ -21,18 +21,10 @@ export const AdminBookingsPage: React.FC = () => {
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState('ALL');
 
-  useEffect(() => {
-    const statusParam = searchParams.get('status');
-    const exParam = searchParams.get('exhibitionId');
-    if (statusParam) setStatusFilter(statusParam);
-    if (exParam) setExhibitionFilter(exParam);
-  }, [searchParams]);
+  // Note: statusFilter and exhibitionFilter are already initialised from searchParams above.
+  // A sync effect that only copies URL params into state each re-render is unnecessary.
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const fetchInitialData = async () => {
+  async function fetchInitialData() {
     try {
       setLoading(true);
       const [bookingsRes, exhibitionsRes] = await Promise.all([
@@ -46,7 +38,11 @@ export const AdminBookingsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {

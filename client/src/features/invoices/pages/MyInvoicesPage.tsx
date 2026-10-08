@@ -11,11 +11,7 @@ export const MyInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchInvoices();
-  }, []);
-
-  const fetchInvoices = async () => {
+  async function fetchInvoices() {
     try {
       setLoading(true);
       const res: any = await apiClient.get('/invoices');
@@ -25,7 +21,11 @@ export const MyInvoicesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
 
   return (
     <div className="space-y-6">

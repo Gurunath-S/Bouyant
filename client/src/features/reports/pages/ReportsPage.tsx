@@ -30,11 +30,7 @@ export const ReportsPage: React.FC = () => {
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchReportData();
-  }, []);
-
-  const fetchReportData = async () => {
+  async function fetchReportData() {
     try {
       setLoading(true);
       const [over, occ, expos] = await Promise.all([
@@ -50,7 +46,11 @@ export const ReportsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchReportData();
+  }, []);
 
   const getPageTitle = () => {
     if (isSuperAdmin) return 'Platform-Wide Executive Analytics';

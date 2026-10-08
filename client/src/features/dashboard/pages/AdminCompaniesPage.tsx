@@ -42,11 +42,7 @@ export const AdminCompaniesPage: React.FC = () => {
   const [registerModalCompany, setRegisterModalCompany] = useState<Company | null>(null);
   const [targetExhibitionId, setTargetExhibitionId] = useState<string>('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  async function fetchData() {
     try {
       setLoading(true);
       const [companiesRes, exhibitionsData] = await Promise.all([
@@ -76,7 +72,11 @@ export const AdminCompaniesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Metrics (Filtered by selected exhibition if selected)
   const totalCount = companies.length;

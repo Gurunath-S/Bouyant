@@ -46,12 +46,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchExhibitions();
-    fetchAdminBookings();
-  }, []);
-
-  const fetchExhibitions = async () => {
+  async function fetchExhibitions() {
     try {
       setLoadingEvents(true);
       const data = await exhibitionService.getExhibitions();
@@ -61,9 +56,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
     } finally {
       setLoadingEvents(false);
     }
-  };
+  }
 
-  const fetchAdminBookings = async () => {
+  async function fetchAdminBookings() {
     try {
       setLoadingBookings(true);
       const res = await bookingService.getAllBookings({ registeredByRole: 'ADMIN' });
@@ -73,7 +68,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
     } finally {
       setLoadingBookings(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchExhibitions();
+    fetchAdminBookings();
+  }, []);
 
   const handleRefreshAll = () => {
     fetchExhibitions();
@@ -90,8 +90,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
     setTimeout(() => setSuccessBanner(null), 8000);
   };
 
-  const now = new Date();
   const currentUpcomingEvent = useMemo(() => {
+    const now = new Date();
     const published = exhibitions.filter(
       (e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now
     );

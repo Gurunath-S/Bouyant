@@ -38,13 +38,7 @@ export const BookingCheckoutPage: React.FC = () => {
     category: 'Exhibitor',
   });
 
-  useEffect(() => {
-    if (stallId) {
-      loadCheckoutData();
-    }
-  }, [stallId]);
-
-  const loadCheckoutData = async () => {
+  async function loadCheckoutData() {
     try {
       setLoading(true);
       const stallsRes = await stallService.getStallsByFloorPlan('');
@@ -59,11 +53,18 @@ export const BookingCheckoutPage: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load checkout details:', err);
+      console.error('Checkout data load failed:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (stallId) {
+      loadCheckoutData();
+    }
+  }, [stallId]);
+
 
   const handleCreateCompanyInline = async () => {
     try {

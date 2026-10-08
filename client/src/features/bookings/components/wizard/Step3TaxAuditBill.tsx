@@ -76,7 +76,8 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const remainingBalance = isPartial ? basePrice - payableToday : 0;
  
 
-  const eventStartDate = exhibition ? new Date(exhibition.startDate) : new Date(Date.now() + 30 * 86400000);
+  const fallbackStartDate = React.useMemo(() => new Date(Date.now() + 30 * 86400000), []);
+  const eventStartDate = exhibition ? new Date(exhibition.startDate) : fallbackStartDate;
   const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
   const formattedDeadline = formatDisplayDate(deadlineDate);
 

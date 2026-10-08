@@ -50,11 +50,7 @@ export const ClientDashboardPage: React.FC = () => {
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  async function loadDashboardData() {
     try {
       setLoading(true);
       const [bookingsData, exposData] = await Promise.all([
@@ -68,7 +64,11 @@ export const ClientDashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   // Derived financial metrics
   const totalPaid = useMemo(() => {

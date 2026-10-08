@@ -9,11 +9,7 @@ export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  async function fetchNotifications() {
     try {
       setLoading(true);
       const res: any = await apiClient.get('/notifications');
@@ -23,7 +19,11 @@ export const NotificationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const markAllRead = async () => {
     try {

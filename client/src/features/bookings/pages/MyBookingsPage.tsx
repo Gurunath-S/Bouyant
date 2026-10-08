@@ -15,11 +15,7 @@ export const MyBookingsPage: React.FC = () => {
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
+  async function fetchBookings() {
     try {
       setLoading(true);
       const data = await bookingService.getMyBookings();
@@ -29,7 +25,11 @@ export const MyBookingsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   return (
     <div className="space-y-6">

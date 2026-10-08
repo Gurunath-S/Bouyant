@@ -18,6 +18,14 @@ import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
 
+function generateFallbackBookingRef() {
+  return 'BKG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function generateTempStallId() {
+  return 'ms_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+}
+
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -90,6 +98,42 @@ export const BookingWizardPage: React.FC = () => {
     return false;
   }, [exhibition]);
 
+  async function loadInitialData() {
+    try {
+      setLoading(true);
+      const expo = await exhibitionService.getExhibitionBySlug(slug!);
+      setExhibition(expo);
+
+      if (expo.floorPlans && expo.floorPlans.length > 0) {
+        const fp = expo.floorPlans[0];
+        if (fp.backgroundUrl) {
+          try {
+            setLayoutData(JSON.parse(fp.backgroundUrl));
+          } catch (e) {
+            console.warn('Failed to parse floor plan layout in booking wizard', e);
+          }
+        }
+        const stallsData = fp.stalls && fp.stalls.length > 0 ? fp.stalls : await stallService.getStallsByFloorPlan(fp.id);
+        setStalls(stallsData || []);
+      } else {
+        setStalls([]);
+      }
+
+      if (user) {
+        const comps = await companyService.getMyCompanies();
+        setCompanies(comps || []);
+        if (comps && comps.length > 0 && !selectedCompany) {
+          setSelectedCompany(comps[0]);
+          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load booking wizard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (slug) loadInitialData();
   }, [slug]);
@@ -148,42 +192,6 @@ export const BookingWizardPage: React.FC = () => {
     clearStallSelection();
     setCurrentStep(1);
     setRemainingSeconds(900);
-  };
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      const expo = await exhibitionService.getExhibitionBySlug(slug!);
-      setExhibition(expo);
-
-      if (expo.floorPlans && expo.floorPlans.length > 0) {
-        const fp = expo.floorPlans[0];
-        if (fp.backgroundUrl) {
-          try {
-            setLayoutData(JSON.parse(fp.backgroundUrl));
-          } catch (e) {
-            console.warn('Failed to parse floor plan layout in booking wizard', e);
-          }
-        }
-        const stallsData = fp.stalls && fp.stalls.length > 0 ? fp.stalls : await stallService.getStallsByFloorPlan(fp.id);
-        setStalls(stallsData || []);
-      } else {
-        setStalls([]);
-      }
-
-      if (user) {
-        const comps = await companyService.getMyCompanies();
-        setCompanies(comps || []);
-        if (comps && comps.length > 0 && !selectedCompany) {
-          setSelectedCompany(comps[0]);
-          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load booking wizard data:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Step 1 -> Step 2 (Atomic Delta Synchronization)
@@ -318,7 +326,7 @@ export const BookingWizardPage: React.FC = () => {
 
       const realBooking = response.booking || {
         id: response.bookingId,
-        bookingReference: response.bookingReference || ('BKG-2026-' + Math.floor(1000 + Math.random() * 9000)),
+        bookingReference: response.bookingReference || generateFallbackBookingRef(),
         userId: user?.id || 'guest_user_id',
         companyId: selectedCompany.id,
         exhibitionId: exhibition?.id || 'expo_id',
@@ -328,7 +336,7 @@ export const BookingWizardPage: React.FC = () => {
         grandTotal: calculatedGrandTotal,
         createdAt: new Date().toISOString(),
         stalls: selectedStallsObj.map((s) => ({
-          id: 'ms_' + Math.random(),
+          id: generateTempStallId(),
           bookingId: response.bookingId,
           stallId: s.id,
           price: s.price,

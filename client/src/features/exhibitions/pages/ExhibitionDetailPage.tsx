@@ -74,12 +74,7 @@ export const ExhibitionDetailPage: React.FC = () => {
 
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
-  useEffect(() => {
-    fetchExhibition();
-    fetchCurrentUpcoming();
-  }, [slug]);
-
-  const fetchCurrentUpcoming = async () => {
+  async function fetchCurrentUpcoming() {
     try {
       const all = await exhibitionService.getExhibitions('PUBLISHED');
       const now = new Date();
@@ -91,9 +86,9 @@ export const ExhibitionDetailPage: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-  };
+  }
 
-  const fetchExhibition = async () => {
+  async function fetchExhibition() {
     try {
       setLoading(true);
       const expo = await exhibitionService.getExhibitionBySlug(slug!);
@@ -121,7 +116,12 @@ export const ExhibitionDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchExhibition();
+    fetchCurrentUpcoming();
+  }, [slug]);
 
   if (loading) {
     return (
