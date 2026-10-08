@@ -8,6 +8,7 @@ import { TokenPayload } from '../../utils/jwt.js';
 import { EmailService } from '../../services/email.service.js';
 import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { generateReference } from '../../utils/reference.js';
 
 export class PaymentsService {
   /**
@@ -389,6 +390,8 @@ export class PaymentsService {
                 users: {
                   select: {
                     id: true,
+                    username: true,
+                    email: true,
                   },
                 },
               },
@@ -398,7 +401,11 @@ export class PaymentsService {
                 stall: true,
               },
             },
-            exhibition: true,
+            exhibition: {
+              include: {
+                createdBy: true,
+              },
+            },
           },
         });
 
@@ -640,36 +647,127 @@ export class PaymentsService {
     const { booking, payment, paymentAmount, finalBalance } = result.emailData;
     setImmediate(async () => {
       try {
-        const invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
+        let invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
+
+        // Auto-create invoice if missing for this payment
+        if (!invoice) {
+          try {
+            const invoiceNum = generateReference('INV', 6);
+            const total = Number(booking.totalAmount || 0);
+            const tax = Number(booking.taxAmount || 0);
+            const grand = Number(booking.grandTotal || total + tax);
+
+            invoice = await prisma.invoice.create({
+              data: {
+                invoiceNumber: invoiceNum,
+                bookingId: booking.id,
+                paymentId: payment.id,
+                companyId: booking.companyId,
+                totalAmount: new Prisma.Decimal(total),
+                taxAmount: new Prisma.Decimal(tax),
+                grandTotal: new Prisma.Decimal(grand),
+                status: 'ISSUED',
+                issueDate: new Date(),
+              },
+            });
+          } catch (invErr: any) {
+            console.error('⚠️ [INVOICE CREATION FAILED]:', invErr?.message || invErr);
+          }
+        }
+
+        const invoiceNumber = invoice?.invoiceNumber || `INV-${booking.bookingReference}`;
+
+        let pdfBuffer: Buffer | null = null;
         if (invoice) {
           const pdfData = InvoicePdfService.buildInvoicePdfData(invoice, booking);
-          const pdfBuffer = await InvoicePdfService.generateInvoicePdf(pdfData).catch((err: any) => {
+          pdfBuffer = await InvoicePdfService.generateInvoicePdf(pdfData).catch((err: any) => {
             console.error('⚠️ [PDF GENERATION FAILED] PDF creation error:', err?.message || err);
             return null;
           });
+        }
 
-          const stalls = (booking.stalls || []).map((s: any) => ({
-            stallNumber: s.stall?.stallNumber || s.stallId,
-            category: s.stall?.category || 'Standard',
-          }));
+        const stalls = (booking.stalls || []).map((s: any) => ({
+          stallNumber: s.stall?.stallNumber || s.stallId,
+          category: s.stall?.category || 'Standard',
+        }));
 
-          if (pdfBuffer) {
-            await EmailService.sendBookingConfirmationEmail({
-              toEmail: booking.company.email,
-              toName: booking.company.contactPerson || booking.company.name,
-              companyName: booking.company.name,
+        const firstUser = booking.company.users?.[0];
+
+        await EmailService.sendBookingConfirmationEmail({
+          toEmail: booking.company.email,
+          toName: booking.company.contactPerson || booking.company.name,
+          companyName: booking.company.name,
+          bookingReference: booking.bookingReference,
+          exhibitionTitle: booking.exhibition.title,
+          stalls,
+          invoiceNumber,
+          paymentPercentage: (payment as any).paymentPercentage || 100,
+          paymentAmount: paymentAmount.toNumber(),
+          remainingBalance: finalBalance.toNumber(),
+          paymentDate: payment.paidAt || new Date(),
+          paymentReference: payment.paymentReference,
+          userName: firstUser?.username || booking.company.email,
+          pdfBuffer,
+        }).catch((err: any) => console.error('⚠️ [EMAIL SEND FAILED] Confirmation email error:', err?.message || err));
+
+        // DISPATCH ADMIN PAYMENT NOTIFICATION EMAIL
+        try {
+          const adminEmails: string[] = [];
+
+          if (booking.exhibition?.notificationEmails) {
+            const parsed = booking.exhibition.notificationEmails
+              .split(/[\s,;]+/)
+              .map((e: string) => e.trim())
+              .filter((e: string) => e.length > 0 && e.includes('@'));
+            adminEmails.push(...parsed);
+          }
+
+          const createdByEmail = (booking.exhibition as any)?.createdBy?.email;
+          if (createdByEmail) {
+            adminEmails.push(createdByEmail);
+          }
+
+          if (adminEmails.length === 0) {
+            const adminUsers = await prisma.user.findMany({
+              where: { role: { in: ['ADMIN', 'SUPERADMIN'] }, isActive: true },
+              select: { email: true },
+            });
+            adminUsers.forEach((u) => {
+              if (u.email) adminEmails.push(u.email);
+            });
+          }
+
+          const uniqueAdminEmails = Array.from(new Set(adminEmails));
+
+          if (uniqueAdminEmails.length > 0) {
+            const comp = booking.company as any;
+            await EmailService.sendPaymentAdminEmail({
+              notificationEmails: uniqueAdminEmails,
+              companyName: comp?.name || 'Exhibitor',
+              contactPerson: comp?.contactPerson || comp?.name,
+              email: comp?.email,
+              phone: comp?.phone || comp?.contactPhone || comp?.mobile || comp?.telephone,
+              gstNumber: comp?.gstNumber || undefined,
               bookingReference: booking.bookingReference,
-              exhibitionTitle: booking.exhibition.title,
-              stalls,
-              invoiceNumber: invoice.invoiceNumber,
+              exhibitionTitle: booking.exhibition?.title || 'Exhibition Event',
+              stalls: (booking.stalls || []).map((s: any) => ({
+                stallNumber: s.stall?.stallNumber || s.stallId,
+                category: s.stall?.category || 'Standard',
+                price: s.price ? Number(s.price) : undefined,
+              })),
+              invoiceNumber,
               paymentPercentage: (payment as any).paymentPercentage || 100,
               paymentAmount: paymentAmount.toNumber(),
               remainingBalance: finalBalance.toNumber(),
+              grandTotal: Number(booking.grandTotal || 0),
+              paymentMethod: payment.paymentMethod || 'Online Gateway',
               paymentDate: payment.paidAt || new Date(),
               paymentReference: payment.paymentReference,
               pdfBuffer,
-            }).catch((err: any) => console.error('⚠️ [EMAIL SEND FAILED] Confirmation email error:', err?.message || err));
+            });
           }
+        } catch (adminEmailErr: any) {
+          console.error('⚠️ [ADMIN PAYMENT EMAIL FAILED]:', adminEmailErr?.message || adminEmailErr);
         }
 
         // Dispatch notifications & admin alerts
