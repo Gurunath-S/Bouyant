@@ -493,12 +493,13 @@ private static validateStalls(
     }
 
     // Check active payment hold
-    if (stall.status === 'PAYMENT_PENDING') {
+    if (stall.status === 'PAYMENT_PENDING' || stall.status === 'TEMPORARILY_HELD') {
+      const isHeldByThisUser = (stall as any).heldByUserId && (stall as any).heldByUserId === user?.userId;
       const isExpired =
         !stall.heldUntil ||
         stall.heldUntil.getTime() <= Date.now();
 
-      if (!isExpired) {
+      if (!isExpired && !isHeldByThisUser) {
         throw ApiError.conflict(
           `Stall ${stall.stallNumber} is currently being held for another booking.`
         );
@@ -800,11 +801,15 @@ static async createBooking(
   for (const stall of stalls) {
     const isAvailable = stall.status === StallStatus.AVAILABLE;
     const isHeldByUser =
-      stall.status === StallStatus.TEMPORARILY_HELD &&
+      (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
       stall.heldByUserId === user.userId;
+    const isExpiredHold =
+      (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
+      stall.heldUntil &&
+      stall.heldUntil.getTime() <= Date.now();
     const isBlocked = stall.status === StallStatus.BLOCKED;
 
-    if (isAvailable || isHeldByUser) {
+    if (isAvailable || isHeldByUser || isExpiredHold) {
       continue;
     }
 
@@ -843,13 +848,14 @@ static async createBooking(
 
 	  const existingPaymentPendingStall = stalls.find(
       (stall) =>
-        stall.status === StallStatus.TEMPORARILY_HELD &&
+        (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
         stall.heldByUserId === user.userId
     );
 
   const holdUntil =
-    existingPaymentPendingStall?.heldUntil ??
-    new Date(Date.now() + 15 * 60 * 1000);
+    (existingPaymentPendingStall?.heldUntil && existingPaymentPendingStall.heldUntil.getTime() > Date.now())
+      ? existingPaymentPendingStall.heldUntil
+      : new Date(Date.now() + 15 * 60 * 1000);
 
   // ==================================================
   // 9. DATABASE TRANSACTION
@@ -909,11 +915,15 @@ static async createBooking(
         for (const stall of currentStalls) {
           const isAvailable = stall.status === StallStatus.AVAILABLE;
           const isHeldByUser =
-            stall.status === StallStatus.TEMPORARILY_HELD &&
+            (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
             stall.heldByUserId === user.userId;
+          const isExpiredHold =
+            (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
+            stall.heldUntil &&
+            stall.heldUntil.getTime() <= Date.now();
           const isBlocked = stall.status === StallStatus.BLOCKED;
 
-          if (isAvailable || isHeldByUser) {
+          if (isAvailable || isHeldByUser || isExpiredHold) {
             continue;
           }
 
@@ -934,14 +944,22 @@ static async createBooking(
             id: {
               in: input.stallIds,
             },
-	            OR: [
-	              { status: StallStatus.AVAILABLE },
-	              {
-	                status: StallStatus.TEMPORARILY_HELD,
-	                heldByUserId: user.userId,
-	              },
-	              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
-	            ],
+            OR: [
+              { status: StallStatus.AVAILABLE },
+              {
+                status: StallStatus.TEMPORARILY_HELD,
+                heldByUserId: user.userId,
+              },
+              {
+                status: StallStatus.PAYMENT_PENDING,
+                heldByUserId: user.userId,
+              },
+              {
+                status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
+                heldUntil: { lte: new Date() },
+              },
+              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
+            ],
           },
           data: {
             status: StallStatus.PAYMENT_PENDING,
@@ -955,6 +973,23 @@ static async createBooking(
             'One or more selected stalls were reserved by another user. Please refresh and choose available stalls.'
           );
         }
+
+        // Cancel any previous unfulfilled PENDING_PAYMENT booking for this company & exhibition to avoid orphaned duplicates when re-trying/switching payment plan
+        await tx.booking.updateMany({
+          where: {
+            companyId: input.companyId,
+            exhibitionId: input.exhibitionId,
+            status: BookingStatus.PENDING_PAYMENT,
+            stalls: {
+              some: {
+                stallId: { in: input.stallIds },
+              },
+            },
+          },
+          data: {
+            status: BookingStatus.CANCELLED,
+          },
+        });
 
         // ----------------------------------------------
         // Create Booking
