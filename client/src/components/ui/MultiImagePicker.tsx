@@ -7,9 +7,11 @@ import {
   Plus,
   Image as ImageIcon,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
+import { uploadService } from '../../services/upload/uploadService';
 
 export interface MultiImagePickerProps {
   images: string[];
@@ -33,12 +35,13 @@ export const MultiImagePicker: React.FC<MultiImagePickerProps> = ({
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [urlInput, setUrlInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveCover = coverImage || images[0] || '';
 
-  // Handle local files upload (multi-file support)
-  const handleLocalFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local files upload to Cloudinary (multi-file support)
+  const handleLocalFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -48,36 +51,47 @@ export const MultiImagePicker: React.FC<MultiImagePickerProps> = ({
     }
 
     setErrorMessage(null);
-    const newImages: string[] = [];
-    let filesProcessed = 0;
+    setIsUploading(true);
 
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        setErrorMessage('Only image files (PNG, JPG, WebP) are supported.');
-        return;
-      }
-      if (file.size > 8 * 1024 * 1024) {
-        setErrorMessage('One or more files exceed the 8MB size limit.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          newImages.push(reader.result);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        if (!file.type.startsWith('image/')) {
+          throw new Error('Only image files (PNG, JPG, WebP) are supported.');
         }
-        filesProcessed++;
-        if (filesProcessed === files.length) {
-          const updated = [...images, ...newImages];
-          const newCover = effectiveCover || updated[0] || '';
-          onChangeImages(updated, newCover);
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error('One or more files exceed the 10MB size limit.');
         }
-      };
-      reader.readAsDataURL(file);
-    });
 
-    // Reset input so same file can be selected again if needed
-    if (fileInputRef.current) fileInputRef.current.value = '';
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            if (typeof reader.result === 'string') {
+              try {
+                const res = await uploadService.uploadImage(reader.result, 'gallery');
+                resolve(res.url);
+              } catch (err) {
+                reject(err);
+              }
+            } else {
+              reject(new Error('Failed to read file.'));
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const updated = [...images, ...uploadedUrls];
+      const newCover = effectiveCover || updated[0] || '';
+      onChangeImages(updated, newCover);
+    } catch (err: any) {
+      console.error('Cloudinary multi-image upload error:', err);
+      setErrorMessage(err.message || 'Failed to upload one or more images to Cloudinary.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   // Handle adding image via URL

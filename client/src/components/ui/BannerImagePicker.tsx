@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Image as ImageIcon, Upload, Link2, Sparkles, Check, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
+import { uploadService } from '../../services/upload/uploadService';
 
 export const BANNER_PRESETS = [
   {
@@ -72,6 +73,8 @@ export const BannerImagePicker: React.FC<BannerImagePickerProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isUploading, setIsUploading] = useState(false);
+
   // Handle local file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,17 +86,27 @@ export const BannerImagePicker: React.FC<BannerImagePickerProps> = ({
       return;
     }
 
-    // Limit to 6MB
-    if (file.size > 6 * 1024 * 1024) {
-      setUploadError('Image size exceeds 6MB. Please select a smaller image.');
+    // Limit to 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Image size exceeds 10MB. Please select a smaller image.');
       return;
     }
 
     setUploadError(null);
+    setIsUploading(true);
+
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        onChange(reader.result);
+        try {
+          const res = await uploadService.uploadImage(reader.result, 'banners');
+          onChange(res.url);
+        } catch (err: any) {
+          console.error('Cloudinary upload error:', err);
+          setUploadError('Failed to upload image to Cloudinary.');
+        } finally {
+          setIsUploading(false);
+        }
       }
     };
     reader.readAsDataURL(file);

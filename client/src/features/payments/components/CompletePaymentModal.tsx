@@ -63,34 +63,101 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const balanceDue = Number(booking.balanceAmount || Math.max(0, grandTotal - paidAmount));
   const stallNumbers = booking.stalls?.map((s) => s.stall?.stallNumber || s.stallId).join(', ') || 'Assigned Booth';
 
+  const executeRazorpay = (orderData: any) => {
+    if (typeof (window as any).Razorpay === 'undefined') {
+      setError('Razorpay SDK failed to load. Please check your internet connection and try again.');
+      setIsProcessing(false);
+      return;
+    }
+
+    const options: any = {
+      key: orderData.keyId || orderData.razorpayKeyId,
+      amount: orderData.amount,
+      currency: orderData.currency || 'INR',
+      name: 'Buoyant Media',
+      description: `Balance Payment — Ref: ${booking.bookingReference}`,
+      order_id: orderData.razorpayOrderId,
+      handler: async function (paymentResponse: any) {
+        try {
+          setIsProcessing(true);
+          await paymentService.verifyPayment({
+            razorpay_order_id: paymentResponse.razorpay_order_id,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_signature: paymentResponse.razorpay_signature,
+          });
+          setSuccessMessage(`Payment of ${formatCurrency(payAmount > 0 ? payAmount : balanceDue)} verified successfully! Your booking status has been updated.`);
+          setTimeout(() => {
+            onSuccess();
+            onClose();
+          }, 1500);
+        } catch (err: any) {
+          console.error('Failed to verify Razorpay balance payment:', err);
+          setError(err.response?.data?.message || err.message || 'Razorpay payment verification failed.');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      prefill: {
+        name: booking.company?.contactPerson || user?.name || 'Exhibitor',
+        email: booking.company?.email || user?.email || 'exhibitor@buoyantmedia.com',
+        contact: booking.company?.mobile || user?.phone || '9876543210',
+      },
+      theme: {
+        color: '#012970',
+      },
+      modal: {
+        ondismiss: function () {
+          setIsProcessing(false);
+        },
+      },
+    };
+
+    try {
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      console.error('Failed to launch Razorpay popup:', err);
+      setError('Unable to launch Razorpay gateway: ' + err.message);
+      setIsProcessing(false);
+    }
+  };
+
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsProcessing(true);
       setError(null);
 
-      await paymentService.verifyPayment({
-        bookingId: booking.id,
-        action: 'SUCCESS',
-        paymentMethod,
-        transactionId: transactionId.trim() || `TXN-${Date.now()}`,
-        payAmount: payAmount > 0 ? payAmount : balanceDue,
-      });
+      // Admin manual recording (Cash / Direct Offline Payment)
+      if (isStaffOrAdmin && paymentMethod === 'ADMIN_CASH_DIRECT') {
+        await paymentService.verifyPayment({
+          bookingId: booking.id,
+          action: 'SUCCESS',
+          paymentMethod,
+          transactionId: transactionId.trim() || `TXN-${Date.now()}`,
+          payAmount: payAmount > 0 ? payAmount : balanceDue,
+        });
 
-      setSuccessMessage(
-        isStaffOrAdmin
-          ? `Payment recorded successfully! Booking ${booking.bookingReference} status updated.`
-          : `Payment of ${formatCurrency(payAmount)} successful! Your booking status has been updated.`
-      );
+        setSuccessMessage(`Payment recorded successfully! Booking ${booking.bookingReference} status updated.`);
 
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 1500);
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 1500);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Online Razorpay Payment flow for balance completion
+      const orderInfo = await paymentService.createBalanceOrder(booking.id);
+      if (!orderInfo || (!orderInfo.razorpayOrderId && !orderInfo.id)) {
+        throw new Error('Failed to generate balance payment order from payment gateway.');
+      }
+
+      executeRazorpay(orderInfo);
     } catch (err: any) {
       console.error('Failed to complete payment:', err);
-      setError(err.message || 'Payment processing failed. Please try again.');
-    } finally {
+      setError(err.response?.data?.message || err.message || 'Payment processing failed. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -263,21 +330,23 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Transaction Reference Input */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Transaction / Reference ID
-            </label>
-            <input
-              type="text"
-              value={transactionId}
-              onChange={(e) => setTransactionId(e.target.value)}
-              disabled={isProcessing}
-              placeholder="e.g. TXN-998811 or Bank Ref"
-              className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+          {/* Transaction Reference Input (For Offline / Admin Cash / Wire) */}
+          {(paymentMethod === 'ADMIN_CASH_DIRECT' || paymentMethod === 'BANK_TRANSFER') && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Transaction / Reference ID
+              </label>
+              <input
+                type="text"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+                disabled={isProcessing}
+                placeholder="e.g. TXN-998811 or Bank Ref"
+                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                required={paymentMethod === 'ADMIN_CASH_DIRECT' || paymentMethod === 'BANK_TRANSFER'}
+              />
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">

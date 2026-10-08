@@ -35,4 +35,9 @@ export const paymentService = {
     if (Array.isArray(rawData?.payments)) return rawData.payments;
     return rawData || [];
   },
+
+  createBalanceOrder: async (bookingId: string) => {
+    const res: any = await apiClient.post(`/payments/balance/${bookingId}`);
+    return res?.data?.data || res?.data || res;
+  },
 };

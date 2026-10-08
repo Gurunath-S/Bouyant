@@ -11,7 +11,11 @@ async function main() {
   const staffPasswordHash = await bcrypt.hash('StaffPassword123!', 10);
   // const clientPasswordHash = await bcrypt.hash('UserPassword123!', 10);
 
-  // Delete demo companies if any exist
+  // Delete dependent records before deleting demo companies if any exist
+  await prisma.invoice.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.bookingStall.deleteMany({});
+  await prisma.booking.deleteMany({});
   await prisma.user.updateMany({
     data: { companyId: null },
   });

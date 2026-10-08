@@ -38,6 +38,7 @@ import { CanvasBottomToolbar } from './CanvasBottomToolbar';
 import { CreateStallRowModal } from './CreateStallRowModal';
 import { CreateCustomStallModal } from './CreateCustomStallModal';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
+import { uploadService } from '../../../../services/upload/uploadService';
 
 interface GenericVisualStudioProps {
   exhibitionTitle: string;
@@ -3683,9 +3684,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     const file = e.target.files?.[0];
                     if (file) {
                       const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        if (ev.target?.result) {
-                          setBackgroundImageUrl(ev.target.result as string);
+                      reader.onload = async (ev) => {
+                        if (typeof ev.target?.result === 'string') {
+                          try {
+                            const res = await uploadService.uploadImage(ev.target.result, 'blueprints');
+                            setBackgroundImageUrl(res.url);
+                          } catch (err) {
+                            console.error('Failed to upload blueprint image to Cloudinary:', err);
+                            setBackgroundImageUrl(ev.target.result);
+                          }
                         }
                       };
                       reader.readAsDataURL(file);
