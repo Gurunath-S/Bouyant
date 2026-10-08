@@ -172,7 +172,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           setUsernameStatus('taken');
           setUsernameMessage(res.message || 'Username is already taken. Please choose another.');
         }
-      } catch (err: any) {
+      } catch (_err: any) {
         setUsernameStatus('idle');
         setUsernameMessage('');
       }

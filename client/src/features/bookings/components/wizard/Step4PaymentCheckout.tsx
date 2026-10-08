@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
-import { CreditCard, ShieldCheck, ArrowLeft, ArrowRight, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface Step4PaymentCheckoutProps {
   booking: Booking;

@@ -20,7 +20,6 @@ import {
   Phone,
   Mail,
   Layers,
-  Calendar,
   Sparkles,
 } from 'lucide-react';
 

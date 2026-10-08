@@ -11,16 +11,9 @@ import {
   MapPin,
   ArrowLeft,
   ArrowRight,
-  Building,
   Award,
-  ShieldCheck,
-  LayoutGrid,
-  Users,
   Check,
   Share2,
-  CheckCircle,
-  Layers,
-  Info,
   AlertCircle,
   AlertTriangle,
 } from 'lucide-react';
@@ -39,7 +32,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
-  const { selectedStallIds, toggleStallSelection, clearStallSelection } = useFloorPlanStore();
+  const { selectedStallIds, toggleStallSelection, clearStallSelection: _clearStallSelection } = useFloorPlanStore();
 
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;

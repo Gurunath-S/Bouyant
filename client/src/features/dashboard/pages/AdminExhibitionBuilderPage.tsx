@@ -4,7 +4,6 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { floorPlanService } from '../../../services/floor-plans/floorPlanService';
 import { GenericVisualStudio } from '../../floor-plan/components/studio/GenericVisualStudio';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
-import { STARTER_TEMPLATES } from '../../../data/floorPlanTemplates';
 import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
@@ -14,26 +13,17 @@ import { formatDisplayDate } from '../../../utils/date';
 import { useAuthStore } from '../../../stores/authStore';
 import {
   Layers,
-  Plus,
-  Trash2,
-  Lock,
-  Unlock,
-  ZoomIn,
-  ZoomOut,
   RotateCcw,
   ArrowLeft,
   ArrowRight,
-  CheckCircle,
   Eye,
   Building,
-  Maximize2,
   Calendar,
   MapPin,
   Check,
   Tag,
   Clock,
   Image as ImageIcon,
-  Sparkles,
   Pencil,
   Save,
   Loader2,
@@ -217,7 +207,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     heightFt: 80,
   });
   const [stalls, setStalls] = useState<DraftStall[]>([]);
-  const [selectedStallId, setSelectedStallId] = useState<string | null>(null);
 
   // Existing exhibitions loaded from DB to guarantee unique short codes
   const [existingEvents, setExistingEvents] = useState<{ id: string; slug?: string; title: string; eventCode: string; edition: string }[]>([]);
@@ -365,7 +354,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 status: s.status === 'BLOCKED' ? 'BLOCKED' : s.status,
               }))
             );
-            setSelectedStallId(fp.stalls[0]?.id || null);
           }
         }
       }
@@ -465,7 +453,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           timestamp: Date.now(),
         };
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-      } catch (e) {}
+      } catch (_e) {}
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -480,51 +468,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       setLayoutData(null);
       setCurrentStep(1);
     }
-  };
-
-  // Add Stall Helper
-  const handleAddStall = () => {
-    const existingNums = new Set(stalls.map((s) => s.stallNumber.toUpperCase()));
-    let nextNum = stalls.length + 1;
-    let candidate = `A-${String(nextNum).padStart(3, '0')}`;
-    while (existingNums.has(candidate)) {
-      nextNum++;
-      candidate = `A-${String(nextNum).padStart(3, '0')}`;
-    }
-
-    const newStall: DraftStall = {
-      id: `stall_draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      stallNumber: candidate,
-      xPosition: 40 + (stalls.length % 5) * 120,
-      yPosition: 40 + Math.floor(stalls.length / 5) * 120,
-      width: 100,
-      height: 100,
-      areaSqFt: 100,
-      category: 'STANDARD',
-      price: 50000,
-      status: 'AVAILABLE',
-    };
-
-    setStalls([...stalls, newStall]);
-    setSelectedStallId(newStall.id);
-  };
-
-  const handleUpdateStall = (id: string, updates: Partial<DraftStall>) => {
-    setStalls(
-      stalls.map((s) => {
-        if (s.id !== id) return s;
-        const updated = { ...s, ...updates };
-        if (updates.width !== undefined || updates.height !== undefined) {
-          updated.areaSqFt = Math.round((updated.width * updated.height) / 100);
-        }
-        return updated;
-      })
-    );
-  };
-
-  const handleDeleteStall = (id: string) => {
-    setStalls(stalls.filter((s) => s.id !== id));
-    if (selectedStallId === id) setSelectedStallId(null);
   };
 
   // Submit & Publish / Update Exhibition
@@ -625,8 +568,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
-  const selectedStall = stalls.find((s) => s.id === selectedStallId);
 
   return (
     <div className={`space-y-6 w-full transition-all ${currentStep === 2 ? 'max-w-none px-0' : 'max-w-6xl mx-auto'}`}>

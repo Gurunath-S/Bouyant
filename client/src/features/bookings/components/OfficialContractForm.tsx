@@ -27,8 +27,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
   onPrint,
 }) => {
   const totalBaseRental = stalls.reduce((sum, s) => sum + (Number(s.price) || 100000), 0);
-  const totalTaxAmount = Math.round(totalBaseRental * 0.18);
-  const totalGrandTotal = totalBaseRental + totalTaxAmount;
+  const _totalTaxAmount = Math.round(totalBaseRental * 0.18);
 
   return (
     <div className="bg-white dark:bg-slate-900 border-2 border-[#012970] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6 shadow-md text-slate-800 dark:text-slate-200 font-sans print:border-none print:shadow-none">

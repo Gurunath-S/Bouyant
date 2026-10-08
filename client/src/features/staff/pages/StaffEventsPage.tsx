@@ -10,11 +10,7 @@ import {
   CalendarPlus,
   Calendar,
   MapPin,
-  Clock,
   Search,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 
 export const StaffEventsPage: React.FC = () => {

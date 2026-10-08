@@ -1,10 +1,8 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { CreateBookingInput } from './bookings.schemas.js';
-import { StallsService } from '../stalls/stalls.service.js';
 import { StallStatus,BookingStatus,PaymentStatus} from '@prisma/client';
 import { Prisma,Stall} from '@prisma/client';
-import { generateReference } from '../../utils/reference.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { razorpay } from '../../config/razorpay.js';
 import { env } from '../../config/env.js';
@@ -1114,7 +1112,7 @@ static async createBooking(
             input.companyId,
         },
       });
-  } catch (error) {
+  } catch (_error) {
    
     throw ApiError.internal(
       'Payment gateway is currently unavailable. Please try again before the stall hold expires.'
@@ -1172,7 +1170,7 @@ static async createBooking(
           razorpayOrder.currency,
       },
     };
-  } catch (error) {
+  } catch (_error) {
    
     throw ApiError.internal(
       'Razorpay order was created, but we could not save the payment information. Please contact support.'

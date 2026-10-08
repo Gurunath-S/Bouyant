@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Eye, Search, Filter, Layers, ShieldCheck, RefreshCw } from 'lucide-react';
+import { BookmarkCheck, Eye, Search, Filter, RefreshCw } from 'lucide-react';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { Button } from '../../../components/ui/Button';

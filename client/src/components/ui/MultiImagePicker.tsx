@@ -7,7 +7,6 @@ import {
   Plus,
   Image as ImageIcon,
   AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';

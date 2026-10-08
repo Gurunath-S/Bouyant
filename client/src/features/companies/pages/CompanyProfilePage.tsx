@@ -4,7 +4,7 @@ import { companyService } from '../../../services/companies/companyService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { Building2, ShieldCheck, CheckCircle2, Save, FileText } from 'lucide-react';
+import { Building2, CheckCircle2, Save, FileText } from 'lucide-react';
 
 export const CompanyProfilePage: React.FC = () => {
   const { user, setUser } = useAuthStore();

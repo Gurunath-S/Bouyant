@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../../../services/api/apiClient';
-import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, FileText } from 'lucide-react';
+import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';

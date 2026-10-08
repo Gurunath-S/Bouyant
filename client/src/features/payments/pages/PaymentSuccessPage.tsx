@@ -15,9 +15,6 @@ import {
   MapPin,
   ShieldCheck,
   Headphones,
-  Sparkles,
-  ArrowRight,
-  Download,
   User,
   Mail,
   Phone,
@@ -32,10 +29,6 @@ export const PaymentSuccessPage: React.FC = () => {
   const bookingId = searchParams.get('bookingId');
   const [booking, setBooking] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
-
-  // Copy state for email
-  const [copiedEmail, setCopiedEmail] = useState(false);
 
   useEffect(() => {
     useFloorPlanStore.getState().clearStallSelection();
@@ -60,7 +53,7 @@ export const PaymentSuccessPage: React.FC = () => {
               origin: { x: 0.85, y: 0.2 },
               disableForReducedMotion: true,
             });
-          } catch (e) {
+          } catch (_e) {
             // Ignore if confetti is disabled/unsupported
           }
         })
@@ -72,32 +65,6 @@ export const PaymentSuccessPage: React.FC = () => {
   }, [bookingId]);
 
   const userEmail = booking?.company?.email || booking?.user?.email || '';
-
-  const handleDownloadPdf = async () => {
-    const idToUse = booking?.invoices?.[0]?.id || booking?.id || bookingId;
-    if (!idToUse) return;
-
-    setDownloading(true);
-    try {
-      const downloadUrl = `/api/v1/invoices/public/${idToUse}/pdf`;
-      const response = await fetch(downloadUrl);
-      if (!response.ok) throw new Error('Download failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Invoice-${booking?.bookingReference || 'Bill'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (err) {
-      console.error('Failed to download invoice PDF:', err);
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   if (loading) {
     return (

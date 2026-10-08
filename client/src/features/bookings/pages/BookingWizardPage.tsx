@@ -10,32 +10,26 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking, User } from '../../../types';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Button } from '../../../components/ui/Button';
-import { formatDisplayDate } from '../../../utils/date';
 import { ArrowLeft, Check } from 'lucide-react';
 import type { CreateBookingPayload } from '../../../services/bookings/bookingService';
 import { Step1StallSelection } from '../components/wizard/Step1StallSelection';
 import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2CompanyDetails';
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
-import { Step4PaymentCheckout } from '../components/wizard/Step4PaymentCheckout';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
-import { Clock, RefreshCw } from 'lucide-react';
-
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, setUser, setTokens } = useAuthStore();
+  const { user } = useAuthStore();
   const {
     selectedStallIds,
-    heldStallIds,
     setHeldStallIds,
     setConflicts,
     clearConflicts,
     clearStallSelection,
     toggleStallSelection,
-    removeStallFromSelection,
   } = useFloorPlanStore();
 
   // Wizard Stepper (1 = Stall, 2 = Company, 3 = Tax Bill, 4 = Payment, 5 = Pass & Credentials)
@@ -52,7 +46,7 @@ export const BookingWizardPage: React.FC = () => {
   const [isTermsAccepted, setIsTermsAccepted] = useState(true);
 
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
-  const [razorpayOrderInfo, setRazorpayOrderInfo] = useState<{
+  const [_razorpayOrderInfo, setRazorpayOrderInfo] = useState<{
     razorpayOrderId: string;
     razorpayKeyId: string;
     amount: number;
@@ -447,11 +441,7 @@ export const BookingWizardPage: React.FC = () => {
   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
   const effectivePartialPercent = Math.max(50, Math.min(99, partialPercentage));
-  const payableToday = paymentType === 'PARTIAL' ? Math.round(basePrice * (effectivePartialPercent / 100)) : basePrice;
-  const remainingBalance = paymentType === 'PARTIAL' ? basePrice - payableToday : 0;
-  const eventStartDate = new Date(exhibition.startDate);
-  const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
-  const formattedDeadline = formatDisplayDate(deadlineDate);
+  const _payableToday = paymentType === 'PARTIAL' ? Math.round(basePrice * (effectivePartialPercent / 100)) : basePrice;
 
   return (
     <div

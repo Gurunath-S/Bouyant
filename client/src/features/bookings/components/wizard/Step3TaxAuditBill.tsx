@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   ArrowRight,
   ShieldCheck,
-  Check,
   Tag
 } from 'lucide-react';
 

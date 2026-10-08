@@ -3,7 +3,7 @@ import { Stall } from '../../../types';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useThemeStore } from '../../../stores/themeStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw } from 'lucide-react';
 
 interface FloorPlanCanvasProps {
   stalls: Stall[];
@@ -27,10 +27,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   canvasHeight: propHeight,
   className,
   children,
-  showBackgroundImage = false,
   showGrid = false,
 }) => {
-  const { selectedStallIds, conflictingStallIds, zoomLevel, setZoomLevel, baseZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
+  const { selectedStallIds, conflictingStallIds, zoomLevel, setZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -99,7 +98,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const pxPerMeter = layoutData?.gridSize || 20;
 
   // Center floor plan at 100% zoom (locked scale so user only moves around the floor plan)
-  const handleFitToScreen = useCallback(() => {
+  const _handleFitToScreen = useCallback(() => {
     setBaseZoomLevel(100);
     setZoomLevel(100);
     setPanOffset({ x: 0, y: 0 });
@@ -462,8 +461,6 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <g id="halls-layer">
             {hallsList.map((hall) => {
               const strokeColor = hall.color || (isDark ? '#3b82f6' : '#2563eb');
-              const widthM = Math.round(hall.width / pxPerMeter);
-              const heightM = Math.round(hall.height / pxPerMeter);
 
               return (
                 <g key={hall.id}>
@@ -595,7 +592,6 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <g id="stalls-layer">
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
-              const isSelected = selectedStallIds.includes(stall.id);
               const isBlocked = stall.status === 'BLOCKED';
               const isBooked = stall.status === 'BOOKED_CONFIRMED';
               const isAvailable = stall.status === 'AVAILABLE';

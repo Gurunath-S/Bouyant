@@ -8,9 +8,7 @@ import { formatDisplayDate } from '../../../utils/date';
 import {
   Layers,
   Plus,
-  Calendar,
   CalendarPlus,
-  MapPin,
   ChevronDown,
   Pencil,
   Trash2,
@@ -20,7 +18,6 @@ import {
   CheckCircle2,
   Loader2,
   Search,
-  Filter,
 } from 'lucide-react';
 
 const getStatusConfig = (status: Exhibition['status']) => {
@@ -157,14 +154,6 @@ export const AdminEventsPage: React.FC = () => {
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const handleEditSuccess = () => {
-    setNotification({
-      type: 'success',
-      message: 'Exhibition event updated successfully.',
-    });
-    fetchEvents();
   };
 
   const handleStatusChange = async (eventId: string, newStatus: Exhibition['status']) => {

@@ -14,7 +14,6 @@ import {
   Info,
   Building2,
   CheckCircle2,
-  Clock,
   Globe,
 } from 'lucide-react';
 

@@ -1,4 +1,3 @@
-import { prisma } from '../config/db.js';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({

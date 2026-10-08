@@ -2400,7 +2400,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 {halls.map((hall) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'hall' && r.id === hall.id);
                   const strokeColor = hall.color || '#3b82f6';
-                  const bannerWidth = Math.min(320, Math.max(170, hall.name.length * 10 + 90));
 
                   return (
                     <g key={hall.id}>

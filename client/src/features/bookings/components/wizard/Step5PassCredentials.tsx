@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking, Company, Exhibition, Stall, User } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
 import {
   CheckCircle2,
   XCircle,
-  Key,
   Mail,
-  ShieldCheck,
-  Building,
   RefreshCw,
-  Download,
-  Check,
-  AtSign,
 } from 'lucide-react';
 
 interface Step5PassCredentialsProps {
@@ -35,11 +29,10 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
   selectedStalls,
   exhibition,
   user,
-  generatedOTP,
+  generatedOTP: _generatedOTP,
   onRetryPayment,
 }) => {
   const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
 
   if (paymentStatus === 'PROCESSING') {
     return (
@@ -71,16 +64,7 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
     );
   }
 
-  const handleCopyPassword = () => {
-    if (generatedOTP) {
-      navigator.clipboard.writeText(generatedOTP);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const userEmail = selectedCompany?.email || user?.email || 'your-email@company.com';
-  const username = user?.username;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl max-w-xl mx-auto text-center space-y-6 animate-in zoom-in-95 duration-200">

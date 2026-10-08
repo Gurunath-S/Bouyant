@@ -12,11 +12,7 @@ import {
   Users,
   Building,
   Calendar,
-  CheckCircle2,
   PieChart,
-  ShieldCheck,
-  ShieldAlert,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 
@@ -75,12 +71,6 @@ export const ReportsPage: React.FC = () => {
   const filteredExhibitions = React.useMemo(() => {
     if (selectedExhibitionId === 'ALL') return exhibitions;
     return exhibitions.filter((e) => e.id === selectedExhibitionId);
-  }, [exhibitions, selectedExhibitionId]);
-
-  // Event specific calculation when a particular event is selected
-  const activeSelectedEvent = React.useMemo(() => {
-    if (selectedExhibitionId === 'ALL') return null;
-    return exhibitions.find((e) => e.id === selectedExhibitionId) || null;
   }, [exhibitions, selectedExhibitionId]);
 
   return (

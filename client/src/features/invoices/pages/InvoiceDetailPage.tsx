@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Printer, ArrowLeft, ShieldCheck, Award, FileCheck2, CreditCard, Layers, Download } from 'lucide-react';
+import { Printer, ArrowLeft, ShieldCheck, Award, CreditCard, Layers, Download } from 'lucide-react';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
@@ -52,7 +52,6 @@ export const InvoiceDetailPage: React.FC = () => {
 
   const booking = (invoice as any).booking;
   const payments: any[] = booking?.payments || [];
-  const invoices: any[] = booking?.invoices || [];
   const totalPaid = Number(booking?.paidAmount || invoice.grandTotal);
   const totalGrand = Number(booking?.grandTotal || invoice.grandTotal);
   const balanceDue = Number(booking?.balanceAmount ?? (totalGrand - totalPaid));

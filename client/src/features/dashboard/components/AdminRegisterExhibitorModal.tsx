@@ -14,14 +14,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
-  Plus,
   Layers,
   ShieldCheck,
-  CreditCard,
-  UserPlus,
-  Tag,
   Check,
-  Info,
 } from 'lucide-react';
 
 interface AdminRegisterExhibitorModalProps {
@@ -69,7 +64,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
   // Allocation Mode
   const [confirmDirectly, setConfirmDirectly] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('OFFLINE_ADMIN_DIRECT');
-  const [notes, setNotes] = useState('');
+  const [notes, _setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

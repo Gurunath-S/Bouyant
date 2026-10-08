@@ -12,7 +12,6 @@ import {
   MapPin,
   CreditCard,
   Receipt,
-  AlertCircle,
   CheckCircle2,
   Clock,
   Sparkles,

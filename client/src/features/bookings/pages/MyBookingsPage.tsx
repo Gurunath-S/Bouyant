@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Booking } from '../../../types';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
-import { BookmarkCheck, FileText, ArrowRight, CreditCard } from 'lucide-react';
+import { BookmarkCheck, FileText, CreditCard } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authService } from '../../../services/auth/authService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { useAuthStore } from '../../../stores/authStore';
@@ -17,7 +17,6 @@ import {
   ArrowRight,
   Calendar,
   MapPin,
-  ArrowLeft,
   ShieldCheck,
   Eye,
   EyeOff,

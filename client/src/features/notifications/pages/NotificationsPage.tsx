@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../../services/api/apiClient';
 import { Notification } from '../../../types';
-import { Bell, CheckCircle2, Info, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Bell, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
 

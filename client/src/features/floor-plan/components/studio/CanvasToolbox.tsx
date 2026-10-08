@@ -61,7 +61,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   onApplyTemplate,
   onZoomIn,
   onZoomOut,
-  onResetZoom,
+  onResetZoom: _onResetZoom,
   readOnly = false,
   isCollapsed = false,
   onToggleCollapse,

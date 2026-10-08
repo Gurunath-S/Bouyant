@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, ShieldAlert, CheckCircle2, ChevronDown, ChevronUp, Download, X } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface TermsAndConditionsModalProps {
   isOpen: boolean;

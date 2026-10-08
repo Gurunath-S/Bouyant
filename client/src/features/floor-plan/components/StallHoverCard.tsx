@@ -1,7 +1,6 @@
 import React from 'react';
 import { Stall } from '../../../types';
 import { StallStatusBadge } from '../../../components/ui/Badge';
-import { CountdownTimer } from '../../../components/ui/CountdownTimer';
 import { Button } from '../../../components/ui/Button';
 import { X, Lock, ArrowRight, Maximize2, Tag } from 'lucide-react';
 

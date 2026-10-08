@@ -29,7 +29,7 @@ export interface CreateBookingResponse {
   razorpayOrderId: string;
 }
 
-interface CreateBookingApiResponse {
+export interface CreateBookingApiResponse {
   success: boolean;
   message: string;
   data: CreateBookingResponse;

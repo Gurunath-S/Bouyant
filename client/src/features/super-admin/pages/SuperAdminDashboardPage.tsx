@@ -10,17 +10,14 @@ import {
   IndianRupee,
   BookmarkCheck,
   TrendingUp,
-  UserCheck,
-  Building,
   BarChart3,
   ArrowUpRight,
-  ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
 
 export const SuperAdminDashboardPage: React.FC = () => {
   const [data, setData] = useState<ReportOverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMetrics();

@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Exhibition, Booking } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
 import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibitorModal';
@@ -12,27 +11,18 @@ import { BookingDetailModal } from '../../bookings/components/BookingDetailModal
 import {
   CalendarPlus,
   Calendar,
-  Layers,
-  Building2,
   Search,
   UserPlus,
   RefreshCw,
   PlusCircle,
   Eye,
   CheckCircle2,
-  Clock,
   MapPin,
-  Tag,
   ShieldCheck,
-  CreditCard,
-  ChevronRight,
   TrendingUp,
-  FileText,
-  AlertCircle,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
-  const navigate = useNavigate();
 
   // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Admin Registered Data Separately)
   const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>('EVENTS');
@@ -357,7 +347,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
               {filteredExhibitions.map((e) => {
                 const bookedCount = (e as any)._count?.bookings || 0;
                 const totalStalls = e.totalStalls || 50;
-                const availableApprox = Math.max(0, totalStalls - bookedCount);
                 const percentBooked = Math.min(100, Math.round((bookedCount / totalStalls) * 100));
                 const isCurrentUpcoming = currentUpcomingEvent && e.id === currentUpcomingEvent.id;
 
