@@ -403,9 +403,9 @@ export const BookingWizardPage: React.FC = () => {
         }
       },
       prefill: {
-        name: selectedCompany?.contactPerson || user?.name || 'Exhibitor',
-        email: selectedCompany?.email || user?.email || 'exhibitor@buoyantmedia.com',
-        contact: selectedCompany?.mobile || user?.phone || '9876543210',
+        name: booking.company?.contactPerson || booking.company?.name || selectedCompany?.contactPerson || selectedCompany?.name || user?.name || 'Exhibitor',
+        email: booking.company?.email || selectedCompany?.email || user?.email || 'exhibitor@buoyantmedia.com',
+        contact: booking.company?.mobile || selectedCompany?.mobile || user?.phone || '9876543210',
       },
       theme: {
         color: '#012970',

@@ -3,9 +3,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
+import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import {
   Check,
+  CheckCircle2,
   X,
   LogIn,
   Home,
@@ -25,6 +27,7 @@ import {
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
 
   const bookingId = searchParams.get('bookingId');
   const [booking, setBooking] = useState<any | null>(null);
@@ -331,40 +334,61 @@ export const PaymentSuccessPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* EXHIBITOR PORTAL ACCOUNT NOTICE */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-200/70 dark:border-slate-700/60 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Exhibitor Credentials Sent:</span>
-                  <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold truncate max-w-[190px]">
-                    {userEmail}
-                  </span>
+              {/* EXHIBITOR PORTAL ACCOUNT NOTICE (Only for guest/unauthenticated users) */}
+              {!isAuthenticated && (
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-200/70 dark:border-slate-700/60 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">Exhibitor Credentials Sent:</span>
+                    <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold truncate max-w-[190px]">
+                      {userEmail}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                    Login details have been emailed. Log in to view your dashboard or track stall setup.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                  Login details have been emailed. Log in to view your dashboard or track stall setup.
-                </p>
-              </div>
+              )}
 
               {/* NAVIGATION BUTTONS */}
               <div className="pt-2 pb-1 flex flex-col sm:flex-row gap-2.5 w-full">
-                <Button
-                  variant="primary"
-                  size="md"
-                  leftIcon={<LogIn className="w-4 h-4 shrink-0" />}
-                  className="flex-1 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center cursor-pointer py-2.5"
-                  onClick={() => navigate('/login')}
-                >
-                  Login to Portal
-                </Button>
+                {isAuthenticated ? (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    leftIcon={<CheckCircle2 className="w-4.5 h-4.5 shrink-0" />}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center cursor-pointer"
+                    onClick={() => {
+                      if (user?.role === 'SUPERADMIN') navigate('/super-admin/dashboard');
+                      else if (user?.role === 'ADMIN') navigate('/admin/dashboard');
+                      else if (user?.role === 'STAFF') navigate('/staff/dashboard');
+                      else navigate('/dashboard');
+                    }}
+                  >
+                    Done — Back to Dashboard
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      leftIcon={<LogIn className="w-4 h-4 shrink-0" />}
+                      className="flex-1 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center cursor-pointer py-2.5"
+                      onClick={() => navigate('/login')}
+                    >
+                      Login to Portal
+                    </Button>
 
-                <Button
-                  variant="outline"
-                  size="md"
-                  leftIcon={<Home className="w-4 h-4 shrink-0" />}
-                  className="flex-1 w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center cursor-pointer py-2.5"
-                  onClick={() => navigate('/')}
-                >
-                  Go to Home
-                </Button>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      leftIcon={<Home className="w-4 h-4 shrink-0" />}
+                      className="flex-1 w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center justify-center cursor-pointer py-2.5"
+                      onClick={() => navigate('/')}
+                    >
+                      Go to Home
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
