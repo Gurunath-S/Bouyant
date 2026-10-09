@@ -511,8 +511,17 @@ private static validateStalls(
    * Helper: Validates exhibition existence, published status, and 15-day pre-event cutoff
    */
   private static async validateExhibitionBookingWindow(exhibitionId: string) {
-    const exhibition = await prisma.exhibition.findUnique({
-      where: { id: exhibitionId },
+    if (!exhibitionId) {
+      throw ApiError.badRequest('Exhibition ID or slug is required.');
+    }
+
+    const exhibition = await prisma.exhibition.findFirst({
+      where: {
+        OR: [
+          { id: exhibitionId },
+          { slug: exhibitionId },
+        ],
+      },
     });
 
     if (!exhibition) {
@@ -723,7 +732,7 @@ static async createBooking(
   // 1. Validate exhibition booking window
   // ==================================================
 
-  await BookingsService.validateExhibitionBookingWindow(
+  const exhibition = await BookingsService.validateExhibitionBookingWindow(
     input.exhibitionId
   );
 
@@ -779,7 +788,7 @@ static async createBooking(
   // ==================================================
 
   for (const stall of stalls) {
-    if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
+    if (stall.floorPlan.exhibitionId !== exhibition.id) {
       throw ApiError.badRequest(
         `Stall ${stall.id} does not belong to the selected exhibition.`
       );
@@ -896,7 +905,7 @@ static async createBooking(
         for (const stall of currentStalls) {
           if (
             stall.floorPlan.exhibitionId !==
-            input.exhibitionId
+            exhibition.id
           ) {
             throw ApiError.badRequest(
               `Stall ${stall.id} does not belong to the selected exhibition.`
@@ -978,7 +987,7 @@ static async createBooking(
         await tx.booking.updateMany({
           where: {
             companyId: input.companyId,
-            exhibitionId: input.exhibitionId,
+            exhibitionId: exhibition.id,
             status: BookingStatus.PENDING_PAYMENT,
             stalls: {
               some: {
@@ -1004,7 +1013,7 @@ static async createBooking(
                 input.companyId,
 
               exhibitionId:
-                input.exhibitionId,
+                exhibition.id,
 
               status:
                 BookingStatus.PENDING_PAYMENT,
