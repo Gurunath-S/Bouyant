@@ -236,7 +236,7 @@ export class StallsService {
       const currentHeldIds = currentlyHeld.map((s) => s.id);
 
       // Calculate DELTA
-      const toKeepIds = requestedStallIds.filter((id) => currentHeldIds.includes(id));
+      const _toKeepIds = requestedStallIds.filter((id) => currentHeldIds.includes(id));
       const toReleaseIds = currentHeldIds.filter((id) => !requestedStallIds.includes(id));
       const toAddIds = requestedStallIds.filter((id) => !currentHeldIds.includes(id));
 

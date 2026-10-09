@@ -27,7 +27,7 @@ interface Step1StallSelectionProps {
 }
 
 export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
-  exhibition,
+  exhibition: _exhibition,
   stalls,
   layoutData,
   selectedStallIds,
@@ -35,8 +35,8 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
   clearStallSelection,
   stallHoldError,
   isBookingClosed,
-  isFullscreen,
-  setIsFullscreen,
+  isFullscreen: _isFullscreen,
+  setIsFullscreen: _setIsFullscreen,
   onProceed,
 }) => {
   const { conflicts, removeStallFromSelection } = useFloorPlanStore();

@@ -24,11 +24,7 @@ export const HomePage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchExhibitions();
-  }, []);
-
-  const fetchExhibitions = async () => {
+  async function fetchExhibitions() {
     try {
       setLoading(true);
       const data = await exhibitionService.getExhibitions();
@@ -38,7 +34,11 @@ export const HomePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchExhibitions();
+  }, []);
 
   // Active / Flagship upcoming event strictly from database exhibitions
   const featuredEvent: Exhibition | null = React.useMemo(() => {

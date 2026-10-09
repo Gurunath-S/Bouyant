@@ -90,6 +90,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormData>({
@@ -172,7 +173,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           setUsernameStatus('taken');
           setUsernameMessage(res.message || 'Username is already taken. Please choose another.');
         }
-      } catch (err: any) {
+      } catch (_err: any) {
         setUsernameStatus('idle');
         setUsernameMessage('');
       }
@@ -221,7 +222,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
 
   const handleVerifyGst = async (overrideGst?: string) => {
-    const rawGst = overrideGst || watch('gstNumber') || '';
+    const rawGst = overrideGst || getValues('gstNumber') || '';
     const cleanGst = rawGst.trim().toUpperCase();
 
     if (!cleanGst || cleanGst.length !== 15) {

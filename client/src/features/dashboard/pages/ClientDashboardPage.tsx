@@ -12,17 +12,18 @@ import {
   MapPin,
   CreditCard,
   Receipt,
-  AlertCircle,
   CheckCircle2,
   Clock,
   Sparkles,
   FileText,
   ExternalLink,
   X,
+  Download,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatCurrency } from '../../../utils/date';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 
@@ -49,11 +50,7 @@ export const ClientDashboardPage: React.FC = () => {
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  async function loadDashboardData() {
     try {
       setLoading(true);
       const [bookingsData, exposData] = await Promise.all([
@@ -67,7 +64,11 @@ export const ClientDashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   // Derived financial metrics
   const totalPaid = useMemo(() => {
@@ -335,17 +336,30 @@ export const ClientDashboardPage: React.FC = () => {
                         </Button>
                       )}
                       {booking.invoice?.id ? (
-                        <Link to={`/invoices/${booking.invoice.id}`}>
-                          <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
-                            Invoice
+                        <>
+                          <Link to={`/invoices/${booking.invoice.id}`}>
+                            <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5 text-blue-600" />}>
+                              View Bill
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                            onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
+                          >
+                            PDF
                           </Button>
-                        </Link>
+                        </>
                       ) : (
-                        <Link to="/invoices">
-                          <Button variant="outline" size="sm" leftIcon={<Receipt className="w-3.5 h-3.5" />}>
-                            Invoices
-                          </Button>
-                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                          onClick={() => downloadInvoicePdf(booking.id, booking.bookingReference)}
+                        >
+                          Bill PDF
+                        </Button>
                       )}
                       <Link to="/my-bookings">
                         <Button variant="secondary" size="sm" rightIcon={<ExternalLink className="w-3.5 h-3.5" />}>

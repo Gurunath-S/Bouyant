@@ -1,10 +1,18 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 
 export class InvoicesService {
-  static async getInvoiceById(invoiceId: string, _userId?: string) {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
+  static async getInvoiceById(invoiceIdOrBookingId: string, _userId?: string) {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        OR: [
+          { id: invoiceIdOrBookingId },
+          { invoiceNumber: invoiceIdOrBookingId },
+          { bookingId: invoiceIdOrBookingId },
+          { booking: { bookingReference: invoiceIdOrBookingId } },
+        ],
+      },
       include: {
         company: true,
         payment: true,
@@ -44,6 +52,12 @@ export class InvoicesService {
     });
   }
 
+  static async generateInvoicePdf(invoiceId: string) {
+    const invoice = await this.getInvoiceById(invoiceId);
+    const pdfData = InvoicePdfService.buildInvoicePdfData(invoice, invoice.booking);
+    return await InvoicePdfService.generateInvoicePdf(pdfData);
+  }
+
   static async listAllInvoices() {
     return await prisma.invoice.findMany({
       orderBy: { createdAt: 'desc' },
@@ -59,3 +73,4 @@ export class InvoicesService {
     });
   }
 }
+

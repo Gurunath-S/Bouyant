@@ -23,7 +23,6 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
     setSelectedCategory,
     selectedHall,
     setSelectedHall,
-    baseZoomLevel,
   } = useFloorPlanStore();
 
   const categories: (StallCategory | null)[] = [null, 'STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
@@ -40,11 +39,6 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
     });
     return Array.from(set).map((p) => ({ id: p, label: `Zone / Hall ${p}` }));
   }, [stalls, halls]);
-
-  // Derive dynamic pricing
-  const prices = stalls.map((s) => Number(s.price)).filter((p) => !isNaN(p) && p > 0);
-  const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs space-y-3 transition-colors duration-200">

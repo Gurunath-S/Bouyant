@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Printer, ArrowLeft, ShieldCheck, Award, FileCheck2, CreditCard, Layers } from 'lucide-react';
-import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
+import { Printer, ArrowLeft, Download } from 'lucide-react';
+import { formatDisplayDate } from '../../../utils/date';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { numberToIndianWords } from '../../../utils/numberToWords';
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -12,13 +14,8 @@ export const InvoiceDetailPage: React.FC = () => {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'SINGLE_RECEIPT' | 'CONSOLIDATED'>('SINGLE_RECEIPT');
 
-  useEffect(() => {
-    if (id) fetchInvoice();
-  }, [id]);
-
-  const fetchInvoice = async () => {
+  async function fetchInvoice() {
     try {
       setLoading(true);
       const res: any = await apiClient.get(`/invoices/${id}`);
@@ -28,7 +25,11 @@ export const InvoiceDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (id) fetchInvoice();
+  }, [id]);
 
   const handlePrint = () => {
     window.print();
@@ -50,225 +51,204 @@ export const InvoiceDetailPage: React.FC = () => {
   }
 
   const booking = (invoice as any).booking;
-  const payments: any[] = booking?.payments || [];
-  const invoices: any[] = booking?.invoices || [];
-  const totalPaid = Number(booking?.paidAmount || invoice.grandTotal);
-  const totalGrand = Number(booking?.grandTotal || invoice.grandTotal);
-  const balanceDue = Number(booking?.balanceAmount ?? (totalGrand - totalPaid));
-  const isConsolidatedAvailable = payments.length > 0;
+  const company = invoice.company || booking?.company;
+  const exhibition = booking?.exhibition;
+  const stalls = booking?.stalls || [];
+
+  const grandTotal = Number(invoice.grandTotal || booking?.grandTotal || 0);
+  const taxAmount = Number(invoice.taxAmount || booking?.taxAmount || 0);
+  const taxableAmount = Number(invoice.totalAmount || booking?.totalAmount || (grandTotal - taxAmount));
+  const cgstAmount = Number((taxAmount / 2).toFixed(2));
+  const sgstAmount = Number((taxAmount / 2).toFixed(2));
+
+  const primaryStall = stalls[0]?.stall || { stallNumber: 'A14', category: 'PREMIUM', areaSqFt: 100 };
+  const totalQty = stalls.reduce((sum: number, bs: any) => sum + (bs.stall?.areaSqFt || 100), 0) || (primaryStall.areaSqFt || 100);
+
+  const formatMoney = (val: number) =>
+    val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 print:m-0 print:p-0 print:bg-white print:text-black">
-      {/* Actions & View Switcher (Hidden during print) */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
+    <div className="max-w-4xl mx-auto space-y-6 print:m-0 print:p-0 print:bg-white print:text-black font-sans text-xs">
+      {/* Actions & Buttons (Hidden during print) */}
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
         <button
           onClick={() => navigate('/invoices')}
-          className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline self-start sm:self-auto"
+          className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Invoices
         </button>
 
-        {isConsolidatedAvailable && (
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
-              onClick={() => setViewMode('SINGLE_RECEIPT')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                viewMode === 'SINGLE_RECEIPT'
-                  ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              Transaction Receipt (#{invoice.invoiceNumber})
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('CONSOLIDATED')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1 ${
-                viewMode === 'CONSOLIDATED'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" /> Final Consolidated Statement
-            </button>
-          </div>
-        )}
-
-        <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<Printer className="w-4 h-4" />}>
-          Print / Save PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadInvoicePdf(invoice.id || id || '', invoice.invoiceNumber)}
+            leftIcon={<Download className="w-4 h-4 text-purple-600" />}
+          >
+            Download Official PDF
+          </Button>
+          <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<Printer className="w-4 h-4" />}>
+            Print Invoice
+          </Button>
+        </div>
       </div>
 
-      {/* Printable Invoice Container */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-lg space-y-8 print:border-none print:shadow-none print:p-0">
-        {/* Invoice Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 print:border-gray-200">
+      {/* Printable Invoice Outer Box (Exact Tally Format) */}
+      <div className="bg-white text-black border-[1.5px] border-black text-[11px] leading-tight select-none shadow-xl print:shadow-none print:border-black">
+        {/* Header Table */}
+        <div className="grid grid-cols-2 border-b-[1.5px] border-black">
+          {/* Supplier Info */}
+          <div className="p-2 border-r-[1.5px] border-black space-y-0.5">
+            <div className="font-bold text-sm">BUOYANT MEDIA</div>
+            <div>NO 57A, 2ND FLOOR,</div>
+            <div>RAMASAMY STREET, KK PUDUR,</div>
+            <div>NSR ROAD, CBE-641038</div>
+            <div>MOBILE : 9500288222</div>
+            <div>GSTIN : 33ACXPH4512M1ZA</div>
+            <div>State Name : Tamil Nadu, Code : 33</div>
+          </div>
+
+          {/* Invoice Meta */}
+          <div className="grid grid-cols-2">
+            <div className="p-2 border-r border-black">
+              <div>Invoice No.</div>
+              <div className="font-bold underline text-xs mt-1">{invoice.invoiceNumber || '160'}</div>
+            </div>
+            <div className="p-2">
+              <div>Dated</div>
+              <div className="font-bold text-xs mt-1">{formatDisplayDate(invoice.issueDate || (invoice as any).createdAt)}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Buyer (Bill To) Box */}
+        <div className="p-2 border-b-[1.5px] border-black space-y-0.5">
+          <div className="text-[10px]">Buyer (Bill To)</div>
+          <div className="font-bold text-xs uppercase">{company?.name || 'STAG MEDICAL SYSTEMS'}</div>
+          <div className="uppercase">{company?.address || 'NO:115/5, SIVANANDHAPURAM, 4TH STREET'}</div>
+          <div className="uppercase">{company?.city || 'COIMBATORE'}</div>
+          <div>GSTIN/UIN : {company?.gstNumber || '33GWSPS1468G1ZX'}</div>
+          <div>State Name  : {company?.state || 'Tamil Nadu'}</div>
+        </div>
+
+        {/* Items Table */}
+        <div className="border-b-[1.5px] border-black">
+          <div className="grid grid-cols-12 border-b-[1.5px] border-black text-center text-[10px] font-normal py-1">
+            <div className="col-span-1 border-r border-black">Sl<br/>No</div>
+            <div className="col-span-5 border-r border-black">Description of Goods</div>
+            <div className="col-span-2 border-r border-black">HSN/SAC</div>
+            <div className="col-span-1 border-r border-black">Quantity</div>
+            <div className="col-span-1 border-r border-black">Per</div>
+            <div className="col-span-2">Amount</div>
+          </div>
+
+          <div className="grid grid-cols-12 min-h-[220px]">
+            {/* Sl No */}
+            <div className="col-span-1 border-r border-black p-2 text-right">1</div>
+
+            {/* Description */}
+            <div className="col-span-5 border-r border-black p-2 space-y-0.5 leading-snug">
+              <div className="font-bold uppercase">STALL NO : {primaryStall.stallNumber} ({primaryStall.category || 'PREMIUM'})</div>
+              <div className="font-bold">{primaryStall.areaSqFt || 100} SQFT</div>
+              <div className="font-bold mt-1 uppercase">{exhibition?.title || 'MEDICCON EXPO'} (EDITION - {exhibition?.edition || '4'}),</div>
+              <div className="font-bold">DATE: {exhibition?.startDate ? `${formatDisplayDate(exhibition.startDate)} to ${formatDisplayDate(exhibition.endDate)}` : '20th, 21st & 22nd NOVEMBER, 2026'}</div>
+              <div className="font-bold uppercase">VENUE: {exhibition?.venue || 'CODISSIA TRADE CENTRE ( HALL - A & B)'}</div>
+              <div className="font-bold uppercase">{exhibition?.city || 'COIMBATORE'}, TN, INDIA.</div>
+
+              <div className="pt-10 text-right italic font-bold pr-4 space-y-0.5">
+                <div>OUTPUT CGST</div>
+                <div>OUTPUT SGST</div>
+              </div>
+            </div>
+
+            {/* HSN/SAC */}
+            <div className="col-span-2 border-r border-black p-2 text-center">9983</div>
+
+            {/* Quantity */}
+            <div className="col-span-1 border-r border-black p-2 text-right font-bold">{totalQty} SQFT</div>
+
+            {/* Per */}
+            <div className="col-span-1 border-r border-black p-2 text-center">SQFT</div>
+
+            {/* Amount Column */}
+            <div className="col-span-2 p-0 flex flex-col justify-between">
+              <div className="p-2 text-right font-bold">{formatMoney(taxableAmount)}</div>
+              <div className="border-t border-black p-2 text-right space-y-1">
+                <div>{formatMoney(taxableAmount)}</div>
+                <div className="font-bold">{formatMoney(cgstAmount)}</div>
+                <div className="font-bold">{formatMoney(sgstAmount)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Row */}
+          <div className="grid grid-cols-12 border-t-[1.5px] border-black font-bold p-1">
+            <div className="col-span-8 border-r border-black text-right pr-2">Total</div>
+            <div className="col-span-1 border-r border-black text-right pr-1">{totalQty}</div>
+            <div className="col-span-1 border-r border-black text-center">-</div>
+            <div className="col-span-2 text-right pr-1 font-bold text-xs">{formatMoney(grandTotal)}</div>
+          </div>
+        </div>
+
+        {/* Amount Chargeable (in words) */}
+        <div className="flex justify-between items-start p-1.5 border-b-[1.5px] border-black">
           <div>
-            <div className="flex items-center gap-2 font-extrabold text-2xl text-slate-900 dark:text-slate-100 print:text-black">
-              <Award className="w-7 h-7 text-blue-600 dark:text-blue-400 print:text-blue-700" />
-              <span>Buoyant Media Ltd.</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-gray-600 mt-1">
-              Global Exhibition & Stall Management SaaS Platform
-            </p>
+            <div className="text-[9.5px]">Amount Chargeable (in words)</div>
+            <div className="font-bold">{numberToIndianWords(grandTotal)}</div>
           </div>
+          <div className="italic text-[10px]">E. & O.E</div>
+        </div>
 
-          <div className="text-right">
-            <span
-              className={`inline-block px-3 py-1 font-extrabold text-xs rounded uppercase tracking-wider print:border ${
-                viewMode === 'CONSOLIDATED'
-                  ? 'bg-purple-50 dark:bg-purple-950/60 border border-purple-200 text-purple-700 dark:text-purple-300'
-                  : 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 text-emerald-700 dark:text-emerald-300'
-              }`}
-            >
-              {viewMode === 'CONSOLIDATED' ? 'CONSOLIDATED TAX STATEMENT' : 'OFFICIAL PAYMENT RECEIPT'}
-            </span>
-            <h3 className="text-xl font-mono font-bold text-slate-900 dark:text-slate-100 print:text-black mt-2">
-              {viewMode === 'CONSOLIDATED' ? `STATEMENT-${booking?.bookingReference}` : invoice.invoiceNumber}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 print:text-gray-600">
-              Date: {formatDisplayDate(invoice.issueDate)}
-            </p>
+        {/* Tax Table Breakdown */}
+        <div className="border-b-[1.5px] border-black text-center text-[10px]">
+          <div className="grid grid-cols-12 border-b border-black">
+            <div className="col-span-3 border-r border-black p-1 flex items-center justify-center font-normal">Taxable Value</div>
+            <div className="col-span-4 border-r border-black border-b border-black p-0.5">Central Tax</div>
+            <div className="col-span-4 border-r border-black border-b border-black p-0.5">State Tax</div>
+            <div className="col-span-1 p-1 flex items-center justify-center font-normal">Total Tax Amount</div>
+          </div>
+          <div className="grid grid-cols-12 border-b border-black text-[9.5px]">
+            <div className="col-span-3 border-r border-black"></div>
+            <div className="col-span-2 border-r border-black p-0.5">Rate</div>
+            <div className="col-span-2 border-r border-black p-0.5">Amount</div>
+            <div className="col-span-2 border-r border-black p-0.5">Rate</div>
+            <div className="col-span-2 border-r border-black p-0.5">Amount</div>
+            <div className="col-span-1"></div>
+          </div>
+          <div className="grid grid-cols-12 border-b border-black py-1">
+            <div className="col-span-3 border-r border-black text-right pr-2">{formatMoney(taxableAmount)}</div>
+            <div className="col-span-2 border-r border-black">9 %</div>
+            <div className="col-span-2 border-r border-black text-right pr-2">{formatMoney(cgstAmount)}</div>
+            <div className="col-span-2 border-r border-black">9 %</div>
+            <div className="col-span-2 border-r border-black text-right pr-2">{formatMoney(sgstAmount)}</div>
+            <div className="col-span-1 text-right pr-1">{formatMoney(taxAmount)}</div>
+          </div>
+          <div className="grid grid-cols-12 font-bold py-1">
+            <div className="col-span-3 border-r border-black text-right pr-2">Total {formatMoney(taxableAmount)}</div>
+            <div className="col-span-2 border-r border-black"></div>
+            <div className="col-span-2 border-r border-black text-right pr-2">{formatMoney(cgstAmount)}</div>
+            <div className="col-span-2 border-r border-black"></div>
+            <div className="col-span-2 border-r border-black text-right pr-2">{formatMoney(sgstAmount)}</div>
+            <div className="col-span-1 text-right pr-1">{formatMoney(taxAmount)}</div>
           </div>
         </div>
 
-        {/* Billed To / Exhibition Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-700 dark:text-slate-300 print:text-gray-800">
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
-            <p className="font-bold text-blue-700 dark:text-blue-400 uppercase text-[10px] tracking-wider">
-              Billed To (Exhibitor Corporate Entity):
-            </p>
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 print:text-black">{invoice.company?.name}</p>
-            <p>Client Code: {invoice.company?.companyCode}</p>
-            <p>Contact: {invoice.company?.contactPerson} ({invoice.company?.email})</p>
-            <p>GST / Tax ID: {invoice.company?.gstNumber || 'N/A'}</p>
-          </div>
-
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 print:bg-gray-50 print:border-gray-200">
-            <p className="font-bold text-blue-700 dark:text-blue-400 uppercase text-[10px] tracking-wider">
-              Exhibition Event Details:
-            </p>
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 print:text-black">
-              {booking?.exhibition?.title}
-            </p>
-            <p>Venue: {booking?.exhibition?.venue}, {booking?.exhibition?.city}</p>
-            <p>Booking Ref: {booking?.bookingReference}</p>
-            <p>Payment Ref: {invoice.payment?.paymentReference || 'VERIFIED_SERVER_PAYMENT'}</p>
-          </div>
+        {/* Tax Amount in Words */}
+        <div className="p-1.5 border-b-[1.5px] border-black">
+          Tax Amount (in words) : <span className="font-bold">{numberToIndianWords(taxAmount)}</span>
         </div>
 
-        {/* Line Items Table */}
-        <div className="space-y-3">
-          <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider">
-            Exhibition Stall Specification
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase tracking-wider font-bold print:bg-gray-100 print:text-black">
-                  <th className="py-3 px-4 font-semibold">Line Item Description</th>
-                  <th className="py-3 px-4 font-semibold">Category</th>
-                  <th className="py-3 px-4 font-semibold">Stall #</th>
-                  <th className="py-3 px-4 font-semibold text-right">Contract Fee (INR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-gray-200 text-slate-800 dark:text-slate-200">
-                {booking?.stalls?.map((bs: any) => (
-                  <tr key={bs.id}>
-                    <td className="py-4 px-4 font-semibold text-slate-900 dark:text-slate-100 print:text-black">
-                      Exhibition Stall Rental Fee
-                    </td>
-                    <td className="py-4 px-4 text-slate-600 dark:text-slate-400 print:text-gray-700 uppercase font-medium">
-                      {bs.stall?.category}
-                    </td>
-                    <td className="py-4 px-4 font-bold text-blue-700 dark:text-blue-400 print:text-blue-800">
-                      Stall {bs.stall?.stallNumber}
-                    </td>
-                    <td className="py-4 px-4 text-right font-mono font-bold text-slate-900 print:text-black">
-                      ₹{Number(bs.price).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Bottom Details Footer */}
+        <div className="grid grid-cols-2 text-[10px]">
+          <div className="p-2 border-r-[1.5px] border-black space-y-1">
+            <div className="font-bold">Note:</div>
+            <div>All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media</div>
           </div>
-        </div>
-
-        {/* Payment History & Installments Ledger */}
-        {payments.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-blue-600" /> Payment & Installments Ledger
-            </h4>
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Method / Ref</th>
-                    <th className="py-2.5 px-3">Txn ID</th>
-                    <th className="py-2.5 px-3 text-right">Amount Paid</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {payments.map((p: any, idx: number) => (
-                    <tr key={p.id} className="text-slate-700 dark:text-slate-300">
-                      <td className="py-2.5 px-3 font-mono text-[11px]">{formatDisplayDateTime(p.createdAt)}</td>
-                      <td className="py-2.5 px-3 font-medium">
-                        Installment #{idx + 1} ({p.paymentMethod || 'Online'})
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-emerald-600 font-semibold">
-                        {p.transactionId || p.paymentReference}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                        ₹{Number(p.amount).toLocaleString()} INR
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Total Summary */}
-        <div className="flex flex-col sm:flex-row justify-between items-end gap-6 pt-4 border-t border-slate-200 print:border-gray-200">
-          <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold print:text-emerald-700">
-            <ShieldCheck className="w-5 h-5 text-emerald-600" />
-            <span>
-              {balanceDue === 0 ? 'Digital Server Signature: Paid in Full' : 'Digital Server Signature: Partial Payment Verified'}
-            </span>
-          </div>
-
-          <div className="w-full sm:w-80 space-y-2 text-xs text-slate-700 print:text-gray-800">
-            <div className="flex justify-between py-1 border-b border-slate-100 print:border-gray-200">
-              <span>Full Base Rental Fee:</span>
-              <span className="font-mono">₹{Number(booking?.totalAmount || invoice.totalAmount).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-100 print:border-gray-200">
-              <span>GST Tax (18%):</span>
-              <span className="font-mono">₹{Number(booking?.taxAmount || invoice.taxAmount).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between py-1.5 font-bold text-slate-900 dark:text-slate-100 border-b border-slate-200">
-              <span>Total Contract Value:</span>
-              <span className="font-mono">₹{totalGrand.toLocaleString()} INR</span>
-            </div>
-            <div className="flex justify-between py-1.5 font-extrabold text-emerald-700 dark:text-emerald-400">
-              <span>Total Payments Received:</span>
-              <span className="font-mono">₹{totalPaid.toLocaleString()} INR</span>
-            </div>
-            {balanceDue > 0 ? (
-              <div className="flex justify-between py-2 text-sm font-black text-rose-600 border-t border-rose-200">
-                <span>Remaining Balance Due:</span>
-                <span className="font-mono">₹{balanceDue.toLocaleString()} INR</span>
-              </div>
-            ) : (
-              <div className="flex justify-between py-2 text-sm font-black text-emerald-600 border-t border-emerald-200">
-                <span>Account Status:</span>
-                <span className="font-mono uppercase tracking-wider">PAID IN FULL</span>
-              </div>
-            )}
+          <div className="p-2 space-y-0.5 leading-snug">
+            <div><span className="font-bold">BANK DETAILS</span> : <span className="font-bold">BUOYANT MEDIA</span></div>
+            <div>Bank Name : <span className="font-bold">THE FEDERAL BANK LTD</span></div>
+            <div>A/C No : <span className="font-bold">18020200001046</span></div>
+            <div>Branch & IFSC Code : <span className="font-bold">SAIBABA COLONY & FDRL0001802</span></div>
           </div>
         </div>
       </div>

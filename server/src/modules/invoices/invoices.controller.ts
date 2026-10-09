@@ -38,4 +38,11 @@ export class InvoicesController {
       data: invoices,
     });
   };
+
+  static downloadPdf = async (req: AuthenticatedRequest, res: Response) => {
+    const pdfBuffer = await InvoicesService.generateInvoicePdf(req.params.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${req.params.id}.pdf`);
+    return res.send(pdfBuffer);
+  };
 }

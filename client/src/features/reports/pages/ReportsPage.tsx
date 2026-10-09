@@ -12,11 +12,7 @@ import {
   Users,
   Building,
   Calendar,
-  CheckCircle2,
   PieChart,
-  ShieldCheck,
-  ShieldAlert,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 
@@ -34,11 +30,7 @@ export const ReportsPage: React.FC = () => {
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchReportData();
-  }, []);
-
-  const fetchReportData = async () => {
+  async function fetchReportData() {
     try {
       setLoading(true);
       const [over, occ, expos] = await Promise.all([
@@ -54,7 +46,11 @@ export const ReportsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchReportData();
+  }, []);
 
   const getPageTitle = () => {
     if (isSuperAdmin) return 'Platform-Wide Executive Analytics';
@@ -75,12 +71,6 @@ export const ReportsPage: React.FC = () => {
   const filteredExhibitions = React.useMemo(() => {
     if (selectedExhibitionId === 'ALL') return exhibitions;
     return exhibitions.filter((e) => e.id === selectedExhibitionId);
-  }, [exhibitions, selectedExhibitionId]);
-
-  // Event specific calculation when a particular event is selected
-  const activeSelectedEvent = React.useMemo(() => {
-    if (selectedExhibitionId === 'ALL') return null;
-    return exhibitions.find((e) => e.id === selectedExhibitionId) || null;
   }, [exhibitions, selectedExhibitionId]);
 
   return (

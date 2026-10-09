@@ -10,32 +10,34 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking, User } from '../../../types';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Button } from '../../../components/ui/Button';
-import { formatDisplayDate } from '../../../utils/date';
 import { ArrowLeft, Check } from 'lucide-react';
 import type { CreateBookingPayload } from '../../../services/bookings/bookingService';
 import { Step1StallSelection } from '../components/wizard/Step1StallSelection';
 import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2CompanyDetails';
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
-import { Step4PaymentCheckout } from '../components/wizard/Step4PaymentCheckout';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
-import { Clock, RefreshCw } from 'lucide-react';
 
+function generateFallbackBookingRef() {
+  return 'BKG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function generateTempStallId() {
+  return 'ms_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+}
 
 export const BookingWizardPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, setUser, setTokens } = useAuthStore();
+  const { user } = useAuthStore();
   const {
     selectedStallIds,
-    heldStallIds,
     setHeldStallIds,
     setConflicts,
     clearConflicts,
     clearStallSelection,
     toggleStallSelection,
-    removeStallFromSelection,
   } = useFloorPlanStore();
 
   // Wizard Stepper (1 = Stall, 2 = Company, 3 = Tax Bill, 4 = Payment, 5 = Pass & Credentials)
@@ -52,7 +54,7 @@ export const BookingWizardPage: React.FC = () => {
   const [isTermsAccepted, setIsTermsAccepted] = useState(true);
 
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
-  const [razorpayOrderInfo, setRazorpayOrderInfo] = useState<{
+  const [_razorpayOrderInfo, setRazorpayOrderInfo] = useState<{
     razorpayOrderId: string;
     razorpayKeyId: string;
     amount: number;
@@ -95,6 +97,42 @@ export const BookingWizardPage: React.FC = () => {
     }
     return false;
   }, [exhibition]);
+
+  async function loadInitialData() {
+    try {
+      setLoading(true);
+      const expo = await exhibitionService.getExhibitionBySlug(slug!);
+      setExhibition(expo);
+
+      if (expo.floorPlans && expo.floorPlans.length > 0) {
+        const fp = expo.floorPlans[0];
+        if (fp.backgroundUrl) {
+          try {
+            setLayoutData(JSON.parse(fp.backgroundUrl));
+          } catch (e) {
+            console.warn('Failed to parse floor plan layout in booking wizard', e);
+          }
+        }
+        const stallsData = fp.stalls && fp.stalls.length > 0 ? fp.stalls : await stallService.getStallsByFloorPlan(fp.id);
+        setStalls(stallsData || []);
+      } else {
+        setStalls([]);
+      }
+
+      if (user) {
+        const comps = await companyService.getMyCompanies();
+        setCompanies(comps || []);
+        if (comps && comps.length > 0 && !selectedCompany) {
+          setSelectedCompany(comps[0]);
+          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load booking wizard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (slug) loadInitialData();
@@ -154,42 +192,6 @@ export const BookingWizardPage: React.FC = () => {
     clearStallSelection();
     setCurrentStep(1);
     setRemainingSeconds(900);
-  };
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      const expo = await exhibitionService.getExhibitionBySlug(slug!);
-      setExhibition(expo);
-
-      if (expo.floorPlans && expo.floorPlans.length > 0) {
-        const fp = expo.floorPlans[0];
-        if (fp.backgroundUrl) {
-          try {
-            setLayoutData(JSON.parse(fp.backgroundUrl));
-          } catch (e) {
-            console.warn('Failed to parse floor plan layout in booking wizard', e);
-          }
-        }
-        const stallsData = fp.stalls && fp.stalls.length > 0 ? fp.stalls : await stallService.getStallsByFloorPlan(fp.id);
-        setStalls(stallsData || []);
-      } else {
-        setStalls([]);
-      }
-
-      if (user) {
-        const comps = await companyService.getMyCompanies();
-        setCompanies(comps || []);
-        if (comps && comps.length > 0 && !selectedCompany) {
-          setSelectedCompany(comps[0]);
-          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load booking wizard data:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Step 1 -> Step 2 (Atomic Delta Synchronization)
@@ -324,7 +326,7 @@ export const BookingWizardPage: React.FC = () => {
 
       const realBooking = response.booking || {
         id: response.bookingId,
-        bookingReference: response.bookingReference || ('BKG-2026-' + Math.floor(1000 + Math.random() * 9000)),
+        bookingReference: response.bookingReference || generateFallbackBookingRef(),
         userId: user?.id || 'guest_user_id',
         companyId: selectedCompany.id,
         exhibitionId: exhibition?.id || 'expo_id',
@@ -334,7 +336,7 @@ export const BookingWizardPage: React.FC = () => {
         grandTotal: calculatedGrandTotal,
         createdAt: new Date().toISOString(),
         stalls: selectedStallsObj.map((s) => ({
-          id: 'ms_' + Math.random(),
+          id: generateTempStallId(),
           bookingId: response.bookingId,
           stallId: s.id,
           price: s.price,
@@ -447,11 +449,7 @@ export const BookingWizardPage: React.FC = () => {
   const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
   const basePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
   const effectivePartialPercent = Math.max(50, Math.min(99, partialPercentage));
-  const payableToday = paymentType === 'PARTIAL' ? Math.round(basePrice * (effectivePartialPercent / 100)) : basePrice;
-  const remainingBalance = paymentType === 'PARTIAL' ? basePrice - payableToday : 0;
-  const eventStartDate = new Date(exhibition.startDate);
-  const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
-  const formattedDeadline = formatDisplayDate(deadlineDate);
+  const _payableToday = paymentType === 'PARTIAL' ? Math.round(basePrice * (effectivePartialPercent / 100)) : basePrice;
 
   return (
     <div

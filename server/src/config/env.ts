@@ -37,6 +37,12 @@ export const env = {
   WHATSAPP_TEMPLATE_BOOKING_EXPIRED: process.env.WHATSAPP_TEMPLATE_BOOKING_EXPIRED || 'booking_expired',
   WHATSAPP_TEMPLATE_INVOICE_GENERATED: process.env.WHATSAPP_TEMPLATE_INVOICE_GENERATED || 'invoice_generated',
   WHATSAPP_TEMPLATE_ADMIN_ALERT: process.env.WHATSAPP_TEMPLATE_ADMIN_ALERT || 'admin_alert',
+
+  // Cloudinary Configuration
+  CLOUDINARY_CLOUD_NAME: (process.env.CLOUDINARY_CLOUD_NAME || '').trim(),
+  CLOUDINARY_API_KEY: (process.env.CLOUDINARY_API_KEY || '').trim(),
+  CLOUDINARY_API_SECRET: (process.env.CLOUDINARY_API_SECRET || '').trim(),
+  CLOUDINARY_URL: (process.env.CLOUDINARY_URL || '').trim(),
 };
 
 if (

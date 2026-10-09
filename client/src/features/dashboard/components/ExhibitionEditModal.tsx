@@ -7,7 +7,7 @@ import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
-import { AlertCircle, CheckCircle2, Loader2, Save, Calendar } from 'lucide-react';
+import { AlertCircle, Loader2, Save, Calendar } from 'lucide-react';
 
 const calculateDefaultBookingEndDate = (startDateStr: string): string => {
   if (!startDateStr) return '';

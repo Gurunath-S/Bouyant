@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
@@ -9,12 +9,7 @@ import {
   CalendarPlus,
   ArrowLeft,
   CheckCircle2,
-  Calendar,
-  MapPin,
-  Building,
   Info,
-  Layers,
-  Sparkles,
 } from 'lucide-react';
 
 const MONTH_NAMES = [
@@ -42,7 +37,6 @@ const getMonthNameByEdition = (editionStr: string): string => {
 
 export const StaffRegisterEventPage: React.FC = () => {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
   const isAdminOrSuperAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   const [isEventCodeCustom, setIsEventCodeCustom] = useState(false);

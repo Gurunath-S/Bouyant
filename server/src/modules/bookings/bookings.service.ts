@@ -1,10 +1,8 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { CreateBookingInput } from './bookings.schemas.js';
-import { StallsService } from '../stalls/stalls.service.js';
 import { StallStatus,BookingStatus,PaymentStatus} from '@prisma/client';
 import { Prisma,Stall} from '@prisma/client';
-import { generateReference } from '../../utils/reference.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { razorpay } from '../../config/razorpay.js';
 import { env } from '../../config/env.js';
@@ -495,12 +493,13 @@ private static validateStalls(
     }
 
     // Check active payment hold
-    if (stall.status === 'PAYMENT_PENDING') {
+    if (stall.status === 'PAYMENT_PENDING' || stall.status === 'TEMPORARILY_HELD') {
+      const isHeldByThisUser = (stall as any).heldByUserId && (stall as any).heldByUserId === user?.userId;
       const isExpired =
         !stall.heldUntil ||
         stall.heldUntil.getTime() <= Date.now();
 
-      if (!isExpired) {
+      if (!isExpired && !isHeldByThisUser) {
         throw ApiError.conflict(
           `Stall ${stall.stallNumber} is currently being held for another booking.`
         );
@@ -512,8 +511,17 @@ private static validateStalls(
    * Helper: Validates exhibition existence, published status, and 15-day pre-event cutoff
    */
   private static async validateExhibitionBookingWindow(exhibitionId: string) {
-    const exhibition = await prisma.exhibition.findUnique({
-      where: { id: exhibitionId },
+    if (!exhibitionId) {
+      throw ApiError.badRequest('Exhibition ID or slug is required.');
+    }
+
+    const exhibition = await prisma.exhibition.findFirst({
+      where: {
+        OR: [
+          { id: exhibitionId },
+          { slug: exhibitionId },
+        ],
+      },
     });
 
     if (!exhibition) {
@@ -724,7 +732,7 @@ static async createBooking(
   // 1. Validate exhibition booking window
   // ==================================================
 
-  await BookingsService.validateExhibitionBookingWindow(
+  const exhibition = await BookingsService.validateExhibitionBookingWindow(
     input.exhibitionId
   );
 
@@ -780,7 +788,7 @@ static async createBooking(
   // ==================================================
 
   for (const stall of stalls) {
-    if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
+    if (stall.floorPlan.exhibitionId !== exhibition.id) {
       throw ApiError.badRequest(
         `Stall ${stall.id} does not belong to the selected exhibition.`
       );
@@ -802,11 +810,15 @@ static async createBooking(
   for (const stall of stalls) {
     const isAvailable = stall.status === StallStatus.AVAILABLE;
     const isHeldByUser =
-      stall.status === StallStatus.TEMPORARILY_HELD &&
+      (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
       stall.heldByUserId === user.userId;
+    const isExpiredHold =
+      (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
+      stall.heldUntil &&
+      stall.heldUntil.getTime() <= Date.now();
     const isBlocked = stall.status === StallStatus.BLOCKED;
 
-    if (isAvailable || isHeldByUser) {
+    if (isAvailable || isHeldByUser || isExpiredHold) {
       continue;
     }
 
@@ -845,13 +857,14 @@ static async createBooking(
 
 	  const existingPaymentPendingStall = stalls.find(
       (stall) =>
-        stall.status === StallStatus.TEMPORARILY_HELD &&
+        (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
         stall.heldByUserId === user.userId
     );
 
   const holdUntil =
-    existingPaymentPendingStall?.heldUntil ??
-    new Date(Date.now() + 15 * 60 * 1000);
+    (existingPaymentPendingStall?.heldUntil && existingPaymentPendingStall.heldUntil.getTime() > Date.now())
+      ? existingPaymentPendingStall.heldUntil
+      : new Date(Date.now() + 15 * 60 * 1000);
 
   // ==================================================
   // 9. DATABASE TRANSACTION
@@ -892,7 +905,7 @@ static async createBooking(
         for (const stall of currentStalls) {
           if (
             stall.floorPlan.exhibitionId !==
-            input.exhibitionId
+            exhibition.id
           ) {
             throw ApiError.badRequest(
               `Stall ${stall.id} does not belong to the selected exhibition.`
@@ -911,11 +924,15 @@ static async createBooking(
         for (const stall of currentStalls) {
           const isAvailable = stall.status === StallStatus.AVAILABLE;
           const isHeldByUser =
-            stall.status === StallStatus.TEMPORARILY_HELD &&
+            (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
             stall.heldByUserId === user.userId;
+          const isExpiredHold =
+            (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
+            stall.heldUntil &&
+            stall.heldUntil.getTime() <= Date.now();
           const isBlocked = stall.status === StallStatus.BLOCKED;
 
-          if (isAvailable || isHeldByUser) {
+          if (isAvailable || isHeldByUser || isExpiredHold) {
             continue;
           }
 
@@ -936,14 +953,22 @@ static async createBooking(
             id: {
               in: input.stallIds,
             },
-	            OR: [
-	              { status: StallStatus.AVAILABLE },
-	              {
-	                status: StallStatus.TEMPORARILY_HELD,
-	                heldByUserId: user.userId,
-	              },
-	              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
-	            ],
+            OR: [
+              { status: StallStatus.AVAILABLE },
+              {
+                status: StallStatus.TEMPORARILY_HELD,
+                heldByUserId: user.userId,
+              },
+              {
+                status: StallStatus.PAYMENT_PENDING,
+                heldByUserId: user.userId,
+              },
+              {
+                status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
+                heldUntil: { lte: new Date() },
+              },
+              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
+            ],
           },
           data: {
             status: StallStatus.PAYMENT_PENDING,
@@ -958,6 +983,23 @@ static async createBooking(
           );
         }
 
+        // Cancel any previous unfulfilled PENDING_PAYMENT booking for this company & exhibition to avoid orphaned duplicates when re-trying/switching payment plan
+        await tx.booking.updateMany({
+          where: {
+            companyId: input.companyId,
+            exhibitionId: exhibition.id,
+            status: BookingStatus.PENDING_PAYMENT,
+            stalls: {
+              some: {
+                stallId: { in: input.stallIds },
+              },
+            },
+          },
+          data: {
+            status: BookingStatus.CANCELLED,
+          },
+        });
+
         // ----------------------------------------------
         // Create Booking
         // ----------------------------------------------
@@ -971,7 +1013,7 @@ static async createBooking(
                 input.companyId,
 
               exhibitionId:
-                input.exhibitionId,
+                exhibition.id,
 
               status:
                 BookingStatus.PENDING_PAYMENT,
@@ -1114,7 +1156,7 @@ static async createBooking(
             input.companyId,
         },
       });
-  } catch (error) {
+  } catch (_error) {
    
     throw ApiError.internal(
       'Payment gateway is currently unavailable. Please try again before the stall hold expires.'
@@ -1172,7 +1214,7 @@ static async createBooking(
           razorpayOrder.currency,
       },
     };
-  } catch (error) {
+  } catch (_error) {
    
     throw ApiError.internal(
       'Razorpay order was created, but we could not save the payment information. Please contact support.'

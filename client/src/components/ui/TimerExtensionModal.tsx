@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, AlertTriangle, RotateCcw, ShieldCheck, RefreshCw, XCircle } from 'lucide-react';
+import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from './Button';
 
 interface TimerExtensionModalProps {

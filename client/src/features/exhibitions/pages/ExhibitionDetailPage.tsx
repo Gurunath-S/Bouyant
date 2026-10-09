@@ -11,16 +11,9 @@ import {
   MapPin,
   ArrowLeft,
   ArrowRight,
-  Building,
   Award,
-  ShieldCheck,
-  LayoutGrid,
-  Users,
   Check,
   Share2,
-  CheckCircle,
-  Layers,
-  Info,
   AlertCircle,
   AlertTriangle,
 } from 'lucide-react';
@@ -39,7 +32,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
-  const { selectedStallIds, toggleStallSelection, clearStallSelection } = useFloorPlanStore();
+  const { selectedStallIds, toggleStallSelection, clearStallSelection: _clearStallSelection } = useFloorPlanStore();
 
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;
@@ -81,12 +74,7 @@ export const ExhibitionDetailPage: React.FC = () => {
 
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
-  useEffect(() => {
-    fetchExhibition();
-    fetchCurrentUpcoming();
-  }, [slug]);
-
-  const fetchCurrentUpcoming = async () => {
+  async function fetchCurrentUpcoming() {
     try {
       const all = await exhibitionService.getExhibitions('PUBLISHED');
       const now = new Date();
@@ -98,9 +86,9 @@ export const ExhibitionDetailPage: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-  };
+  }
 
-  const fetchExhibition = async () => {
+  async function fetchExhibition() {
     try {
       setLoading(true);
       const expo = await exhibitionService.getExhibitionBySlug(slug!);
@@ -128,7 +116,12 @@ export const ExhibitionDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchExhibition();
+    fetchCurrentUpcoming();
+  }, [slug]);
 
   if (loading) {
     return (
@@ -350,7 +343,6 @@ export const ExhibitionDetailPage: React.FC = () => {
                 <InteractivePinMap
                   venueName={exhibition.venue}
                   cityName={exhibition.city}
-                  address={`${exhibition.venue}, ${exhibition.city}`}
                   readOnly={true}
                   title={`Exhibition Venue Location — ${exhibition.venue}, ${exhibition.city}`}
                   heightClass="h-72"
@@ -546,7 +538,6 @@ export const ExhibitionDetailPage: React.FC = () => {
                 <InteractivePinMap
                   venueName={exhibition.venue}
                   cityName={exhibition.city}
-                  address={`${exhibition.venue}, ${exhibition.city}`}
                   readOnly={true}
                   title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
                   heightClass="h-96"
@@ -615,13 +606,13 @@ export const ExhibitionDetailPage: React.FC = () => {
 
             {/* Book Stall Action Button — Clear Gap Above & Below */}
             <div className="pt-2">
-              {!isCurrentUpcoming ? (
+              {exhibition.status !== 'PUBLISHED' ? (
                 <div className="w-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-bold text-xs py-3.5 px-4 rounded-xl flex flex-col items-center justify-center gap-1 text-center shadow-2xs">
                   <span className="text-amber-900 dark:text-amber-100 font-extrabold flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /> Bookings Closed For This Event
                   </span>
                   <span className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
-                    Stall booking is strictly restricted to the current upcoming event: <strong>"{currentUpcomingEvent?.title}"</strong>
+                    This exhibition is currently in <strong>{exhibition.status}</strong> mode and not open for booking.
                   </span>
                 </div>
               ) : isBookingClosed ? (

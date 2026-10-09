@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Square, Check, Sparkles, Sliders, ArrowRight } from 'lucide-react';
+import { X, Square, Check, Sliders, ArrowRight } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
 
@@ -23,7 +23,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   isOpen,
   onClose,
   onCreateStall,
-  existingStallsCount,
+  existingStallsCount: _existingStallsCount,
   nextSuggestedNumber,
 }) => {
   const [widthMeters, setWidthMeters] = useState<number>(3);

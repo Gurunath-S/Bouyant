@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Exhibition, Booking } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
 import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibitorModal';
@@ -12,27 +11,20 @@ import { BookingDetailModal } from '../../bookings/components/BookingDetailModal
 import {
   CalendarPlus,
   Calendar,
-  Layers,
-  Building2,
   Search,
   UserPlus,
   RefreshCw,
   PlusCircle,
   Eye,
   CheckCircle2,
-  Clock,
   MapPin,
-  Tag,
   ShieldCheck,
-  CreditCard,
-  ChevronRight,
   TrendingUp,
-  FileText,
-  AlertCircle,
+  Share2,
+  Check,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
-  const navigate = useNavigate();
 
   // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Admin Registered Data Separately)
   const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>('EVENTS');
@@ -51,17 +43,39 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
 
-  // Modal States
+  // Modal & Share States
   const [selectedExhibitionForReg, setSelectedExhibitionForReg] = useState<Exhibition | null>(null);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchExhibitions();
-    fetchAdminBookings();
-  }, []);
+  const handleShareEvent = async (e: Exhibition) => {
+    const shareUrl = `${window.location.origin}/exhibitions/${e.slug || e.id}/book`;
+    const shareData = {
+      title: e.title,
+      text: `Register for ${e.title} at ${e.venue}, ${e.city}`,
+      url: shareUrl,
+    };
 
-  const fetchExhibitions = async () => {
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled or share failed, fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedEventId(e.id);
+      setTimeout(() => setCopiedEventId(null), 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  async function fetchExhibitions() {
     try {
       setLoadingEvents(true);
       const data = await exhibitionService.getExhibitions();
@@ -71,9 +85,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
     } finally {
       setLoadingEvents(false);
     }
-  };
+  }
 
-  const fetchAdminBookings = async () => {
+  async function fetchAdminBookings() {
     try {
       setLoadingBookings(true);
       const res = await bookingService.getAllBookings({ registeredByRole: 'ADMIN' });
@@ -83,7 +97,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
     } finally {
       setLoadingBookings(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchExhibitions();
+    fetchAdminBookings();
+  }, []);
 
   const handleRefreshAll = () => {
     fetchExhibitions();
@@ -100,8 +119,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
     setTimeout(() => setSuccessBanner(null), 8000);
   };
 
-  const now = new Date();
   const currentUpcomingEvent = useMemo(() => {
+    const now = new Date();
     const published = exhibitions.filter(
       (e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now
     );
@@ -180,9 +199,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={handleRefreshAll}
-            className="flex items-center gap-1.5 text-xs"
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loadingEvents || loadingBookings ? 'animate-spin' : ''}`} />}
+            className="font-bold text-xs shadow-xs"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </Button>
 
@@ -191,9 +210,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
               type="button"
               variant="primary"
               size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 text-xs shadow-xs"
+              leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
               Create New Exhibition
             </Button>
           </Link>
@@ -357,7 +376,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
               {filteredExhibitions.map((e) => {
                 const bookedCount = (e as any)._count?.bookings || 0;
                 const totalStalls = e.totalStalls || 50;
-                const availableApprox = Math.max(0, totalStalls - bookedCount);
                 const percentBooked = Math.min(100, Math.round((bookedCount / totalStalls) * 100));
                 const isCurrentUpcoming = currentUpcomingEvent && e.id === currentUpcomingEvent.id;
 
@@ -445,37 +463,43 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
                     {/* Card Actions */}
                     <div className="p-4 pt-0">
-                      <Link to={isCurrentUpcoming ? `/exhibitions/${e.slug || e.id}/book` : '#'}>
-                        <Button
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
+                          className="flex-1"
+                        >
+                          <Button
+                            type="button"
+                            variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
+                            size="md"
+                            disabled={e.status !== 'PUBLISHED'}
+                            leftIcon={<UserPlus className="w-4 h-4" />}
+                            className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
+                              e.status === 'PUBLISHED'
+                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                            }`}
+                          >
+                            {e.status === 'PUBLISHED' ? 'Register to Event' : `Status: ${e.status}`}
+                          </Button>
+                        </Link>
+
+                        <button
                           type="button"
-                          variant={isCurrentUpcoming ? 'primary' : 'outline'}
-                          size="md"
-                          disabled={!isCurrentUpcoming}
-                          className={`w-full font-black text-xs flex items-center justify-center gap-2 py-2.5 rounded-xl shadow-xs ${
-                            isCurrentUpcoming
-                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                          title={copiedEventId === e.id ? 'Event Link Copied!' : 'Share Event'}
+                          onClick={() => handleShareEvent(e)}
+                          className={`h-[42px] w-[42px] flex items-center justify-center rounded-xl font-bold text-xs transition-all active:scale-[0.95] shrink-0 ${
+                            copiedEventId === e.id
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-300 dark:border-emerald-700'
+                              : 'bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60'
                           }`}
                         >
-                          <UserPlus className="w-4 h-4" />
-                          <span>{isCurrentUpcoming ? 'Register to Event' : 'Booking Restricted (Non-Current)'}</span>
-                        </Button>
-                      </Link>
-
-                      <div className="flex items-center justify-between text-[11px] mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <Link
-                          to={`/events/${e.slug || e.id}`}
-                          target="_blank"
-                          className="text-slate-500 hover:text-purple-600 font-semibold"
-                        >
-                          View Public Page ↗
-                        </Link>
-                        <Link
-                          to={`/admin/events/${e.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-800 font-semibold"
-                        >
-                          Floor Plan Studio →
-                        </Link>
+                          {copiedEventId === e.id ? (
+                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Share2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>

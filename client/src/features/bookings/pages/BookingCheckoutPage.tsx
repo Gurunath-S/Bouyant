@@ -8,8 +8,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Stall, Company } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { CountdownTimer } from '../../../components/ui/CountdownTimer';
-import { ShieldCheck, Building2, CheckCircle2, CreditCard, ArrowRight, Lock, AlertCircle, FileText } from 'lucide-react';
+import { ShieldCheck, Building2, CreditCard, AlertCircle } from 'lucide-react';
 
 export const BookingCheckoutPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -39,13 +38,7 @@ export const BookingCheckoutPage: React.FC = () => {
     category: 'Exhibitor',
   });
 
-  useEffect(() => {
-    if (stallId) {
-      loadCheckoutData();
-    }
-  }, [stallId]);
-
-  const loadCheckoutData = async () => {
+  async function loadCheckoutData() {
     try {
       setLoading(true);
       const stallsRes = await stallService.getStallsByFloorPlan('');
@@ -60,11 +53,18 @@ export const BookingCheckoutPage: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load checkout details:', err);
+      console.error('Checkout data load failed:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (stallId) {
+      loadCheckoutData();
+    }
+  }, [stallId]);
+
 
   const handleCreateCompanyInline = async () => {
     try {

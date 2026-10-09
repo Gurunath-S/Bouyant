@@ -14,14 +14,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
-  Plus,
   Layers,
   ShieldCheck,
-  CreditCard,
-  UserPlus,
-  Tag,
   Check,
-  Info,
 } from 'lucide-react';
 
 interface AdminRegisterExhibitorModalProps {
@@ -69,13 +64,38 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
   // Allocation Mode
   const [confirmDirectly, setConfirmDirectly] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('OFFLINE_ADMIN_DIRECT');
-  const [notes, setNotes] = useState('');
+  const [notes, _setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Step state (1: Select Company, 2: Select Stalls, 3: Confirm & Pay)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
+  async function loadExhibitionDetails(id: string) {
+    try {
+      setLoadingDetails(true);
+      const data = await exhibitionService.getExhibitionBySlug(id);
+      setFullExhibition(data);
+    } catch (err: any) {
+      console.error('Failed to load exhibition details:', err);
+      setErrorMsg('Could not load exhibition details and floor plan stalls.');
+    } finally {
+      setLoadingDetails(false);
+    }
+  }
+
+  async function loadCompanies() {
+    try {
+      setLoadingCompanies(true);
+      const res = await companyService.listCompanies(1, '', undefined, undefined, 100);
+      setCompanies(res.data || []);
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  }
 
   // Load exhibition stalls & companies on open
   useEffect(() => {
@@ -89,31 +109,6 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
       loadCompanies();
     }
   }, [isOpen, exhibition]);
-
-  const loadExhibitionDetails = async (id: string) => {
-    try {
-      setLoadingDetails(true);
-      const data = await exhibitionService.getExhibitionBySlug(id);
-      setFullExhibition(data);
-    } catch (err: any) {
-      console.error('Failed to load exhibition details:', err);
-      setErrorMsg('Could not load exhibition details and floor plan stalls.');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const loadCompanies = async () => {
-    try {
-      setLoadingCompanies(true);
-      const res = await companyService.listCompanies(1, '', undefined, undefined, 100);
-      setCompanies(res.data || []);
-    } catch (err) {
-      console.error('Failed to load companies:', err);
-    } finally {
-      setLoadingCompanies(false);
-    }
-  };
 
   // Flatten available stalls
   const allStalls = useMemo(() => {

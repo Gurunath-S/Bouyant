@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useThemeStore } from '../../stores/themeStore';
-import { LogOut, Menu, X, User, Sun, Moon } from 'lucide-react';
+import { LogOut, Menu, X, User } from 'lucide-react';
 
 export const PublicNavbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -54,19 +52,6 @@ export const PublicNavbar: React.FC = () => {
                 Exhibitions
               </Link>
             </nav>
-
-            {/* Theme Switcher Button */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium"
-              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-            >
-              {theme === 'light' ? (
-                <Moon className="w-4 h-4 text-slate-600 hover:text-slate-900" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-400 hover:text-amber-300" />
-              )}
-            </button>
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">

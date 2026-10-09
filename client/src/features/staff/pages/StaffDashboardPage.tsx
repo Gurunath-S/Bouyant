@@ -14,30 +14,24 @@ import {
   MapPin,
   ArrowRight,
   Sparkles,
-  CheckCircle2,
-  Clock,
 } from 'lucide-react';
 
 export const StaffDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [data, setData] = useState<ReportOverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
+  async function fetchMetrics() {
     try {
-      setLoading(true);
       const res = await reportService.getOverview();
       setData(res);
     } catch (err) {
       console.error('Failed to load staff metrics:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
 
   return (
     <div className="space-y-6">

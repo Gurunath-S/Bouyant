@@ -18,6 +18,7 @@ import { invoiceRoutes } from './modules/invoices/invoices.routes.js';
 import { notificationRoutes } from './modules/notifications/notifications.routes.js';
 import { userRoutes } from './modules/users/users.routes.js';
 import { reportRoutes } from './modules/reports/reports.routes.js';
+import { uploadRoutes } from './modules/upload/upload.routes.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -76,6 +77,7 @@ export const createApp = (): Express => {
   app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1/users', userRoutes);
   app.use('/api/v1/reports', reportRoutes);
+  app.use('/api/v1/upload', uploadRoutes);
 
   // 404 Fallback Handler
   app.use((req: Request, res: Response) => {

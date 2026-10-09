@@ -27,8 +27,12 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
   onPrint,
 }) => {
   const totalBaseRental = stalls.reduce((sum, s) => sum + (Number(s.price) || 100000), 0);
-  const totalTaxAmount = Math.round(totalBaseRental * 0.18);
-  const totalGrandTotal = totalBaseRental + totalTaxAmount;
+  const _totalTaxAmount = Math.round(totalBaseRental * 0.18);
+
+  const startYear = React.useMemo(
+    () => (exhibition.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : new Date().getFullYear().toString().slice(-2)),
+    [exhibition.startDate]
+  );
 
   return (
     <div className="bg-white dark:bg-slate-900 border-2 border-[#012970] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6 shadow-md text-slate-800 dark:text-slate-200 font-sans print:border-none print:shadow-none">
@@ -51,7 +55,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
 
         <div className="text-right sm:text-right flex flex-col items-start sm:items-end gap-1 shrink-0">
           <div className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
-            REG NO: <span className="text-[#012970] dark:text-blue-400 font-black">{company.regNo || `${exhibition.edition || '01'}/${new Date(exhibition.startDate || Date.now()).getFullYear().toString().slice(-2)}/${exhibition.eventCode || 'EX'}/01`}</span>
+            REG NO: <span className="text-[#012970] dark:text-blue-400 font-black">{company.regNo || `${exhibition.edition || '01'}/${startYear}/${exhibition.eventCode || 'EX'}/01`}</span>
           </div>
           <span className="px-3 py-1 bg-[#9cc542]/20 dark:bg-lime-950/60 text-[#012970] dark:text-lime-300 font-black text-[10px] uppercase rounded-md border border-[#9cc542]/50 dark:border-lime-600/50">
             ORGANIZER: BUOYANT MEDIA
@@ -112,7 +116,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
                 <th className="p-3">Area (Sq.Mtr)</th>
                 <th className="p-3">Rate / Sq.Mtr</th>
                 <th className="p-3">Base Amount</th>
-                <th className="p-3">18% GST</th>
+                <th className="p-3">GST 18% (CGST 9% + SGST 9%)</th>
                 <th className="p-3 text-right">Grand Total</th>
               </tr>
             </thead>

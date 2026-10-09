@@ -53,7 +53,7 @@ export const optionalAuth = (
     const decoded = verifyAccessToken(token);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (_error) {
     return next(ApiError.unauthorized('Your session has expired or token is invalid. Please log in again.'));
   }
 };

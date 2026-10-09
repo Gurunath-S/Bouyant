@@ -6,36 +6,40 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding Clean User Accounts Only...');
 
-  // const superAdminPasswordHash = await bcrypt.hash('SuperAdminPassword123!', 10);
+  const superAdminPasswordHash = await bcrypt.hash('SuperAdminPassword123!', 10);
   const adminPasswordHash = await bcrypt.hash('AdminPassword123!', 10);
-  // const staffPasswordHash = await bcrypt.hash('StaffPassword123!', 10);
-  // const clientPasswordHash = await bcrypt.hash('UserPassword123!', 10);
+  const staffPasswordHash = await bcrypt.hash('StaffPassword123!', 10);
+  const clientPasswordHash = await bcrypt.hash('UserPassword123!', 10);
 
-  // Delete demo companies if any exist
+  // Delete dependent records before deleting demo companies if any exist
+  await prisma.invoice.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.bookingStall.deleteMany({});
+  await prisma.booking.deleteMany({});
   await prisma.user.updateMany({
     data: { companyId: null },
   });
   await prisma.company.deleteMany({});
 
   // 1. SuperAdmin
-  // await prisma.user.upsert({
-  //   where: { email: 'superadmin@buoyantmedia.com' },
-  //   update: {
-  //     passwordHash: superAdminPasswordHash,
-  //     role: UserRole.SUPERADMIN,
-  //     isActive: true,
-  //   },
-  //   create: {
-  //     email: 'superadmin@buoyantmedia.com',
-  //     passwordHash: superAdminPasswordHash,
-  //     username: 'superadmin',
-  //     name: 'Platform Super Admin',
-  //     phone: '+919876500001',
-  //     role: UserRole.SUPERADMIN,
-  //     spcode: 'SA01',
-  //     isActive: true,
-  //   },
-  // });
+  await prisma.user.upsert({
+    where: { email: 'superadmin@buoyantmedia.com' },
+    update: {
+      passwordHash: superAdminPasswordHash,
+      role: UserRole.SUPERADMIN,
+      isActive: true,
+    },
+    create: {
+      email: 'superadmin@buoyantmedia.com',
+      passwordHash: superAdminPasswordHash,
+      username: 'superadmin',
+      name: 'Platform Super Admin',
+      phone: '+919876500001',
+      role: UserRole.SUPERADMIN,
+      spcode: 'SA01',
+      isActive: true,
+    },
+  });
 
   // 2. Admin User
   await prisma.user.upsert({
@@ -58,52 +62,52 @@ async function main() {
   });
 
   // 3. Staff User
-  // await prisma.user.upsert({
-  //   where: { email: 'staff@buoyantmedia.com' },
-  //   update: {
-  //     passwordHash: staffPasswordHash,
-  //     role: UserRole.STAFF,
-  //     isActive: true,
-  //   },
-  //   create: {
-  //     email: 'staff@buoyantmedia.com',
-  //     passwordHash: staffPasswordHash,
-  //     username: 'staffops',
-  //     name: 'Operations Staff',
-  //     phone: '+919876500003',
-  //     role: UserRole.STAFF,
-  //     spcode: 'ST01',
-  //     isActive: true,
-  //   },
-  // });
+  await prisma.user.upsert({
+    where: { email: 'staff@buoyantmedia.com' },
+    update: {
+      passwordHash: staffPasswordHash,
+      role: UserRole.STAFF,
+      isActive: true,
+    },
+    create: {
+      email: 'staff@buoyantmedia.com',
+      passwordHash: staffPasswordHash,
+      username: 'staffops',
+      name: 'Operations Staff',
+      phone: '+919876500003',
+      role: UserRole.STAFF,
+      spcode: 'ST01',
+      isActive: true,
+    },
+  });
 
   // 4. Exhibitor Client User (Clean, no pre-created company)
-  // await prisma.user.upsert({
-  //   where: { email: 'user@buoyantmedia.com' },
-  //   update: {
-  //     passwordHash: clientPasswordHash,
-  //     role: UserRole.CLIENT,
-  //     isActive: true,
-  //     companyId: null,
-  //   },
-  //   create: {
-  //     email: 'user@buoyantmedia.com',
-  //     passwordHash: clientPasswordHash,
-  //     username: 'clientuser',
-  //     name: 'Demo Exhibitor',
-  //     phone: '+919876500004',
-  //     role: UserRole.CLIENT,
-  //     isActive: true,
-  //   },
-  // });
+  await prisma.user.upsert({
+    where: { email: 'user@buoyantmedia.com' },
+    update: {
+      passwordHash: clientPasswordHash,
+      role: UserRole.CLIENT,
+      isActive: true,
+      companyId: null,
+    },
+    create: {
+      email: 'user@buoyantmedia.com',
+      passwordHash: clientPasswordHash,
+      username: 'clientuser',
+      name: 'Demo Exhibitor',
+      phone: '+919876500004',
+      role: UserRole.CLIENT,
+      isActive: true,
+    },
+  });
 
   console.log('====================================================');
   console.log('✅ Clean User Account Seeding Complete (No Mock Companies)!');
   console.log('====================================================');
-  // console.log('Super Admin  : superadmin@buoyantmedia.com / SuperAdminPassword123!');
+  console.log('Super Admin  : superadmin@buoyantmedia.com / SuperAdminPassword123!');
   console.log('Admin User   : admin@buoyantmedia.com      / AdminPassword123!');
-  // console.log('Staff User   : staff@buoyantmedia.com      / StaffPassword123!');
-  // console.log('Client User  : user@buoyantmedia.com       / UserPassword123!');
+  console.log('Staff User   : staff@buoyantmedia.com      / StaffPassword123!');
+  console.log('Client User  : user@buoyantmedia.com       / UserPassword123!');
   console.log('====================================================');
 }
 

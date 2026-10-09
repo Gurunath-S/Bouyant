@@ -52,9 +52,9 @@ export const Button: React.FC<ButtonProps> = ({
         <Loader2 className="w-4 h-4 animate-spin text-current" />
       ) : (
         <>
-          {leftIcon && <span className="inline-flex shrink-0">{leftIcon}</span>}
-          <span>{children}</span>
-          {rightIcon && <span className="inline-flex shrink-0">{rightIcon}</span>}
+          {leftIcon && <span className="inline-flex items-center justify-center shrink-0">{leftIcon}</span>}
+          <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">{children}</span>
+          {rightIcon && <span className="inline-flex items-center justify-center shrink-0">{rightIcon}</span>}
         </>
       )}
     </button>
