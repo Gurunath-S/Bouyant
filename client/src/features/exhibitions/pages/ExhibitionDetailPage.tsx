@@ -16,6 +16,10 @@ import {
   Share2,
   AlertCircle,
   AlertTriangle,
+  Map,
+  Building2,
+  Layers,
+  CalendarCheck,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
@@ -266,52 +270,57 @@ export const ExhibitionDetailPage: React.FC = () => {
             <div className="bg-[#EEF4FC] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl flex overflow-x-auto gap-2 text-xs font-bold">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shrink-0 ${
                   activeTab === 'overview'
                     ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
                 }`}
               >
+                <Award className="w-4 h-4" />
                 About Exhibition
               </button>
               <button
                 onClick={() => setActiveTab('map')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shrink-0 ${
                   activeTab === 'map'
                     ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
                 }`}
               >
+                <Map className="w-4 h-4" />
                 Interactive Stall Map
               </button>
               <button
                 onClick={() => setActiveTab('pricing')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shrink-0 ${
                   activeTab === 'pricing'
                     ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
                 }`}
               >
+                <Layers className="w-4 h-4" />
                 Stall & Amenities
               </button>
               <button
                 onClick={() => setActiveTab('location')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shrink-0 ${
                   activeTab === 'location'
                     ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
                 }`}
               >
+                <Building2 className="w-4 h-4" />
                 Venue & Location Map
               </button>
               <button
                 onClick={() => setActiveTab('schedule')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shrink-0 ${
                   activeTab === 'schedule'
                     ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
                 }`}
               >
+                <CalendarCheck className="w-4 h-4" />
                 Important Schedule
               </button>
             </div>
