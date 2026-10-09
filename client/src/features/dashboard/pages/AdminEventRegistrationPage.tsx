@@ -463,43 +463,41 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
                     {/* Card Actions */}
                     <div className="p-4 pt-0">
-                      <Link to={isCurrentUpcoming ? `/exhibitions/${e.slug || e.id}/book` : '#'}>
-                        <Button
-                          type="button"
-                          variant={isCurrentUpcoming ? 'primary' : 'outline'}
-                          size="md"
-                          disabled={!isCurrentUpcoming}
-                          leftIcon={<UserPlus className="w-4 h-4" />}
-                          className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
-                            isCurrentUpcoming
-                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
-                          }`}
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={isCurrentUpcoming ? `/exhibitions/${e.slug || e.id}/book` : '#'}
+                          className="flex-1"
                         >
-                          {isCurrentUpcoming ? 'Register to Event' : 'Booking Restricted (Non-Current)'}
-                        </Button>
-                      </Link>
+                          <Button
+                            type="button"
+                            variant={isCurrentUpcoming ? 'primary' : 'outline'}
+                            size="md"
+                            disabled={!isCurrentUpcoming}
+                            leftIcon={<UserPlus className="w-4 h-4" />}
+                            className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
+                              isCurrentUpcoming
+                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                            }`}
+                          >
+                            {isCurrentUpcoming ? 'Register to Event' : 'Booking Restricted'}
+                          </Button>
+                        </Link>
 
-                      <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
                         <button
                           type="button"
+                          title={copiedEventId === e.id ? 'Event Link Copied!' : 'Share Event'}
                           onClick={() => handleShareEvent(e)}
-                          className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
+                          className={`h-[42px] w-[42px] flex items-center justify-center rounded-xl font-bold text-xs transition-all active:scale-[0.95] shrink-0 ${
                             copiedEventId === e.id
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-900/40'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-300 dark:border-emerald-700'
+                              : 'bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60'
                           }`}
                         >
                           {copiedEventId === e.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>Event Link Copied!</span>
-                            </>
+                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           ) : (
-                            <>
-                              <Share2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                              <span>Share Event</span>
-                            </>
+                            <Share2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                           )}
                         </button>
                       </div>
