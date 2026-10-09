@@ -1286,6 +1286,11 @@ static async createBooking(
             email: true,
             mobile: true,
             contactPerson: true,
+            address: true,
+            city: true,
+            state: true,
+            country: true,
+            gstNumber: true,
           },
         },
         exhibition: {
