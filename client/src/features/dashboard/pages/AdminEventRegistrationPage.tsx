@@ -20,6 +20,8 @@ import {
   MapPin,
   ShieldCheck,
   TrendingUp,
+  Share2,
+  Check,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
@@ -41,10 +43,37 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
 
-  // Modal States
+  // Modal & Share States
   const [selectedExhibitionForReg, setSelectedExhibitionForReg] = useState<Exhibition | null>(null);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
+
+  const handleShareEvent = async (e: Exhibition) => {
+    const shareUrl = `${window.location.origin}/exhibitions/${e.slug || e.id}/book`;
+    const shareData = {
+      title: e.title,
+      text: `Register for ${e.title} at ${e.venue}, ${e.city}`,
+      url: shareUrl,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled or share failed, fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedEventId(e.id);
+      setTimeout(() => setCopiedEventId(null), 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
 
   async function fetchExhibitions() {
     try {
@@ -451,20 +480,28 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </Button>
                       </Link>
 
-                      <div className="flex items-center justify-between text-[11px] mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <Link
-                          to={`/events/${e.slug || e.id}`}
-                          target="_blank"
-                          className="text-slate-500 hover:text-purple-600 font-semibold"
+                      <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => handleShareEvent(e)}
+                          className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
+                            copiedEventId === e.id
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : 'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-900/40'
+                          }`}
                         >
-                          View Public Page ↗
-                        </Link>
-                        <Link
-                          to={`/admin/events/${e.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-800 font-semibold"
-                        >
-                          Floor Plan Studio →
-                        </Link>
+                          {copiedEventId === e.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Event Link Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Share2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span>Share Event</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
