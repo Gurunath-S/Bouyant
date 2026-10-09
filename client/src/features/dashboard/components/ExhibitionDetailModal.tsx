@@ -182,7 +182,6 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
         <InteractivePinMap
           venueName={exhibition.venue}
           cityName={exhibition.city}
-          address={`${exhibition.venue}, ${exhibition.city}`}
           readOnly={true}
           title="Interactive Venue Location & Directions"
           heightClass="h-48"

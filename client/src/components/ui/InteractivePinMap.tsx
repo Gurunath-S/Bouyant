@@ -24,9 +24,31 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   heightClass = 'h-80',
   title = 'Venue Location Map & Navigation',
 }) => {
-  // Construct search query string for Google Maps
+  // Construct clean search query string for Google Maps without duplicate venue/city segments
   const searchQuery = useMemo(() => {
-    const parts = [venueName, address, cityName].filter(Boolean);
+    // If explicit address is provided, check if venueName/cityName are already in address
+    const cleanVenue = venueName?.trim() || '';
+    const cleanCity = cityName?.trim() || '';
+    const cleanAddress = address?.trim() || '';
+
+    const parts: string[] = [];
+    if (cleanVenue) parts.push(cleanVenue);
+
+    if (cleanAddress) {
+      // Avoid repeating venueName if address already starts with or contains venueName
+      if (!cleanAddress.toLowerCase().includes(cleanVenue.toLowerCase())) {
+        parts.push(cleanAddress);
+      }
+    }
+
+    if (cleanCity) {
+      // Avoid repeating cityName if address already ends with or contains cityName
+      const fullSoFar = parts.join(', ').toLowerCase();
+      if (!fullSoFar.includes(cleanCity.toLowerCase())) {
+        parts.push(cleanCity);
+      }
+    }
+
     if (parts.length > 0) {
       return parts.join(', ');
     }
@@ -36,10 +58,13 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
     return 'India';
   }, [venueName, address, cityName, latitude, longitude]);
 
-  // Google Maps Embed iframe URL (100% free embed endpoint)
+  // Google Maps Embed iframe URL with pin marker focus (&iwloc=A / &q=loc:lat,lng or query)
   const embedUrl = useMemo(() => {
-    return `https://maps.google.com/maps?q=${encodeURIComponent(searchQuery)}&t=m&z=15&output=embed&iwloc=near`;
-  }, [searchQuery]);
+    if (latitude && longitude) {
+      return `https://maps.google.com/maps?q=${latitude},${longitude}&hl=en&z=15&output=embed`;
+    }
+    return `https://maps.google.com/maps?q=${encodeURIComponent(searchQuery)}&hl=en&z=15&output=embed`;
+  }, [latitude, longitude, searchQuery]);
 
   // Direct turn-by-turn navigation URL for Google Maps app / web
   const googleDirectionsUrl = useMemo(() => {
