@@ -284,6 +284,36 @@ export const ExhibitionDetailPage: React.FC = () => {
               >
                 Interactive Stall Map
               </button>
+              <button
+                onClick={() => setActiveTab('pricing')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'pricing'
+                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
+                }`}
+              >
+                Stall & Amenities
+              </button>
+              <button
+                onClick={() => setActiveTab('location')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'location'
+                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
+                }`}
+              >
+                Venue & Location Map
+              </button>
+              <button
+                onClick={() => setActiveTab('schedule')}
+                className={`px-4 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'schedule'
+                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
+                }`}
+              >
+                Important Schedule
+              </button>
             </div>
 
             {/* Tab 1: Overview & Focus Sectors */}
