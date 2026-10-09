@@ -211,6 +211,14 @@ export class CompaniesService {
       existingCompany = await prisma.company.findUnique({ where: { panNumber: cleanPan } });
     }
 
+    if (!existingCompany && cleanMobile) {
+      existingCompany = await prisma.company.findUnique({ where: { mobile: cleanMobile } });
+    }
+
+    if (!existingCompany && normalizedEmail) {
+      existingCompany = await prisma.company.findUnique({ where: { email: normalizedEmail } });
+    }
+
     // Find user by EXACT email (Primary login identifier)
     const existingUserByEmail = await prisma.user.findUnique({
       where: { email: normalizedEmail },

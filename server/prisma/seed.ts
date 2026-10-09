@@ -9,7 +9,7 @@ async function main() {
   const superAdminPasswordHash = await bcrypt.hash('SuperAdminPassword123!', 10);
   const adminPasswordHash = await bcrypt.hash('AdminPassword123!', 10);
   const staffPasswordHash = await bcrypt.hash('StaffPassword123!', 10);
-  // const clientPasswordHash = await bcrypt.hash('UserPassword123!', 10);
+  const clientPasswordHash = await bcrypt.hash('UserPassword123!', 10);
 
   // Delete dependent records before deleting demo companies if any exist
   await prisma.invoice.deleteMany({});
@@ -82,24 +82,24 @@ async function main() {
   });
 
   // 4. Exhibitor Client User (Clean, no pre-created company)
-  // await prisma.user.upsert({
-  //   where: { email: 'user@buoyantmedia.com' },
-  //   update: {
-  //     passwordHash: clientPasswordHash,
-  //     role: UserRole.CLIENT,
-  //     isActive: true,
-  //     companyId: null,
-  //   },
-  //   create: {
-  //     email: 'user@buoyantmedia.com',
-  //     passwordHash: clientPasswordHash,
-  //     username: 'clientuser',
-  //     name: 'Demo Exhibitor',
-  //     phone: '+919876500004',
-  //     role: UserRole.CLIENT,
-  //     isActive: true,
-  //   },
-  // });
+  await prisma.user.upsert({
+    where: { email: 'user@buoyantmedia.com' },
+    update: {
+      passwordHash: clientPasswordHash,
+      role: UserRole.CLIENT,
+      isActive: true,
+      companyId: null,
+    },
+    create: {
+      email: 'user@buoyantmedia.com',
+      passwordHash: clientPasswordHash,
+      username: 'clientuser',
+      name: 'Demo Exhibitor',
+      phone: '+919876500004',
+      role: UserRole.CLIENT,
+      isActive: true,
+    },
+  });
 
   console.log('====================================================');
   console.log('✅ Clean User Account Seeding Complete (No Mock Companies)!');
@@ -107,7 +107,7 @@ async function main() {
   console.log('Super Admin  : superadmin@buoyantmedia.com / SuperAdminPassword123!');
   console.log('Admin User   : admin@buoyantmedia.com      / AdminPassword123!');
   console.log('Staff User   : staff@buoyantmedia.com      / StaffPassword123!');
-  // console.log('Client User  : user@buoyantmedia.com       / UserPassword123!');
+  console.log('Client User  : user@buoyantmedia.com       / UserPassword123!');
   console.log('====================================================');
 }
 
