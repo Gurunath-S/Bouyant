@@ -1,10 +1,10 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, ExhibitionStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🧹 Clearing local database and seeding clean initial accounts & event...');
+  console.log('🧹 Clearing local database and seeding clean initial accounts & exhibitions...');
 
   // 1. Delete transactional & operational data in safe FK order
   console.log('🗑️ Deleting notifications...');
@@ -103,10 +103,11 @@ async function main() {
     },
   });
 
-  // 4. Seed single clean Exhibition Event with Floor Plan and Stalls (Bike Expo 2026)
-  console.log('🎪 Creating Single Clean Exhibition Event & Floor Plan...');
-  const exhibition = await prisma.exhibition.create({
-    data: {
+  // 4. Seed 4 Exhibition Events with Floor Plans and Stalls
+  console.log('🎪 Creating 4 Platform Exhibition Events & Floor Plans...');
+
+  const eventsData = [
+    {
       title: 'Global Tech Expo 2026',
       slug: 'global-tech-expo-2026',
       description: 'The premier international technology and innovation trade show.',
@@ -115,35 +116,73 @@ async function main() {
       startDate: new Date('2026-11-01T09:00:00Z'),
       endDate: new Date('2026-11-03T18:00:00Z'),
       bookingEndDate: new Date('2026-10-25T23:59:59Z'),
-      status: 'PUBLISHED',
+      status: ExhibitionStatus.PUBLISHED,
       bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
-      totalStalls: 19,
+      totalStalls: 14,
       edition: '10',
       eventCode: 'GT-01',
       spcode: 'ZE05',
       notificationEmails: 'admin@buoyantmedia.com',
     },
-  });
-
-  const floorPlan = await prisma.floorPlan.create({
-    data: {
-      exhibitionId: exhibition.id,
-      name: 'Main Exhibition Hall - Hall A',
-      width: 1200,
-      height: 800,
-      gridColumns: 20,
-      gridRows: 15,
-      isPublished: true,
+    {
+      title: 'Mediccon Expo 2026',
+      slug: 'mediccon-expo-2026',
+      description: 'International Healthcare, Medical Devices & Surgical Equipment Trade Fair.',
+      venue: 'Codissia Trade Centre (Hall - A & B)',
+      city: 'Coimbatore, TN',
+      startDate: new Date('2026-11-20T09:00:00Z'),
+      endDate: new Date('2026-11-22T18:00:00Z'),
+      bookingEndDate: new Date('2026-11-10T23:59:59Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=1200',
+      totalStalls: 14,
+      edition: '4',
+      eventCode: 'MC-04',
+      spcode: 'MC04',
+      notificationEmails: 'admin@buoyantmedia.com',
     },
-  });
+    {
+      title: 'International Auto Expo 2026',
+      slug: 'international-auto-expo-2026',
+      description: "Asia's largest automotive technology, electric vehicles, and mobility exhibition.",
+      venue: 'BIEC Exhibition Centre',
+      city: 'Bengaluru, KA',
+      startDate: new Date('2026-12-10T09:00:00Z'),
+      endDate: new Date('2026-12-14T18:00:00Z'),
+      bookingEndDate: new Date('2026-11-30T23:59:59Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200',
+      totalStalls: 14,
+      edition: '6',
+      eventCode: 'AE-06',
+      spcode: 'AE06',
+      notificationEmails: 'admin@buoyantmedia.com',
+    },
+    {
+      title: 'Clean Energy & Sustainability Summit 2027',
+      slug: 'clean-energy-summit-2027',
+      description: 'Global renewable energy, solar power, and green tech conference & expo.',
+      venue: 'Pragati Maidan Hall 5',
+      city: 'New Delhi, DL',
+      startDate: new Date('2027-01-15T09:00:00Z'),
+      endDate: new Date('2027-01-18T18:00:00Z'),
+      bookingEndDate: new Date('2027-01-05T23:59:59Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=1200',
+      totalStalls: 14,
+      edition: '2',
+      eventCode: 'CE-02',
+      spcode: 'CE02',
+      notificationEmails: 'admin@buoyantmedia.com',
+    },
+  ];
 
-  const stallsData = [
+  const stallsTemplate = [
     // Standard Stalls
     { stallNumber: 'A-101', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 50, yPosition: 50 },
     { stallNumber: 'A-102', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 180, yPosition: 50 },
     { stallNumber: 'A-103', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 310, yPosition: 50 },
     { stallNumber: 'A-104', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 440, yPosition: 50 },
-    { stallNumber: 'A-105', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 570, yPosition: 50 },
     // Premium Stalls
     { stallNumber: 'B-201', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 50, yPosition: 220 },
     { stallNumber: 'B-202', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 220, yPosition: 220 },
@@ -159,23 +198,41 @@ async function main() {
     { stallNumber: 'VIP-03', category: 'ISLAND', price: 150000, areaSqFt: 300, xPosition: 750, yPosition: 510 },
   ];
 
-  for (const s of stallsData) {
-    await prisma.stall.create({
+  for (const eventInfo of eventsData) {
+    const exhibition = await prisma.exhibition.create({
+      data: eventInfo,
+    });
+
+    const floorPlan = await prisma.floorPlan.create({
       data: {
-        floorPlanId: floorPlan.id,
-        stallNumber: s.stallNumber,
-        category: s.category as any,
-        price: s.price,
-        areaSqFt: s.areaSqFt,
-        xPosition: s.xPosition,
-        yPosition: s.yPosition,
-        status: 'AVAILABLE',
+        exhibitionId: exhibition.id,
+        name: `Main Exhibition Hall - ${eventInfo.title}`,
+        width: 1200,
+        height: 800,
+        gridColumns: 20,
+        gridRows: 15,
+        isPublished: true,
       },
     });
+
+    for (const s of stallsTemplate) {
+      await prisma.stall.create({
+        data: {
+          floorPlanId: floorPlan.id,
+          stallNumber: s.stallNumber,
+          category: s.category as any,
+          price: s.price,
+          areaSqFt: s.areaSqFt,
+          xPosition: s.xPosition,
+          yPosition: s.yPosition,
+          status: 'AVAILABLE',
+        },
+      });
+    }
   }
 
   console.log('====================================================');
-  console.log('🎉 Local Database Cleaned & Reset Successfully!');
+  console.log('🎉 4 Exhibition Events & Database Reset Successfully!');
   console.log('====================================================');
   console.log('Super Admin : superadmin@buoyantmedia.com / SuperAdminPassword123!');
   console.log('Admin User  : admin@buoyantmedia.com      / AdminPassword123!');
