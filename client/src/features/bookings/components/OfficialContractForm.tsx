@@ -116,7 +116,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
                 <th className="p-3">Area (Sq.Mtr)</th>
                 <th className="p-3">Rate / Sq.Mtr</th>
                 <th className="p-3">Base Amount</th>
-                <th className="p-3">18% GST</th>
+                <th className="p-3">GST 18% (CGST 9% + SGST 9%)</th>
                 <th className="p-3 text-right">Grand Total</th>
               </tr>
             </thead>
