@@ -118,13 +118,13 @@ export const ExhibitionsPage: React.FC = () => {
                     className="w-full h-full object-cover opacity-90 dark:opacity-80"
                   />
                   <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                    {isCurrentUpcoming ? (
+                    {expo.status === 'PUBLISHED' ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 backdrop-blur-md font-extrabold text-[10px] rounded uppercase shadow-xs bg-purple-600 text-white border border-purple-400">
-                        <Tag className="w-3 h-3 text-purple-200" /> Current Upcoming Event
+                        <Tag className="w-3 h-3 text-purple-200" /> Open Event
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur-md text-slate-300 font-bold text-[10px] rounded border border-slate-700">
-                        <Lock className="w-3 h-3 text-slate-400" /> Booking Closed
+                        <Lock className="w-3 h-3 text-slate-400" /> {expo.status}
                       </span>
                     )}
                   </div>
@@ -132,8 +132,8 @@ export const ExhibitionsPage: React.FC = () => {
 
                 <div className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
-                    {isCurrentUpcoming && (
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    {expo.status === 'PUBLISHED' && (
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
                         OPEN FOR STALL BOOKINGS
                       </span>
                     )}
@@ -163,12 +163,12 @@ export const ExhibitionsPage: React.FC = () => {
                   </span>
                   <Link to={`/exhibitions/${expo.slug || expo.id}`}>
                     <Button
-                      variant={isCurrentUpcoming ? 'primary' : 'outline'}
+                      variant={expo.status === 'PUBLISHED' ? 'primary' : 'outline'}
                       size="sm"
-                      className={isCurrentUpcoming ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold' : ''}
+                      className={expo.status === 'PUBLISHED' ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold' : ''}
                       rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
                     >
-                      {isCurrentUpcoming ? 'Book Stalls Now' : 'View Details'}
+                      {expo.status === 'PUBLISHED' ? 'Book Stalls Now' : 'View Details'}
                     </Button>
                   </Link>
                 </div>

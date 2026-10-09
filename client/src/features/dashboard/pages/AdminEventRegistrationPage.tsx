@@ -465,22 +465,22 @@ export const AdminEventRegistrationPage: React.FC = () => {
                     <div className="p-4 pt-0">
                       <div className="flex items-center gap-2">
                         <Link
-                          to={isCurrentUpcoming ? `/exhibitions/${e.slug || e.id}/book` : '#'}
+                          to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
                           className="flex-1"
                         >
                           <Button
                             type="button"
-                            variant={isCurrentUpcoming ? 'primary' : 'outline'}
+                            variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
                             size="md"
-                            disabled={!isCurrentUpcoming}
+                            disabled={e.status !== 'PUBLISHED'}
                             leftIcon={<UserPlus className="w-4 h-4" />}
                             className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
-                              isCurrentUpcoming
+                              e.status === 'PUBLISHED'
                                 ? 'bg-purple-600 hover:bg-purple-700 text-white'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
                             }`}
                           >
-                            {isCurrentUpcoming ? 'Register to Event' : 'Booking Restricted'}
+                            {e.status === 'PUBLISHED' ? 'Register to Event' : `Status: ${e.status}`}
                           </Button>
                         </Link>
 
