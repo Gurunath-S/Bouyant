@@ -20,10 +20,6 @@ import {
   MapPin,
   ShieldCheck,
   TrendingUp,
-  Copy,
-  Check,
-  ExternalLink,
-  LayoutGrid,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
@@ -36,8 +32,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [adminBookings, setAdminBookings] = useState<Booking[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Filters for Events Tab
   const [eventSearch, setEventSearch] = useState('');
@@ -81,17 +75,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
     fetchAdminBookings();
   }, []);
 
-  const handleRefreshAll = async () => {
-    setIsRefreshing(true);
-    await Promise.all([fetchExhibitions(), fetchAdminBookings()]);
-    setTimeout(() => setIsRefreshing(false), 500);
-  };
-
-  const handleCopyBookingLink = (e: Exhibition) => {
-    const url = `${window.location.origin}/exhibitions/${e.slug || e.id}/book`;
-    navigator.clipboard.writeText(url);
-    setCopiedId(e.id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleRefreshAll = () => {
+    fetchExhibitions();
+    fetchAdminBookings();
   };
 
   const handleRegistrationSuccess = (newBooking: Booking) => {
@@ -178,27 +164,41 @@ export const AdminEventRegistrationPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full md:w-auto">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleRefreshAll}
-            disabled={isRefreshing}
-            className="flex items-center gap-1.5 text-xs font-bold border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xs transition-all rounded-xl py-2 px-3.5"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs py-2 px-3.5 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-purple-600' : ''}`} />
-            <span>{isRefreshing ? 'Refreshing Hub...' : 'Refresh Hub'}</span>
+            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+            <span>Refresh</span>
           </Button>
 
-          <Link to="/admin/events/new">
+          <Button
+            type="button"
+            variant={activeTab === 'EVENTS' ? 'outline' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('EVENTS')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs py-2 px-3.5 rounded-xl transition-colors ${
+              activeTab === 'EVENTS'
+                ? 'border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5 text-purple-500" />
+            <span>View Exhibitions</span>
+          </Button>
+
+          <Link to="/admin/events/new" className="w-full sm:w-auto">
             <Button
               type="button"
               variant="primary"
               size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 text-xs font-bold shadow-xs px-4 py-2 rounded-xl transition-all active:scale-[0.98]"
+              className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-1.5 text-xs shadow-xs py-2 px-3.5 rounded-xl font-bold transition-transform active:scale-95"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-3.5 h-3.5" />
               <span>Create New Exhibition</span>
             </Button>
           </Link>
@@ -447,7 +447,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Card Quick Action Buttons */}
+                    {/* Card Actions */}
                     <div className="p-4 pt-0 space-y-2">
                       <Link to={isCurrentUpcoming ? `/exhibitions/${e.slug || e.id}/book` : '#'}>
                         <Button
@@ -455,55 +455,32 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           variant={isCurrentUpcoming ? 'primary' : 'outline'}
                           size="md"
                           disabled={!isCurrentUpcoming}
-                          className={`w-full font-black text-xs flex items-center justify-center gap-2 py-2.5 rounded-xl shadow-xs transition-all ${
+                          className={`w-full font-black text-xs flex items-center justify-center gap-2 py-2.5 rounded-xl shadow-xs transition-all active:scale-[0.99] ${
                             isCurrentUpcoming
                               ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
                           }`}
                         >
                           <UserPlus className="w-4 h-4" />
-                          <span>{isCurrentUpcoming ? 'Register Exhibitor to Event' : 'Booking Restricted (Non-Current)'}</span>
+                          <span>{isCurrentUpcoming ? 'Register to Event' : 'Booking Restricted (Non-Current)'}</span>
                         </Button>
                       </Link>
 
-                      <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      <div className="flex items-center justify-between gap-2 text-[11px] mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                         <Link
                           to={`/events/${e.slug || e.id}`}
                           target="_blank"
-                          className="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
-                          title="View Public Exhibition Page"
+                          className="inline-flex items-center gap-1 text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 font-semibold transition-colors py-1 px-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
                         >
-                          <Eye className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                          <span className="truncate">View Page</span>
+                          <Eye className="w-3.5 h-3.5 text-slate-400" />
+                          <span>View Public Page ↗</span>
                         </Link>
-
                         <Link
                           to={`/admin/events/${e.id}/edit`}
-                          className="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 transition-colors"
-                          title="Open Floor Plan Studio"
+                          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-semibold transition-colors py-1 px-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
                         >
-                          <LayoutGrid className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                          <span className="truncate">Studio</span>
+                          <span>Floor Plan Studio →</span>
                         </Link>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyBookingLink(e)}
-                          className="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
-                          title="Copy Direct Booking Link to Clipboard"
-                        >
-                          {copiedId === e.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              <span className="text-emerald-600 font-extrabold text-[10px]">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span className="truncate">Copy Link</span>
-                            </>
-                          )}
-                        </button>
                       </div>
                     </div>
                   </div>
