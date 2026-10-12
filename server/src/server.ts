@@ -11,7 +11,10 @@ const startServer = async () => {
   // Connect Database & Services
   await connectDB();
   getRedisClient();
-  await verifyEmailTransporter();
+  // Verify email transporter in background so it never delays HTTP server port binding
+  verifyEmailTransporter().catch((err) => {
+    console.error('⚠️ [EMAIL SERVICE] Background verification error:', err?.message || err);
+  });
 
   const app = createApp();
 

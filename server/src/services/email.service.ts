@@ -3,13 +3,31 @@ import nodemailer from 'nodemailer';
 const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
 const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
 
+const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpSecure,
   auth: smtpUser ? {
     user: smtpUser,
     pass: smtpPass,
   } : undefined,
-});
+  tls: {
+    rejectUnauthorized: false,
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+  // Force IPv4 lookup to prevent Render ENETUNREACH on IPv6 addresses
+  lookup: (hostname: string, _options: any, callback: any) => {
+    import('dns').then((dns) => {
+      dns.lookup(hostname, { family: 4 }, callback);
+    });
+  },
+} as any);
 
 export const verifyEmailTransporter = async () => {
   if (!smtpUser) {
