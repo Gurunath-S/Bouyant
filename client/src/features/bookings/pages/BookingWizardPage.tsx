@@ -46,10 +46,8 @@ export const BookingWizardPage: React.FC = () => {
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  // Only pre-fill company if the user is explicitly logged in as a CLIENT with an attached company
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(
-    user && user.role === 'CLIENT' ? user.company || null : null
-  );
+  // Start with clean company selection so new bookings never accidentally inherit another user's profile
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [assignedRegNo, setAssignedRegNo] = useState<string>('');
 
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
@@ -125,10 +123,6 @@ export const BookingWizardPage: React.FC = () => {
       if (user && user.role === 'CLIENT') {
         const comps = await companyService.getMyCompanies();
         setCompanies(comps || []);
-        if (comps && comps.length > 0 && !selectedCompany) {
-          setSelectedCompany(comps[0]);
-          if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
-        }
       } else {
         setCompanies([]);
         setSelectedCompany(null);
@@ -411,8 +405,9 @@ export const BookingWizardPage: React.FC = () => {
             await new Promise((res) => setTimeout(res, 1000));
           }
 
-          // STRICT REQUIREMENT: DO NOT auto-login the user after payment!
-          // Redirect to the unauthenticated dedicated Booking Success page
+          // STRICT REQUIREMENT: DO NOT keep previous user logged in after booking completion!
+          // Wipe auth tokens and temporary session immediately
+          useAuthStore.getState().logout();
           navigate(`/booking/success?bookingId=${booking.id}`);
         } catch (err: any) {
           setPaymentStatusState('FAILED');
