@@ -35,6 +35,8 @@ export const PaymentSuccessPage: React.FC = () => {
 
   useEffect(() => {
     useFloorPlanStore.getState().clearStallSelection();
+    // Clear any previous user session so the next booking on this machine starts 100% fresh
+    useAuthStore.getState().logout();
     if (bookingId) {
       bookingService
         .getPublicBookingSummary(bookingId)
