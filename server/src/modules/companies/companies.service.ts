@@ -237,26 +237,46 @@ export class CompaniesService {
       : null;
 
     // CASE 1: EXACT MATCH (Same GST + Same Email + Same Phone) or same email+phone
-    // -> DO NOT create new user. Reuse existing user and existing company.
+    // -> Update existing user and company with the freshly submitted details.
     if (exactMatchingUser) {
-      const companyToUse = existingCompany || exactMatchingUser.company;
+      let companyToUse = existingCompany || exactMatchingUser.company;
 
-      if (companyToUse && !exactMatchingUser.companyId) {
-        await prisma.user.update({
-          where: { id: exactMatchingUser.id },
-          data: { companyId: companyToUse.id },
+      if (companyToUse) {
+        // ALWAYS update the existing company with the freshly entered company details
+        companyToUse = await prisma.company.update({
+          where: { id: companyToUse.id },
+          data: {
+            name: input.name,
+            contactPerson: input.contactPerson,
+            mobile: cleanMobile,
+            email: normalizedEmail,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            pinCode: input.pinCode || companyToUse.pinCode,
+            country: input.country || companyToUse.country,
+            gstNumber: cleanGst || companyToUse.gstNumber,
+            panNumber: cleanPan || companyToUse.panNumber,
+            industry: input.industry || companyToUse.industry,
+            website: input.website || companyToUse.website,
+          },
         });
       }
 
-      if (requestedUsername && !exactMatchingUser.username) {
-        const checkU = await prisma.user.findUnique({ where: { username: requestedUsername } });
-        if (!checkU) {
-          await prisma.user.update({
-            where: { id: exactMatchingUser.id },
-            data: { username: requestedUsername },
-          });
-        }
-      }
+      await prisma.user.update({
+        where: { id: exactMatchingUser.id },
+        data: {
+          name: input.contactPerson,
+          phone: cleanMobile,
+          ...(companyToUse ? { companyId: companyToUse.id } : {}),
+          ...(requestedUsername ? { username: requestedUsername } : {}),
+        },
+      });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: exactMatchingUser.id },
+        include: { company: true },
+      });
 
       const tokens = generateTokens({
         userId: exactMatchingUser.id,
@@ -266,8 +286,8 @@ export class CompaniesService {
       });
 
       return {
-        company: companyToUse || exactMatchingUser.company,
-        user: exactMatchingUser,
+        company: companyToUse || updatedUser?.company,
+        user: updatedUser || exactMatchingUser,
         tokens,
         temporaryPassword: null,
         isExistingUser: true,
@@ -276,15 +296,44 @@ export class CompaniesService {
 
     // CASE 4: SAME EMAIL + DIFFERENT PHONE
     // Email is a globally unique login identifier (User.email @unique).
-    // If the email exists, we MUST reuse the existing user record rather than crashing or throwing duplicate error.
+    // If the email exists, update the company and user records with the fresh details.
     if (existingUserByEmail) {
-      const companyToUse = existingCompany || existingUserByEmail.company;
-      if (companyToUse && !existingUserByEmail.companyId) {
-        await prisma.user.update({
-          where: { id: existingUserByEmail.id },
-          data: { companyId: companyToUse.id },
+      let companyToUse = existingCompany || existingUserByEmail.company;
+      if (companyToUse) {
+        companyToUse = await prisma.company.update({
+          where: { id: companyToUse.id },
+          data: {
+            name: input.name,
+            contactPerson: input.contactPerson,
+            mobile: cleanMobile,
+            email: normalizedEmail,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            pinCode: input.pinCode || companyToUse.pinCode,
+            country: input.country || companyToUse.country,
+            gstNumber: cleanGst || companyToUse.gstNumber,
+            panNumber: cleanPan || companyToUse.panNumber,
+            industry: input.industry || companyToUse.industry,
+            website: input.website || companyToUse.website,
+          },
         });
       }
+
+      await prisma.user.update({
+        where: { id: existingUserByEmail.id },
+        data: {
+          name: input.contactPerson,
+          phone: cleanMobile,
+          ...(companyToUse ? { companyId: companyToUse.id } : {}),
+          ...(requestedUsername ? { username: requestedUsername } : {}),
+        },
+      });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: existingUserByEmail.id },
+        include: { company: true },
+      });
 
       const tokens = generateTokens({
         userId: existingUserByEmail.id,
@@ -294,8 +343,8 @@ export class CompaniesService {
       });
 
       return {
-        company: companyToUse || existingUserByEmail.company,
-        user: existingUserByEmail,
+        company: companyToUse || updatedUser?.company,
+        user: updatedUser || existingUserByEmail,
         tokens,
         temporaryPassword: null,
         isExistingUser: true,
@@ -326,48 +375,70 @@ export class CompaniesService {
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
 
     const result = await prisma.$transaction(async (tx) => {
-      const company = existingCompany || await tx.company.create({
-        data: {
-          name: input.name,
-          contactPerson: input.contactPerson,
-          mobile: cleanMobile,
-          email: normalizedEmail,
-          address: input.address,
-          city: input.city,
-          state: input.state,
-          pinCode: input.pinCode || '400051',
-          country: input.country || 'India',
-          gstNumber: cleanGst,
-          panNumber: cleanPan,
-          tanNumber: effectiveTan,
-          industry: input.industry || 'General Exhibitor',
-          website: input.website,
-          remarks: input.remarks || 'Not Provided',
-          companyCode,
-          regNo,
-          spcode,
-        },
-      });
+      const company = existingCompany
+        ? await tx.company.update({
+            where: { id: existingCompany.id },
+            data: {
+              name: input.name,
+              contactPerson: input.contactPerson,
+              mobile: cleanMobile,
+              email: normalizedEmail,
+              address: input.address,
+              city: input.city,
+              state: input.state,
+              pinCode: input.pinCode || existingCompany.pinCode,
+              country: input.country || existingCompany.country,
+              gstNumber: cleanGst || existingCompany.gstNumber,
+              panNumber: cleanPan || existingCompany.panNumber,
+              industry: input.industry || existingCompany.industry,
+              website: input.website || existingCompany.website,
+            },
+          })
+        : await tx.company.create({
+            data: {
+              name: input.name,
+              contactPerson: input.contactPerson,
+              mobile: cleanMobile,
+              email: normalizedEmail,
+              address: input.address,
+              city: input.city,
+              state: input.state,
+              pinCode: input.pinCode || '400051',
+              country: input.country || 'India',
+              gstNumber: cleanGst,
+              panNumber: cleanPan,
+              tanNumber: effectiveTan,
+              industry: input.industry || 'General Exhibitor',
+              website: input.website,
+              remarks: input.remarks || 'Not Provided',
+              companyCode,
+              regNo,
+              spcode,
+            },
+          });
 
       const targetUser = existingUserByEmail || existingUserByPhone;
-      const user = targetUser || await tx.user.create({
-        data: {
-          email: normalizedEmail,
-          username: requestedUsername,
-          passwordHash,
-          name: input.contactPerson,
-          phone: cleanMobile,
-          role: 'CLIENT',
-          companyId: company.id,
-        },
-      });
-
-      if (targetUser && !targetUser.companyId) {
-        await tx.user.update({
-          where: { id: targetUser.id },
-          data: { companyId: company.id },
-        });
-      }
+      const user = targetUser
+        ? await tx.user.update({
+            where: { id: targetUser.id },
+            data: {
+              name: input.contactPerson,
+              phone: cleanMobile,
+              companyId: company.id,
+              ...(requestedUsername ? { username: requestedUsername } : {}),
+            },
+          })
+        : await tx.user.create({
+            data: {
+              email: normalizedEmail,
+              username: requestedUsername,
+              passwordHash,
+              name: input.contactPerson,
+              phone: cleanMobile,
+              role: 'CLIENT',
+              companyId: company.id,
+            },
+          });
 
       // Find associated exhibition for event-specific admin notification routing
       const targetExpo = await tx.exhibition.findFirst({

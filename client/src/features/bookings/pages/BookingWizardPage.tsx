@@ -250,12 +250,6 @@ export const BookingWizardPage: React.FC = () => {
   const onSubmitCompanyForm = async (data: CompanyFormData) => {
     const eventYear = exhibition?.startDate ? new Date(exhibition.startDate).getFullYear().toString().slice(-2) : '26';
 
-    if (user && selectedCompany && selectedCompany.gstNumber === data.gstNumber) {
-      if (selectedCompany.regNo) setAssignedRegNo(selectedCompany.regNo);
-      setCurrentStep(3);
-      return;
-    }
-
     try {
       setLoading(true);
       const res = await companyService.createCompany({

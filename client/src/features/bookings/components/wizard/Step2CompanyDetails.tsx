@@ -79,7 +79,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   onBack,
   onContinueWithSelectedCompany,
 }) => {
-  const [isAddingNewCompany, setIsAddingNewCompany] = useState(false);
+  const [isAddingNewCompany, setIsAddingNewCompany] = useState(true);
   const [isVerifyingGst, setIsVerifyingGst] = useState(false);
   const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
   const [gstVerifiedDetails, setGstVerifiedDetails] = useState<any>(null);
@@ -279,19 +279,19 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           const comp = res.existingCompany;
           setValue('name', comp.name, { shouldValidate: true, shouldDirty: true });
           if (comp.panNumber) setValue('panNumber', comp.panNumber, { shouldValidate: true, shouldDirty: true });
-          if (comp.contactPerson) setValue('contactPerson', comp.contactPerson, { shouldValidate: true, shouldDirty: true });
-          if (comp.mobile) setValue('mobile', comp.mobile, { shouldValidate: true, shouldDirty: true });
-          if (comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
           if (comp.address) setValue('address', comp.address, { shouldValidate: true, shouldDirty: true });
           if (comp.city) setValue('city', comp.city, { shouldValidate: true, shouldDirty: true });
           if (comp.state) setValue('state', comp.state, { shouldValidate: true, shouldDirty: true });
           if (comp.pinCode) setValue('pinCode', comp.pinCode, { shouldValidate: true, shouldDirty: true });
           if (comp.country) setValue('country', comp.country || 'India', { shouldValidate: true, shouldDirty: true });
-          if (comp.industry) setValue('industry', comp.industry, { shouldValidate: true, shouldDirty: true });
+          // Only fill contact details if user has NOT already entered them in the form
+          if (!getValues('contactPerson') && comp.contactPerson) setValue('contactPerson', comp.contactPerson, { shouldValidate: true, shouldDirty: true });
+          if (!getValues('mobile') && comp.mobile) setValue('mobile', comp.mobile, { shouldValidate: true, shouldDirty: true });
+          if (!getValues('email') && comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
 
           onSelectCompany(comp);
-          setGstNotice('Existing Registered Profile: Company details verified and loaded from database.');
+          setGstNotice('GST details verified successfully.');
         } else if (res.gstDetails) {
           const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
           if (officialName) setValue('name', officialName, { shouldValidate: true, shouldDirty: true });
