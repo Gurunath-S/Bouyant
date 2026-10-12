@@ -340,7 +340,7 @@ export class CompaniesService {
           gstNumber: cleanGst,
           panNumber: cleanPan,
           tanNumber: effectiveTan,
-          industry: input.industry,
+          industry: input.industry || 'General Exhibitor',
           website: input.website,
           remarks: input.remarks || 'Not Provided',
           companyCode,

@@ -31,18 +31,23 @@ export const companySchema = z.object({
     .optional()
     .or(z.literal('')),
   contactPerson: z.string().min(2, 'Contact Person Name is required'),
-  designation: z.string().min(2, 'Designation is required'),
+  designation: z.string().optional().or(z.literal('')),
   mobile: z.string().min(10, 'Valid 10-digit mobile number is required'),
   email: z.string().email('Valid corporate email address is required'),
   address: z.string().min(5, 'Corporate address is required (min 5 characters)'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
-  pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
+  pinCode: z
+    .string()
+    .trim()
+    .refine((val) => !val || /^\d{6}$/.test(val), { message: 'PIN code must be exactly 6 digits' })
+    .optional()
+    .or(z.literal('')),
   country: z.string().optional().default('India'),
   gstNumber: z.string().trim().refine((val) => !val || val.length === 15, { message: 'GST Registration Number must be 15 characters' }).optional().or(z.literal('')),
   panNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'PAN Number must be 10 characters' }).optional().or(z.literal('')),
   tanNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'TAN Number must be 10 characters' }).optional().or(z.literal('')),
-  industry: z.string().min(2, 'Industry sector is required'),
+  industry: z.string().optional().or(z.literal('')),
   category: z.string().min(2, 'Product/Service Category is required'),
   website: z.string().optional(),
 });
@@ -501,9 +506,10 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             <Input label="Official Legal / Trade Name *" error={errors.name?.message} {...register('name')} />
             <Input label="Permanent Account Number (PAN) *" placeholder="e.g. AAACT1029F" maxLength={10} error={errors.panNumber?.message} {...register('panNumber')} />
             <Input label="Authorized Contact Person *" error={errors.contactPerson?.message} {...register('contactPerson')} />
-            <Input label="Designation / Role *" error={errors.designation?.message} {...register('designation')} />
             <Input label="Mobile Number (10 digits) *" placeholder="9876543210" error={errors.mobile?.message} {...register('mobile')} />
-            <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
+            <div className="sm:col-span-2">
+              <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
+            </div>
 
             {/* Portal Username Field with Real-Time Uniqueness Verification & Auto-Generation */}
             <div className="sm:col-span-2 bg-[#f8faff] dark:bg-slate-800/60 border border-blue-100 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
@@ -583,10 +589,9 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             </div>
 
             <Input label="Tax Deduction Account Number (TAN) (Optional)" placeholder="e.g. DELT12345E" maxLength={10} error={errors.tanNumber?.message} {...register('tanNumber')} />
-            <Input label="Industry Sector *" error={errors.industry?.message} {...register('industry')} />
             <Input label="Product / Service Category *" error={errors.category?.message} {...register('category')} />
-            <Input label="Official Corporate Website" placeholder="https://" error={errors.website?.message} {...register('website')} />
-            <Input label="PIN Code (6 digits) *" maxLength={6} placeholder="e.g. 400051" error={errors.pinCode?.message} {...register('pinCode')} />
+            <Input label="Official Corporate Website (Optional)" placeholder="https://" error={errors.website?.message} {...register('website')} />
+            <Input label="PIN Code (6 digits) (Optional)" maxLength={6} placeholder="e.g. 400051" error={errors.pinCode?.message} {...register('pinCode')} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

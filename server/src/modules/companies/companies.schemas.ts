@@ -14,7 +14,7 @@ export const CreateCompanySchema = z
     gstNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     panNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     tanNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
-    industry: z.string().trim().min(1, 'Industry is required'),
+    industry: z.string().trim().optional().or(z.literal('')).default('General Exhibitor'),
     website: z.string().trim().optional().or(z.literal('')),
     remarks: z.string().trim().optional(),
     spcode: z.string().trim().optional(),
