@@ -122,9 +122,6 @@ export const LoginPage: React.FC = () => {
           backgroundSize: '24px 24px',
         }}
       />
-      <div className="fixed -top-40 -left-40 w-[600px] h-[600px] bg-blue-500/15 rounded-full blur-[140px] pointer-events-none z-0" />
-      <div className="fixed -bottom-40 -right-40 w-[600px] h-[600px] bg-[#0E8074]/15 rounded-full blur-[160px] pointer-events-none z-0" />
-
       {/* Shared Unified Navbar */}
       <PublicNavbar />
 
