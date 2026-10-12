@@ -1,20 +1,10 @@
 import nodemailer from 'nodemailer';
 
-const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
-const isSecure = process.env.SMTP_SECURE !== undefined 
-  ? process.env.SMTP_SECURE === 'true' 
-  : smtpPort === 465;
-const smtpUser = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
-const smtpPass = process.env.SMTP_PASS ? process.env.SMTP_PASS.trim() : '';
+const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: isSecure,
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000,
+  service: 'gmail',
   auth: smtpUser ? {
     user: smtpUser,
     pass: smtpPass,
@@ -23,19 +13,19 @@ const transporter = nodemailer.createTransport({
 
 export const verifyEmailTransporter = async () => {
   if (!smtpUser) {
-    console.warn('⚠️ [EMAIL SERVICE] SMTP_USER is not configured in environment variables.');
+    console.warn('⚠️ [EMAIL SERVICE] Neither SMTP_USER nor EMAIL_USER is configured in environment variables.');
     return;
   }
-  console.log(`🔌 [EMAIL SERVICE] Testing SMTP connection to ${smtpHost}:${smtpPort} (secure: ${isSecure}) as ${smtpUser}...`);
+  console.log(`🔌 [EMAIL SERVICE] Testing Gmail Service connection for account: ${smtpUser}...`);
   try {
     await transporter.verify();
-    console.log('✅ [EMAIL SERVICE] SMTP Server is ready and authenticated successfully!');
+    console.log('✅ [EMAIL SERVICE] Gmail SMTP Service verified and ready!');
   } catch (err: any) {
-    console.error('❌ [EMAIL SERVICE] SMTP Verification Failed:', err?.message || err);
+    console.error('❌ [EMAIL SERVICE] Gmail SMTP Verification Failed:', err?.message || err);
     if (err?.code === 'EAUTH') {
-      console.error('👉 [EMAIL HINT] Invalid SMTP credentials. Please check your Gmail App Password.');
+      console.error('👉 [EMAIL HINT] Invalid App Password. Ensure 2-Step Verification is ON and generate an App Password for Mail.');
     } else if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNREFUSED') {
-      console.error('👉 [EMAIL HINT] Connection timed out. Cloud host might block this port. Try SMTP_PORT=587 and SMTP_SECURE=false');
+      console.error('👉 [EMAIL HINT] Connection timed out on Render. Outbound SMTP ports are blocked by Render on free tiers.');
     }
   }
 };
