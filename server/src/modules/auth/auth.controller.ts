@@ -4,10 +4,11 @@ import { sendResponse } from '../../utils/response.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 
 export class AuthController {
+  private static isProduction = process.env.NODE_ENV === 'production';
   private static cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    secure: AuthController.isProduction,
+    sameSite: (AuthController.isProduction ? 'none' : 'lax') as 'none' | 'lax',
   };
 
   static register = async (req: Request, res: Response) => {
