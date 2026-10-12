@@ -507,29 +507,22 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             <Input label="Permanent Account Number (PAN) *" placeholder="e.g. AAACT1029F" maxLength={10} error={errors.panNumber?.message} {...register('panNumber')} />
             <Input label="Authorized Contact Person *" error={errors.contactPerson?.message} {...register('contactPerson')} />
             <Input label="Mobile Number (10 digits) *" placeholder="9876543210" error={errors.mobile?.message} {...register('mobile')} />
-            <div className="sm:col-span-2">
-              <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
-            </div>
+            <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
 
-            {/* Portal Username Field with Real-Time Uniqueness Verification & Auto-Generation */}
-            <div className="sm:col-span-2 bg-[#f8faff] dark:bg-slate-800/60 border border-blue-100 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <label className="text-xs font-bold text-[#012970] dark:text-slate-100 flex items-center gap-1.5">
-                    <AtSign className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
-                    Exhibitor Portal Username <span className="text-slate-400 font-normal">(Auto-generated & Customizable)</span>
-                  </label>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Unique handle for logging in, downloading badges & tax receipts. You can also sign in with your email.
-                  </p>
-                </div>
+            {/* Compact Portal Username Field */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <AtSign className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
+                  Portal Username <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
                 <button
                   type="button"
                   onClick={handleRegenerateUsername}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:text-[#012970] dark:hover:text-blue-300 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 hover:border-blue-400 px-2.5 py-1 rounded-lg shadow-2xs transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer"
                   title="Generate another unique username suggestion"
                 >
-                  <Sparkles className="w-3 h-3 text-[#9cc542]" /> Suggest New
+                  <Sparkles className="w-3 h-3 text-[#9cc542]" /> Suggest
                 </button>
               </div>
 
@@ -541,7 +534,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   {...register('username', {
                     onChange: () => setIsUsernameManuallyEdited(true),
                   })}
-                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs transition-colors pr-24 ${
+                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs transition-colors pr-20 ${
                     errors.username || usernameStatus === 'taken' || usernameStatus === 'invalid'
                       ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-500'
                       : usernameStatus === 'available'
@@ -551,53 +544,46 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 />
 
                 {/* Right Status Badge */}
-                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] pointer-events-none">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] pointer-events-none">
                   {usernameStatus === 'checking' && (
-                    <span className="flex items-center gap-1 text-slate-400 font-medium animate-pulse">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#09539b] dark:text-blue-400" /> Checking
+                    <span className="flex items-center gap-0.5 text-slate-400 font-medium">
+                      <Loader2 className="w-3 h-3 animate-spin text-[#09539b]" />
                     </span>
                   )}
                   {usernameStatus === 'available' && (
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Available
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      ✓ Available
                     </span>
                   )}
                   {usernameStatus === 'taken' && (
-                    <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Taken
+                    <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 px-1 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                      Taken
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Status or Validation message */}
               {errors.username ? (
                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{errors.username.message}</p>
-              ) : usernameMessage && usernameStatus !== 'idle' ? (
-                <p
-                  className={`text-[11px] font-medium flex items-center gap-1 ${
-                    usernameStatus === 'available'
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : usernameStatus === 'taken' || usernameStatus === 'invalid'
-                      ? 'text-rose-600 dark:text-rose-400'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {usernameMessage}
-                </p>
+              ) : usernameMessage && (usernameStatus === 'taken' || usernameStatus === 'invalid') ? (
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">{usernameMessage}</p>
               ) : null}
             </div>
 
-            <Input label="Tax Deduction Account Number (TAN) (Optional)" placeholder="e.g. DELT12345E" maxLength={10} error={errors.tanNumber?.message} {...register('tanNumber')} />
             <Input label="Product / Service Category *" error={errors.category?.message} {...register('category')} />
             <Input label="Official Corporate Website (Optional)" placeholder="https://" error={errors.website?.message} {...register('website')} />
-            <Input label="PIN Code (6 digits) (Optional)" maxLength={6} placeholder="e.g. 400051" error={errors.pinCode?.message} {...register('pinCode')} />
+            <Input label="Tax Deduction Account Number (TAN) (Optional)" placeholder="e.g. DELT12345E" maxLength={10} error={errors.tanNumber?.message} {...register('tanNumber')} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="Registered Corporate Address *" error={errors.address?.message} {...register('address')} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="sm:col-span-2 lg:col-span-2">
+              <Input label="Registered Corporate Address *" error={errors.address?.message} {...register('address')} />
+            </div>
             <Input label="City *" error={errors.city?.message} {...register('city')} />
             <Input label="State / Province *" error={errors.state?.message} {...register('state')} />
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Input label="PIN Code (6 digits) (Optional)" maxLength={6} placeholder="e.g. 400051" error={errors.pinCode?.message} {...register('pinCode')} />
+            </div>
           </div>
 
 
