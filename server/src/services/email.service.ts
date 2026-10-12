@@ -1,22 +1,44 @@
 import nodemailer from 'nodemailer';
 
+const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
 const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
 const isSecure = process.env.SMTP_SECURE !== undefined 
   ? process.env.SMTP_SECURE === 'true' 
   : smtpPort === 465;
+const smtpUser = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
+const smtpPass = process.env.SMTP_PASS ? process.env.SMTP_PASS.trim() : '';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  host: smtpHost,
   port: smtpPort,
   secure: isSecure,
-  connectionTimeout: 10000, // 10 seconds timeout
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-  auth: process.env.SMTP_USER ? {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
+  auth: smtpUser ? {
+    user: smtpUser,
+    pass: smtpPass,
   } : undefined,
 });
+
+export const verifyEmailTransporter = async () => {
+  if (!smtpUser) {
+    console.warn('⚠️ [EMAIL SERVICE] SMTP_USER is not configured in environment variables.');
+    return;
+  }
+  console.log(`🔌 [EMAIL SERVICE] Testing SMTP connection to ${smtpHost}:${smtpPort} (secure: ${isSecure}) as ${smtpUser}...`);
+  try {
+    await transporter.verify();
+    console.log('✅ [EMAIL SERVICE] SMTP Server is ready and authenticated successfully!');
+  } catch (err: any) {
+    console.error('❌ [EMAIL SERVICE] SMTP Verification Failed:', err?.message || err);
+    if (err?.code === 'EAUTH') {
+      console.error('👉 [EMAIL HINT] Invalid SMTP credentials. Please check your Gmail App Password.');
+    } else if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNREFUSED') {
+      console.error('👉 [EMAIL HINT] Connection timed out. Cloud host might block this port. Try SMTP_PORT=587 and SMTP_SECURE=false');
+    }
+  }
+};
 
 export interface BookingConfirmationEmailPayload {
   toEmail: string;

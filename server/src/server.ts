@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
 import { getRedisClient } from './config/redis.js';
 import { StallsService } from './modules/stalls/stalls.service.js';
+import { verifyEmailTransporter } from './services/email.service.js';
 
 const startServer = async () => {
   console.log('🚀 Initializing Buoyant Media Server...');
@@ -10,6 +11,7 @@ const startServer = async () => {
   // Connect Database & Services
   await connectDB();
   getRedisClient();
+  await verifyEmailTransporter();
 
   const app = createApp();
 
