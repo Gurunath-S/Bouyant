@@ -126,15 +126,21 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   // Update form fields dynamically whenever `user` state changes or resets
   React.useEffect(() => {
-    if (user && user.role === 'CLIENT') {
-      setValue('name', user.company?.name || '');
+    if (user && user.role === 'CLIENT' && selectedCompany) {
+      setValue('name', selectedCompany.name || '');
       setValue('username', user.username || '');
-      setValue('contactPerson', user.name || '');
-      setValue('mobile', user.phone || '');
-      setValue('email', user.email || '');
-      setValue('pinCode', user.company?.pinCode || '');
-    } else {
-      // Guest or logged-out mode: clean state with no stale data
+      setValue('contactPerson', selectedCompany.contactPerson || user.name || '');
+      setValue('mobile', selectedCompany.mobile || user.phone || '');
+      setValue('email', selectedCompany.email || user.email || '');
+      setValue('pinCode', selectedCompany.pinCode || '');
+      setValue('address', selectedCompany.address || '');
+      setValue('city', selectedCompany.city || '');
+      setValue('state', selectedCompany.state || '');
+      setValue('gstNumber', selectedCompany.gstNumber || '');
+      setValue('panNumber', selectedCompany.panNumber || '');
+      setValue('tanNumber', selectedCompany.tanNumber || '');
+    } else if (!selectedCompany) {
+      // Clean slate with no stale data from any previous user session
       setValue('name', '');
       setValue('username', '');
       setValue('contactPerson', '');
@@ -148,7 +154,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('panNumber', '');
       setValue('tanNumber', '');
     }
-  }, [user, setValue]);
+  }, [user, selectedCompany, setValue]);
 
   // Automatically reset GST verified status if user modifies the GST number input
   React.useEffect(() => {
@@ -306,35 +312,6 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-      {/* Logged-In User Banner & Account Switcher */}
-      {user && (
-        <div className="p-3.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#09539b] text-white flex items-center justify-center font-bold uppercase shrink-0">
-              {user.name ? user.name.charAt(0) : 'U'}
-            </div>
-            <div>
-              <p className="font-bold text-[#012970] dark:text-blue-300">
-                Logged in as: <span className="font-extrabold">{user.name || user.email}</span> ({user.email})
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Profile details below are pre-filled from your saved corporate account.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              authService.logout();
-              useAuthStore.getState().logout();
-            }}
-            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 rounded-lg font-bold text-[11px] transition-colors shrink-0 cursor-pointer shadow-2xs"
-          >
-            Switch Account / Log Out
-          </button>
-        </div>
-      )}
-
       <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#012970] dark:text-slate-100 flex items-center gap-2">
