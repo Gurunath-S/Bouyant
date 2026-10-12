@@ -126,12 +126,28 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   // Update form fields dynamically whenever `user` state changes or resets
   React.useEffect(() => {
-    setValue('name', user?.company?.name || '');
-    setValue('username', user?.username || '');
-    setValue('contactPerson', user?.name || '');
-    setValue('mobile', user?.phone || '');
-    setValue('email', user?.email || '');
-    setValue('pinCode', user?.company?.pinCode || '');
+    if (user && user.role === 'CLIENT') {
+      setValue('name', user.company?.name || '');
+      setValue('username', user.username || '');
+      setValue('contactPerson', user.name || '');
+      setValue('mobile', user.phone || '');
+      setValue('email', user.email || '');
+      setValue('pinCode', user.company?.pinCode || '');
+    } else {
+      // Guest or logged-out mode: clean state with no stale data
+      setValue('name', '');
+      setValue('username', '');
+      setValue('contactPerson', '');
+      setValue('mobile', '');
+      setValue('email', '');
+      setValue('pinCode', '');
+      setValue('address', '');
+      setValue('city', '');
+      setValue('state', '');
+      setValue('gstNumber', '');
+      setValue('panNumber', '');
+      setValue('tanNumber', '');
+    }
   }, [user, setValue]);
 
   // Automatically reset GST verified status if user modifies the GST number input

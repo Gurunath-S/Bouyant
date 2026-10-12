@@ -46,7 +46,10 @@ export const BookingWizardPage: React.FC = () => {
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(user?.company || null);
+  // Only pre-fill company if the user is explicitly logged in as a CLIENT with an attached company
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(
+    user && user.role === 'CLIENT' ? user.company || null : null
+  );
   const [assignedRegNo, setAssignedRegNo] = useState<string>('');
 
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
@@ -119,13 +122,17 @@ export const BookingWizardPage: React.FC = () => {
         setStalls([]);
       }
 
-      if (user) {
+      if (user && user.role === 'CLIENT') {
         const comps = await companyService.getMyCompanies();
         setCompanies(comps || []);
         if (comps && comps.length > 0 && !selectedCompany) {
           setSelectedCompany(comps[0]);
           if (comps[0].regNo) setAssignedRegNo(comps[0].regNo);
         }
+      } else {
+        setCompanies([]);
+        setSelectedCompany(null);
+        setAssignedRegNo('');
       }
     } catch (err) {
       console.error('Failed to load booking wizard data:', err);
@@ -134,9 +141,19 @@ export const BookingWizardPage: React.FC = () => {
     }
   }
 
+  // If user logs out or switches accounts while wizard is loaded, reset company state
+  useEffect(() => {
+    if (!user) {
+      setCompanies([]);
+      setSelectedCompany(null);
+      setAssignedRegNo('');
+      setPendingUserAuth(null);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (slug) loadInitialData();
-  }, [slug]);
+  }, [slug, user]);
 
   // Reset scroll & body overflow lock when changing wizard steps
   useEffect(() => {

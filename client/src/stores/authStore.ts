@@ -32,6 +32,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    set({ user: null, isAuthenticated: false });
+    localStorage.removeItem('client_dashboard_last_seen');
+    // Clear any temporary guest auth or company state
+    sessionStorage.clear();
+    // Clear cookies if any
+    if (typeof document !== 'undefined') {
+      document.cookie = 'accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+    set({ user: null, isAuthenticated: false, isLoading: false });
   },
 }));
