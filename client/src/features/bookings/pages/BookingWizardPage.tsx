@@ -135,6 +135,14 @@ export const BookingWizardPage: React.FC = () => {
     }
   }
 
+  // Ensure each booking session starts 100% clean
+  useEffect(() => {
+    setSelectedCompany(null);
+    setAssignedRegNo('');
+    setPendingUserAuth(null);
+    setCreatedBooking(null);
+  }, [slug]);
+
   // If user logs out or switches accounts while wizard is loaded, reset company state
   useEffect(() => {
     if (!user) {
