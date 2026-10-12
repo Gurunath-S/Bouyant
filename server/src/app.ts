@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 
@@ -24,6 +25,7 @@ export const createApp = (): Express => {
   const app = express();
 
   // Core Middlewares
+  app.use(compression());
   app.use(helmet());
   app.use(
     cors({

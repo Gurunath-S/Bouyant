@@ -457,6 +457,7 @@ private static validateStalls(
     stallNumber: string;
     status: string;
     heldUntil: Date | null;
+    heldByUserId?: string | null;
     floorPlan: {
       exhibitionId: string;
     };
@@ -494,7 +495,7 @@ private static validateStalls(
 
     // Check active payment hold
     if (stall.status === 'PAYMENT_PENDING' || stall.status === 'TEMPORARILY_HELD') {
-      const isHeldByThisUser = (stall as any).heldByUserId && (stall as any).heldByUserId === user?.userId;
+      const isHeldByThisUser = Boolean(stall.heldByUserId && stall.heldByUserId === user?.userId);
       const isExpired =
         !stall.heldUntil ||
         stall.heldUntil.getTime() <= Date.now();
@@ -1345,14 +1346,14 @@ static async createBooking(
     exhibitionId?: string
   ) {
     const skip = (page - 1) * limit;
-    const where: any = {};
-    if (status) where.status = status;
+    const where: Prisma.BookingWhereInput = {};
+    if (status) where.status = status as any;
     if (exhibitionId) where.exhibitionId = exhibitionId;
     if (registeredByRole) {
       if (registeredByRole === 'ADMIN') {
         where.company = { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } };
       } else {
-        where.company = { users: { some: { role: registeredByRole } } };
+        where.company = { users: { some: { role: registeredByRole as any } } };
       }
     }
 

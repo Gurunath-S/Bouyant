@@ -1,47 +1,50 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
-
-import { HomePage } from '../features/discovery/pages/HomePage';
-import { LoginPage } from '../features/auth/pages/LoginPage';
-import { RegisterPage } from '../features/auth/pages/RegisterPage';
-import { ClientDashboardPage } from '../features/dashboard/pages/ClientDashboardPage';
-import { AdminDashboardPage } from '../features/dashboard/pages/AdminDashboardPage';
-import { AdminEventsPage } from '../features/dashboard/pages/AdminEventsPage';
-import { AdminExhibitionBuilderPage } from '../features/dashboard/pages/AdminExhibitionBuilderPage';
-import { AdminCompaniesPage } from '../features/dashboard/pages/AdminCompaniesPage';
-import { AdminBookingsPage } from '../features/dashboard/pages/AdminBookingsPage';
-import { AdminPaymentsPage } from '../features/dashboard/pages/AdminPaymentsPage';
-import { AdminEventRegistrationPage } from '../features/dashboard/pages/AdminEventRegistrationPage';
-import { ExhibitionsPage } from '../features/exhibitions/pages/ExhibitionsPage';
-import { ExhibitionDetailPage } from '../features/exhibitions/pages/ExhibitionDetailPage';
-import { BookingWizardPage } from '../features/bookings/pages/BookingWizardPage';
-import { CompanyProfilePage } from '../features/companies/pages/CompanyProfilePage';
-import { BookingCheckoutPage } from '../features/bookings/pages/BookingCheckoutPage';
-import { MyBookingsPage } from '../features/bookings/pages/MyBookingsPage';
-import { PaymentSuccessPage } from '../features/payments/pages/PaymentSuccessPage';
-import { MyInvoicesPage } from '../features/invoices/pages/MyInvoicesPage';
-import { InvoiceDetailPage } from '../features/invoices/pages/InvoiceDetailPage';
-import { NotificationsPage } from '../features/notifications/pages/NotificationsPage';
 import { PublicNavbar } from '../components/layout/PublicNavbar';
 import { PublicFooter } from '../components/layout/PublicFooter';
-
-// Super Admin Pages
-import { SuperAdminDashboardPage } from '../features/super-admin/pages/SuperAdminDashboardPage';
-import { SuperAdminUsersPage } from '../features/super-admin/pages/SuperAdminUsersPage';
-
-// Staff Pages
-import { StaffDashboardPage } from '../features/staff/pages/StaffDashboardPage';
-import { StaffRegisterEventPage } from '../features/staff/pages/StaffRegisterEventPage';
-import { StaffEventsPage } from '../features/staff/pages/StaffEventsPage';
-
-// Reports Page
-import { ReportsPage } from '../features/reports/pages/ReportsPage';
 import { ScrollToTop } from '../components/common/ScrollToTop';
-
 import { useAuthStore } from '../stores/authStore';
+
+// Eagerly loaded critical initial views
+import { HomePage } from '../features/discovery/pages/HomePage';
+import { LoginPage } from '../features/auth/pages/LoginPage';
+
+// Lazy loaded page components
+const RegisterPage = lazy(() => import('../features/auth/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ClientDashboardPage = lazy(() => import('../features/dashboard/pages/ClientDashboardPage').then(m => ({ default: m.ClientDashboardPage })));
+const AdminDashboardPage = lazy(() => import('../features/dashboard/pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
+const AdminEventsPage = lazy(() => import('../features/dashboard/pages/AdminEventsPage').then(m => ({ default: m.AdminEventsPage })));
+const AdminExhibitionBuilderPage = lazy(() => import('../features/dashboard/pages/AdminExhibitionBuilderPage').then(m => ({ default: m.AdminExhibitionBuilderPage })));
+const AdminCompaniesPage = lazy(() => import('../features/dashboard/pages/AdminCompaniesPage').then(m => ({ default: m.AdminCompaniesPage })));
+const AdminBookingsPage = lazy(() => import('../features/dashboard/pages/AdminBookingsPage').then(m => ({ default: m.AdminBookingsPage })));
+const AdminPaymentsPage = lazy(() => import('../features/dashboard/pages/AdminPaymentsPage').then(m => ({ default: m.AdminPaymentsPage })));
+const AdminEventRegistrationPage = lazy(() => import('../features/dashboard/pages/AdminEventRegistrationPage').then(m => ({ default: m.AdminEventRegistrationPage })));
+const ExhibitionsPage = lazy(() => import('../features/exhibitions/pages/ExhibitionsPage').then(m => ({ default: m.ExhibitionsPage })));
+const ExhibitionDetailPage = lazy(() => import('../features/exhibitions/pages/ExhibitionDetailPage').then(m => ({ default: m.ExhibitionDetailPage })));
+const BookingWizardPage = lazy(() => import('../features/bookings/pages/BookingWizardPage').then(m => ({ default: m.BookingWizardPage })));
+const CompanyProfilePage = lazy(() => import('../features/companies/pages/CompanyProfilePage').then(m => ({ default: m.CompanyProfilePage })));
+const BookingCheckoutPage = lazy(() => import('../features/bookings/pages/BookingCheckoutPage').then(m => ({ default: m.BookingCheckoutPage })));
+const MyBookingsPage = lazy(() => import('../features/bookings/pages/MyBookingsPage').then(m => ({ default: m.MyBookingsPage })));
+const PaymentSuccessPage = lazy(() => import('../features/payments/pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
+const MyInvoicesPage = lazy(() => import('../features/invoices/pages/MyInvoicesPage').then(m => ({ default: m.MyInvoicesPage })));
+const InvoiceDetailPage = lazy(() => import('../features/invoices/pages/InvoiceDetailPage').then(m => ({ default: m.InvoiceDetailPage })));
+const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
+const SuperAdminDashboardPage = lazy(() => import('../features/super-admin/pages/SuperAdminDashboardPage').then(m => ({ default: m.SuperAdminDashboardPage })));
+const SuperAdminUsersPage = lazy(() => import('../features/super-admin/pages/SuperAdminUsersPage').then(m => ({ default: m.SuperAdminUsersPage })));
+const StaffDashboardPage = lazy(() => import('../features/staff/pages/StaffDashboardPage').then(m => ({ default: m.StaffDashboardPage })));
+const StaffRegisterEventPage = lazy(() => import('../features/staff/pages/StaffRegisterEventPage').then(m => ({ default: m.StaffRegisterEventPage })));
+const StaffEventsPage = lazy(() => import('../features/staff/pages/StaffEventsPage').then(m => ({ default: m.StaffEventsPage })));
+const ReportsPage = lazy(() => import('../features/reports/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+
+const PageLoader = () => (
+  <div className="w-full h-64 flex flex-col items-center justify-center gap-2">
+    <div className="w-8 h-8 border-3 border-[#1E3FA0] dark:border-blue-500 border-t-transparent rounded-full animate-spin" />
+    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Loading view...</span>
+  </div>
+);
 
 const DashboardLayout = () => {
   return (
@@ -51,7 +54,9 @@ const DashboardLayout = () => {
       <div className="flex flex-1 items-start relative">
         <Sidebar />
         <main className="flex-1 p-3 sm:p-6 w-full min-w-0">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <PublicFooter />
@@ -71,7 +76,9 @@ const PublicLayout = () => {
       <ScrollToTop />
       <PublicNavbar />
       <main className="flex-1 w-full">
-        <Outlet />
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
       <PublicFooter />
     </div>
@@ -82,7 +89,9 @@ const RootLayout = () => {
   return (
     <>
       <ScrollToTop />
-      <Outlet />
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
     </>
   );
 };
