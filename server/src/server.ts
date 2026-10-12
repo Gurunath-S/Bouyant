@@ -1,9 +1,17 @@
+import dns from 'dns';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
 import { getRedisClient } from './config/redis.js';
 import { StallsService } from './modules/stalls/stalls.service.js';
 import { verifyEmailTransporter } from './services/email.service.js';
+
+// Guarantee process-wide IPv4 precedence (prevents ENETUNREACH in IPv6-restricted environments like Render)
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  // Gracefully fallback on older runtimes
+}
 
 const startServer = async () => {
   console.log('🚀 Initializing Buoyant Media Server...');

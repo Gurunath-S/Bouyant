@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 
 const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
 const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
@@ -21,10 +22,11 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
-  // Force IPv4 lookup to prevent Render ENETUNREACH on IPv6 addresses
-  lookup: (hostname: string, _options: any, callback: any) => {
-    import('dns').then((dns) => {
-      dns.lookup(hostname, { family: 4 }, callback);
+  // Force IPv4 DNS resolution for outbound SMTP connections to prevent ENETUNREACH on Render
+  lookup: (hostname: string, options: any, callback: any) => {
+    const cb = typeof options === 'function' ? options : callback;
+    dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+      cb(err, address, family);
     });
   },
 } as any);
@@ -260,7 +262,7 @@ export class EmailService {
 
     console.log(`✉️ [EMAIL SERVICE] Sending confirmation email to: ${payload.toEmail}`);
 
-    if (process.env.SMTP_USER) {
+    if (smtpUser) {
       const attachments = payload.pdfBuffer
         ? [
             {
@@ -272,7 +274,7 @@ export class EmailService {
         : [];
 
       await transporter.sendMail({
-        from: `"Buoyant Media" <${process.env.SMTP_USER}>`,
+        from: `"Buoyant Media" <${smtpUser}>`,
         to: payload.toEmail,
         subject: `Booking Confirmed - ${payload.bookingReference}`,
         html,
@@ -404,7 +406,7 @@ export class EmailService {
       </html>
     `;
 
-    if (process.env.SMTP_USER) {
+    if (smtpUser) {
       const attachments = payload.pdfBuffer
         ? [
             {
@@ -416,7 +418,7 @@ export class EmailService {
         : [];
 
       await transporter.sendMail({
-        from: `"Buoyant Media Admin Alert" <${process.env.SMTP_USER}>`,
+        from: `"Buoyant Media Admin Alert" <${smtpUser}>`,
         to: payload.notificationEmails.join(','),
         subject: `Payment Received: ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`,
         html,
