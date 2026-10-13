@@ -543,12 +543,69 @@ export class CompaniesService {
       where: { id: companyId },
       include: {
         users: {
-          select: { id: true, name: true, email: true, role: true, spcode: true },
+          select: { id: true, name: true, email: true, role: true, spcode: true, phone: true },
         },
         bookings: {
+          orderBy: { createdAt: 'desc' },
           include: {
-            exhibition: { select: { title: true, startDate: true, edition: true, eventCode: true, spcode: true } },
-            stalls: { include: { stall: { select: { stallNumber: true, category: true } } } },
+            exhibition: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                city: true,
+                venue: true,
+                startDate: true,
+                endDate: true,
+                edition: true,
+                eventCode: true,
+                spcode: true,
+                status: true,
+                bannerUrl: true,
+              },
+            },
+            stalls: {
+              include: {
+                stall: {
+                  select: {
+                    id: true,
+                    stallNumber: true,
+                    category: true,
+                    price: true,
+                    areaSqFt: true,
+                  },
+                },
+              },
+            },
+            payments: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                paymentReference: true,
+                amount: true,
+                currency: true,
+                status: true,
+                provider: true,
+                paymentMethod: true,
+                transactionId: true,
+                paidAt: true,
+                createdAt: true,
+              },
+            },
+            invoices: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                invoiceNumber: true,
+                totalAmount: true,
+                taxAmount: true,
+                grandTotal: true,
+                status: true,
+                pdfUrl: true,
+                issueDate: true,
+                createdAt: true,
+              },
+            },
           },
         },
       },

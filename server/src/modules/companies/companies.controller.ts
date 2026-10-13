@@ -69,8 +69,9 @@ export class CompaniesController {
       });
     }
 
-    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN';
-    if (!isAdmin && req.user?.companyId !== targetCompanyId) {
+    const isAdminOrStaff =
+      req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN' || req.user?.role === 'STAFF';
+    if (!isAdminOrStaff && req.user?.companyId !== targetCompanyId) {
       return sendResponse({
         res,
         statusCode: 403,
