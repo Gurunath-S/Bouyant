@@ -6,6 +6,7 @@ import { Prisma,Stall} from '@prisma/client';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { razorpay } from '../../config/razorpay.js';
 import { env } from '../../config/env.js';
+import { normalizePagination } from '../../utils/pagination.js';
 export class BookingsService {
   /**
    * CREATE BOOKING WITH STRICT CONCURRENCY & AUTHORITATIVE SERVER PRICING
@@ -1339,30 +1340,71 @@ static async createBooking(
   }
 
   static async listAllBookings(
-    page = 1,
-    limit = 20,
-    status?: string,
-    registeredByRole?: string,
-    exhibitionId?: string
+    pageOrOptions?: any,
+    limitArg?: number,
+    statusArg?: string,
+    registeredByRoleArg?: string,
+    exhibitionIdArg?: string
   ) {
-    const skip = (page - 1) * limit;
-    const where: Prisma.BookingWhereInput = {};
-    if (status) where.status = status as any;
-    if (exhibitionId) where.exhibitionId = exhibitionId;
-    if (registeredByRole) {
-      if (registeredByRole === 'ADMIN') {
-        where.company = { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } };
-      } else {
-        where.company = { users: { some: { role: registeredByRole as any } } };
-      }
+    let rawPage: any = 1;
+    let rawLimit: any = 20;
+    let search = '';
+    let status: string | undefined;
+    let registeredByRole: string | undefined;
+    let exhibitionId: string | undefined;
+
+    if (pageOrOptions && typeof pageOrOptions === 'object') {
+      rawPage = pageOrOptions.page;
+      rawLimit = pageOrOptions.limit;
+      search = pageOrOptions.search || '';
+      status = pageOrOptions.status;
+      registeredByRole = pageOrOptions.registeredByRole;
+      exhibitionId = pageOrOptions.exhibitionId;
+    } else {
+      rawPage = pageOrOptions || 1;
+      rawLimit = limitArg || 20;
+      status = statusArg;
+      registeredByRole = registeredByRoleArg;
+      exhibitionId = exhibitionIdArg;
     }
 
-    const [bookings, total] = await Promise.all([
+    const { page, limit, skip } = normalizePagination(rawPage, rawLimit, 20, 100);
+    const andConditions: Prisma.BookingWhereInput[] = [];
+
+    if (status && status !== 'ALL') {
+      andConditions.push({ status: status as any });
+    }
+    if (exhibitionId && exhibitionId !== 'ALL') {
+      andConditions.push({ exhibitionId });
+    }
+    if (registeredByRole && registeredByRole !== 'ALL') {
+      if (registeredByRole === 'ADMIN') {
+        andConditions.push({ company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } });
+      } else {
+        andConditions.push({ company: { users: { some: { role: registeredByRole as any } } } });
+      }
+    }
+    if (search && search.trim()) {
+      const q = search.trim();
+      andConditions.push({
+        OR: [
+          { bookingReference: { contains: q, mode: 'insensitive' } },
+          { company: { name: { contains: q, mode: 'insensitive' } } },
+          { company: { contactPerson: { contains: q, mode: 'insensitive' } } },
+          { exhibition: { title: { contains: q, mode: 'insensitive' } } },
+          { stalls: { some: { stall: { stallNumber: { contains: q, mode: 'insensitive' } } } } },
+        ],
+      });
+    }
+
+    const where: Prisma.BookingWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
+
+    const [bookings, total, aggregate] = await Promise.all([
       prisma.booking.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
           stalls: { include: { stall: true } },
           exhibition: {
@@ -1400,15 +1442,25 @@ static async createBooking(
             },
           },
           invoices: { select: { id: true, invoiceNumber: true, status: true } },
-          // user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
         },
       }),
       prisma.booking.count({ where }),
+      prisma.booking.aggregate({ where, _sum: { grandTotal: true, paidAmount: true } }),
     ]);
+
+    const totalValue = Number(aggregate._sum.grandTotal || 0);
+    const totalPaidValue = Number(aggregate._sum.paidAmount || 0);
 
     return {
       bookings,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        totalValue,
+        totalPaidValue,
+      },
     };
   }
 }

@@ -64,13 +64,21 @@ export class BookingsController {
   };
 
   static listAll = async (req: AuthenticatedRequest, res: Response) => {
-    const page = parseInt((req.query.page as string) || '1', 10);
-    const limit = parseInt((req.query.limit as string) || '50', 10);
+    const page = req.query.page;
+    const limit = req.query.limit;
+    const search = (req.query.search as string) || '';
     const status = req.query.status as string;
     const registeredByRole = req.query.registeredByRole as string;
     const exhibitionId = req.query.exhibitionId as string;
 
-    const result = await BookingsService.listAllBookings(page, limit, status, registeredByRole, exhibitionId);
+    const result = await BookingsService.listAllBookings({
+      page,
+      limit,
+      search,
+      status,
+      registeredByRole,
+      exhibitionId,
+    });
     return sendResponse({
       res,
       statusCode: 200,

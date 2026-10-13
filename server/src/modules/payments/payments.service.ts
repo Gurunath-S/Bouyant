@@ -9,6 +9,7 @@ import { EmailService } from '../../services/email.service.js';
 import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { generateReference } from '../../utils/reference.js';
+import { normalizePagination } from '../../utils/pagination.js';
 
 export class PaymentsService {
   /**
@@ -977,16 +978,77 @@ try {
   };
 }
 
-  static async listPayments(page = 1, limit = 50) {
-    const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
-    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+  static async listPayments(
+    options?: {
+      page?: number | string;
+      limit?: number | string;
+      search?: string;
+      status?: string;
+      method?: string;
+    } | number,
+    limitArg?: number
+  ) {
+    let rawPage: any = 1;
+    let rawLimit: any = 50;
+    let search = '';
+    let status: string | undefined;
+    let method: string | undefined;
 
-    const [total, payments] = await prisma.$transaction([
-      prisma.payment.count(),
+    if (options && typeof options === 'object') {
+      rawPage = options.page;
+      rawLimit = options.limit;
+      search = options.search || '';
+      status = options.status;
+      method = options.method;
+    } else {
+      rawPage = options || 1;
+      rawLimit = limitArg || 50;
+    }
+
+    const { page, limit: take, skip } = normalizePagination(rawPage, rawLimit, 10, 100);
+    const andConditions: Prisma.PaymentWhereInput[] = [];
+
+    // Filter by status if specified
+    if (status && status !== 'ALL') {
+      andConditions.push({ status: status as any });
+    }
+
+    // Filter by payment method or plan
+    if (method && method !== 'ALL') {
+      if (method === 'FULL') {
+        andConditions.push({
+          OR: [{ installmentType: null }, { installmentType: 'FULL' }],
+        });
+      } else if (method === 'PARTIAL') {
+        andConditions.push({
+          installmentType: { not: null, notIn: ['FULL'] },
+        });
+      } else {
+        andConditions.push({ paymentMethod: method });
+      }
+    }
+
+    // Search filter: paymentReference, bookingReference, paymentMethod
+    if (search && search.trim()) {
+      const q = search.trim();
+      andConditions.push({
+        OR: [
+          { paymentReference: { contains: q, mode: 'insensitive' } },
+          { paymentMethod: { contains: q, mode: 'insensitive' } },
+          { booking: { bookingReference: { contains: q, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    const where: Prisma.PaymentWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
+
+    const [total, payments, aggregate] = await prisma.$transaction([
+      prisma.payment.count({ where }),
       prisma.payment.findMany({
         take,
         skip,
-        orderBy: { createdAt: 'desc' },
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
           booking: {
             include: {
@@ -994,11 +1056,20 @@ try {
               company: true,
             },
           },
-          // user: { select: { name: true, email: true } },
         },
       }),
+      prisma.payment.aggregate({ where, _sum: { amount: true } }),
     ]);
 
-    return { payments, total, page, limit: take, totalPages: Math.ceil(total / take) };
+    const totalFilteredAmount = Number(aggregate._sum.amount || 0);
+
+    return {
+      payments,
+      total,
+      page,
+      limit: take,
+      totalPages: Math.ceil(total / take),
+      totalFilteredAmount,
+    };
   }
 }

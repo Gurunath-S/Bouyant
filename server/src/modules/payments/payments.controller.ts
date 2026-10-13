@@ -46,12 +46,31 @@ export class PaymentsController {
 }
 
   static listAll = async (req: AuthenticatedRequest, res: Response) => {
-    const payments = await PaymentsService.listPayments();
+    const page = req.query.page as string | undefined;
+    const limit = req.query.limit as string | undefined;
+    const search = (req.query.search as string) || '';
+    const status = (req.query.status as string) || '';
+    const method = (req.query.method as string) || '';
+
+    const result = await PaymentsService.listPayments({
+      page,
+      limit,
+      search,
+      status,
+      method,
+    });
     return sendResponse({
       res,
       statusCode: 200,
       message: 'All payments retrieved.',
-      data: payments,
+      data: result.payments,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        totalFilteredAmount: result.totalFilteredAmount,
+      },
     });
   };
 }
