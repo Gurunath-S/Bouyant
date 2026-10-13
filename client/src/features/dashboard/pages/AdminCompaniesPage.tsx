@@ -46,7 +46,6 @@ export const AdminCompaniesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ALL' | 'PAID' | 'NOT_PAID'>('ALL');
 
   // Modals state
-  const [inspectedCompany, setInspectedCompany] = useState<Company | null>(null);
   const [registerModalCompany, setRegisterModalCompany] = useState<Company | null>(null);
   const [targetExhibitionId, setTargetExhibitionId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -497,13 +496,21 @@ export const AdminCompaniesPage: React.FC = () => {
                       {/* Entity Name & Code */}
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
-                          <span className="truncate">{c.name}</span>
+                          <Link
+                            to={`/admin/companies/${c.id}`}
+                            className="truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                          >
+                            {c.name}
+                          </Link>
                           {getCustomerStatusBadge(companyBookings)}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="font-mono text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                          <Link
+                            to={`/admin/companies/${c.id}`}
+                            className="font-mono text-[10px] text-slate-600 dark:text-slate-400 hover:text-purple-600 bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 px-1.5 py-0.5 rounded transition-colors"
+                          >
                             {c.companyCode}
-                          </span>
+                          </Link>
                           {c.regNo && (
                             <span className="font-mono text-[10px] text-purple-600 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded font-bold">
                               Reg: {c.regNo}
@@ -560,32 +567,34 @@ export const AdminCompaniesPage: React.FC = () => {
                       </td>
 
                       {/* Registered Event(s) & Stalls */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 min-w-[280px] max-w-[360px]">
                         {isRegistered ? (
                           <div className="space-y-2">
-                            {companyBookings.map((b) => {
+                            {/* Primary / Latest Booking Card */}
+                            {(() => {
+                              const b = companyBookings[0];
                               const stallsList =
                                 b.stalls?.map((s) => s.stall?.stallNumber).filter(Boolean) || [];
 
                               return (
                                 <div
                                   key={b.id}
-                                  className="p-2 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-xs space-y-1.5"
+                                  className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-xs space-y-1.5"
                                 >
                                   {/* Exhibition Title & Status */}
                                   <div className="flex items-center justify-between gap-2">
-                                    <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                                    <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 min-w-0">
                                       <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                      <span className="truncate max-w-[170px]" title={b.exhibition?.title}>
+                                      <span className="truncate max-w-[150px]" title={b.exhibition?.title}>
                                         {b.exhibition?.title || 'Exhibition Event'}
                                       </span>
                                       {b.exhibition?.edition && (
-                                        <span className="font-mono text-[10px] px-1 bg-purple-200 dark:bg-purple-900 rounded font-semibold">
+                                        <span className="font-mono text-[10px] px-1 bg-purple-200 dark:bg-purple-900 rounded font-semibold shrink-0">
                                           Ed. {b.exhibition.edition}
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
+                                    <div className="flex items-center gap-1 shrink-0">
                                       {getStatusBadge(b.status)}
                                       {getBookingPaymentBadge(b.paymentStatus, b.paidAmount, b.grandTotal)}
                                     </div>
@@ -622,12 +631,32 @@ export const AdminCompaniesPage: React.FC = () => {
                                   </div>
                                 </div>
                               );
-                            })}
+                            })()}
+
+                            {/* Multi-event indicator pill for repeat exhibitors */}
+                            {companyBookings.length > 1 && (
+                              <Link
+                                to={`/admin/companies/${c.id}`}
+                                className="w-full py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-purple-950/50 border border-slate-200 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-800 text-[11px] font-bold text-slate-700 hover:text-purple-700 dark:text-slate-300 dark:hover:text-purple-300 transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
+                                title={`Click to view all ${companyBookings.length} event registrations for ${c.name}`}
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                  <span>
+                                    +{companyBookings.length - 1} more event{companyBookings.length - 1 > 1 ? 's' : ''} attended
+                                  </span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-600 dark:text-purple-400 group-hover:underline">
+                                  <span>View History ({companyBookings.length})</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </span>
+                              </Link>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 text-slate-400 text-xs py-2">
-                            <span className="w-2 h-2 rounded-full bg-slate-300" />
-                            <span>No Event Registrations</span>
+                            <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                            <span className="font-medium text-slate-500 dark:text-slate-400">No Event Registrations</span>
                           </div>
                         )}
                       </td>
@@ -635,13 +664,13 @@ export const AdminCompaniesPage: React.FC = () => {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => setInspectedCompany(c)}
-                            title="View Complete Event Registration History"
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-600 border border-slate-200 hover:border-purple-200 transition-colors cursor-pointer"
+                          <Link
+                            to={`/admin/companies/${c.id}`}
+                            title="View Complete Event Registration History & Company Profile"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-600 border border-slate-200 hover:border-purple-200 transition-colors inline-flex items-center justify-center cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
+                          </Link>
 
                           <button
                             onClick={() => {
@@ -677,176 +706,7 @@ export const AdminCompaniesPage: React.FC = () => {
         />
       </div>
 
-      {/* Modal 1: Complete Event Registrations History */}
-      {inspectedCompany && (
-        <Modal
-          isOpen={!!inspectedCompany}
-          onClose={() => setInspectedCompany(null)}
-          title={`Event Registration History: ${inspectedCompany.name}`}
-          maxWidth="2xl"
-        >
-          <div className="p-6 space-y-6">
-            {/* Exhibitor Profile Overview */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-              <div>
-                <span className="text-slate-400 block">Company Code</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                  {inspectedCompany.companyCode}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Primary Contact</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {inspectedCompany.contactPerson}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Email & Phone</span>
-                <span className="font-medium text-slate-800 dark:text-slate-200 truncate block">
-                  {inspectedCompany.email}
-                </span>
-                <span className="text-slate-500 font-mono">{inspectedCompany.mobile}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">GSTIN / Tax ID</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">
-                  {inspectedCompany.gstNumber || 'N/A'}
-                </span>
-              </div>
-            </div>
 
-            {/* List of Registered Exhibitions */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <BookmarkCheck className="w-4 h-4 text-purple-600" />
-                  Active Event Registrations ({inspectedCompany.bookings?.length || 0})
-                </span>
-
-                <button
-                  onClick={() => {
-                    setRegisterModalCompany(inspectedCompany);
-                    setInspectedCompany(null);
-                  }}
-                  className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 hover:underline cursor-pointer"
-                >
-                  <CalendarPlus className="w-3.5 h-3.5" /> Register to Another Event
-                </button>
-              </h4>
-
-              {!inspectedCompany.bookings || inspectedCompany.bookings.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 space-y-2">
-                  <AlertCircle className="w-6 h-6 text-slate-400 mx-auto" />
-                  <p className="font-semibold text-xs">
-                    This company has not registered for any exhibitions yet.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setRegisterModalCompany(inspectedCompany);
-                      setInspectedCompany(null);
-                    }}
-                    leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600" />}
-                  >
-                    Register to an Exhibition Now
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {inspectedCompany.bookings.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3"
-                    >
-                      {/* Event Banner & Badge */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
-                        <div>
-                          <h5 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-purple-600" />
-                            {booking.exhibition?.title || 'Exhibition'}
-                          </h5>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                            <MapPin className="w-3 h-3 text-slate-400" />
-                            <span>
-                              {booking.exhibition?.city} • {booking.exhibition?.venue}
-                            </span>
-                            {booking.exhibition?.startDate && (
-                              <span>
-                                • Starts {formatDisplayDate(booking.exhibition.startDate)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(booking.status)}
-                          {getBookingPaymentBadge(booking.paymentStatus, booking.paidAmount, booking.grandTotal)}
-                        </div>
-                      </div>
-
-                      {/* Stalls & Financials */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                        <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                          <span className="text-slate-400 block font-medium">Booked Stalls</span>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {booking.stalls && booking.stalls.length > 0 ? (
-                              booking.stalls.map((bs) => (
-                                <span
-                                  key={bs.id || bs.stall?.id}
-                                  className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 font-mono font-bold text-purple-800 dark:text-purple-300 text-[11px]"
-                                >
-                                  {bs.stall?.stallNumber} ({bs.stall?.category || 'STD'})
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-slate-400 italic">Pending Assignment</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                          <span className="text-slate-400 block font-medium">Contract Value</span>
-                          <span className="font-mono font-extrabold text-sm text-slate-900 dark:text-slate-100 mt-1 block">
-                            ₹{Number(booking.grandTotal || 0).toLocaleString()} INR
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            Booking Ref: {booking.bookingReference}
-                          </span>
-                        </div>
-
-                        <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-between">
-                          <span className="text-slate-400 block font-medium">Registration Date</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 mt-1 block">
-                            {formatDisplayDate(booking.createdAt)}
-                          </span>
-                          {booking.exhibition?.slug && (
-                            <Link
-                              to={`/exhibitions/${booking.exhibition.slug}`}
-                              target="_blank"
-                              className="text-[11px] font-bold text-purple-600 hover:underline flex items-center gap-1 mt-1"
-                            >
-                              <span>View Exhibition</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-700">
-              <Button variant="outline" size="sm" onClick={() => setInspectedCompany(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Modal 2: Register Company to Exhibition Event */}
       {registerModalCompany && (

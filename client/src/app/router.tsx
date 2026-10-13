@@ -19,6 +19,7 @@ const AdminDashboardPage = lazy(() => import('../features/dashboard/pages/AdminD
 const AdminEventsPage = lazy(() => import('../features/dashboard/pages/AdminEventsPage').then(m => ({ default: m.AdminEventsPage })));
 const AdminExhibitionBuilderPage = lazy(() => import('../features/dashboard/pages/AdminExhibitionBuilderPage').then(m => ({ default: m.AdminExhibitionBuilderPage })));
 const AdminCompaniesPage = lazy(() => import('../features/dashboard/pages/AdminCompaniesPage').then(m => ({ default: m.AdminCompaniesPage })));
+const AdminCompanyDetailPage = lazy(() => import('../features/dashboard/pages/AdminCompanyDetailPage').then(m => ({ default: m.AdminCompanyDetailPage })));
 const AdminBookingsPage = lazy(() => import('../features/dashboard/pages/AdminBookingsPage').then(m => ({ default: m.AdminBookingsPage })));
 const AdminPaymentsPage = lazy(() => import('../features/dashboard/pages/AdminPaymentsPage').then(m => ({ default: m.AdminPaymentsPage })));
 const AdminEventRegistrationPage = lazy(() => import('../features/dashboard/pages/AdminEventRegistrationPage').then(m => ({ default: m.AdminEventRegistrationPage })));
@@ -294,6 +295,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminCompaniesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/companies/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
+            <AdminCompanyDetailPage />
           </ProtectedRoute>
         ),
       },

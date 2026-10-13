@@ -141,14 +141,16 @@ export interface Booking {
   grandTotal: number | string;
   paidAmount?: number | string;
   balanceAmount?: number | string;
-  paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED';
+  paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'PAID_FULL' | 'REFUNDED';
   expiresAt?: string;
   createdAt: string;
   stalls?: BookingStall[];
   exhibition?: Exhibition;
   company?: Company;
   payment?: Payment;
+  payments?: Payment[];
   invoice?: Invoice;
+  invoices?: Invoice[];
   user?: Partial<User>;
 }
 
