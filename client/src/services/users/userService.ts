@@ -2,12 +2,33 @@ import { apiClient } from '../api/apiClient';
 import { AdminStaffUser, CreateAdminStaffPayload, UpdateUserPayload } from '../../types';
 
 export const userService = {
-  getUsers: async (role?: string, search?: string): Promise<AdminStaffUser[]> => {
+  getUsers: async (
+    roleOrFilters?:
+      | string
+      | {
+          role?: string;
+          search?: string;
+          status?: string;
+          exhibitionId?: string;
+          page?: number;
+          limit?: number;
+        },
+    searchArg?: string
+  ): Promise<any> => {
     const params: any = {};
-    if (role && role !== 'ALL') params.role = role;
-    if (search) params.search = search;
+    if (typeof roleOrFilters === 'object' && roleOrFilters !== null) {
+      if (roleOrFilters.role && roleOrFilters.role !== 'ALL') params.role = roleOrFilters.role;
+      if (roleOrFilters.search) params.search = roleOrFilters.search;
+      if (roleOrFilters.status && roleOrFilters.status !== 'ALL') params.status = roleOrFilters.status;
+      if (roleOrFilters.exhibitionId && roleOrFilters.exhibitionId !== 'ALL') params.exhibitionId = roleOrFilters.exhibitionId;
+      if (roleOrFilters.page) params.page = roleOrFilters.page;
+      if (roleOrFilters.limit) params.limit = roleOrFilters.limit;
+    } else {
+      if (roleOrFilters && roleOrFilters !== 'ALL') params.role = roleOrFilters;
+      if (searchArg) params.search = searchArg;
+    }
     const res: any = await apiClient.get('/users', { params });
-    return res.data;
+    return res;
   },
 
   getUserById: async (id: string): Promise<AdminStaffUser> => {

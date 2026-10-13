@@ -28,12 +28,15 @@ export const paymentService = {
     return res.data;
   },
 
-  getAllPayments: async () => {
-    const res: any = await apiClient.get('/payments');
-    const rawData = res?.data ?? res;
-    if (Array.isArray(rawData)) return rawData;
-    if (Array.isArray(rawData?.payments)) return rawData.payments;
-    return rawData || [];
+  getAllPayments: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    method?: string;
+  }) => {
+    const res: any = await apiClient.get('/payments', { params });
+    return res;
   },
 
   createBalanceOrder: async (bookingId: string) => {

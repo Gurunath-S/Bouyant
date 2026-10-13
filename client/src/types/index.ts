@@ -203,11 +203,49 @@ export interface AdminStaffUser {
   name: string;
   email: string;
   phone?: string | null;
-  role: 'ADMIN' | 'STAFF';
+  role: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT' | string;
   spcode?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  companyId?: string | null;
+  company?: {
+    id: string;
+    name: string;
+    companyCode: string;
+    contactPerson?: string;
+    mobile?: string;
+    email?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pinCode?: string;
+    country?: string;
+    gstNumber?: string | null;
+    panNumber?: string | null;
+    industry?: string | null;
+    website?: string | null;
+  } | null;
+  createdExhibitions?: Array<{
+    id: string;
+    title: string;
+    slug?: string;
+    status: string;
+    startDate?: string;
+    endDate?: string;
+    totalStalls?: number;
+    edition?: string | null;
+    eventCode?: string | null;
+    spcode?: string | null;
+    createdAt?: string;
+    _count?: { bookings: number };
+  }>;
+  attributedBookings?: any[];
+  companyBookings?: any[];
+  heldStalls?: any[];
+  rolePermissions?: string[];
+  isGlobal?: boolean;
+  eventAssociation?: string;
   _count?: {
     createdExhibitions: number;
   };
@@ -229,17 +267,38 @@ export interface UpdateUserPayload {
 
 // Reports Types
 export interface ReportOverviewData {
-  roleScope: 'SUPERADMIN' | 'ADMIN' | 'STAFF';
+  roleScope: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | string;
+  eventScoped?: boolean;
   totalRevenue?: number;
   totalBookings?: number;
   confirmedBookings?: number;
   totalExhibitions?: number;
+  publishedExhibitions?: number;
   activeAdmins?: number;
   activeStaff?: number;
   totalStalls?: number;
   occupiedStalls?: number;
   occupancyRate?: number;
+  totalExhibitors?: number;
   recentBookings?: any[];
+  exhibition?: {
+    id: string;
+    title: string;
+    edition?: string | null;
+    eventCode?: string | null;
+    status: string;
+    venue: string;
+    city: string;
+    startDate: string;
+    endDate: string;
+    createdBy?: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      spcode?: string | null;
+    } | null;
+  };
   // Staff scope metrics
   totalEventsRegistered?: number;
   platformTotalEvents?: number;

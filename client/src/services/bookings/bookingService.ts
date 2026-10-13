@@ -73,6 +73,7 @@ export const bookingService = {
   getAllBookings: async (params?: {
     page?: number;
     limit?: number;
+    search?: string;
     status?: string;
     registeredByRole?: string;
     exhibitionId?: string;

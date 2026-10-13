@@ -41,7 +41,8 @@ export const companyService = {
     search = '',
     exhibitionId?: string,
     status?: string,
-    limit = 50
+    limit = 50,
+    paymentStatus?: string
   ) => {
     const res: any = await apiClient.get('/companies', {
       params: {
@@ -50,6 +51,7 @@ export const companyService = {
         search: search || undefined,
         exhibitionId: exhibitionId || undefined,
         status: status || undefined,
+        paymentStatus: paymentStatus || undefined,
       },
     });
     return res;
