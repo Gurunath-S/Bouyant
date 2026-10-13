@@ -570,11 +570,11 @@ export class CompaniesService {
     paymentStatus?: string
   ) {
     const { page: validPage, limit: validLimit, skip } = normalizePagination(page, limit, 20, 100);
-    const andConditions: any[] = [];
+    const baseAndConditions: any[] = [];
 
     if (search && search.trim()) {
       const q = search.trim();
-      andConditions.push({
+      baseAndConditions.push({
         OR: [
           { name: { contains: q, mode: 'insensitive' as const } },
           { companyCode: { contains: q, mode: 'insensitive' as const } },
@@ -588,8 +588,10 @@ export class CompaniesService {
       });
     }
 
-    if (exhibitionId && exhibitionId !== 'ALL') {
-      andConditions.push({
+    const hasExhibitionScope = !!(exhibitionId && exhibitionId !== 'ALL');
+
+    if (hasExhibitionScope) {
+      baseAndConditions.push({
         bookings: {
           some: {
             exhibitionId,
@@ -600,52 +602,78 @@ export class CompaniesService {
     }
 
     if (status === 'REGISTERED') {
-      andConditions.push({
+      baseAndConditions.push({
         bookings: {
           some: {
             status: { not: 'CANCELLED' as const },
+            ...(hasExhibitionScope ? { exhibitionId } : {}),
           },
         },
       });
     } else if (status === 'UNREGISTERED') {
-      andConditions.push({
+      baseAndConditions.push({
         bookings: {
           none: {
             status: { not: 'CANCELLED' as const },
+            ...(hasExhibitionScope ? { exhibitionId } : {}),
           },
         },
       });
     }
 
+    const paidCondition = {
+      bookings: {
+        some: {
+          status: { not: 'CANCELLED' as const },
+          ...(hasExhibitionScope ? { exhibitionId } : {}),
+          OR: [
+            { paymentStatus: 'PAID_FULL' },
+            { paymentStatus: 'PARTIALLY_PAID' },
+            { paidAmount: { gt: 0 } },
+            { status: 'CONFIRMED' },
+          ],
+        },
+      },
+    };
+
+    const notPaidCondition = hasExhibitionScope
+      ? {
+          bookings: {
+            some: {
+              exhibitionId,
+              status: { not: 'CANCELLED' as const },
+              OR: [
+                { paymentStatus: 'UNPAID' },
+                { paidAmount: { equals: 0 } },
+              ],
+            },
+          },
+        }
+      : {
+          bookings: {
+            none: {
+              status: { not: 'CANCELLED' as const },
+              OR: [
+                { paymentStatus: 'PAID_FULL' },
+                { paymentStatus: 'PARTIALLY_PAID' },
+                { paidAmount: { gt: 0 } },
+                { status: 'CONFIRMED' },
+              ],
+            },
+          },
+        };
+
+    const queryAndConditions = [...baseAndConditions];
     if (paymentStatus === 'PAID') {
-      andConditions.push({
-        bookings: {
-          some: {
-            status: { not: 'CANCELLED' as const },
-            OR: [
-              { paymentStatus: 'PAID_FULL' },
-              { paymentStatus: 'PARTIALLY_PAID' },
-              { paidAmount: { gt: 0 } },
-            ],
-          },
-        },
-      });
+      queryAndConditions.push(paidCondition);
     } else if (paymentStatus === 'NOT_PAID') {
-      andConditions.push({
-        bookings: {
-          every: {
-            OR: [
-              { status: 'CANCELLED' as const },
-              { paidAmount: { equals: 0 } },
-            ],
-          },
-        },
-      });
+      queryAndConditions.push(notPaidCondition);
     }
 
-    const where = andConditions.length > 0 ? { AND: andConditions } : {};
+    const where = queryAndConditions.length > 0 ? { AND: queryAndConditions } : {};
+    const baseWhere = baseAndConditions.length > 0 ? { AND: baseAndConditions } : {};
 
-    const [companies, total, paidCount, notPaidCount, pendingGstCount] = await Promise.all([
+    const [companies, total, allCount, paidCount, notPaidCount, pendingGstCount] = await Promise.all([
       prisma.company.findMany({
         where,
         skip,
@@ -654,7 +682,10 @@ export class CompaniesService {
         include: {
           _count: { select: { bookings: true, users: true } },
           bookings: {
-            where: { status: { not: 'CANCELLED' as const } },
+            where: {
+              status: { not: 'CANCELLED' as const },
+              ...(hasExhibitionScope ? { exhibitionId } : {}),
+            },
             orderBy: { createdAt: 'desc' },
             select: {
               id: true,
@@ -695,38 +726,20 @@ export class CompaniesService {
         },
       }),
       prisma.company.count({ where }),
+      prisma.company.count({ where: baseWhere }),
       prisma.company.count({
         where: {
-          ...where,
-          bookings: {
-            some: {
-              status: { not: 'CANCELLED' as const },
-              OR: [
-                { paymentStatus: 'PAID_FULL' },
-                { paymentStatus: 'PARTIALLY_PAID' },
-                { paidAmount: { gt: 0 } },
-              ],
-            },
-          },
+          AND: [...baseAndConditions, paidCondition],
         },
       }),
       prisma.company.count({
         where: {
-          ...where,
-          bookings: {
-            every: {
-              OR: [
-                { status: 'CANCELLED' as const },
-                { paidAmount: { equals: 0 } },
-              ],
-            },
-          },
+          AND: [...baseAndConditions, notPaidCondition],
         },
       }),
       prisma.company.count({
         where: {
-          ...where,
-          OR: [{ gstNumber: null }, { gstNumber: '' }],
+          AND: [...baseAndConditions, { OR: [{ gstNumber: null }, { gstNumber: '' }] }],
         },
       }),
     ]);
@@ -737,9 +750,9 @@ export class CompaniesService {
         total,
         page: validPage,
         limit: validLimit,
-        totalPages: Math.ceil(total / validLimit),
+        totalPages: Math.ceil(total / validLimit) || 1,
         summary: {
-          totalCount: total,
+          totalCount: allCount,
           paidCount,
           notPaidCount,
           pendingGstCount,
