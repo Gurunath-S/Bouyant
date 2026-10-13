@@ -7,7 +7,8 @@ export class ReportsController {
   static getOverview = async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user!.role;
     const userId = req.user!.userId;
-    const data = await ReportsService.getOverview(role, userId);
+    const exhibitionId = req.query.exhibitionId as string | undefined;
+    const data = await ReportsService.getOverview(role, userId, exhibitionId);
 
     return sendResponse({
       res,

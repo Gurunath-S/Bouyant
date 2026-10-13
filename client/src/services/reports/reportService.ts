@@ -2,8 +2,9 @@ import { apiClient } from '../api/apiClient';
 import { ReportOverviewData, OccupancyReportData, Exhibition } from '../../types';
 
 export const reportService = {
-  getOverview: async (): Promise<ReportOverviewData> => {
-    const res: any = await apiClient.get('/reports/overview');
+  getOverview: async (exhibitionId?: string): Promise<ReportOverviewData> => {
+    const params = exhibitionId && exhibitionId !== 'ALL' ? { exhibitionId } : undefined;
+    const res: any = await apiClient.get('/reports/overview', { params });
     return res.data;
   },
 

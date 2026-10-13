@@ -1,68 +1,108 @@
 import { prisma } from '../../config/db.js';
 import { UserRole } from '@prisma/client';
+import { ApiError } from '../../utils/apiError.js';
 
 export class ReportsService {
-  static async getOverview(role: string, userId: string) {
+  static async getOverview(role: string, userId: string, exhibitionId?: string) {
+    if (exhibitionId && exhibitionId.toUpperCase() !== 'ALL') {
+      const exhibition = await prisma.exhibition.findUnique({
+        where: { id: exhibitionId },
+        include: {
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true, spcode: true },
+          },
+          floorPlans: {
+            include: {
+              stalls: {
+                select: { id: true, status: true, price: true, category: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!exhibition) {
+        throw ApiError.notFound('Exhibition not found.');
+      }
+
+      const bookings = await prisma.booking.findMany({
+        where: { exhibitionId },
+        select: {
+          id: true,
+          bookingReference: true,
+          status: true,
+          paymentStatus: true,
+          paidAmount: true,
+          grandTotal: true,
+          createdAt: true,
+          companyId: true,
+          company: { select: { id: true, name: true, companyCode: true } },
+          exhibition: { select: { title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const allStalls = exhibition.floorPlans.flatMap((fp) => fp.stalls);
+      const totalStalls = allStalls.length > 0 ? allStalls.length : exhibition.totalStalls;
+      const occupiedStalls = allStalls.filter((s) => s.status === 'BOOKED_CONFIRMED').length;
+      const occupancyRate = totalStalls > 0 ? Math.round((occupiedStalls / totalStalls) * 100) : 0;
+
+      const paidBookings = bookings.filter(
+        (b) =>
+          b.status === 'CONFIRMED' ||
+          b.paymentStatus === 'PAID_FULL' ||
+          b.paymentStatus === 'PARTIALLY_PAID' ||
+          Number(b.paidAmount || 0) > 0
+      );
+
+      const totalRevenue = paidBookings.reduce(
+        (sum, b) => sum + (Number(b.paidAmount) || Number(b.grandTotal) || 0),
+        0
+      );
+
+      const participatingBookings = bookings.filter(
+        (b) => b.companyId && b.status !== 'CANCELLED' && b.status !== 'EXPIRED'
+      );
+      const uniqueCompanyIds = new Set(participatingBookings.map((b) => b.companyId));
+
+      return {
+        roleScope: role,
+        eventScoped: true,
+        exhibition: {
+          id: exhibition.id,
+          title: exhibition.title,
+          edition: exhibition.edition,
+          eventCode: exhibition.eventCode,
+          status: exhibition.status,
+          venue: exhibition.venue,
+          city: exhibition.city,
+          startDate: exhibition.startDate,
+          endDate: exhibition.endDate,
+          createdBy: exhibition.createdBy,
+        },
+        totalRevenue,
+        totalBookings: bookings.length,
+        confirmedBookings: paidBookings.length,
+        totalStalls,
+        occupiedStalls,
+        occupancyRate,
+        totalExhibitors: uniqueCompanyIds.size,
+        recentBookings: bookings.slice(0, 5),
+      };
+    }
+
     if (role === UserRole.SUPERADMIN) {
       // Platform-wide governance & financials
       const [
         bookings,
         exhibitionsCount,
+        publishedExhibitionsCount,
         activeAdminsCount,
         activeStaffCount,
         stallsCount,
         occupiedStallsCount,
+        companiesCount,
       ] = await Promise.all([
-        prisma.booking.findMany({
-          select: {
-            id: true,
-            bookingReference: true,
-            status: true,
-            grandTotal: true,
-            createdAt: true,
-            company: { select: { name: true } },
-            exhibition: { select: { title: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.exhibition.count(),
-        prisma.user.count({ where: { role: UserRole.ADMIN, isActive: true } }),
-        prisma.user.count({ where: { role: UserRole.STAFF, isActive: true } }),
-        prisma.stall.count(),
-        prisma.stall.count({ where: { status: 'BOOKED_CONFIRMED' } }),
-      ]);
-
-      const paidBookings = bookings.filter(
-        (b) =>
-          b.status === 'CONFIRMED' ||
-          (b as any).paymentStatus === 'PAID' ||
-          (b as any).paymentStatus === 'PARTIALLY_PAID' ||
-          Number((b as any).paidAmount || 0) > 0
-      );
-
-      const totalRevenue = paidBookings.reduce(
-        (sum, b) => sum + (Number((b as any).paidAmount) || Number(b.grandTotal) || 0),
-        0
-      );
-
-      return {
-        roleScope: 'SUPERADMIN',
-        totalRevenue,
-        totalBookings: paidBookings.length,
-        confirmedBookings: paidBookings.length,
-        totalExhibitions: exhibitionsCount,
-        activeAdmins: activeAdminsCount,
-        activeStaff: activeStaffCount,
-        totalStalls: stallsCount,
-        occupiedStalls: occupiedStallsCount,
-        occupancyRate: stallsCount > 0 ? Math.round((occupiedStallsCount / stallsCount) * 100) : 0,
-        recentBookings: paidBookings.slice(0, 5),
-      };
-    }
-
-    if (role === UserRole.ADMIN) {
-      // Event & Business performance metrics
-      const [bookings, exhibitionsCount, stallsCount, occupiedStallsCount] = await Promise.all([
         prisma.booking.findMany({
           select: {
             id: true,
@@ -78,32 +118,94 @@ export class ReportsService {
           orderBy: { createdAt: 'desc' },
         }),
         prisma.exhibition.count(),
+        prisma.exhibition.count({ where: { status: 'PUBLISHED' } }),
+        prisma.user.count({ where: { role: UserRole.ADMIN, isActive: true } }),
+        prisma.user.count({ where: { role: UserRole.STAFF, isActive: true } }),
         prisma.stall.count(),
         prisma.stall.count({ where: { status: 'BOOKED_CONFIRMED' } }),
+        prisma.company.count(),
       ]);
 
       const paidBookings = bookings.filter(
         (b) =>
           b.status === 'CONFIRMED' ||
-          (b as any).paymentStatus === 'PAID' ||
-          (b as any).paymentStatus === 'PARTIALLY_PAID' ||
-          Number((b as any).paidAmount || 0) > 0
+          b.paymentStatus === 'PAID_FULL' ||
+          b.paymentStatus === 'PARTIALLY_PAID' ||
+          Number(b.paidAmount || 0) > 0
       );
 
       const totalRevenue = paidBookings.reduce(
-        (sum, b) => sum + (Number((b as any).paidAmount) || Number(b.grandTotal) || 0),
+        (sum, b) => sum + (Number(b.paidAmount) || Number(b.grandTotal) || 0),
+        0
+      );
+
+      return {
+        roleScope: 'SUPERADMIN',
+        eventScoped: false,
+        totalRevenue,
+        totalBookings: bookings.length,
+        confirmedBookings: paidBookings.length,
+        totalExhibitions: exhibitionsCount,
+        publishedExhibitions: publishedExhibitionsCount,
+        activeAdmins: activeAdminsCount,
+        activeStaff: activeStaffCount,
+        totalStalls: stallsCount,
+        occupiedStalls: occupiedStallsCount,
+        occupancyRate: stallsCount > 0 ? Math.round((occupiedStallsCount / stallsCount) * 100) : 0,
+        totalExhibitors: companiesCount,
+        recentBookings: paidBookings.slice(0, 5),
+      };
+    }
+
+    if (role === UserRole.ADMIN) {
+      // Event & Business performance metrics
+      const [bookings, exhibitionsCount, publishedExhibitionsCount, stallsCount, occupiedStallsCount, companiesCount] = await Promise.all([
+        prisma.booking.findMany({
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            paymentStatus: true,
+            paidAmount: true,
+            grandTotal: true,
+            createdAt: true,
+            company: { select: { name: true } },
+            exhibition: { select: { title: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.exhibition.count(),
+        prisma.exhibition.count({ where: { status: 'PUBLISHED' } }),
+        prisma.stall.count(),
+        prisma.stall.count({ where: { status: 'BOOKED_CONFIRMED' } }),
+        prisma.company.count(),
+      ]);
+
+      const paidBookings = bookings.filter(
+        (b) =>
+          b.status === 'CONFIRMED' ||
+          b.paymentStatus === 'PAID_FULL' ||
+          b.paymentStatus === 'PARTIALLY_PAID' ||
+          Number(b.paidAmount || 0) > 0
+      );
+
+      const totalRevenue = paidBookings.reduce(
+        (sum, b) => sum + (Number(b.paidAmount) || Number(b.grandTotal) || 0),
         0
       );
 
       return {
         roleScope: 'ADMIN',
+        eventScoped: false,
         totalRevenue,
-        totalBookings: paidBookings.length,
+        totalBookings: bookings.length,
         confirmedBookings: paidBookings.length,
         totalExhibitions: exhibitionsCount,
+        publishedExhibitions: publishedExhibitionsCount,
         totalStalls: stallsCount,
         occupiedStalls: occupiedStallsCount,
         occupancyRate: stallsCount > 0 ? Math.round((occupiedStallsCount / stallsCount) * 100) : 0,
+        totalExhibitors: companiesCount,
         recentBookings: paidBookings.slice(0, 5),
       };
     }
