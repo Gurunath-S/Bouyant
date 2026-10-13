@@ -68,7 +68,7 @@ export const AdminEventsPage: React.FC = () => {
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -100,7 +100,6 @@ export const AdminEventsPage: React.FC = () => {
       draft,
       completed,
       cancelled,
-      active: published + draft,
     };
   }, [exhibitions]);
 
@@ -117,9 +116,7 @@ export const AdminEventsPage: React.FC = () => {
         (e.spcode && e.spcode.toLowerCase().includes(q));
 
       let matchesStatus = true;
-      if (statusFilter === 'ACTIVE') {
-        matchesStatus = e.status === 'PUBLISHED' || e.status === 'DRAFT';
-      } else if (statusFilter === 'PUBLISHED') {
+      if (statusFilter === 'PUBLISHED') {
         matchesStatus = e.status === 'PUBLISHED';
       } else if (statusFilter === 'DRAFT') {
         matchesStatus = e.status === 'DRAFT';
@@ -348,17 +345,17 @@ export const AdminEventsPage: React.FC = () => {
           />
         </div>
 
-        {/* Action Tabs & Options (Replaces old select dropdown) */}
+        {/* Action Tabs & Status Filter */}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setStatusFilter('ACTIVE')}
+            onClick={() => setStatusFilter('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              statusFilter === 'ACTIVE'
+              statusFilter === 'ALL'
                 ? 'bg-purple-600 text-white shadow-xs font-bold'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            Active & Upcoming ({statsCounts.active})
+            All Exhibitions ({statsCounts.total})
           </button>
 
           <button
@@ -396,7 +393,7 @@ export const AdminEventsPage: React.FC = () => {
 
           {/* Dedicated Cancelled Events Option */}
           <button
-            onClick={() => setStatusFilter(statusFilter === 'CANCELLED' ? 'ACTIVE' : 'CANCELLED')}
+            onClick={() => setStatusFilter(statusFilter === 'CANCELLED' ? 'ALL' : 'CANCELLED')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer border ${
               statusFilter === 'CANCELLED'
                 ? 'bg-rose-600 text-white border-rose-600 shadow-xs font-bold'
