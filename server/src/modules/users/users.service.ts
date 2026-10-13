@@ -2,26 +2,65 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { UserRole } from '@prisma/client';
+import { ROLE_PERMISSIONS } from '../../config/permissions.js';
 import {
   CreateAdminInput,
   CreateStaffInput,
   UpdateUserInput,
 } from './users.schemas.js';
+import { normalizePagination } from '../../utils/pagination.js';
+
+export interface ListUsersParams {
+  role?: string;
+  search?: string;
+  status?: string;
+  exhibitionId?: string;
+  page?: number;
+  limit?: number;
+}
 
 export class UsersService {
-  static async listUsers(role?: string, search = '') {
-    const where: any = {};
+  static async listUsers(roleOrOptions?: string | ListUsersParams, searchParam = '') {
+    let role: string | undefined;
+    let search = '';
+    let status: string | undefined;
+    let exhibitionId: string | undefined;
+    let page: number | undefined;
+    let limit: number | undefined;
 
-    if (role && role.toUpperCase() !== 'ALL') {
-      const upperRole = role.toUpperCase();
-      if (upperRole === 'ADMIN' || upperRole === 'STAFF') {
-        where.role = upperRole as UserRole;
-      }
+    if (roleOrOptions && typeof roleOrOptions === 'object') {
+      role = roleOrOptions.role;
+      search = roleOrOptions.search || '';
+      status = roleOrOptions.status;
+      exhibitionId = roleOrOptions.exhibitionId;
+      page = roleOrOptions.page;
+      limit = roleOrOptions.limit;
     } else {
-      // By default in user management, show ADMIN and STAFF accounts
-      where.role = { in: [UserRole.ADMIN, UserRole.STAFF] };
+      role = roleOrOptions;
+      search = searchParam || '';
     }
 
+    const where: any = {};
+
+    // Role filter
+    if (role && role.toUpperCase() !== 'ALL') {
+      const upperRole = role.toUpperCase();
+      if (['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT'].includes(upperRole)) {
+        where.role = upperRole as UserRole;
+      }
+    }
+
+    // Status filter
+    if (status && status.toUpperCase() !== 'ALL') {
+      const upperStatus = status.toUpperCase();
+      if (upperStatus === 'ACTIVE') {
+        where.isActive = true;
+      } else if (upperStatus === 'INACTIVE') {
+        where.isActive = false;
+      }
+    }
+
+    // Search query
     if (search.trim()) {
       const s = search.trim();
       where.OR = [
@@ -29,10 +68,41 @@ export class UsersService {
         { email: { contains: s, mode: 'insensitive' } },
         { spcode: { contains: s, mode: 'insensitive' } },
         { phone: { contains: s, mode: 'insensitive' } },
+        { company: { name: { contains: s, mode: 'insensitive' } } },
       ];
     }
 
-    const users = await prisma.user.findMany({
+    // Event scoping
+    let targetExhibition: { id: string; spcode: string | null } | null = null;
+    if (exhibitionId && exhibitionId.toUpperCase() !== 'ALL') {
+      targetExhibition = await prisma.exhibition.findUnique({
+        where: { id: exhibitionId },
+        select: { id: true, spcode: true },
+      });
+
+      if (!targetExhibition) {
+        throw ApiError.notFound('Exhibition not found.');
+      }
+
+      const eventScopeConditions: any[] = [
+        { role: UserRole.SUPERADMIN }, // Platform-wide governance users
+        { createdExhibitions: { some: { id: exhibitionId } } },
+        { company: { bookings: { some: { exhibitionId } } } },
+      ];
+
+      if (targetExhibition.spcode) {
+        eventScopeConditions.push({ spcode: targetExhibition.spcode });
+      }
+
+      where.AND = [
+        ...(where.AND || []),
+        { OR: eventScopeConditions },
+      ];
+    }
+
+    const total = await prisma.user.count({ where });
+
+    const queryArgs: any = {
       where,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -45,15 +115,118 @@ export class UsersService {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        companyId: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            companyCode: true,
+            industry: true,
+          },
+        },
+        createdExhibitions: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            edition: true,
+          },
+        },
         _count: {
           select: {
             createdExhibitions: true,
           },
         },
       },
+    };
+
+    let validPage: number | undefined;
+    let validLimit: number | undefined;
+
+    if (page !== undefined || limit !== undefined) {
+      const normalized = normalizePagination(page, limit, 10, 100);
+      validPage = normalized.page;
+      validLimit = normalized.limit;
+      queryArgs.skip = normalized.skip;
+      queryArgs.take = normalized.limit;
+    }
+
+    queryArgs.orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
+
+    const rawUsers: any[] = await prisma.user.findMany(queryArgs);
+
+    const formattedUsers = rawUsers.map((u: any) => {
+      let isGlobal = false;
+      let eventAssociation = 'General User';
+
+      if (u.role === UserRole.SUPERADMIN) {
+        isGlobal = true;
+        eventAssociation = 'Platform-Wide Governance';
+      } else if (u.role === UserRole.ADMIN) {
+        isGlobal = true;
+        eventAssociation = 'Platform Administration';
+      } else if (u.role === UserRole.STAFF) {
+        if (exhibitionId && targetExhibition) {
+          if (u.createdExhibitions?.some((e: any) => e.id === exhibitionId)) {
+            eventAssociation = 'Event Creator';
+          } else if (targetExhibition.spcode && u.spcode === targetExhibition.spcode) {
+            eventAssociation = 'Associated Sales Representative';
+          } else {
+            eventAssociation = 'Operations Staff';
+          }
+        } else {
+          eventAssociation = u._count?.createdExhibitions
+            ? `${u._count.createdExhibitions} Event(s) Created`
+            : 'Operations Staff';
+        }
+      } else if (u.role === UserRole.CLIENT) {
+        if (exhibitionId) {
+          eventAssociation = 'Exhibitor Client';
+        } else {
+          eventAssociation = u.company?.name ? `Exhibitor (${u.company.name})` : 'Exhibitor Client';
+        }
+      }
+
+      return {
+        ...u,
+        isGlobal,
+        eventAssociation,
+      };
     });
 
-    return users;
+    if (validPage && validLimit) {
+      const baseWhere = { ...where };
+      delete baseWhere.role;
+      const roleCountsRaw = await prisma.user.groupBy({
+        by: ['role'],
+        where: baseWhere,
+        _count: { _all: true },
+      });
+      const roleCounts: Record<string, number> = {
+        ALL: 0,
+        SUPERADMIN: 0,
+        ADMIN: 0,
+        STAFF: 0,
+        CLIENT: 0,
+      };
+      for (const r of roleCountsRaw) {
+        if (r.role in roleCounts) {
+          roleCounts[r.role] = r._count._all;
+          roleCounts.ALL += r._count._all;
+        }
+      }
+
+      return {
+        users: formattedUsers,
+        total,
+        page: validPage,
+        limit: validLimit,
+        totalPages: Math.ceil(total / validLimit),
+        roleCounts,
+      };
+    }
+
+    return formattedUsers;
   }
 
   static async getUserById(id: string) {
@@ -69,6 +242,26 @@ export class UsersService {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        companyId: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            companyCode: true,
+            contactPerson: true,
+            mobile: true,
+            email: true,
+            address: true,
+            city: true,
+            state: true,
+            pinCode: true,
+            country: true,
+            gstNumber: true,
+            panNumber: true,
+            industry: true,
+            website: true,
+          },
+        },
         createdExhibitions: {
           select: {
             id: true,
@@ -78,11 +271,13 @@ export class UsersService {
             startDate: true,
             endDate: true,
             totalStalls: true,
+            edition: true,
+            eventCode: true,
             spcode: true,
             createdAt: true,
             _count: {
-              select: { bookings: true }
-            }
+              select: { bookings: true },
+            },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -94,6 +289,7 @@ export class UsersService {
     }
 
     let attributedBookings: any[] = [];
+    let companyBookings: any[] = [];
     let heldStalls: any[] = [];
 
     // Fetch attributed bookings based on SP Code or User ID
@@ -117,16 +313,42 @@ export class UsersService {
           paidAmount: true,
           createdAt: true,
           company: {
-            select: { name: true, spcode: true }
+            select: { name: true, spcode: true },
           },
           exhibition: {
-            select: { title: true, spcode: true }
+            select: { title: true, edition: true, eventCode: true, spcode: true },
           },
           stalls: {
             select: {
-              stall: { select: { stallNumber: true } }
-            }
-          }
+              stall: { select: { stallNumber: true } },
+            },
+          },
+        },
+      });
+    }
+
+    // If client has a company, fetch bookings of their company
+    if (user.companyId) {
+      companyBookings = await prisma.booking.findMany({
+        where: { companyId: user.companyId },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          bookingReference: true,
+          status: true,
+          paymentStatus: true,
+          grandTotal: true,
+          paidAmount: true,
+          createdAt: true,
+          exhibition: {
+            select: { id: true, title: true, edition: true, eventCode: true, venue: true, city: true },
+          },
+          stalls: {
+            select: {
+              stall: { select: { stallNumber: true, category: true } },
+            },
+          },
         },
       });
     }
@@ -143,16 +365,20 @@ export class UsersService {
         price: true,
         floorPlan: {
           select: {
-            exhibition: { select: { title: true } }
-          }
-        }
-      }
+            exhibition: { select: { title: true } },
+          },
+        },
+      },
     });
+
+    const rolePermissions = Array.from(ROLE_PERMISSIONS[user.role] || []);
 
     return {
       ...user,
       attributedBookings,
+      companyBookings,
       heldStalls,
+      rolePermissions,
     };
   }
 

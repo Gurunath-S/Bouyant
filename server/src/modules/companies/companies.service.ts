@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { EmailService } from '../../services/email.service.js';
 import { generateTokens } from '../../utils/jwt.js';
+import { normalizePagination } from '../../utils/pagination.js';
 
 export class CompaniesService {
 
@@ -561,31 +562,33 @@ export class CompaniesService {
   }
 
   static async listCompanies(
-    page = 1,
-    limit = 20,
+    page: any = 1,
+    limit: any = 20,
     search = '',
     exhibitionId?: string,
-    status?: string
+    status?: string,
+    paymentStatus?: string
   ) {
-    const skip = (page - 1) * limit;
+    const { page: validPage, limit: validLimit, skip } = normalizePagination(page, limit, 20, 100);
     const andConditions: any[] = [];
 
-    if (search) {
+    if (search && search.trim()) {
+      const q = search.trim();
       andConditions.push({
         OR: [
-          { name: { contains: search, mode: 'insensitive' as const } },
-          { companyCode: { contains: search, mode: 'insensitive' as const } },
-          { regNo: { contains: search, mode: 'insensitive' as const } },
-          { spcode: { contains: search, mode: 'insensitive' as const } },
-          { email: { contains: search, mode: 'insensitive' as const } },
-          { gstNumber: { contains: search, mode: 'insensitive' as const } },
-          { contactPerson: { contains: search, mode: 'insensitive' as const } },
-          { industry: { contains: search, mode: 'insensitive' as const } },
+          { name: { contains: q, mode: 'insensitive' as const } },
+          { companyCode: { contains: q, mode: 'insensitive' as const } },
+          { regNo: { contains: q, mode: 'insensitive' as const } },
+          { spcode: { contains: q, mode: 'insensitive' as const } },
+          { email: { contains: q, mode: 'insensitive' as const } },
+          { gstNumber: { contains: q, mode: 'insensitive' as const } },
+          { contactPerson: { contains: q, mode: 'insensitive' as const } },
+          { industry: { contains: q, mode: 'insensitive' as const } },
         ],
       });
     }
 
-    if (exhibitionId) {
+    if (exhibitionId && exhibitionId !== 'ALL') {
       andConditions.push({
         bookings: {
           some: {
@@ -614,14 +617,40 @@ export class CompaniesService {
       });
     }
 
+    if (paymentStatus === 'PAID') {
+      andConditions.push({
+        bookings: {
+          some: {
+            status: { not: 'CANCELLED' as const },
+            OR: [
+              { paymentStatus: 'PAID_FULL' },
+              { paymentStatus: 'PARTIALLY_PAID' },
+              { paidAmount: { gt: 0 } },
+            ],
+          },
+        },
+      });
+    } else if (paymentStatus === 'NOT_PAID') {
+      andConditions.push({
+        bookings: {
+          every: {
+            OR: [
+              { status: 'CANCELLED' as const },
+              { paidAmount: { equals: 0 } },
+            ],
+          },
+        },
+      });
+    }
+
     const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
-    const [companies, total] = await Promise.all([
+    const [companies, total, paidCount, notPaidCount, pendingGstCount] = await Promise.all([
       prisma.company.findMany({
         where,
         skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
+        take: validLimit,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
           _count: { select: { bookings: true, users: true } },
           bookings: {
@@ -666,15 +695,55 @@ export class CompaniesService {
         },
       }),
       prisma.company.count({ where }),
+      prisma.company.count({
+        where: {
+          ...where,
+          bookings: {
+            some: {
+              status: { not: 'CANCELLED' as const },
+              OR: [
+                { paymentStatus: 'PAID_FULL' },
+                { paymentStatus: 'PARTIALLY_PAID' },
+                { paidAmount: { gt: 0 } },
+              ],
+            },
+          },
+        },
+      }),
+      prisma.company.count({
+        where: {
+          ...where,
+          bookings: {
+            every: {
+              OR: [
+                { status: 'CANCELLED' as const },
+                { paidAmount: { equals: 0 } },
+              ],
+            },
+          },
+        },
+      }),
+      prisma.company.count({
+        where: {
+          ...where,
+          OR: [{ gstNumber: null }, { gstNumber: '' }],
+        },
+      }),
     ]);
 
     return {
       companies,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: validPage,
+        limit: validLimit,
+        totalPages: Math.ceil(total / validLimit),
+        summary: {
+          totalCount: total,
+          paidCount,
+          notPaidCount,
+          pendingGstCount,
+        },
       },
     };
   }

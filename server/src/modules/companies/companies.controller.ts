@@ -88,13 +88,14 @@ export class CompaniesController {
   };
 
   static list = async (req: AuthenticatedRequest, res: Response) => {
-    const page = parseInt((req.query.page as string) || '1', 10);
-    const limit = parseInt((req.query.limit as string) || '50', 10);
+    const page = req.query.page;
+    const limit = req.query.limit;
     const search = (req.query.search as string) || '';
     const exhibitionId = (req.query.exhibitionId as string) || undefined;
     const status = (req.query.status as string) || undefined;
+    const paymentStatus = (req.query.paymentStatus as string) || undefined;
 
-    const result = await CompaniesService.listCompanies(page, limit, search, exhibitionId, status);
+    const result = await CompaniesService.listCompanies(page, limit, search, exhibitionId, status, paymentStatus);
     return sendResponse({
       res,
       statusCode: 200,

@@ -5,15 +5,43 @@ import { sendResponse } from '../../utils/response.js';
 
 export class UsersController {
   static list = async (req: Request, res: Response) => {
-    const role = req.query.role as string;
+    const role = req.query.role as string | undefined;
     const search = (req.query.search as string) || '';
-    const users = await UsersService.listUsers(role, search);
+    const status = req.query.status as string | undefined;
+    const exhibitionId = req.query.exhibitionId as string | undefined;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+
+    const usersResult: any = await UsersService.listUsers({
+      role,
+      search,
+      status,
+      exhibitionId,
+      page,
+      limit,
+    });
+
+    if (usersResult && typeof usersResult === 'object' && 'users' in usersResult) {
+      return sendResponse({
+        res,
+        statusCode: 200,
+        message: 'Users list retrieved successfully.',
+        data: usersResult.users,
+        meta: {
+          total: usersResult.total,
+          page: usersResult.page,
+          limit: usersResult.limit,
+          totalPages: usersResult.totalPages,
+          roleCounts: usersResult.roleCounts,
+        },
+      });
+    }
 
     return sendResponse({
       res,
       statusCode: 200,
       message: 'Users list retrieved successfully.',
-      data: users,
+      data: usersResult,
     });
   };
 

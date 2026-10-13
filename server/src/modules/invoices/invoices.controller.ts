@@ -30,12 +30,32 @@ export class InvoicesController {
   };
 
   static listAll = async (req: AuthenticatedRequest, res: Response) => {
-    const invoices = await InvoicesService.listAllInvoices();
+    const page = req.query.page as string | undefined;
+    const limit = req.query.limit as string | undefined;
+    const search = (req.query.search as string) || '';
+
+    const result = await InvoicesService.listAllInvoices({ page, limit, search });
+    if (result && typeof result === 'object' && 'invoices' in result) {
+      return sendResponse({
+        res,
+        statusCode: 200,
+        message: 'All invoices list retrieved.',
+        data: result.invoices,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+          totalGrandTotal: result.totalGrandTotal,
+        },
+      });
+    }
+
     return sendResponse({
       res,
       statusCode: 200,
       message: 'All invoices list retrieved.',
-      data: invoices,
+      data: result,
     });
   };
 
