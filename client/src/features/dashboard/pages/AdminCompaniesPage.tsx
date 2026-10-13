@@ -61,15 +61,9 @@ export const AdminCompaniesPage: React.FC = () => {
       const paramExId = searchParams.get('exhibitionId');
       if (paramExId) {
         setSelectedExhibitionId(paramExId);
-      } else if (allExhibitions && allExhibitions.length > 0) {
-        const now = new Date();
-        const activeUpcoming = allExhibitions
-          .filter((e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now)
-          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0] || allExhibitions[0];
-        if (activeUpcoming) {
-          setSelectedExhibitionId(activeUpcoming.id);
-        }
       }
+      // Note: Default to "" (All Exhibitions) if no query param is passed,
+      // ensuring all platform exhibitors are displayed initially.
     });
   }, []);
 
@@ -149,6 +143,91 @@ export const AdminCompaniesPage: React.FC = () => {
     }
   };
 
+  const getBookingPaymentBadge = (
+    paymentStatus?: string,
+    paidAmount?: number | string,
+    grandTotal?: number | string
+  ) => {
+    const paid = Number(paidAmount || 0);
+    const total = Number(grandTotal || 0);
+
+    if (paymentStatus === 'PAID_FULL' || (total > 0 && paid >= total)) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Paid Full
+        </span>
+      );
+    }
+
+    if (paymentStatus === 'PARTIALLY_PAID' || paid > 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <Clock className="w-3 h-3 text-blue-600" /> Partially Paid
+        </span>
+      );
+    }
+
+    if (paymentStatus === 'REFUNDED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+          Refunded
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+        <AlertCircle className="w-3 h-3 text-amber-600" /> Unpaid
+      </span>
+    );
+  };
+
+  const getCustomerStatusBadge = (companyBookings?: any[]) => {
+    if (!companyBookings || companyBookings.length === 0) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
+          No Bookings
+        </span>
+      );
+    }
+
+    const hasPaidFull = companyBookings.some(
+      (b) =>
+        b.paymentStatus === 'PAID_FULL' ||
+        b.paymentStatus === 'PAID' ||
+        (Number(b.grandTotal || 0) > 0 && Number(b.paidAmount || 0) >= Number(b.grandTotal || 0)) ||
+        (b.status === 'CONFIRMED' && Number(b.paidAmount || 0) > 0 && b.paymentStatus !== 'PARTIALLY_PAID')
+    );
+
+    if (hasPaidFull) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+          Paid
+        </span>
+      );
+    }
+
+    const hasPartial = companyBookings.some(
+      (b) =>
+        b.paymentStatus === 'PARTIALLY_PAID' ||
+        Number(b.paidAmount || 0) > 0
+    );
+
+    if (hasPartial) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+          Partially Paid
+        </span>
+      );
+    }
+
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+        Payment Pending
+      </span>
+    );
+  };
+
   const handleRegisterCompanyToEvent = () => {
     if (!registerModalCompany || !targetExhibitionId) return;
     const targetExpo = exhibitions.find((e) => e.id === targetExhibitionId);
@@ -201,7 +280,7 @@ export const AdminCompaniesPage: React.FC = () => {
             >
               <span>All Exhibitors</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ml-1 ${
                   activeTab === 'ALL'
                     ? 'bg-purple-700 text-purple-100'
                     : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -222,7 +301,7 @@ export const AdminCompaniesPage: React.FC = () => {
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Paid Exhibitors</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ml-1 ${
                   activeTab === 'PAID'
                     ? 'bg-emerald-700 text-emerald-100'
                     : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200'
@@ -243,7 +322,7 @@ export const AdminCompaniesPage: React.FC = () => {
               <AlertCircle className="w-3.5 h-3.5" />
               <span>Not Paid Exhibitors</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ml-1 ${
                   activeTab === 'NOT_PAID'
                     ? 'bg-amber-700 text-amber-100'
                     : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
@@ -404,13 +483,6 @@ export const AdminCompaniesPage: React.FC = () => {
                 companies.map((c, idx) => {
                   const companyBookings = c.bookings || [];
                   const isRegistered = companyBookings.length > 0;
-                  const hasPaidCompanyBooking = companyBookings.some(
-                    (b) =>
-                      b.status === 'CONFIRMED' ||
-                      b.paymentStatus === 'PAID' ||
-                      b.paymentStatus === 'PARTIALLY_PAID' ||
-                      Number(b.paidAmount || 0) > 0
-                  );
 
                   return (
                     <tr
@@ -426,15 +498,7 @@ export const AdminCompaniesPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
                           <span className="truncate">{c.name}</span>
-                          {hasPaidCompanyBooking ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 shrink-0">
-                              Paid
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 shrink-0">
-                              Not Paid
-                            </span>
-                          )}
+                          {getCustomerStatusBadge(companyBookings)}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-mono text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
@@ -521,7 +585,10 @@ export const AdminCompaniesPage: React.FC = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <div>{getStatusBadge(b.status)}</div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {getStatusBadge(b.status)}
+                                      {getBookingPaymentBadge(b.paymentStatus, b.paidAmount, b.grandTotal)}
+                                    </div>
                                   </div>
 
                                   {/* Stalls Allocated & Value */}
@@ -714,15 +781,7 @@ export const AdminCompaniesPage: React.FC = () => {
 
                         <div className="flex items-center gap-2">
                           {getStatusBadge(booking.status)}
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              booking.paymentStatus === 'PAID'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            Payment: {booking.paymentStatus || 'UNPAID'}
-                          </span>
+                          {getBookingPaymentBadge(booking.paymentStatus, booking.paidAmount, booking.grandTotal)}
                         </div>
                       </div>
 
