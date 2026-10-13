@@ -4,6 +4,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDate } from '../../../utils/date';
 import {
   Layers,
@@ -68,6 +69,8 @@ export const AdminEventsPage: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   async function fetchEvents() {
     try {
@@ -131,6 +134,15 @@ export const AdminEventsPage: React.FC = () => {
       return matchesQuery && matchesStatus;
     });
   }, [exhibitions, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const paginatedExhibitions = React.useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredExhibitions.slice(start, start + PAGE_SIZE);
+  }, [filteredExhibitions, currentPage]);
 
   const handleConfirmDelete = async () => {
     if (!exhibitionToDelete) return;
@@ -413,38 +425,44 @@ export const AdminEventsPage: React.FC = () => {
             <p>No event matched your search query or status filter.</p>
           </div>
         ) : (
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
-                <th className="py-3.5 px-4">
-                  <div className="flex items-center gap-1 group relative cursor-help">
-                    <span>Event Title & Slug</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-                    {/* Tooltip explanation */}
-                    <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
-                      <strong>What is a Slug?</strong>
-                      <p className="mt-0.5 text-slate-300">
-                        A URL-friendly string used to access the public booking page (e.g. <span className="text-purple-300 font-mono">/events/mediccon-2026</span>) and optimize search ranking.
-                      </p>
+          <>
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+                  <th className="w-12 py-3.5 px-3 text-center">S.No</th>
+                  <th className="py-3.5 px-4">
+                    <div className="flex items-center gap-1 group relative cursor-help">
+                      <span>Event Title & Slug</span>
+                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+                      {/* Tooltip explanation */}
+                      <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
+                        <strong>What is a Slug?</strong>
+                        <p className="mt-0.5 text-slate-300">
+                          A URL-friendly string used to access the public booking page (e.g. <span className="text-purple-300 font-mono">/events/mediccon-2026</span>) and optimize search ranking.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </th>
-                <th className="py-3.5 px-4">SP Code</th>
-                <th className="py-3.5 px-4">Venue & Location</th>
-                <th className="py-3.5 px-4">Event Dates</th>
-                <th className="py-3.5 px-4 text-center">Capacity</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {filteredExhibitions.map((e) => (
-              <tr
-                key={e.id}
-                onClick={() => navigate(`/admin/events/${e.id}/view`)}
-                className="hover:bg-purple-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
-              >
-                <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
+                  </th>
+                  <th className="py-3.5 px-4">SP Code</th>
+                  <th className="py-3.5 px-4">Venue & Location</th>
+                  <th className="py-3.5 px-4">Event Dates</th>
+                  <th className="py-3.5 px-4 text-center">Capacity</th>
+                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+                {paginatedExhibitions.map((e, idx) => (
+                <tr
+                  key={e.id}
+                  onClick={() => navigate(`/admin/events/${e.id}/view`)}
+                  className="hover:bg-purple-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
+                >
+                  <td className="w-12 py-3 px-3 text-center font-mono font-bold text-slate-400">
+                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                  </td>
+                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
                   <div className="flex items-center gap-3">
                     {e.bannerUrl ? (
                       <img
@@ -567,8 +585,18 @@ export const AdminEventsPage: React.FC = () => {
               </tr>
             ))}
           </tbody>
-        </table>
-        )}
+          </table>
+          </div>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredExhibitions.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+            itemLabel="exhibitions"
+          />
+        </>
+      )}
       </div>
 
       {/* Delete Confirmation Modal */}

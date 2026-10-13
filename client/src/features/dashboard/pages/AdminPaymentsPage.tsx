@@ -1,98 +1,66 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { apiClient } from '../../../services/api/apiClient';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { paymentService } from '../../../services/payments/paymentService';
 import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminPaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
+  const [totalPayments, setTotalPayments] = useState(0);
+  const [totalFilteredAmount, setTotalFilteredAmount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  async function fetchPayments() {
+  // Stale request race condition safety
+  const paymentsReqIdRef = useRef(0);
+
+  const fetchPayments = useCallback(async () => {
+    const reqId = ++paymentsReqIdRef.current;
     try {
       setLoading(true);
-      const res: any = await apiClient.get('/payments');
-      const rawData = res?.data ?? res;
-      const paymentsArray = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.payments)
-        ? rawData.payments
-        : Array.isArray(res?.payments)
-        ? res.payments
-        : [];
-      setPayments(paymentsArray);
+      const res: any = await paymentService.getAllPayments({
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery.trim() || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        method: methodFilter !== 'ALL' ? methodFilter : undefined,
+      });
+
+      if (reqId === paymentsReqIdRef.current) {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setPayments(list);
+        setTotalPayments(res?.meta?.total || 0);
+        setTotalFilteredAmount(Number(res?.meta?.totalFilteredAmount || 0));
+      }
     } catch (err) {
-      console.error(err);
-      setPayments([]);
+      if (reqId === paymentsReqIdRef.current) {
+        console.error('Failed to load payments:', err);
+        setPayments([]);
+        setTotalPayments(0);
+        setTotalFilteredAmount(0);
+      }
     } finally {
-      setLoading(false);
+      if (reqId === paymentsReqIdRef.current) {
+        setLoading(false);
+      }
     }
-  }
+  }, [currentPage, pageSize, searchQuery, statusFilter, methodFilter]);
 
   useEffect(() => {
     fetchPayments();
-  }, []);
+  }, [fetchPayments]);
 
-  const safePayments = useMemo(() => {
-    return Array.isArray(payments) ? payments : [];
-  }, [payments]);
-
-  // Filter logic: Only actual payments made (Full or Partial completed transactions)
-  const filteredPayments = useMemo(() => {
-    return safePayments.filter((p) => {
-      // Strictly exclude uncompleted PENDING attempts or FAILED transactions unless explicitly filtered
-      const isPaidTransaction =
-        p.status === 'SUCCESS' ||
-        p.status === 'COMPLETED' ||
-        (Number(p.amount || 0) > 0 && p.status !== 'FAILED' && p.status !== 'PENDING');
-
-      if (!isPaidTransaction && statusFilter === 'ALL') return false;
-
-      // 1. Search filter (Payment Ref, Booking Ref, Payment Method)
-      const q = searchQuery.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        (p.paymentReference && p.paymentReference.toLowerCase().includes(q)) ||
-        (p.booking?.bookingReference && p.booking.bookingReference.toLowerCase().includes(q)) ||
-        (p.paymentMethod && p.paymentMethod.toLowerCase().includes(q));
-
-      // 2. Status filter
-      const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
-
-      // 3. Payment Method / Plan filter
-      let matchMethod = methodFilter === 'ALL';
-      if (!matchMethod) {
-        if (methodFilter === 'FULL') {
-          matchMethod = !p.installmentType || p.installmentType === 'FULL';
-        } else if (methodFilter === 'PARTIAL') {
-          matchMethod = Boolean(p.installmentType && p.installmentType !== 'FULL');
-        } else {
-          matchMethod = p.paymentMethod === methodFilter;
-        }
-      }
-
-      return matchSearch && matchStatus && matchMethod;
-    });
-  }, [safePayments, searchQuery, statusFilter, methodFilter]);
-
-  // Dynamic total calculations
-  const totalFilteredAmount = useMemo(() => {
-    return filteredPayments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
-  }, [filteredPayments]);
-
-  const uniqueMethods = useMemo(() => {
-    const methods = new Set<string>();
-    safePayments.forEach((p) => {
-      if (p.paymentMethod) methods.add(p.paymentMethod);
-    });
-    return Array.from(methods);
-  }, [safePayments]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, methodFilter]);
 
   return (
     <div className="space-y-6">
@@ -164,11 +132,11 @@ export const AdminPaymentsPage: React.FC = () => {
               <option value="ALL">All Payment Plans & Types</option>
               <option value="FULL">Full Payment (100%)</option>
               <option value="PARTIAL">Partial Payment / Installment</option>
-              {uniqueMethods.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
+              <option value="RAZORPAY">Razorpay Gateway</option>
+              <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
+              <option value="CHEQUE">Cheque / Demand Draft</option>
+              <option value="CASH">Cash Deposit</option>
+              <option value="SIMULATED_GATEWAY">Simulated Gateway</option>
             </select>
             <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -177,8 +145,8 @@ export const AdminPaymentsPage: React.FC = () => {
         {/* Filter Summary Stats */}
         <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
           <span>
-            Showing <strong className="text-slate-900 dark:text-slate-100">{filteredPayments.length}</strong> of{' '}
-            <strong className="text-slate-900 dark:text-slate-100">{payments.length}</strong> transactions
+            Showing <strong className="text-slate-900 dark:text-slate-100">{payments.length}</strong> of{' '}
+            <strong className="text-slate-900 dark:text-slate-100">{totalPayments}</strong> transactions
           </span>
 
           <div className="flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
@@ -192,7 +160,7 @@ export const AdminPaymentsPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
         {loading ? (
           <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">Loading transactions...</div>
-        ) : filteredPayments.length === 0 ? (
+        ) : payments.length === 0 ? (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-xs">
             No transaction records found matching the applied search and filter criteria.
           </div>
@@ -200,6 +168,7 @@ export const AdminPaymentsPage: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+                <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                 <th className="py-3.5 px-4">Payment ID</th>
                 <th className="py-3.5 px-4">Booking ID</th>
                 <th className="py-3.5 px-4">Payment Plan / Type</th>
@@ -210,11 +179,14 @@ export const AdminPaymentsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {filteredPayments.map((p) => {
+              {payments.map((p, idx) => {
                 const isPartial = p.installmentType && p.installmentType !== 'FULL';
                 const idToUse = p.invoiceId || p.booking?.id || p.bookingId || p.id;
                 return (
                   <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                    <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{p.paymentReference}</td>
                     <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">{p.booking?.bookingReference || 'N/A'}</td>
                     <td className="py-3.5 px-4">
@@ -257,6 +229,18 @@ export const AdminPaymentsPage: React.FC = () => {
             </tbody>
           </table>
         )}
+
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={totalPayments}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="transactions"
+        />
       </div>
     </div>
   );

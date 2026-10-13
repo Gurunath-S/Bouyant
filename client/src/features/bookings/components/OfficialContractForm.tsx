@@ -110,6 +110,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
           <table className="w-full text-xs text-left">
             <thead className="bg-[#012970] dark:bg-slate-800 text-white font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
               <tr>
+                <th className="p-3 w-12 text-center">S.No</th>
                 <th className="p-3">Stall No</th>
                 <th className="p-3">Location / Hall</th>
                 <th className="p-3">Scheme Type</th>
@@ -121,7 +122,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
-              {stalls.map(s => {
+              {stalls.map((s, idx) => {
                 const isA = s.stallNumber.startsWith('A');
                 const hName = isA ? 'HALL - A (PAVILION A)' : 'HALL - B (PAVILION B)';
                 const rSqm = s.category === 'CORNER' || s.category === 'ISLAND' ? 7000 : 6500;
@@ -130,6 +131,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
                 const gTotal = bRental + tAmount;
                 return (
                   <tr key={s.id} className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                    <td className="p-3 w-12 text-center font-mono font-bold text-slate-400">{idx + 1}</td>
                     <td className="p-3 font-mono font-black text-[#09539b] dark:text-blue-400">Stall {s.stallNumber}</td>
                     <td className="p-3 font-bold text-slate-700 dark:text-slate-300">{hName}</td>
                     <td className="p-3 font-semibold text-emerald-700 dark:text-emerald-400">Shell Scheme (Modular)</td>

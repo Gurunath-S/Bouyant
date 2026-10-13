@@ -1,19 +1,24 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { apiClient } from '../../../services/api/apiClient';
+import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
 import { BookmarkCheck, Eye, Search, Filter, RefreshCw } from 'lucide-react';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { Button } from '../../../components/ui/Button';
+import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [totalValue, setTotalValue] = useState(0);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Filters state initialized from URL search params if present
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,64 +26,52 @@ export const AdminBookingsPage: React.FC = () => {
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState('ALL');
 
-  // Note: statusFilter and exhibitionFilter are already initialised from searchParams above.
-  // A sync effect that only copies URL params into state each re-render is unnecessary.
-
-  async function fetchInitialData() {
-    try {
-      setLoading(true);
-      const [bookingsRes, exhibitionsRes] = await Promise.all([
-        apiClient.get('/bookings'),
-        exhibitionService.getExhibitions(),
-      ]);
-      setBookings(bookingsRes.data || []);
-      setExhibitions(exhibitionsRes || []);
-    } catch (err) {
-      console.error('Failed to load bookings:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Request ID ref to protect against out-of-order race conditions
+  const bookingsReqIdRef = useRef(0);
 
   useEffect(() => {
-    fetchInitialData();
+    exhibitionService.getExhibitions().then((res) => setExhibitions(res || []));
   }, []);
 
-  const filteredBookings = useMemo(() => {
-    return bookings.filter((b) => {
-      // Only include bookings where payment has been made (CONFIRMED, PAID_FULL, PARTIALLY_PAID, or paidAmount > 0)
-      const isPaid =
-        b.status === 'CONFIRMED' ||
-        b.paymentStatus === 'PAID' ||
-        b.paymentStatus === 'PARTIALLY_PAID' ||
-        (Number(b.paidAmount || 0) > 0 && b.status !== 'CANCELLED' && b.status !== 'EXPIRED');
+  const fetchBookings = useCallback(async () => {
+    const reqId = ++bookingsReqIdRef.current;
+    try {
+      setLoading(true);
+      const res: any = await bookingService.getAllBookings({
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery.trim() || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        exhibitionId: exhibitionFilter !== 'ALL' ? exhibitionFilter : undefined,
+        registeredByRole: registrarFilter !== 'ALL' ? registrarFilter : undefined,
+      });
 
-      if (!isPaid) return false;
+      if (reqId === bookingsReqIdRef.current) {
+        setBookings(res?.data || []);
+        setTotalBookings(res?.meta?.total || 0);
+        setTotalValue(Number(res?.meta?.totalValue || 0));
+      }
+    } catch (err) {
+      if (reqId === bookingsReqIdRef.current) {
+        console.error('Failed to load bookings:', err);
+        setBookings([]);
+        setTotalBookings(0);
+        setTotalValue(0);
+      }
+    } finally {
+      if (reqId === bookingsReqIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [currentPage, pageSize, searchQuery, statusFilter, exhibitionFilter, registrarFilter]);
 
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        b.bookingReference.toLowerCase().includes(q) ||
-        (b.company?.name && b.company.name.toLowerCase().includes(q)) ||
-        (b.company?.contactPerson && b.company.contactPerson.toLowerCase().includes(q)) ||
-        (b.exhibition?.title && b.exhibition.title.toLowerCase().includes(q)) ||
-        (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber.toLowerCase().includes(q)));
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
-      const matchesStatus =
-        statusFilter === 'ALL' || b.status === statusFilter || b.paymentStatus === statusFilter;
-
-      const matchesExhibition = exhibitionFilter === 'ALL' || b.exhibitionId === exhibitionFilter;
-      const matchesRegistrar =
-        registrarFilter === 'ALL' ||
-        (registrarFilter === 'ADMIN' && ((b as any).user?.role === 'ADMIN' || (b as any).user?.role === 'SUPERADMIN')) ||
-        (registrarFilter === 'STAFF' && (b as any).user?.role === 'STAFF') ||
-        (registrarFilter === 'CLIENT' && (b as any).user?.role === 'CLIENT');
-
-      return matchesSearch && matchesStatus && matchesExhibition && matchesRegistrar;
-    });
-  }, [bookings, searchQuery, statusFilter, exhibitionFilter, registrarFilter]);
-
-  const totalValue = filteredBookings.reduce((sum, b) => sum + (Number(b.grandTotal) || 0), 0);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, exhibitionFilter, registrarFilter]);
 
   return (
     <div className="space-y-6">
@@ -99,8 +92,8 @@ export const AdminBookingsPage: React.FC = () => {
             type="button"
             variant="outline"
             size="sm"
-            onClick={fetchInitialData}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            onClick={fetchBookings}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
           >
             Refresh
           </Button>
@@ -169,7 +162,7 @@ export const AdminBookingsPage: React.FC = () => {
 
         <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 font-medium">
           <span>
-            Showing <strong>{filteredBookings.length}</strong> of {bookings.length} reservations
+            Showing <strong>{bookings.length}</strong> of {totalBookings} reservations
           </span>
           <span>
             Total Filtered Value: <strong className="font-mono text-purple-700 dark:text-purple-400">₹{totalValue.toLocaleString()} INR</strong>
@@ -181,72 +174,92 @@ export const AdminBookingsPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400">Loading bookings directory...</div>
-        ) : filteredBookings.length === 0 ? (
+        ) : bookings.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-400 space-y-2">
             <BookmarkCheck className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
             <p className="font-bold text-slate-700 dark:text-slate-300">No Bookings Found</p>
             <p>No reservations matched your search or status filter.</p>
           </div>
         ) : (
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
-                <th className="py-3.5 px-4">Booking Ref</th>
-                <th className="py-3.5 px-4">Exhibition Event</th>
-                <th className="py-3.5 px-4">Stall(s)</th>
-                <th className="py-3.5 px-4">Exhibitor Company</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Grand Total</th>
-                <th className="py-3.5 px-4 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {filteredBookings.map((b) => (
-                <tr
-                  key={b.id}
-                  onClick={() => setInspectedBooking(b)}
-                  className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
-                >
-                  <td className="py-3.5 px-4 font-mono font-bold text-purple-700 dark:text-purple-400 group-hover:underline">
-                    {b.bookingReference}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block truncate max-w-xs">{b.exhibition?.title}</span>
-                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                      {b.exhibition?.eventCode}-{b.exhibition?.edition}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">
-                    Stall(s) {b.stalls?.map((bs) => bs.stall?.stallNumber).join(', ') || 'N/A'}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-bold block text-slate-900 dark:text-slate-100">{b.company?.name}</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block">{b.company?.contactPerson}</span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <BookingStatusBadge status={b.status} />
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
-                    ₹{Number(b.grandTotal).toLocaleString()} INR
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInspectedBooking(b);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
-                      title="Inspect full booking details"
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+                    <th className="w-12 py-3.5 px-3 text-center">S.No</th>
+                    <th className="py-3.5 px-4">Booking Ref</th>
+                    <th className="py-3.5 px-4">Exhibition Event</th>
+                    <th className="py-3.5 px-4">Stall(s)</th>
+                    <th className="py-3.5 px-4">Exhibitor Company</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Grand Total</th>
+                    <th className="py-3.5 px-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+                  {bookings.map((b, idx) => (
+                    <tr
+                      key={b.id}
+                      onClick={() => setInspectedBooking(b)}
+                      className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-purple-700 dark:text-purple-400 group-hover:underline">
+                        {b.bookingReference}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block truncate max-w-xs">{b.exhibition?.title}</span>
+                        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                          {b.exhibition?.eventCode}-{b.exhibition?.edition}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">
+                        Stall(s) {b.stalls?.map((bs) => bs.stall?.stallNumber).join(', ') || 'N/A'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold block text-slate-900 dark:text-slate-100">{b.company?.name}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 block">{b.company?.contactPerson}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <BookingStatusBadge status={b.status} />
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
+                        ₹{Number(b.grandTotal).toLocaleString()} INR
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInspectedBooking(b);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
+                          title="Inspect full booking details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={totalBookings}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              itemLabel="bookings"
+            />
+          </div>
         )}
       </div>
 
@@ -255,7 +268,7 @@ export const AdminBookingsPage: React.FC = () => {
         booking={inspectedBooking}
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
-        onRefresh={fetchInitialData}
+        onRefresh={fetchBookings}
       />
     </div>
   );

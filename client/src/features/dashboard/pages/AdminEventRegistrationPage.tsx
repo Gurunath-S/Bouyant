@@ -8,6 +8,7 @@ import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
 import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibitorModal';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
+import { TablePagination } from '../../../components/ui/TablePagination';
 import {
   CalendarPlus,
   Calendar,
@@ -42,6 +43,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
   // Filters for Admin Data Tab
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
+  const [bookingPage, setBookingPage] = useState(1);
+  const BOOKING_PAGE_SIZE = 10;
 
   // Modal & Share States
   const [selectedExhibitionForReg, setSelectedExhibitionForReg] = useState<Exhibition | null>(null);
@@ -166,6 +169,15 @@ export const AdminEventRegistrationPage: React.FC = () => {
       return matchesSearch && matchesExhibition;
     });
   }, [adminBookings, bookingSearch, bookingExhibitionFilter]);
+
+  useEffect(() => {
+    setBookingPage(1);
+  }, [bookingSearch, bookingExhibitionFilter]);
+
+  const paginatedAdminBookings = useMemo(() => {
+    const start = (bookingPage - 1) * BOOKING_PAGE_SIZE;
+    return filteredAdminBookings.slice(start, start + BOOKING_PAGE_SIZE);
+  }, [filteredAdminBookings, bookingPage]);
 
   // Statistics
   const totalExhibitions = exhibitions.length;
@@ -569,6 +581,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-extrabold">
+                      <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                       <th className="py-3.5 px-4">Booking Ref</th>
                       <th className="py-3.5 px-4">Exhibition Event</th>
                       <th className="py-3.5 px-4">Registered Company</th>
@@ -580,12 +593,15 @@ export const AdminEventRegistrationPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-                    {filteredAdminBookings.map((b) => (
+                    {paginatedAdminBookings.map((b, idx) => (
                       <tr
                         key={b.id}
                         onClick={() => setInspectedBooking(b)}
                         className="hover:bg-purple-50/50 dark:hover:bg-purple-950/20 cursor-pointer transition-colors"
                       >
+                        <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                          {(bookingPage - 1) * BOOKING_PAGE_SIZE + idx + 1}
+                        </td>
                         <td className="py-3.5 px-4">
                           <span className="font-mono font-bold text-purple-700 dark:text-purple-300 block">
                             {b.bookingReference}
@@ -675,6 +691,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              <TablePagination
+                currentPage={bookingPage}
+                totalItems={filteredAdminBookings.length}
+                pageSize={BOOKING_PAGE_SIZE}
+                onPageChange={setBookingPage}
+                itemLabel="registrations"
+              />
             </div>
           )}
         </div>

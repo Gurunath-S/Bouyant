@@ -3,6 +3,7 @@ import { reportService } from '../../../services/reports/reportService';
 import { ReportOverviewData, OccupancyReportData, Exhibition } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { formatDisplayDate } from '../../../utils/date';
+import { TablePagination } from '../../../components/ui/TablePagination';
 import {
   BarChart3,
   TrendingUp,
@@ -29,6 +30,8 @@ export const ReportsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   async function fetchReportData() {
     try {
@@ -72,6 +75,15 @@ export const ReportsPage: React.FC = () => {
     if (selectedExhibitionId === 'ALL') return exhibitions;
     return exhibitions.filter((e) => e.id === selectedExhibitionId);
   }, [exhibitions, selectedExhibitionId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedExhibitionId]);
+
+  const paginatedExhibitions = React.useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredExhibitions.slice(start, start + PAGE_SIZE);
+  }, [filteredExhibitions, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -344,6 +356,7 @@ export const ReportsPage: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
                   <tr>
+                    <th className="w-12 px-3 py-3 text-center">S.No</th>
                     <th className="px-5 py-3">Exhibition Title</th>
                     <th className="px-4 py-3">Code / Edition</th>
                     <th className="px-4 py-3">Dates & Venue</th>
@@ -354,8 +367,11 @@ export const ReportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredExhibitions.map((expo) => (
+                  {paginatedExhibitions.map((expo, idx) => (
                     <tr key={expo.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="w-12 px-3 py-3.5 text-center font-mono font-bold text-slate-400">
+                        {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                      </td>
                       <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-slate-100">
                         {expo.title}
                       </td>
@@ -410,6 +426,14 @@ export const ReportsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredExhibitions.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+              itemLabel="exhibitions"
+            />
           </div>
         </>
       )}

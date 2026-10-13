@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
@@ -6,6 +6,7 @@ import { Company, Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDate } from '../../../utils/date';
 import {
   Building2,
@@ -29,6 +30,13 @@ export const AdminCompaniesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
 
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [totalCompanies, setTotalCompanies] = useState(0);
+  const [summary, setSummary] = useState({
+    paidCount: 0,
+    notPaidCount: 0,
+    pendingGstCount: 0,
+    totalCount: 0,
+  });
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -41,24 +49,19 @@ export const AdminCompaniesPage: React.FC = () => {
   const [inspectedCompany, setInspectedCompany] = useState<Company | null>(null);
   const [registerModalCompany, setRegisterModalCompany] = useState<Company | null>(null);
   const [targetExhibitionId, setTargetExhibitionId] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  async function fetchData() {
-    try {
-      setLoading(true);
-      const [companiesRes, exhibitionsData] = await Promise.all([
-        companyService.listCompanies(1, '', undefined, undefined, 100),
-        exhibitionService.getExhibitions(),
-      ]);
+  // Race condition protection
+  const companiesReqIdRef = useRef(0);
 
-      const allExhibitions: Exhibition[] = exhibitionsData || [];
-      setCompanies(companiesRes.data || []);
-      setExhibitions(allExhibitions);
-
-      // Default to current active event if no query param is provided
+  useEffect(() => {
+    exhibitionService.getExhibitions().then((allExhibitions: Exhibition[]) => {
+      setExhibitions(allExhibitions || []);
       const paramExId = searchParams.get('exhibitionId');
       if (paramExId) {
         setSelectedExhibitionId(paramExId);
-      } else if (allExhibitions.length > 0) {
+      } else if (allExhibitions && allExhibitions.length > 0) {
         const now = new Date();
         const activeUpcoming = allExhibitions
           .filter((e) => e.status === 'PUBLISHED' && new Date(e.endDate) >= now)
@@ -67,93 +70,54 @@ export const AdminCompaniesPage: React.FC = () => {
           setSelectedExhibitionId(activeUpcoming.id);
         }
       }
-    } catch (err) {
-      console.error('Failed to load companies or exhibitions:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchData();
+    });
   }, []);
 
-  // Metrics (Filtered by selected exhibition if selected)
-  const totalCount = companies.length;
-
-  const { paidCount, notPaidCount } = useMemo(() => {
-    let paid = 0;
-    let notPaid = 0;
-
-    companies.forEach((c) => {
-      const hasPaidBooking = c.bookings?.some((b) => {
-        const matchesExpo = !selectedExhibitionId || b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId;
-        const isPaid = b.status === 'CONFIRMED' || b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIALLY_PAID' || Number(b.paidAmount || 0) > 0;
-        return matchesExpo && isPaid;
-      });
-
-      if (hasPaidBooking) {
-        paid++;
-      } else {
-        notPaid++;
-      }
-    });
-
-    return { paidCount: paid, notPaidCount: notPaid };
-  }, [companies, selectedExhibitionId]);
-
-  // Filtered companies based on search, exhibition selector, and tab
-  const filteredCompanies = companies.filter((c) => {
-    const hasPaidBooking = c.bookings?.some((b) => {
-      const matchesExpo = !selectedExhibitionId || b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId;
-      const isPaid = b.status === 'CONFIRMED' || b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIALLY_PAID' || Number(b.paidAmount || 0) > 0;
-      return matchesExpo && isPaid;
-    });
-
-    const hasAnyBookingForExpo = selectedExhibitionId
-      ? c.bookings?.some((b) => b.exhibitionId === selectedExhibitionId || b.exhibition?.id === selectedExhibitionId)
-      : c.bookings && c.bookings.length > 0;
-
-    // Tab filter: PAID vs NOT_PAID
-    if (activeTab === 'PAID' && !hasPaidBooking) return false;
-    if (activeTab === 'NOT_PAID' && hasPaidBooking) return false;
-
-    // Exhibition filter (if selected)
-    if (selectedExhibitionId && !hasAnyBookingForExpo) return false;
-
-    // 3. Search query
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-
-    const matchesBasic =
-      c.name.toLowerCase().includes(q) ||
-      c.companyCode?.toLowerCase().includes(q) ||
-      c.regNo?.toLowerCase().includes(q) ||
-      c.spcode?.toLowerCase().includes(q) ||
-      c.gstNumber?.toLowerCase().includes(q) ||
-      c.panNumber?.toLowerCase().includes(q) ||
-      c.contactPerson?.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.mobile?.toLowerCase().includes(q) ||
-      c.industry?.toLowerCase().includes(q) ||
-      c.city?.toLowerCase().includes(q) ||
-      c.state?.toLowerCase().includes(q);
-
-    if (matchesBasic) return true;
-
-    // Also match against registered exhibition titles, codes, or stall numbers
-    const matchesEvent = c.bookings?.some((b) => {
-      const titleMatch = b.exhibition?.title.toLowerCase().includes(q);
-      const codeMatch = b.exhibition?.eventCode?.toLowerCase().includes(q);
-      const refMatch = b.bookingReference?.toLowerCase().includes(q);
-      const stallMatch = b.stalls?.some((bs) =>
-        bs.stall?.stallNumber.toLowerCase().includes(q)
+  const fetchCompanies = useCallback(async () => {
+    const reqId = ++companiesReqIdRef.current;
+    try {
+      setLoading(true);
+      const res: any = await companyService.listCompanies(
+        currentPage,
+        search.trim(),
+        selectedExhibitionId || undefined,
+        undefined,
+        pageSize,
+        activeTab !== 'ALL' ? activeTab : undefined
       );
-      return titleMatch || codeMatch || refMatch || stallMatch;
-    });
 
-    return !!matchesEvent;
-  });
+      if (reqId === companiesReqIdRef.current) {
+        setCompanies(res.data || []);
+        setTotalCompanies(res.meta?.total || 0);
+        if (res.meta?.summary) {
+          setSummary(res.meta.summary);
+        }
+      }
+    } catch (err) {
+      if (reqId === companiesReqIdRef.current) {
+        console.error('Failed to load companies:', err);
+        setCompanies([]);
+        setTotalCompanies(0);
+      }
+    } finally {
+      if (reqId === companiesReqIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [currentPage, pageSize, search, selectedExhibitionId, activeTab]);
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedExhibitionId, activeTab]);
+
+  // Metrics from server-side summary aggregation
+  const totalCount = summary.totalCount;
+  const paidCount = summary.paidCount;
+  const notPaidCount = summary.notPaidCount;
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -360,7 +324,7 @@ export const AdminCompaniesPage: React.FC = () => {
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800">
-                    {filteredCompanies.length} Exhibitors Registered
+                    {totalCompanies} Exhibitors Registered
                   </span>
                   <button
                     onClick={() => setSelectedExhibitionId('')}
@@ -378,8 +342,8 @@ export const AdminCompaniesPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Filter className="w-3.5 h-3.5 text-purple-600" />
               <span>
-                Showing <strong>{filteredCompanies.length}</strong> of{' '}
-                <strong>{totalCount}</strong> exhibitors across all historical trade fairs.
+                Showing <strong>{companies.length}</strong> of{' '}
+                <strong>{totalCompanies}</strong> exhibitors across all historical trade fairs.
               </span>
             </div>
             {(activeTab !== 'ALL' || search) && (
@@ -404,6 +368,7 @@ export const AdminCompaniesPage: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+                <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Corporate Entity Name</th>
                 <th className="py-3.5 px-4 min-w-[150px]">Contact Person</th>
                 <th className="py-3.5 px-4 min-w-[170px]">Contact Info & Tax ID</th>
@@ -414,16 +379,16 @@ export const AdminCompaniesPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
                       <span>Loading exhibitors and event bookings...</span>
                     </div>
                   </td>
                 </tr>
-              ) : filteredCompanies.length === 0 ? (
+              ) : companies.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     <div className="max-w-sm mx-auto space-y-2">
                       <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
                       <p className="font-semibold text-slate-700 dark:text-slate-300">
@@ -436,7 +401,7 @@ export const AdminCompaniesPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredCompanies.map((c) => {
+                companies.map((c, idx) => {
                   const companyBookings = c.bookings || [];
                   const isRegistered = companyBookings.length > 0;
                   const hasPaidCompanyBooking = companyBookings.some(
@@ -452,6 +417,11 @@ export const AdminCompaniesPage: React.FC = () => {
                       key={c.id}
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
+                      {/* S.No */}
+                      <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+
                       {/* Entity Name & Code */}
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
@@ -626,6 +596,18 @@ export const AdminCompaniesPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={totalCompanies}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="exhibitors"
+        />
       </div>
 
       {/* Modal 1: Complete Event Registrations History */}

@@ -24,6 +24,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { formatDisplayDate } from '../../../utils/date';
+import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -36,6 +37,8 @@ export const AdminDashboardPage: React.FC = () => {
   // Table Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   // Searchable Event Selector Popover State
   const [isEventMenuOpen, setIsEventMenuOpen] = useState(false);
@@ -217,6 +220,15 @@ export const AdminDashboardPage: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
   }, [stats?.recentBookings, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, selectedExhibitionId]);
+
+  const paginatedBookings = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredBookings, currentPage]);
 
   if (loading) {
     return (
@@ -614,6 +626,7 @@ export const AdminDashboardPage: React.FC = () => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-extrabold">
+                  <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                   <th className="py-3.5 px-4">Booking Ref</th>
                   <th className="py-3.5 px-4">Exhibition Event</th>
                   <th className="py-3.5 px-4">Stall #</th>
@@ -624,13 +637,16 @@ export const AdminDashboardPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-800 dark:text-slate-200">
-                {filteredBookings.length > 0 ? (
-                  filteredBookings.map((b: any) => (
+                {paginatedBookings.length > 0 ? (
+                  paginatedBookings.map((b: any, idx: number) => (
                     <tr
                       key={b.id}
                       onClick={() => setInspectedBooking(b)}
                       className="hover:bg-purple-50/40 dark:hover:bg-purple-950/20 cursor-pointer transition-colors group"
                     >
+                      <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                        {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                      </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-purple-600 dark:text-purple-400 group-hover:underline">
                         {b.bookingReference}
                       </td>
@@ -671,7 +687,7 @@ export const AdminDashboardPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
+                    <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
                       No matching bookings found for the selected search/filter criteria.
                     </td>
                   </tr>
@@ -679,6 +695,14 @@ export const AdminDashboardPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredBookings.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+            itemLabel="bookings"
+          />
         </div>
       </div>
 

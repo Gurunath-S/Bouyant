@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
@@ -6,26 +6,44 @@ import { FileText, Download, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const MyInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [totalInvoices, setTotalInvoices] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  async function fetchInvoices() {
+  const invoicesReqIdRef = React.useRef(0);
+
+  const fetchInvoices = React.useCallback(async (page: number, limit: number) => {
+    const reqId = ++invoicesReqIdRef.current;
     try {
       setLoading(true);
-      const res: any = await apiClient.get('/invoices');
-      setInvoices(res.data);
+      const res: any = await apiClient.get('/invoices', {
+        params: { page, limit },
+      });
+      if (reqId === invoicesReqIdRef.current) {
+        setInvoices(res.data || []);
+        setTotalInvoices(res.meta?.total || 0);
+      }
     } catch (err) {
-      console.error('Failed to load invoices:', err);
+      if (reqId === invoicesReqIdRef.current) {
+        console.error('Failed to load invoices:', err);
+        setInvoices([]);
+        setTotalInvoices(0);
+      }
     } finally {
-      setLoading(false);
+      if (reqId === invoicesReqIdRef.current) {
+        setLoading(false);
+      }
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    fetchInvoices(currentPage, pageSize);
+  }, [currentPage, pageSize, fetchInvoices]);
 
   return (
     <div className="space-y-6">
@@ -56,6 +74,7 @@ export const MyInvoicesPage: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+                <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                 <th className="py-3.5 px-4">Invoice #</th>
                 <th className="py-3.5 px-4">Exhibitor Company</th>
                 <th className="py-3.5 px-4">Issue Date</th>
@@ -66,8 +85,11 @@ export const MyInvoicesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {invoices.map((inv) => (
+              {invoices.map((inv, idx) => (
                 <tr key={inv.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
+                  <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
                   <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{inv.invoiceNumber}</td>
                   <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{inv.company?.name}</td>
                   <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">{formatDisplayDate(inv.issueDate)}</td>
@@ -97,6 +119,18 @@ export const MyInvoicesPage: React.FC = () => {
               ))}
             </tbody>
           </table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={totalInvoices}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            itemLabel="invoices"
+          />
         </div>
       )}
     </div>
