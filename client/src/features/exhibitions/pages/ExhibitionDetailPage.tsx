@@ -16,6 +16,7 @@ import {
   Share2,
   AlertCircle,
   AlertTriangle,
+  ExternalLink,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
@@ -71,6 +72,23 @@ export const ExhibitionDetailPage: React.FC = () => {
     if (validPrices.length === 0) return null;
     return Math.min(...validPrices);
   }, [stalls]);
+
+  const durationDays = React.useMemo(() => {
+    if (!exhibition?.startDate || !exhibition?.endDate) return null;
+    const start = new Date(exhibition.startDate);
+    const end = new Date(exhibition.endDate);
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    return `${diffDays} Day${diffDays > 1 ? 's' : ''} Expo`;
+  }, [exhibition?.startDate, exhibition?.endDate]);
+
+  const handleViewLocation = () => {
+    setActiveTab('location');
+    const tabSection = document.getElementById('exhibition-tabs-container');
+    if (tabSection) {
+      tabSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
@@ -192,47 +210,108 @@ export const ExhibitionDetailPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start pb-20">
         {/* Left Main Content (8 Spans) */}
         <div className="lg:col-span-8 space-y-8">
-          {/* Quick Info Strip */}
-          <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 shadow-xs">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] dark:bg-emerald-950/60 text-[#0E8074] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <Calendar className="w-5 h-5" />
-              </div>
+          {/* Quick Info Deck: Date, Time & Venue Location */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+            {/* 1. Date & Duration Card */}
+            <div className="group relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
               <div>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  Date
-                </span>
-                <span className="text-sm font-bold text-[#121B3D] dark:text-slate-100 block mt-0.5">
-                  {formatDisplayDate(exhibition.startDate)} – {formatDisplayDate(exhibition.endDate)}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#1E3FA0] dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/50">
+                    Date
+                  </span>
+                </div>
+
+                <div className="mt-3.5 space-y-1">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Event Dates
+                  </div>
+                  <div className="text-base font-bold text-[#121B3D] dark:text-slate-100 font-sora leading-snug">
+                    {formatDisplayDate(exhibition.startDate)} – {formatDisplayDate(exhibition.endDate)}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Official Expo Schedule
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  {durationDays || 'Multi-Day Event'}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] dark:bg-emerald-950/60 text-[#0E8074] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
+            {/* 2. Time & Operating Hours Card */}
+            <div className="group relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
               <div>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  Time
-                </span>
-                <span className="text-sm font-bold text-[#121B3D] dark:text-slate-100 block mt-0.5">
-                  9:00 AM – 6:00 PM
+                <div className="flex items-center justify-between gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/50">
+                    Time
+                  </span>
+                </div>
+
+                <div className="mt-3.5 space-y-1">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Operating Hours
+                  </div>
+                  <div className="text-base font-bold text-[#121B3D] dark:text-slate-100 font-sora leading-snug">
+                    9:00 AM – 6:00 PM
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Standard Exhibition Hours
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Daily Expo & Visitor Access
                 </span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#E4F5F2] dark:bg-emerald-950/60 text-[#0E8074] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <MapPin className="w-5 h-5" />
-              </div>
+            {/* 3. Venue & City Location Card */}
+            <div className="group relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
               <div>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  Location
-                </span>
-                <span className="text-sm font-bold text-[#121B3D] dark:text-slate-100 block mt-0.5">
-                  {exhibition.venue}, {exhibition.city}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0E8074] dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/50">
+                    Location
+                  </span>
+                </div>
+
+                <div className="mt-3.5 space-y-1">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Venue Location
+                  </div>
+                  <div className="text-base font-bold text-[#121B3D] dark:text-slate-100 font-sora leading-snug" title={`${exhibition.venue}, ${exhibition.city}`}>
+                    {exhibition.venue}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {exhibition.city}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={handleViewLocation}
+                  className="inline-flex items-center gap-1.5 font-bold text-[#0E8074] dark:text-emerald-400 hover:text-[#09574e] dark:hover:text-emerald-300 transition-colors group/link cursor-pointer"
+                >
+                  <span>Interactive Map</span>
+                  <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
+                </button>
               </div>
             </div>
           </div>
@@ -262,7 +341,7 @@ export const ExhibitionDetailPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* UPSCALE TABBED SECTIONS (ABOUT, PRICING, SCHEDULE) */}
           {/* ========================================================================= */}
-          <div className="space-y-6 pt-4">
+          <div id="exhibition-tabs-container" className="space-y-6 pt-4">
             <div className="bg-[#EEF4FC] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl flex overflow-x-auto gap-2 text-xs font-bold">
               <button
                 onClick={() => setActiveTab('overview')}
