@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { hasPageAccess } from '../../config/pageAccess';
 import {
   LayoutDashboard,
   Calendar,
@@ -56,33 +57,62 @@ export const Sidebar: React.FC = () => {
     { to: '/notifications', label: 'Notifications', icon: Bell },
   ];
 
-  const superAdminLinks = [
-    { to: '/super-admin/dashboard', label: 'Platform Overview', icon: ShieldAlert },
-    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
-    { to: '/super-admin/users', label: 'User Governance', icon: Users },
-    { to: '/admin/events', label: 'Exhibitions & Floor Plans', icon: Layers },
-    { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
-    { to: '/admin/bookings', label: 'Bookings & Orders', icon: BookmarkCheck },
-    { to: '/admin/payments', label: 'Payments & Billing', icon: CreditCard },
-    { to: '/reports', label: 'Platform Reports', icon: BarChart3 },
+  // Master catalog of internal staff/admin navigation items mapped to granular page permissions
+  const internalCatalog = [
+    {
+      pageId: 'dashboard',
+      to: isSuperAdmin ? '/super-admin/dashboard' : isAdmin ? '/admin/dashboard' : '/staff/dashboard',
+      label: isSuperAdmin ? 'Platform Overview' : isAdmin ? 'Admin Dashboard' : 'Staff Dashboard',
+      icon: isSuperAdmin ? ShieldAlert : isAdmin ? ShieldCheck : LayoutDashboard,
+      end: true,
+    },
+    {
+      pageId: 'event_register',
+      to: '/admin/events/register',
+      label: 'Event Registration Hub',
+      icon: CalendarPlus,
+    },
+    {
+      pageId: 'governance',
+      to: '/super-admin/users',
+      label: 'User & Team Governance',
+      icon: Users,
+    },
+    {
+      pageId: 'events_floorplans',
+      to: isStaff ? '/staff/events' : '/admin/events',
+      label: isStaff ? 'Exhibitions & Events' : 'Exhibitions & Floor Plans',
+      icon: Layers,
+      end: !isStaff,
+    },
+    {
+      pageId: 'companies',
+      to: '/admin/companies',
+      label: 'Exhibitor Directory',
+      icon: Building,
+    },
+    {
+      pageId: 'bookings',
+      to: '/admin/bookings',
+      label: 'Bookings & Orders',
+      icon: BookmarkCheck,
+    },
+    {
+      pageId: 'payments',
+      to: '/admin/payments',
+      label: 'Payments & Billing',
+      icon: CreditCard,
+    },
+    {
+      pageId: 'reports',
+      to: '/reports',
+      label: isSuperAdmin ? 'Platform Reports' : isAdmin ? 'Business Reports' : 'Operational Reports',
+      icon: BarChart3,
+    },
   ];
 
-  const adminLinks = [
-    { to: '/admin/dashboard', label: 'Admin Dashboard', icon: ShieldCheck },
-    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
-    { to: '/admin/events', label: 'Manage Exhibitions', icon: Layers },
-    { to: '/admin/companies', label: 'Exhibitor Directory', icon: Building },
-    { to: '/admin/bookings', label: 'Bookings & Allocations', icon: BookmarkCheck },
-    { to: '/admin/payments', label: 'Payments & Billing', icon: CreditCard },
-    { to: '/reports', label: 'Business Reports', icon: BarChart3 },
-  ];
-
-  const staffLinks = [
-    { to: '/staff/dashboard', label: 'Staff Dashboard', icon: LayoutDashboard },
-    { to: '/admin/events/register', label: 'Event Registration Hub', icon: CalendarPlus },
-    { to: '/staff/events', label: 'Exhibitions & Events', icon: Layers },
-    { to: '/reports', label: 'Operational Reports', icon: BarChart3 },
-  ];
+  // Filter links dynamically according to effective pageAccess
+  const activeInternalLinks = internalCatalog.filter((item) => hasPageAccess(user, item.pageId));
 
   const getWorkspaceTitle = () => {
     if (isSuperAdmin) return 'Super Admin Hub';
@@ -96,6 +126,32 @@ export const Sidebar: React.FC = () => {
     if (isAdmin) return 'Management Console';
     if (isStaff) return 'Field Operations';
     return null;
+  };
+
+  const getRoleNavStyle = (isActive: boolean) => {
+    if (isSuperAdmin) {
+      return {
+        link: isActive
+          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-l-4 border-amber-500 shadow-2xs font-bold'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-amber-900 dark:hover:text-slate-100',
+        icon: 'text-amber-600 dark:text-amber-400',
+      };
+    }
+    if (isAdmin) {
+      return {
+        link: isActive
+          ? 'bg-[#012970]/10 dark:bg-purple-950/60 text-[#012970] dark:text-purple-300 border-l-4 border-[#9cc542] shadow-2xs font-bold'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#012970] dark:hover:text-slate-100',
+        icon: 'text-[#012970] dark:text-purple-400',
+      };
+    }
+    // Staff
+    return {
+      link: isActive
+        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border-l-4 border-emerald-500 shadow-2xs font-bold'
+        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-emerald-900 dark:hover:text-slate-100',
+      icon: 'text-emerald-600 dark:text-emerald-400',
+    };
   };
 
   return (
@@ -147,84 +203,37 @@ export const Sidebar: React.FC = () => {
 
       {/* Nav Links Container */}
       <div className="flex-1 p-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
-        {/* 1. SUPERADMIN NAVIGATION */}
-        {isSuperAdmin &&
-          superAdminLinks.map((link) => {
+        {/* INTERNAL TEAM NAVIGATION (SUPERADMIN / ADMIN / STAFF) */}
+        {!isClient &&
+          activeInternalLinks.map((link) => {
             const Icon = link.icon;
             return (
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.to === '/admin/events'}
+                end={link.end}
                 title={isCollapsed ? link.label : undefined}
-                className={({ isActive }) =>
-                  `flex items-center rounded-xl text-xs font-semibold transition-all ${
+                className={({ isActive }) => {
+                  const style = getRoleNavStyle(isActive);
+                  return `flex items-center rounded-xl text-xs font-semibold transition-all ${
                     isCollapsed ? 'justify-center p-2.5 mx-auto' : 'gap-3 px-3 py-2.5'
-                  } ${
-                    isActive
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-l-4 border-amber-500 shadow-2xs font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-amber-900 dark:hover:text-slate-100'
-                  }`
-                }
+                  } ${style.link}`;
+                }}
               >
-                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} text-amber-600 dark:text-amber-400 shrink-0`} />
-                {!isCollapsed && <span className="truncate">{link.label}</span>}
+                {({ isActive }) => {
+                  const style = getRoleNavStyle(isActive);
+                  return (
+                    <>
+                      <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} ${style.icon} shrink-0`} />
+                      {!isCollapsed && <span className="truncate">{link.label}</span>}
+                    </>
+                  );
+                }}
               </NavLink>
             );
           })}
 
-        {/* 2. ADMIN NAVIGATION */}
-        {isAdmin &&
-          adminLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.to === '/admin/events'}
-                title={isCollapsed ? link.label : undefined}
-                className={({ isActive }) =>
-                  `flex items-center rounded-xl text-xs font-semibold transition-all ${
-                    isCollapsed ? 'justify-center p-2.5 mx-auto' : 'gap-3 px-3 py-2.5'
-                  } ${
-                    isActive
-                      ? 'bg-[#012970]/10 dark:bg-purple-950/60 text-[#012970] dark:text-purple-300 border-l-4 border-[#9cc542] shadow-2xs font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#012970] dark:hover:text-slate-100'
-                  }`
-                }
-              >
-                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} text-[#012970] dark:text-purple-400 shrink-0`} />
-                {!isCollapsed && <span className="truncate">{link.label}</span>}
-              </NavLink>
-            );
-          })}
-
-        {/* 3. STAFF NAVIGATION */}
-        {isStaff &&
-          staffLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                title={isCollapsed ? link.label : undefined}
-                className={({ isActive }) =>
-                  `flex items-center rounded-xl text-xs font-semibold transition-all ${
-                    isCollapsed ? 'justify-center p-2.5 mx-auto' : 'gap-3 px-3 py-2.5'
-                  } ${
-                    isActive
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border-l-4 border-emerald-500 shadow-2xs font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-emerald-900 dark:hover:text-slate-100'
-                  }`
-                }
-              >
-                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} text-emerald-600 dark:text-emerald-400 shrink-0`} />
-                {!isCollapsed && <span className="truncate">{link.label}</span>}
-              </NavLink>
-            );
-          })}
-
-        {/* 4. CLIENT / EXHIBITOR NAVIGATION */}
+        {/* CLIENT / EXHIBITOR NAVIGATION */}
         {isClient &&
           clientLinks.map((link) => {
             const Icon = link.icon;

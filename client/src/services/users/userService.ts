@@ -1,5 +1,5 @@
 import { apiClient } from '../api/apiClient';
-import { AdminStaffUser, CreateAdminStaffPayload, UpdateUserPayload } from '../../types';
+import { AdminStaffUser, CreateAdminStaffPayload, CreateUserPayload, UpdateUserPayload } from '../../types';
 
 export const userService = {
   getUsers: async (
@@ -33,6 +33,11 @@ export const userService = {
 
   getUserById: async (id: string): Promise<AdminStaffUser> => {
     const res: any = await apiClient.get(`/users/${id}`);
+    return res.data;
+  },
+
+  createUser: async (data: CreateUserPayload): Promise<AdminStaffUser> => {
+    const res: any = await apiClient.post('/users', data);
     return res.data;
   },
 

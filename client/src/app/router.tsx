@@ -151,7 +151,7 @@ export const router = createBrowserRouter([
       {
         path: 'super-admin/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPERADMIN']} requiredPage="dashboard">
             <SuperAdminDashboardPage />
           </ProtectedRoute>
         ),
@@ -159,7 +159,7 @@ export const router = createBrowserRouter([
       {
         path: 'super-admin/users',
         element: (
-          <ProtectedRoute allowedRoles={['SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
             <SuperAdminUsersPage />
           </ProtectedRoute>
         ),
@@ -169,7 +169,7 @@ export const router = createBrowserRouter([
       {
         path: 'staff/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']} requiredPage="dashboard">
             <StaffDashboardPage />
           </ProtectedRoute>
         ),
@@ -177,7 +177,7 @@ export const router = createBrowserRouter([
       {
         path: 'staff/events/register',
         element: (
-          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']} requiredPage="event_register">
             <StaffRegisterEventPage />
           </ProtectedRoute>
         ),
@@ -185,7 +185,7 @@ export const router = createBrowserRouter([
       {
         path: 'staff/events',
         element: (
-          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <StaffEventsPage />
           </ProtectedRoute>
         ),
@@ -195,7 +195,7 @@ export const router = createBrowserRouter([
       {
         path: 'reports',
         element: (
-          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']}>
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="reports">
             <ReportsPage />
           </ProtectedRoute>
         ),
@@ -205,7 +205,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="dashboard">
             <AdminDashboardPage />
           </ProtectedRoute>
         ),
@@ -213,7 +213,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
             <AdminEventsPage />
           </ProtectedRoute>
         ),
@@ -221,7 +221,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/register',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="event_register">
             <AdminEventRegistrationPage />
           </ProtectedRoute>
         ),
@@ -229,7 +229,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/create',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -237,7 +237,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/new',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -245,7 +245,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/builder/new',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -253,7 +253,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/:id/edit',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -261,7 +261,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/events/:id/view',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -269,7 +269,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/exhibitions/create',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -277,7 +277,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/exhibitions/:id/edit',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -285,7 +285,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/exhibitions/:id/view',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
             <AdminExhibitionBuilderPage />
           </ProtectedRoute>
         ),
@@ -293,7 +293,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/companies',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="companies">
             <AdminCompaniesPage />
           </ProtectedRoute>
         ),
@@ -301,7 +301,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/companies/:id',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="companies">
             <AdminCompanyDetailPage />
           </ProtectedRoute>
         ),
@@ -309,7 +309,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/bookings',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="bookings">
             <AdminBookingsPage />
           </ProtectedRoute>
         ),
@@ -317,7 +317,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin/payments',
         element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="payments">
             <AdminPaymentsPage />
           </ProtectedRoute>
         ),

@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { userService } from '../../../services/users/userService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
-import { AdminStaffUser, CreateAdminStaffPayload, UpdateUserPayload, Exhibition } from '../../../types';
+import { AdminStaffUser, CreateAdminStaffPayload, CreateUserPayload, UpdateUserPayload, Exhibition } from '../../../types';
+import { PAGE_ACCESS_ITEMS, DEFAULT_ROLE_PAGE_ACCESS, getUserEffectivePageAccess } from '../../../config/pageAccess';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
@@ -23,7 +24,7 @@ import {
   Phone,
   Mail,
   Layers,
-  Sparkles,
+  TrendingUp,
   Building2,
   Calendar,
   Globe2,
@@ -31,6 +32,9 @@ import {
   Shield,
   Briefcase,
   AlertCircle,
+  CheckSquare,
+  Square,
+  Check,
 } from 'lucide-react';
 
 export const SuperAdminUsersPage: React.FC = () => {
@@ -66,8 +70,11 @@ export const SuperAdminUsersPage: React.FC = () => {
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createRole, setCreateRole] = useState<'ADMIN' | 'STAFF'>('ADMIN');
+  const [createUserRole, setCreateUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF'>('ADMIN');
+  const [createUserPages, setCreateUserPages] = useState<string[]>(DEFAULT_ROLE_PAGE_ACCESS.ADMIN);
   const [editUser, setEditUser] = useState<AdminStaffUser | null>(null);
+  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT'>('ADMIN');
+  const [editUserPages, setEditUserPages] = useState<string[]>([]);
   const [statusTargetUser, setStatusTargetUser] = useState<AdminStaffUser | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<AdminStaffUser | null>(null);
 
@@ -197,8 +204,9 @@ export const SuperAdminUsersPage: React.FC = () => {
     setDetailsError(null);
   };
 
-  const handleOpenCreate = (role: 'ADMIN' | 'STAFF') => {
-    setCreateRole(role);
+  const handleOpenCreate = (initialRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' = 'ADMIN') => {
+    setCreateUserRole(initialRole);
+    setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[initialRole] || [])]);
     setCreateForm({
       name: '',
       email: '',
@@ -210,18 +218,29 @@ export const SuperAdminUsersPage: React.FC = () => {
     setCreateModalOpen(true);
   };
 
+  const handleCreateRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF') => {
+    setCreateUserRole(newRole);
+    setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || [])]);
+  };
+
+  const handleToggleCreatePage = (pageId: string) => {
+    setCreateUserPages((prev) =>
+      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
+    );
+  };
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setActionLoading(true);
-      if (createRole === 'ADMIN') {
-        await userService.createAdmin(createForm);
-      } else {
-        await userService.createStaff(createForm);
-      }
+      await userService.createUser({
+        ...createForm,
+        role: createUserRole,
+        pageAccess: createUserPages,
+      });
       setFeedbackMsg({
         type: 'success',
-        text: `${createRole === 'ADMIN' ? 'Admin' : 'Staff'} account created successfully!`,
+        text: `${createUserRole === 'SUPERADMIN' ? 'Super Admin' : createUserRole === 'ADMIN' ? 'Admin' : 'Staff'} user account created successfully with custom page access!`,
       });
       setCreateModalOpen(false);
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
@@ -237,6 +256,9 @@ export const SuperAdminUsersPage: React.FC = () => {
 
   const handleOpenEdit = (user: AdminStaffUser) => {
     setEditUser(user);
+    const userRole = (user.role as 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') || 'CLIENT';
+    setEditUserRole(userRole);
+    setEditUserPages(getUserEffectivePageAccess(user));
     setEditForm({
       name: user.name,
       phone: user.phone || '',
@@ -245,12 +267,27 @@ export const SuperAdminUsersPage: React.FC = () => {
     setFeedbackMsg(null);
   };
 
+  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') => {
+    setEditUserRole(newRole);
+    setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || ['dashboard'])]);
+  };
+
+  const handleToggleEditPage = (pageId: string) => {
+    setEditUserPages((prev) =>
+      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
+    );
+  };
+
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
     try {
       setActionLoading(true);
-      await userService.updateUser(editUser.id, editForm);
+      await userService.updateUser(editUser.id, {
+        ...editForm,
+        role: editUserRole,
+        pageAccess: editUserPages,
+      });
       setFeedbackMsg({
         type: 'success',
         text: `User "${editUser.name}" updated successfully!`,
@@ -375,26 +412,16 @@ export const SuperAdminUsersPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Create Buttons */}
+        {/* Single Add User Button */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="primary"
             size="sm"
             leftIcon={<UserPlus className="w-4 h-4" />}
             onClick={() => handleOpenCreate('ADMIN')}
-            className="bg-purple-600 hover:bg-purple-700 text-white shadow-2xs font-bold"
+            className="bg-[#09539b] hover:bg-[#07427d] text-white shadow-sm font-bold px-4 py-2"
           >
-            Create Admin
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<UserPlus className="w-4 h-4" />}
-            onClick={() => handleOpenCreate('STAFF')}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs font-bold"
-          >
-            Create Staff
+            Add User
           </Button>
         </div>
       </div>
@@ -610,7 +637,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                   <th className="px-4 py-3.5">Role</th>
                   <th className="px-4 py-3.5">Account Status</th>
                   <th className="px-4 py-3.5">Company / Org</th>
-                  <th className="px-4 py-3.5">Access Scope / Event</th>
+                  <th className="px-4 py-3.5">Page Access & Scope</th>
                   <th className="px-4 py-3.5">Created Date</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
@@ -702,26 +729,44 @@ export const SuperAdminUsersPage: React.FC = () => {
                       )}
                     </td>
 
-                    {/* 5. Access Scope / Event Association */}
+                    {/* 5. Page Access & Scope */}
                     <td className="px-4 py-3.5">
-                      {user.role === 'SUPERADMIN' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-                          <Globe2 className="w-3 h-3 text-amber-500" />
-                          Platform-Wide Governance
-                        </span>
-                      ) : user.isGlobal ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800">
-                          <Globe2 className="w-3 h-3 text-purple-500" />
-                          Platform Administration
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                          {user.eventAssociation ||
-                            (user._count?.createdExhibitions
-                              ? `${user._count.createdExhibitions} Event(s) Created`
-                              : 'Standard Scope')}
-                        </span>
-                      )}
+                      <div className="space-y-1">
+                        {user.role === 'SUPERADMIN' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                            <Shield className="w-3 h-3 text-amber-500" />
+                            All 8 Pages (Super Admin)
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                getUserEffectivePageAccess(user).length === PAGE_ACCESS_ITEMS.length
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                              }`}
+                              title={getUserEffectivePageAccess(user).join(', ')}
+                            >
+                              <ShieldCheck className="w-3 h-3 text-blue-500" />
+                              {getUserEffectivePageAccess(user).length}/8 Pages
+                            </span>
+                            {getUserEffectivePageAccess(user).includes('governance') && user.role !== 'SUPERADMIN' && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300">
+                                +Governance
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {user.eventAssociation ? (
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            {user.eventAssociation}
+                          </p>
+                        ) : user._count?.createdExhibitions ? (
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            {user._count.createdExhibitions} Event(s) Created
+                          </p>
+                        ) : null}
+                      </div>
                     </td>
 
                     {/* 6. Created Date */}
@@ -964,10 +1009,10 @@ export const SuperAdminUsersPage: React.FC = () => {
 
             {/* TAB 2: Access & Permissions */}
             {detailsSection === 'access' && (
-              <div className="space-y-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+              <div className="space-y-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                 <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-purple-600" />
-                  Authorization Level & Server-Enforced Capabilities
+                  Authorization Level & Configured Page Access
                 </h4>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-1">
                   <p className="font-bold text-slate-800 dark:text-slate-200">
@@ -977,11 +1022,60 @@ export const SuperAdminUsersPage: React.FC = () => {
                     {viewDetailsUser.role === 'SUPERADMIN'
                       ? 'Highest platform level access. Can govern all accounts, manage exhibitions, create administrators, and view executive financial analytics.'
                       : viewDetailsUser.role === 'ADMIN'
-                      ? 'Exhibition administrator. Can configure canvas floor plans, pricing tiers, and audit reservations across assigned events.'
+                      ? 'Exhibition administrator. Can configure visual floor plans, pricing tiers, and audit reservations across assigned events.'
                       : viewDetailsUser.role === 'STAFF'
-                      ? 'Operations staff. Can submit event proposals (Draft state) and review operational reporting.'
+                      ? 'Operations staff. Can submit event proposals (Draft state), manage bookings, and coordinate registered exhibitors.'
                       : 'Client exhibitor. Can reserve floor plan stalls and manage organization bookings.'}
                   </p>
+                </div>
+
+                {/* Page Access Rights Matrix */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                      Platform Page Access Rights ({getUserEffectivePageAccess(viewDetailsUser).length} of {PAGE_ACCESS_ITEMS.length} Pages Granted)
+                    </h5>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {PAGE_ACCESS_ITEMS.map((page) => {
+                      const isGranted = getUserEffectivePageAccess(viewDetailsUser).includes(page.id);
+                      return (
+                        <div
+                          key={page.id}
+                          className={`p-2.5 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+                            isGranted
+                              ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/60'
+                              : 'bg-slate-50/60 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700 opacity-60'
+                          }`}
+                        >
+                          <div className="mt-0.5 shrink-0">
+                            {isGranted ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                                {page.label}
+                              </span>
+                              <span
+                                className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                                  isGranted
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                                    : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                                }`}
+                              >
+                                {isGranted ? 'Granted' : 'Restricted'}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">{page.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -1114,7 +1208,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                 {/* 1. Attributed Bookings */}
                 <div>
                   <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5 mb-2">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
                     Sales & Bookings Attributed ({viewDetailsUser.attributedBookings?.length || 0})
                   </h4>
                   {!viewDetailsUser.attributedBookings || viewDetailsUser.attributedBookings.length === 0 ? (
@@ -1220,90 +1314,206 @@ export const SuperAdminUsersPage: React.FC = () => {
         ) : null}
       </Modal>
 
-      {/* 5. CREATE USER MODAL */}
+      {/* 5. ADD USER MODAL */}
       <Modal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        title={`Create New ${createRole === 'ADMIN' ? 'Admin' : 'Operations Staff'} User`}
+        title="Add New Platform User"
+        maxWidth="2xl"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px]">
-            {createRole === 'ADMIN' ? (
+        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+          {/* Role Selection */}
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              User Role *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['ADMIN', 'STAFF', 'SUPERADMIN'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => handleCreateRoleChange(r)}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    createUserRole === r
+                      ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    {r === 'SUPERADMIN' ? (
+                      <Shield className="w-3.5 h-3.5 text-amber-500" />
+                    ) : r === 'ADMIN' ? (
+                      <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                    ) : (
+                      <Users className="w-3.5 h-3.5 text-emerald-500" />
+                    )}
+                    <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
+                    {r === 'SUPERADMIN' ? 'Full Platform Control' : r === 'ADMIN' ? 'Event & Floor Plans' : 'Bookings & Operations'}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px]">
+            {createUserRole === 'SUPERADMIN' ? (
               <p>
-                <strong>Admin User:</strong> Has permissions to manage exhibitions, configure visual floor plans, price stalls, and monitor bookings.
+                <strong>Super Admin:</strong> Highest platform level. Granted access to all 8 platform pages by default, including Platform Reports and User Governance.
+              </p>
+            ) : createUserRole === 'ADMIN' ? (
+              <p>
+                <strong>Admin:</strong> Manages exhibitions, floor plans, bookings, payments, and exhibitors. By default, access to Reports and User Governance is restricted unless granted below.
               </p>
             ) : (
               <p>
-                <strong>Operations Staff:</strong> Can register new exhibitions (submitted in Draft state for Admin review) and view operational event reports.
+                <strong>Staff:</strong> Operations team. By default has access to Dashboard, Event Registration Hub, Exhibitor Directory, Bookings, and Payments. Additional pages can be delegated below.
               </p>
             )}
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Full Name *
-            </label>
-            <Input
-              type="text"
-              required
-              placeholder="e.g. John Doe"
-              value={createForm.name}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Full Name *
+              </label>
+              <Input
+                type="text"
+                required
+                placeholder="e.g. John Doe"
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Corporate Email Address *
+              </label>
+              <Input
+                type="email"
+                required
+                placeholder="name@buoyantmedia.com"
+                value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Corporate Email Address *
-            </label>
-            <Input
-              type="email"
-              required
-              placeholder="name@buoyantmedia.com"
-              value={createForm.email}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Initial Password * (min 8 chars)
+              </label>
+              <Input
+                type="password"
+                required
+                minLength={8}
+                placeholder="••••••••••••"
+                value={createForm.password}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Phone Number (Optional)
+              </label>
+              <Input
+                type="text"
+                placeholder="+91 98765 43210"
+                value={createForm.phone || ''}
+                onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Staff SP Code (Optional)
+              </label>
+              <Input
+                type="text"
+                placeholder={createUserRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
+                value={createForm.spcode || ''}
+                onChange={(e) => setCreateForm({ ...createForm, spcode: e.target.value })}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Initial Password * (min 8 characters)
-            </label>
-            <Input
-              type="password"
-              required
-              minLength={8}
-              placeholder="••••••••••••"
-              value={createForm.password}
-              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-            />
-          </div>
+          {/* Granular Page Access Rights Checkboxes */}
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                  Configured Page Access Rights ({createUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                </label>
+                <p className="text-[10px] text-slate-400">
+                  Select which pages this user can view and access in their workspace navigation.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCreateUserPages([...DEFAULT_ROLE_PAGE_ACCESS[createUserRole]])}
+                  className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 transition-colors"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
+                  className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors"
+                >
+                  Select All
+                </button>
+              </div>
+            </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Phone Number (Optional)
-            </label>
-            <Input
-              type="text"
-              placeholder="+91 98765 43210"
-              value={createForm.phone || ''}
-              onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Unique Staff SP Code (Optional)
-            </label>
-            <Input
-              type="text"
-              placeholder={createRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
-              value={createForm.spcode || ''}
-              onChange={(e) => setCreateForm({ ...createForm, spcode: e.target.value })}
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              Used for event attribution and sales representative recognition.
-            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              {PAGE_ACCESS_ITEMS.map((page) => {
+                const isSelected = createUserPages.includes(page.id);
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => handleToggleCreatePage(page.id)}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs truncate">
+                          {page.label}
+                        </span>
+                        {page.id === 'governance' && (
+                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            Super Admin
+                          </span>
+                        )}
+                        {page.id === 'reports' && (
+                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            Reports
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                        {page.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -1320,9 +1530,9 @@ export const SuperAdminUsersPage: React.FC = () => {
               variant="primary"
               size="sm"
               isLoading={actionLoading}
-              className={createRole === 'ADMIN' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+              className="bg-[#09539b] hover:bg-[#07427d] text-white font-bold"
             >
-              Create {createRole === 'ADMIN' ? 'Admin' : 'Staff'}
+              Add User
             </Button>
           </div>
         </form>
@@ -1333,42 +1543,145 @@ export const SuperAdminUsersPage: React.FC = () => {
         isOpen={!!editUser}
         onClose={() => setEditUser(null)}
         title={`Edit User: ${editUser?.name}`}
+        maxWidth="2xl"
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+          {/* Role Selection */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Full Name
+              User Role
             </label>
-            <Input
-              type="text"
-              required
-              value={editForm.name || ''}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-            />
+            <div className="grid grid-cols-4 gap-2">
+              {(['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => handleEditRoleChange(r)}
+                  className={`p-2 rounded-xl border text-center transition-all ${
+                    editUserRole === r
+                      ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="text-xs font-bold block">
+                    {r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : r === 'STAFF' ? 'Staff' : 'Client'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Phone Number
-            </label>
-            <Input
-              type="text"
-              placeholder="+91 98765 43210"
-              value={editForm.phone || ''}
-              onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Full Name *
+              </label>
+              <Input
+                type="text"
+                required
+                value={editForm.name || ''}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Phone Number
+              </label>
+              <Input
+                type="text"
+                placeholder="+91 98765 43210"
+                value={editForm.phone || ''}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Unique Staff SP Code
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. B001, ST01"
+                value={editForm.spcode || ''}
+                onChange={(e) => setEditForm({ ...editForm, spcode: e.target.value })}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Unique Staff SP Code
-            </label>
-            <Input
-              type="text"
-              placeholder="e.g. B001, ST01"
-              value={editForm.spcode || ''}
-              onChange={(e) => setEditForm({ ...editForm, spcode: e.target.value })}
-            />
+          {/* Granular Page Access Rights Checkboxes */}
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                  Configured Page Access Rights ({editUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                </label>
+                <p className="text-[10px] text-slate-400">
+                  Custom page permissions for this user account.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
+                  className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 transition-colors"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
+                  className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors"
+                >
+                  Select All
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              {PAGE_ACCESS_ITEMS.map((page) => {
+                const isSelected = editUserPages.includes(page.id);
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => handleToggleEditPage(page.id)}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs truncate">
+                          {page.label}
+                        </span>
+                        {page.id === 'governance' && (
+                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            Super Admin
+                          </span>
+                        )}
+                        {page.id === 'reports' && (
+                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            Reports
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                        {page.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
