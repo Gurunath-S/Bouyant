@@ -5,6 +5,9 @@ import { companyService } from '../../../services/companies/companyService';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { Textarea } from '../../../components/ui/Textarea';
+import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation } from '../../../data/indianStatesCities';
 import { Modal } from '../../../components/ui/Modal';
 import { formatDisplayDate } from '../../../utils/date';
 import {
@@ -52,6 +55,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
     address: '',
     city: '',
     state: '',
+    country: 'India',
     pinCode: '',
     gstNumber: '',
     industry: 'Technology',
@@ -496,10 +500,11 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                     GST Number (15 chars)
                   </label>
                   <Input
-                    maxLength={15}
                     placeholder="27AAAAA0000A1Z5"
                     value={newCompany.gstNumber}
-                    onChange={(e) => setNewCompany({ ...newCompany, gstNumber: e.target.value.toUpperCase() })}
+                    maxLength={15}
+                    className="font-mono uppercase"
+                    onChange={(e) => setNewCompany({ ...newCompany, gstNumber: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })}
                   />
                 </div>
                 <div>
@@ -520,9 +525,10 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   <Input
                     required
                     type="tel"
+                    maxLength={10}
                     placeholder="10-digit mobile"
                     value={newCompany.mobile}
-                    onChange={(e) => setNewCompany({ ...newCompany, mobile: e.target.value })}
+                    onChange={(e) => setNewCompany({ ...newCompany, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   />
                 </div>
                 <div>
@@ -537,23 +543,39 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Corporate Address
-                  </label>
-                  <Input
+                  <Textarea
+                    label="Corporate Address"
+                    rows={2}
                     placeholder="Street / Industrial Zone"
                     value={newCompany.address}
                     onChange={(e) => setNewCompany({ ...newCompany, address: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    City
-                  </label>
-                  <Input
-                    placeholder="City"
-                    value={newCompany.city}
-                    onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })}
+                  <SearchableCombobox
+                    label="Country"
+                    value={newCompany.country ?? ''}
+                    onChange={(val) => setNewCompany({ ...newCompany, country: val })}
+                    options={ALL_COUNTRIES}
+                    placeholder="Select or type country..."
+                  />
+                </div>
+                <div>
+                  <SearchableCombobox
+                    label="State / Province"
+                    value={newCompany.state ?? ''}
+                    onChange={(val) => setNewCompany({ ...newCompany, state: val })}
+                    options={getStatesForCountry(newCompany.country)}
+                    placeholder="Select or type state..."
+                  />
+                </div>
+                <div>
+                  <SearchableCombobox
+                    label="City"
+                    value={newCompany.city ?? ''}
+                    onChange={(val) => setNewCompany({ ...newCompany, city: val })}
+                    options={getCitiesForLocation(newCompany.country, newCompany.state)}
+                    placeholder="Select or type city..."
                   />
                 </div>
               </div>

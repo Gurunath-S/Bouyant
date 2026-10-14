@@ -4,6 +4,9 @@ import { companyService } from '../../../services/companies/companyService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { Textarea } from '../../../components/ui/Textarea';
+import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation } from '../../../data/indianStatesCities';
 import { Building2, CheckCircle2, Save, FileText } from 'lucide-react';
 
 export const CompanyProfilePage: React.FC = () => {
@@ -16,8 +19,21 @@ export const CompanyProfilePage: React.FC = () => {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm();
+
+  const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedCountry = watch('country');
+
+  const availableStates = React.useMemo(() => {
+    return getStatesForCountry(watchedCountry);
+  }, [watchedCountry]);
+
+  const availableCities = React.useMemo(() => {
+    return getCitiesForLocation(watchedCountry, watchedState);
+  }, [watchedCountry, watchedState]);
 
   useEffect(() => {
     if (user?.company) {
@@ -163,14 +179,23 @@ export const CompanyProfilePage: React.FC = () => {
               error={errors.designation?.message as string}
             />
             <Input
-              label="Mobile Number"
-              placeholder="+1 (555) 019-2834"
-              {...register('mobile', { required: 'Mobile number is required' })}
+              label="Mobile Number (10 digits)"
+              placeholder="9876543210"
+              maxLength={10}
+              type="tel"
               error={errors.mobile?.message as string}
+              {...register('mobile', {
+                required: 'Mobile number is required',
+                onChange: (e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  e.target.value = digits;
+                  setValue('mobile', digits, { shouldValidate: true });
+                },
+              })}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input
               label="Corporate Email"
               type="email"
@@ -178,23 +203,59 @@ export const CompanyProfilePage: React.FC = () => {
               {...register('email', { required: 'Email is required' })}
               error={errors.email?.message as string}
             />
-            <Input
+            <SearchableCombobox
+              label="Country"
+              required
+              value={watchedCountry ?? ''}
+              onChange={(val) => {
+                setValue('country', val, { shouldValidate: true });
+              }}
+              options={ALL_COUNTRIES}
+              placeholder="Select or type Country..."
+              error={errors.country?.message as string}
+            />
+            <SearchableCombobox
+              label="State / Province"
+              required
+              value={watchedState ?? ''}
+              onChange={(val) => {
+                setValue('state', val, { shouldValidate: true });
+              }}
+              options={availableStates}
+              placeholder="Select or type State..."
+              error={errors.state?.message as string}
+            />
+            <SearchableCombobox
               label="City"
-              placeholder="San Francisco"
-              {...register('city', { required: 'City is required' })}
+              required
+              value={watchedCity ?? ''}
+              onChange={(val) => {
+                setValue('city', val, { shouldValidate: true });
+              }}
+              options={availableCities}
+              placeholder="Select or type City..."
               error={errors.city?.message as string}
             />
             <Input
-              label="State / Province"
-              placeholder="California"
-              {...register('state', { required: 'State is required' })}
-              error={errors.state?.message as string}
+              label="PIN Code (6 digits)"
+              placeholder="400051"
+              maxLength={6}
+              type="tel"
+              {...register('pinCode', {
+                onChange: (e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  e.target.value = digits;
+                  setValue('pinCode', digits);
+                },
+              })}
+              error={errors.pinCode?.message as string}
             />
           </div>
 
-          <Input
+          <Textarea
             label="Full Registered Office Address"
-            placeholder="100 Tech Park Way, Suite 400"
+            rows={3}
+            placeholder="Enter complete building name, street address, and area..."
             {...register('address', { required: 'Address is required' })}
             error={errors.address?.message as string}
           />
@@ -209,12 +270,28 @@ export const CompanyProfilePage: React.FC = () => {
             <Input
               label="GST Registration Number"
               placeholder="27AAACT29381Z6"
-              {...register('gstNumber')}
+              maxLength={15}
+              className="font-mono uppercase tracking-wider"
+              {...register('gstNumber', {
+                onChange: (e) => {
+                  const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+                  e.target.value = upper;
+                  setValue('gstNumber', upper);
+                },
+              })}
             />
             <Input
               label="PAN Number"
               placeholder="AAACT29381"
-              {...register('panNumber')}
+              maxLength={10}
+              className="font-mono uppercase tracking-wider"
+              {...register('panNumber', {
+                onChange: (e) => {
+                  const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                  e.target.value = upper;
+                  setValue('panNumber', upper);
+                },
+              })}
             />
           </div>
         </div>
