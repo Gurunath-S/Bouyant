@@ -20,7 +20,6 @@ import {
   ExternalLink,
   Eye,
   MapPin,
-  Sparkles,
   AlertCircle,
   X,
 } from 'lucide-react';
@@ -747,7 +746,7 @@ export const AdminCompaniesPage: React.FC = () => {
               return (
                 <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
                   <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <BookmarkCheck className="w-3.5 h-3.5 text-purple-600" />
                     <span>{selected.title}</span>
                   </div>
                   <div className="text-[11px] text-purple-700 dark:text-purple-300">

@@ -3,20 +3,27 @@ import { useSearchParams } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Eye, Search, Filter, RefreshCw } from 'lucide-react';
+import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download } from 'lucide-react';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const { user } = useAuthStore();
+  const isStaff = user?.role === 'STAFF';
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [totalBookings, setTotalBookings] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
+  const [payingBooking, setPayingBooking] = useState<Booking | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -24,7 +31,10 @@ export const AdminBookingsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
-  const [registrarFilter, setRegistrarFilter] = useState('ALL');
+  const [registrarFilter, setRegistrarFilter] = useState(
+    searchParams.get('registrar') || (isStaff ? 'STAFF' : 'ALL')
+  );
+  const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
 
   // Request ID ref to protect against out-of-order race conditions
   const bookingsReqIdRef = useRef(0);
@@ -44,6 +54,7 @@ export const AdminBookingsPage: React.FC = () => {
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         exhibitionId: exhibitionFilter !== 'ALL' ? exhibitionFilter : undefined,
         registeredByRole: registrarFilter !== 'ALL' ? registrarFilter : undefined,
+        hasBalanceOnly: balanceOnlyFilter || undefined,
       });
 
       if (reqId === bookingsReqIdRef.current) {
@@ -63,7 +74,7 @@ export const AdminBookingsPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [currentPage, pageSize, searchQuery, statusFilter, exhibitionFilter, registrarFilter]);
+  }, [currentPage, pageSize, searchQuery, statusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   useEffect(() => {
     fetchBookings();
@@ -71,7 +82,7 @@ export const AdminBookingsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, exhibitionFilter, registrarFilter]);
+  }, [searchQuery, statusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   return (
     <div className="space-y-6">
@@ -157,6 +168,16 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="STAFF">Staff Registered</option>
               <option value="CLIENT">Client Direct Online</option>
             </select>
+
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100/50">
+              <input
+                type="checkbox"
+                checked={balanceOnlyFilter}
+                onChange={(e) => setBalanceOnlyFilter(e.target.checked)}
+                className="rounded text-amber-600 focus:ring-amber-500"
+              />
+              <span>Pending Balance Only</span>
+            </label>
           </div>
         </div>
 
@@ -192,8 +213,8 @@ export const AdminBookingsPage: React.FC = () => {
                     <th className="py-3.5 px-4">Stall(s)</th>
                     <th className="py-3.5 px-4">Exhibitor Company</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Grand Total</th>
-                    <th className="py-3.5 px-4 text-center">Action</th>
+                    <th className="py-3.5 px-4 text-right">Value & Balance</th>
+                    <th className="py-3.5 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -225,22 +246,63 @@ export const AdminBookingsPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <BookingStatusBadge status={b.status} />
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
-                        ₹{Number(b.grandTotal).toLocaleString()} INR
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-extrabold text-slate-900 dark:text-slate-100 block">
+                          ₹{Number(b.grandTotal).toLocaleString()}
+                        </span>
+                        {Number(b.balanceAmount) > 0 ? (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block mt-0.5">
+                            Due: ₹{Number(b.balanceAmount).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                            Fully Paid
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInspectedBooking(b);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
-                          title="Inspect full booking details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInspectedBooking(b);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
+                            title="Inspect full booking details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
+                          </button>
+
+                          {Number(b.balanceAmount) > 0 && b.status !== 'CANCELLED' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPayingBooking(b);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded transition-colors"
+                              title="Collect / Record pending balance"
+                            >
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Pay</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadInvoicePdf(b);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded transition-colors"
+                            title="Download Tax Invoice / Bill"
+                          >
+                            <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                            <span>Bill</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -270,6 +332,20 @@ export const AdminBookingsPage: React.FC = () => {
         onClose={() => setInspectedBooking(null)}
         onRefresh={fetchBookings}
       />
+
+      {/* Complete Payment Modal for Pending Balance */}
+      {payingBooking && (
+        <CompletePaymentModal
+          booking={payingBooking}
+          isOpen={!!payingBooking}
+          onClose={() => setPayingBooking(null)}
+          onSuccess={() => {
+            setPayingBooking(null);
+            fetchBookings();
+          }}
+          isAdminMode={true}
+        />
+      )}
     </div>
   );
 };

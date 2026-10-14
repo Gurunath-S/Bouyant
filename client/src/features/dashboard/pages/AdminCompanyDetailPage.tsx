@@ -32,6 +32,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 export const AdminCompanyDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1079,17 +1080,14 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                               <span className="font-mono font-bold text-slate-900 dark:text-slate-100 block">
                                                 ₹{Number(inv.grandTotal || 0).toLocaleString()}
                                               </span>
-                                              {inv.pdfUrl && (
-                                                <a
-                                                  href={inv.pdfUrl}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 hover:underline mt-0.5"
-                                                >
-                                                  <Download className="w-2.5 h-2.5" />
-                                                  <span>Download PDF</span>
-                                                </a>
-                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => downloadInvoicePdf(inv.id || inv.invoiceNumber, `Invoice-${inv.invoiceNumber || 'bill'}.pdf`)}
+                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline mt-0.5"
+                                              >
+                                                <Download className="w-2.5 h-2.5" />
+                                                <span>Download PDF</span>
+                                              </button>
                                             </div>
                                           </div>
                                         ))}
@@ -1286,17 +1284,14 @@ export const AdminCompanyDetailPage: React.FC = () => {
                         <span className="font-mono font-bold text-slate-900 dark:text-slate-100 block">
                           ₹{Number(inv.grandTotal || 0).toLocaleString()}
                         </span>
-                        {inv.pdfUrl && (
-                          <a
-                            href={inv.pdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 hover:underline"
-                          >
-                            <Download className="w-2.5 h-2.5" />
-                            <span>Download PDF</span>
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => downloadInvoicePdf(inv.id || inv.invoiceNumber, `Invoice-${inv.invoiceNumber || 'bill'}.pdf`)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                          <Download className="w-2.5 h-2.5" />
+                          <span>Download PDF</span>
+                        </button>
                       </div>
                     </div>
                   ))}

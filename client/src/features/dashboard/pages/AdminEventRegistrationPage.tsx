@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Exhibition, Booking } from '../../../types';
+import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibitorModal';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import {
   CalendarPlus,
@@ -23,11 +26,16 @@ import {
   TrendingUp,
   Share2,
   Check,
+  Users,
+  CreditCard,
+  Download,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
+  const { user } = useAuthStore();
+  const isStaff = user?.role === 'STAFF';
 
-  // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Admin Registered Data Separately)
+  // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Registered Data Separately)
   const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>('EVENTS');
 
   // Exhibitions & Bookings Data
@@ -40,15 +48,18 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [eventSearch, setEventSearch] = useState('');
   const [eventStatusFilter, setEventStatusFilter] = useState('PUBLISHED');
 
-  // Filters for Admin Data Tab
+  // Filters for Registered Data Tab
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
+  const [registrarFilter, setRegistrarFilter] = useState<string>(isStaff ? 'STAFF' : 'ADMIN');
+  const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
   const [bookingPage, setBookingPage] = useState(1);
   const BOOKING_PAGE_SIZE = 10;
 
   // Modal & Share States
   const [selectedExhibitionForReg, setSelectedExhibitionForReg] = useState<Exhibition | null>(null);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
+  const [payingBooking, setPayingBooking] = useState<Booking | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
 
@@ -90,13 +101,21 @@ export const AdminEventRegistrationPage: React.FC = () => {
     }
   }
 
-  async function fetchAdminBookings() {
+  async function fetchRegisteredBookings(filterRole?: string, balanceOnly?: boolean) {
     try {
       setLoadingBookings(true);
-      const res = await bookingService.getAllBookings({ registeredByRole: 'ADMIN' });
+      const roleToFetch = filterRole ?? registrarFilter;
+      const params: any = {};
+      if (roleToFetch !== 'ALL') {
+        params.registeredByRole = roleToFetch;
+      }
+      if (balanceOnly ?? balanceOnlyFilter) {
+        params.hasBalanceOnly = true;
+      }
+      const res = await bookingService.getAllBookings(params);
       setAdminBookings(res.data || []);
     } catch (err) {
-      console.error('Failed to load admin bookings:', err);
+      console.error('Failed to load registered bookings:', err);
     } finally {
       setLoadingBookings(false);
     }
@@ -104,12 +123,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
   useEffect(() => {
     fetchExhibitions();
-    fetchAdminBookings();
+    fetchRegisteredBookings(isStaff ? 'STAFF' : 'ADMIN', false);
   }, []);
 
   const handleRefreshAll = () => {
     fetchExhibitions();
-    fetchAdminBookings();
+    fetchRegisteredBookings();
   };
 
   const handleRegistrationSuccess = (newBooking: Booking) => {
@@ -117,7 +136,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
       `Registration created successfully! Reference: ${newBooking.bookingReference}. Stalls allocated.`
     );
     fetchExhibitions();
-    fetchAdminBookings();
+    fetchRegisteredBookings();
     setActiveTab('ADMIN_DATA');
     setTimeout(() => setSuccessBanner(null), 8000);
   };
@@ -217,17 +236,19 @@ export const AdminEventRegistrationPage: React.FC = () => {
             Refresh
           </Button>
 
-          <Link to="/admin/events/new">
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
-            >
-              Create New Exhibition
-            </Button>
-          </Link>
+          {!isStaff && (
+            <Link to="/admin/events/new">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
+              >
+                Create New Exhibition
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -260,27 +281,31 @@ export const AdminEventRegistrationPage: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-              Admin Registrations
+              {isStaff ? 'Staff Registrations' : 'Direct Registrations'}
             </span>
-            <ShieldCheck className="w-4 h-4 text-indigo-500" />
+            {isStaff ? <Users className="w-4 h-4 text-indigo-500" /> : <ShieldCheck className="w-4 h-4 text-indigo-500" />}
           </div>
           <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-2">
             {totalAdminRegistrations}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Direct admin allocations</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {isStaff ? 'My assisted registrations' : 'Admin & staff registrations'}
+          </p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-              Admin Allocation Value
+              {isStaff ? 'Staff Allocation Value' : 'Allocation Value'}
             </span>
             <TrendingUp className="w-4 h-4 text-purple-500" />
           </div>
           <p className="text-2xl font-black text-purple-700 dark:text-purple-300 font-mono mt-2 truncate">
             ₹{totalAdminValue.toLocaleString()}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Total booked revenue</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {isStaff ? 'Revenue generated by you' : 'Total booked revenue'}
+          </p>
         </div>
       </div>
 
@@ -328,8 +353,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Admin Registered Data</span>
+          {isStaff ? <Users className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+          <span>{isStaff ? 'My Registered Exhibitors' : 'Registered Exhibitor Data'}</span>
           <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-[10px] font-mono font-bold">
             {adminBookings.length}
           </span>
@@ -522,12 +547,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: ADMIN REGISTERED DATA DISPLAY SEPARATELY */}
+      {/* TAB 2: REGISTERED DATA DISPLAY (ADMIN & STAFF) */}
       {activeTab === 'ADMIN_DATA' && (
         <div className="space-y-4">
-          {/* Filters for Admin Registered Data */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="relative w-full sm:w-80">
+          {/* Filters for Admin & Staff Registered Data */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
@@ -538,33 +563,68 @@ export const AdminEventRegistrationPage: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-xs font-bold text-slate-500 shrink-0">Exhibition:</label>
-              <select
-                value={bookingExhibitionFilter}
-                onChange={(e) => setBookingExhibitionFilter(e.target.value)}
-                className="w-full sm:w-auto text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold"
-              >
-                <option value="ALL">All Exhibitions</option>
-                {exhibitions.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.title} ({ex.eventCode}-{ex.edition})
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {!isStaff && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 shrink-0">Registrar:</label>
+                  <select
+                    value={registrarFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRegistrarFilter(val);
+                      fetchRegisteredBookings(val);
+                    }}
+                    className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="ADMIN">Admin Registered</option>
+                    <option value="STAFF">Staff Registered</option>
+                    <option value="ALL">All Roles</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-500 shrink-0">Exhibition:</label>
+                <select
+                  value={bookingExhibitionFilter}
+                  onChange={(e) => setBookingExhibitionFilter(e.target.value)}
+                  className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200 max-w-[200px] truncate"
+                >
+                  <option value="ALL">All Exhibitions</option>
+                  {exhibitions.map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.title} ({ex.eventCode}-{ex.edition})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100/50">
+                <input
+                  type="checkbox"
+                  checked={balanceOnlyFilter}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setBalanceOnlyFilter(val);
+                    fetchRegisteredBookings(undefined, val);
+                  }}
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span>Pending Balance Only</span>
+              </label>
             </div>
           </div>
 
           {loadingBookings ? (
-            <div className="p-12 text-center text-xs text-slate-400">Loading admin registered data...</div>
+            <div className="p-12 text-center text-xs text-slate-400">Loading registered exhibitor data...</div>
           ) : filteredAdminBookings.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
               <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto" />
               <h3 className="font-bold text-sm text-slate-700 dark:text-slate-300">
-                No Admin Registrations Found
+                No Registered Exhibitors Found
               </h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                No bookings have been registered through the administration side matching your search. Switch to the "Available Exhibitions" tab and click "Register to Event".
+                No bookings matching your active filters. Switch to the &quot;Available Exhibitions&quot; tab and click &quot;Register to Event&quot; to allocate stalls.
               </p>
               <Button
                 variant="primary"
@@ -587,9 +647,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
                       <th className="py-3.5 px-4">Registered Company</th>
                       <th className="py-3.5 px-4">Allocated Stalls</th>
                       <th className="py-3.5 px-4">Status & Payment</th>
-                      <th className="py-3.5 px-4 text-right">Value (INR)</th>
-                      <th className="py-3.5 px-4">Admin Registrar</th>
-                      <th className="py-3.5 px-4 text-center">Action</th>
+                      <th className="py-3.5 px-4 text-right">Value & Balance</th>
+                      <th className="py-3.5 px-4">Registrar</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -654,37 +714,72 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
-                          <span className="font-mono font-black text-slate-900 dark:text-slate-100 text-xs">
+                          <span className="font-mono font-black text-slate-900 dark:text-slate-100 text-xs block">
                             ₹{Number(b.grandTotal).toLocaleString()}
                           </span>
-                          {Number(b.paidAmount) > 0 && (
-                            <span className="text-[10px] text-emerald-600 block">
-                              Paid: ₹{Number(b.paidAmount).toLocaleString()}
+                          {Number(b.balanceAmount) > 0 ? (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block mt-0.5">
+                              Due: ₹{Number(b.balanceAmount).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                              Fully Paid
                             </span>
                           )}
                         </td>
 
                         <td className="py-3.5 px-4">
                           <span className="font-semibold text-xs text-purple-700 dark:text-purple-300 block">
-                            {(b as any).user?.name || 'Administrator'}
+                            {(b as any).user?.name || (isStaff ? 'My Account' : 'Administrator')}
                           </span>
                           <span className="font-mono text-[10px] text-slate-400">
-                            {(b as any).user?.spcode || (b as any).user?.role || 'ADMIN'}
+                            {(b as any).user?.spcode || (b as any).user?.role || (isStaff ? 'STAFF' : 'ADMIN')}
                           </span>
                         </td>
 
                         <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setInspectedBooking(b);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 rounded-lg transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              title="View Booking Dossier"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInspectedBooking(b);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+
+                            {Number(b.balanceAmount) > 0 && b.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                title="Collect / Record Pending Balance"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPayingBooking(b);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors"
+                              >
+                                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Pay</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              title="Download Tax Invoice / Bill"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadInvoicePdf(b);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                              <span>Bill</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -719,7 +814,26 @@ export const AdminEventRegistrationPage: React.FC = () => {
         booking={inspectedBooking}
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
+        onRefresh={() => {
+          fetchRegisteredBookings();
+          fetchExhibitions();
+        }}
       />
+
+      {/* Complete Payment Modal for Pending Balance */}
+      {payingBooking && (
+        <CompletePaymentModal
+          booking={payingBooking}
+          isOpen={!!payingBooking}
+          onClose={() => setPayingBooking(null)}
+          onSuccess={() => {
+            setPayingBooking(null);
+            fetchRegisteredBookings();
+            setSuccessBanner(`Payment recorded successfully for booking #${payingBooking.bookingReference}`);
+          }}
+          isAdminMode={true}
+        />
+      )}
     </div>
   );
 };

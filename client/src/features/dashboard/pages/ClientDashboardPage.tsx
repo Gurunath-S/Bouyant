@@ -14,7 +14,7 @@ import {
   Receipt,
   CheckCircle2,
   Clock,
-  Sparkles,
+  Compass,
   FileText,
   ExternalLink,
   X,
@@ -414,7 +414,7 @@ export const ClientDashboardPage: React.FC = () => {
         <div className="space-y-4 pt-2">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <Compass className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Explore More Trade Fairs & Exhibitions
             </h3>
             <Link to="/exhibitions" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">

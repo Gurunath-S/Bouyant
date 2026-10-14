@@ -21,7 +21,7 @@ import {
   Filter,
   MapPin,
   Clock,
-  Sparkles,
+  Activity,
 } from 'lucide-react';
 
 export const SuperAdminDashboardPage: React.FC = () => {
@@ -499,7 +499,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
+              <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               {isEventScoped
                 ? `Recent Bookings — ${data?.exhibition?.title}`
                 : 'Recent Platform Bookings'}
