@@ -40,6 +40,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
   onProceed,
 }) => {
   const { conflicts, removeStallFromSelection } = useFloorPlanStore();
+  const [blockedNotice, setBlockedNotice] = React.useState<string>('');
 
   // Exclude conflicting stalls from price, count, area calculations
   const validSelectedStallIds = selectedStallIds.filter(
@@ -82,6 +83,21 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
         </div>
       )}
 
+      {blockedNotice && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded-xl flex items-center justify-between gap-2 shrink-0 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{blockedNotice}</span>
+          </div>
+          <button
+            onClick={() => setBlockedNotice('')}
+            className="p-1 hover:bg-amber-100 dark:hover:bg-amber-900 rounded text-amber-700 dark:text-amber-300"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {stallHoldError && conflicts.length === 0 && (
         <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0">
           <AlertTriangle className="w-4 h-4 text-rose-600" />
@@ -117,7 +133,12 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
           className="w-full h-full min-h-full"
           onStallSelect={(s) => {
             if (isBookingClosed) return;
-            if (s.status === 'AVAILABLE' || selectedStallIds.includes(s.id)) toggleStallSelection(s);
+            if (s.status === 'AVAILABLE' || selectedStallIds.includes(s.id)) {
+              setBlockedNotice('');
+              toggleStallSelection(s);
+            } else {
+              setBlockedNotice(`Stall #${s.stallNumber} is currently blocked / reserved by another user.`);
+            }
           }}
         />
       </div>

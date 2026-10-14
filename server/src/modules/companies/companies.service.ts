@@ -523,13 +523,13 @@ export class CompaniesService {
 
     const updateData: any = { ...input };
     if (input.gstNumber !== undefined) {
-      updateData.gstNumber = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber : null;
+      updateData.gstNumber = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber.trim().toUpperCase() : null;
     }
     if (input.panNumber !== undefined) {
-      updateData.panNumber = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber : null;
+      updateData.panNumber = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
     }
     if (input.tanNumber !== undefined) {
-      updateData.tanNumber = input.tanNumber && input.tanNumber.trim() !== '' ? input.tanNumber : null;
+      updateData.tanNumber = input.tanNumber && input.tanNumber.trim() !== '' ? input.tanNumber.trim().toUpperCase() : null;
     }
 
     return await prisma.company.update({

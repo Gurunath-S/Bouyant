@@ -5,7 +5,10 @@ import { z } from 'zod';
 import { Company, Exhibition, Stall, User } from '../../../../types';
 import { companyService } from '../../../../services/companies/companyService';
 import { Input } from '../../../../components/ui/Input';
+import { Textarea } from '../../../../components/ui/Textarea';
 import { Button } from '../../../../components/ui/Button';
+import { SearchableCombobox } from '../../../../components/ui/SearchableCombobox';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity } from '../../../../data/indianStatesCities';
 import {
   Building2,
   ShieldCheck,
@@ -16,7 +19,7 @@ import {
   Plus,
   Check,
   Loader2,
-  Sparkles,
+  RotateCw,
   AtSign,
 } from 'lucide-react';
 import { authService } from '../../../../services/auth/authService';
@@ -43,7 +46,7 @@ export const companySchema = z.object({
     .refine((val) => !val || /^\d{6}$/.test(val), { message: 'PIN code must be exactly 6 digits' })
     .optional()
     .or(z.literal('')),
-  country: z.string().optional().default('India'),
+  country: z.string().min(2, 'Country is required').default('India'),
   gstNumber: z.string().trim().refine((val) => !val || val.length === 15, { message: 'GST Registration Number must be 15 characters' }).optional().or(z.literal('')),
   panNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'PAN Number must be 10 characters' }).optional().or(z.literal('')),
   tanNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'TAN Number must be 10 characters' }).optional().or(z.literal('')),
@@ -127,6 +130,18 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   const watchedName = watch('name');
   const watchedUsername = watch('username');
   const watchedGstNumber = watch('gstNumber');
+  const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedCountry = watch('country');
+
+  const availableStates = React.useMemo(() => {
+    return getStatesForCountry(watchedCountry);
+  }, [watchedCountry]);
+
+  const availableCities = React.useMemo(() => {
+    return getCitiesForLocation(watchedCountry, watchedState);
+  }, [watchedCountry, watchedState]);
+
   const verifiedGstRef = React.useRef<string>('');
 
   // Update form fields dynamically whenever `user` state changes or resets
@@ -141,12 +156,15 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('address', selectedCompany.address || '');
       setValue('city', selectedCompany.city || '');
       setValue('state', selectedCompany.state || '');
+      setValue('country', selectedCompany.country || 'India');
       setValue('gstNumber', selectedCompany.gstNumber || '');
       setValue('panNumber', selectedCompany.panNumber || '');
       setValue('tanNumber', selectedCompany.tanNumber || '');
     } else if (!selectedCompany) {
       // Clean slate with no stale data from any previous user session
       setValue('name', '');
+      setValue('category', '');
+      setValue('designation', '');
       setValue('username', '');
       setValue('contactPerson', '');
       setValue('mobile', '');
@@ -155,9 +173,11 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('address', '');
       setValue('city', '');
       setValue('state', '');
+      setValue('country', 'India');
       setValue('gstNumber', '');
       setValue('panNumber', '');
       setValue('tanNumber', '');
+      setValue('website', '');
     }
   }, [user, selectedCompany, setValue]);
 
@@ -438,7 +458,13 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   type="text"
                   placeholder="e.g. 27AAACT1029F1Z5"
                   maxLength={15}
-                  {...register('gstNumber')}
+                  {...register('gstNumber', {
+                    onChange: (e) => {
+                      const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+                      e.target.value = upper;
+                      setValue('gstNumber', upper, { shouldValidate: true, shouldDirty: true });
+                    },
+                  })}
                   className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs h-9"
                 />
                 <Button
@@ -501,15 +527,35 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             )}
           </div>
 
-          {/* Form Fields Grid */}
+          {/* Form Fields Grid — Clean 2-Column Grid with No Empty Gaps */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Official Legal / Trade Name *" error={errors.name?.message} {...register('name')} />
-            <Input label="Permanent Account Number (PAN) *" placeholder="e.g. AAACT1029F" maxLength={10} error={errors.panNumber?.message} {...register('panNumber')} />
-            <Input label="Authorized Contact Person *" error={errors.contactPerson?.message} {...register('contactPerson')} />
-            <Input label="Mobile Number (10 digits) *" placeholder="9876543210" error={errors.mobile?.message} {...register('mobile')} />
-            <Input label="Corporate Email Address *" type="email" error={errors.email?.message} {...register('email')} />
+            {/* Row 1: Full-width Company Legal / Trade Name */}
+            <div className="sm:col-span-2">
+              <Input label="Official Legal / Trade Name *" placeholder="Enter complete registered company name" error={errors.name?.message} {...register('name')} />
+            </div>
 
-            {/* Compact Portal Username Field */}
+            {/* Row 2: Product / Service Category & Authorized Contact Person */}
+            <Input label="Product / Service Category *" placeholder="e.g. Industrial Automation / Water Tech" error={errors.category?.message} {...register('category')} />
+            <Input label="Authorized Contact Person *" placeholder="e.g. Rajesh Sharma" error={errors.contactPerson?.message} {...register('contactPerson')} />
+
+            {/* Row 3: Corporate Email & Mobile Number */}
+            <Input label="Corporate Email Address *" type="email" placeholder="contact@company.com" error={errors.email?.message} {...register('email')} />
+            <Input
+              label="Mobile Number (10 digits) *"
+              placeholder="9876543210"
+              maxLength={10}
+              type="tel"
+              error={errors.mobile?.message}
+              {...register('mobile', {
+                onChange: (e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  e.target.value = digits;
+                  setValue('mobile', digits, { shouldValidate: true, shouldDirty: true });
+                },
+              })}
+            />
+
+            {/* Row 4: Portal Username & Corporate Website */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
@@ -522,7 +568,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer"
                   title="Generate another unique username suggestion"
                 >
-                  <Sparkles className="w-3 h-3 text-[#9cc542]" /> Suggest
+                  <RotateCw className="w-3 h-3 text-[#09539b] dark:text-blue-400" /> Suggest
                 </button>
               </div>
 
@@ -569,21 +615,109 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">{usernameMessage}</p>
               ) : null}
             </div>
+            <Input label="Official Corporate Website (Optional)" placeholder="https://example.com" error={errors.website?.message} {...register('website')} />
 
-            <Input label="Product / Service Category *" error={errors.category?.message} {...register('category')} />
-            <Input label="Official Corporate Website (Optional)" placeholder="https://" error={errors.website?.message} {...register('website')} />
-            <Input label="Tax Deduction Account Number (TAN) (Optional)" placeholder="e.g. DELT12345E" maxLength={10} error={errors.tanNumber?.message} {...register('tanNumber')} />
+            {/* Row 5: Tax Identifiers (PAN & TAN) Paired Side-by-Side */}
+            <Input
+              label="Permanent Account Number (PAN) *"
+              placeholder="e.g. AAACT1029F"
+              maxLength={10}
+              className="font-mono uppercase tracking-wider"
+              error={errors.panNumber?.message}
+              {...register('panNumber', {
+                onChange: (e) => {
+                  const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                  e.target.value = upper;
+                  setValue('panNumber', upper, { shouldValidate: true, shouldDirty: true });
+                },
+              })}
+            />
+            <Input
+              label="Tax Deduction Account Number (TAN) (Optional)"
+              placeholder="e.g. DELT12345E"
+              maxLength={10}
+              className="font-mono uppercase tracking-wider"
+              error={errors.tanNumber?.message}
+              {...register('tanNumber', {
+                onChange: (e) => {
+                  const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                  e.target.value = upper;
+                  setValue('tanNumber', upper, { shouldValidate: true, shouldDirty: true });
+                },
+              })}
+            />
+          </div>
+
+          <div>
+            <Textarea
+              label="Registered Corporate Address *"
+              rows={3}
+              placeholder="Enter complete building name, street address, and area..."
+              error={errors.address?.message}
+              {...register('address')}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="sm:col-span-2 lg:col-span-2">
-              <Input label="Registered Corporate Address *" error={errors.address?.message} {...register('address')} />
-            </div>
-            <Input label="City *" error={errors.city?.message} {...register('city')} />
-            <Input label="State / Province *" error={errors.state?.message} {...register('state')} />
-            <div className="sm:col-span-2 lg:col-span-4">
-              <Input label="PIN Code (6 digits) (Optional)" maxLength={6} placeholder="e.g. 400051" error={errors.pinCode?.message} {...register('pinCode')} />
-            </div>
+            <SearchableCombobox
+              label="Country"
+              required
+              value={watchedCountry ?? ''}
+              onChange={(val) => {
+                setValue('country', val, { shouldValidate: true, shouldDirty: true });
+                const newStates = getStatesForCountry(val);
+                if (watchedState && !newStates.some((s) => s.toLowerCase() === (watchedState || '').toLowerCase())) {
+                  setValue('state', '', { shouldValidate: true, shouldDirty: true });
+                  setValue('city', '', { shouldValidate: true, shouldDirty: true });
+                }
+              }}
+              options={ALL_COUNTRIES}
+              placeholder="Select or type Country..."
+              error={errors.country?.message}
+            />
+            <SearchableCombobox
+              label="State / Province"
+              required
+              value={watchedState ?? ''}
+              onChange={(val) => {
+                setValue('state', val, { shouldValidate: true, shouldDirty: true });
+              }}
+              options={availableStates}
+              placeholder="Select or type State..."
+              error={errors.state?.message}
+            />
+            <SearchableCombobox
+              label="City"
+              required
+              value={watchedCity ?? ''}
+              onChange={(val) => {
+                setValue('city', val, { shouldValidate: true, shouldDirty: true });
+                // If state is not selected yet, auto-detect the state from city
+                if (!watchedState && val) {
+                  const detectedState = getStateForCity(val, watchedCountry);
+                  if (detectedState) {
+                    setValue('state', detectedState, { shouldValidate: true, shouldDirty: true });
+                  }
+                }
+              }}
+              options={availableCities}
+              placeholder="Select or type City..."
+              error={errors.city?.message}
+            />
+            <Input
+              label="PIN Code (6 digits) (Optional)"
+              maxLength={6}
+              type="tel"
+              placeholder="e.g. 400051"
+              error={errors.pinCode?.message}
+              {...register('pinCode', {
+                onChange: (e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  e.target.value = digits;
+                  setValue('pinCode', digits, { shouldValidate: true, shouldDirty: true });
+                },
+              })}
+            />
           </div>
 
 
@@ -598,7 +732,14 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           )}
 
           <div className="pt-4 flex justify-between items-center border-t border-slate-100">
-            <Button type="button" variant="outline" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onBack}
+              className="border-2 border-slate-300 dark:border-slate-700 font-bold px-6 py-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-2xs"
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
+            >
               Back to Stall Selection
             </Button>
             <Button

@@ -68,16 +68,22 @@ export class BookingsController {
     const limit = req.query.limit;
     const search = (req.query.search as string) || '';
     const status = req.query.status as string;
+    const paymentStatus = req.query.paymentStatus as string;
+    const hasBalanceOnly = req.query.hasBalanceOnly as string;
     const registeredByRole = req.query.registeredByRole as string;
     const exhibitionId = req.query.exhibitionId as string;
+    const userId = req.query.userId as string;
 
     const result = await BookingsService.listAllBookings({
       page,
       limit,
       search,
       status,
+      paymentStatus,
+      hasBalanceOnly,
       registeredByRole,
       exhibitionId,
+      userId,
     });
     return sendResponse({
       res,

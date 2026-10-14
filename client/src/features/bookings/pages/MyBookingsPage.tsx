@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Booking } from '../../../types';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
-import { BookmarkCheck, FileText, CreditCard } from 'lucide-react';
+import { BookmarkCheck, FileText, CreditCard, Download } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const MyBookingsPage: React.FC = () => {
@@ -122,13 +123,32 @@ export const MyBookingsPage: React.FC = () => {
                         </Button>
                       )}
                       {b.invoice ? (
-                        <Link to={`/invoices/${b.invoice.id}`}>
-                          <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
-                            Tax Invoice
+                        <div className="flex items-center gap-1.5">
+                          <Link to={`/invoices/${b.invoice.id}`}>
+                            <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
+                              View
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<Download className="w-3.5 h-3.5" />}
+                            onClick={() => downloadInvoicePdf(b)}
+                            title="Download Tax Invoice Bill (PDF)"
+                          >
+                            Bill PDF
                           </Button>
-                        </Link>
+                        </div>
                       ) : (
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Processing</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          leftIcon={<Download className="w-3.5 h-3.5" />}
+                          onClick={() => downloadInvoicePdf(b)}
+                          title="Download Tax Invoice Bill (PDF)"
+                        >
+                          Bill PDF
+                        </Button>
                       )}
                     </div>
                   </td>

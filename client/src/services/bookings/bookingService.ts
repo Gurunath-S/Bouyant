@@ -75,8 +75,11 @@ export const bookingService = {
     limit?: number;
     search?: string;
     status?: string;
+    paymentStatus?: string;
+    hasBalanceOnly?: boolean | string;
     registeredByRole?: string;
     exhibitionId?: string;
+    userId?: string;
   }) => {
     const res: any = await apiClient.get('/bookings', { params });
     return res;

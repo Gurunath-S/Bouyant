@@ -854,19 +854,10 @@ static async createBooking(
     .toUpperCase()}`;
 
 	  // ==================================================
-	  // 8. Existing hold timer
+	  // 8. Assign a fresh full 15-minute hold timer for payment
 	  // ==================================================
 
-	  const existingPaymentPendingStall = stalls.find(
-      (stall) =>
-        (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
-        stall.heldByUserId === user.userId
-    );
-
-  const holdUntil =
-    (existingPaymentPendingStall?.heldUntil && existingPaymentPendingStall.heldUntil.getTime() > Date.now())
-      ? existingPaymentPendingStall.heldUntil
-      : new Date(Date.now() + 15 * 60 * 1000);
+	  const holdUntil = new Date(Date.now() + 15 * 60 * 1000);
 
   // ==================================================
   // 9. DATABASE TRANSACTION
@@ -919,26 +910,33 @@ static async createBooking(
         // Validate current status again
         //
         // AVAILABLE
-        // PAYMENT_PENDING
+        // PAYMENT_PENDING / TEMPORARILY_HELD for user or company
         // BLOCKED for admin/staff
         // ----------------------------------------------
 
+        const companyUsers = await tx.user.findMany({
+          where: { companyId: input.companyId },
+          select: { id: true },
+        });
+        const companyUserIds = companyUsers.map((u) => u.id);
+
         for (const stall of currentStalls) {
           const isAvailable = stall.status === StallStatus.AVAILABLE;
-          const isHeldByUser =
+          const isHeldByUserOrCompany =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
-            stall.heldByUserId === user.userId;
+            stall.heldByUserId &&
+            (stall.heldByUserId === user.userId || companyUserIds.includes(stall.heldByUserId));
           const isExpiredHold =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
             stall.heldUntil &&
             stall.heldUntil.getTime() <= Date.now();
           const isBlocked = stall.status === StallStatus.BLOCKED;
 
-          if (isAvailable || isHeldByUser || isExpiredHold) {
+          if (isAvailable || isHeldByUserOrCompany || isExpiredHold) {
             continue;
           }
 
-          if (isBlocked && canBookBlockedStalls) {
+          if ((isBlocked || stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) && canBookBlockedStalls) {
             continue;
           }
 
@@ -958,18 +956,20 @@ static async createBooking(
             OR: [
               { status: StallStatus.AVAILABLE },
               {
-                status: StallStatus.TEMPORARILY_HELD,
-                heldByUserId: user.userId,
-              },
-              {
-                status: StallStatus.PAYMENT_PENDING,
-                heldByUserId: user.userId,
+                status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
+                heldByUserId: { in: [user.userId, ...companyUserIds] },
               },
               {
                 status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
                 heldUntil: { lte: new Date() },
               },
-              ...(canBookBlockedStalls ? [{ status: StallStatus.BLOCKED }] : []),
+              ...(canBookBlockedStalls
+                ? [
+                    { status: StallStatus.BLOCKED },
+                    { status: StallStatus.TEMPORARILY_HELD },
+                    { status: StallStatus.PAYMENT_PENDING },
+                  ]
+                : []),
             ],
           },
           data: {
@@ -1350,16 +1350,22 @@ static async createBooking(
     let rawLimit: any = 20;
     let search = '';
     let status: string | undefined;
+    let paymentStatus: string | undefined;
+    let hasBalanceOnly: boolean | string | undefined;
     let registeredByRole: string | undefined;
     let exhibitionId: string | undefined;
+    let userId: string | undefined;
 
     if (pageOrOptions && typeof pageOrOptions === 'object') {
       rawPage = pageOrOptions.page;
       rawLimit = pageOrOptions.limit;
       search = pageOrOptions.search || '';
       status = pageOrOptions.status;
+      paymentStatus = pageOrOptions.paymentStatus;
+      hasBalanceOnly = pageOrOptions.hasBalanceOnly;
       registeredByRole = pageOrOptions.registeredByRole;
       exhibitionId = pageOrOptions.exhibitionId;
+      userId = pageOrOptions.userId;
     } else {
       rawPage = pageOrOptions || 1;
       rawLimit = limitArg || 20;
@@ -1374,8 +1380,17 @@ static async createBooking(
     if (status && status !== 'ALL') {
       andConditions.push({ status: status as any });
     }
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      andConditions.push({ paymentStatus: paymentStatus as any });
+    }
+    if (hasBalanceOnly === true || hasBalanceOnly === 'true') {
+      andConditions.push({ balanceAmount: { gt: 0 }, status: { not: 'CANCELLED' } });
+    }
     if (exhibitionId && exhibitionId !== 'ALL') {
       andConditions.push({ exhibitionId });
+    }
+    if (userId && userId !== 'ALL') {
+      andConditions.push({ company: { users: { some: { id: userId } } } });
     }
     if (registeredByRole && registeredByRole !== 'ALL') {
       if (registeredByRole === 'ADMIN') {

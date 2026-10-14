@@ -33,6 +33,7 @@ export interface User {
   spcode?: string | null;
   role: UserRole;
   isActive?: boolean;
+  pageAccess?: string[];
   companyId?: string | null;
   company?: Company | null;
   createdAt: string;
@@ -245,6 +246,7 @@ export interface AdminStaffUser {
   attributedBookings?: any[];
   companyBookings?: any[];
   heldStalls?: any[];
+  pageAccess?: string[];
   rolePermissions?: string[];
   isGlobal?: boolean;
   eventAssociation?: string;
@@ -261,10 +263,22 @@ export interface CreateAdminStaffPayload {
   spcode?: string;
 }
 
+export interface CreateUserPayload {
+  name: string;
+  email: string;
+  password: string;
+  role: 'SUPERADMIN' | 'ADMIN' | 'STAFF';
+  phone?: string;
+  spcode?: string;
+  pageAccess?: string[];
+}
+
 export interface UpdateUserPayload {
   name?: string;
   phone?: string;
   spcode?: string;
+  role?: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT';
+  pageAccess?: string[];
 }
 
 // Reports Types

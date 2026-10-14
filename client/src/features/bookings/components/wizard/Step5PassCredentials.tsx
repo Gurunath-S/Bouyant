@@ -88,7 +88,7 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
           <span className="font-bold text-[#09539b] dark:text-blue-400 uppercase">Confirmed Stall(s):</span>
           <div className="flex gap-1">
             {selectedStalls.map((s) => (
-              <span key={s.id} className="px-2 py-0.5 bg-[#09539b] text-white rounded font-mono font-bold text-[11px]">
+              <span key={s.id} className="px-2 py-0.5 bg-[#09539b] text-white rounded font-mono font-bold text-[11px] whitespace-nowrap">
                 #{s.stallNumber}
               </span>
             ))}

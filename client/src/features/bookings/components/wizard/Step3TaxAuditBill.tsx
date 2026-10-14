@@ -10,6 +10,7 @@ import {
   CreditCard,
   AlertTriangle,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Tag,
   Building2,
@@ -18,7 +19,7 @@ import {
   Mail,
   FileCheck,
   CheckCircle2,
-  Sparkles,
+  LayoutGrid,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -221,7 +222,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
           <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
             <div className="p-4 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                <LayoutGrid className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
                 <h4 className="text-xs font-black text-[#012970] dark:text-slate-100 uppercase tracking-wider">
                   Reserved Booth Allocation ({selectedStalls.length} {selectedStalls.length === 1 ? 'Stall' : 'Stalls'})
                 </h4>
@@ -235,8 +236,17 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               {selectedStalls.map((stall) => (
                 <div key={stall.id} className="p-4 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#09539b]/10 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#09539b] dark:text-blue-300 font-mono font-black text-xs">
-                      #{stall.stallNumber}
+                    <div className="w-[68px] h-10 px-1.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 flex items-center justify-center text-[#09539b] dark:text-blue-300 font-mono font-bold shrink-0 shadow-2xs text-center">
+                      <span className="text-[10px] text-blue-500/70 dark:text-blue-400/60 font-semibold mr-0.5 select-none">#</span>
+                      <span className={`leading-none truncate ${
+                        stall.stallNumber.length > 6
+                          ? 'text-[10px] tracking-tighter'
+                          : stall.stallNumber.length > 4
+                          ? 'text-[11px] tracking-tight'
+                          : 'text-xs'
+                      }`}>
+                        {stall.stallNumber}
+                      </span>
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -565,16 +575,28 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               )}
             </div>
 
-            <Button
-              variant="primary"
-              size="lg"
-              disabled={!isTermsAccepted || payableToday === 0}
-              className="w-full text-sm font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50 py-3 rounded-2xl flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
-              onClick={handlePaymentPayload}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              {payableToday <= 0 ? `No Payment Required` : `Pay ₹${payableToday.toLocaleString('en-IN')} Now & Reserve Booth`}
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onBack}
+                className="w-full sm:w-auto px-5 py-3 border-2 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
+                leftIcon={<ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />}
+              >
+                Back to Company Details
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={!isTermsAccepted || payableToday === 0}
+                className="w-full flex-1 text-sm font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md border-none disabled:opacity-50 py-3 rounded-2xl flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                onClick={handlePaymentPayload}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                {payableToday <= 0 ? `No Payment Required` : `Pay ₹${payableToday.toLocaleString('en-IN')} Now & Reserve Booth`}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

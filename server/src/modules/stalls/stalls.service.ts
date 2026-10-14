@@ -5,15 +5,15 @@ import { CreateStallInput, UpdateStallInput } from './stalls.schemas.js';
 
 export class StallsService {
   /**
-   * Automatically release stalls whose TEMPORARILY_HELD timer has expired.
+   * Automatically release stalls whose hold timer has expired.
    */
   static async releaseExpiredHolds() {
     const now = new Date();
     return await prisma.$transaction(async (tx) => {
-      // 1. Find stalls with expired hold timers (TEMPORARILY_HELD or PAYMENT_PENDING)
+      // 1. Find stalls with expired hold timers (TEMPORARILY_HELD, PAYMENT_PENDING, or BOOKING_IN_PROGRESS)
       const expiredStalls = await tx.stall.findMany({
         where: {
-          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING'] },
+          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'] },
           heldUntil: { lt: now },
         },
         select: { id: true },
@@ -25,7 +25,7 @@ export class StallsService {
       // 2. Mark associated unconfirmed bookings as EXPIRED
       await tx.booking.updateMany({
         where: {
-          status: { in: ['INITIATED', 'PENDING_PAYMENT'] },
+          status: { in: ['INITIATED', 'PENDING_PAYMENT', 'HELD'] },
           stalls: { some: { stallId: { in: expiredStallIds } } },
           expiresAt: { lt: now },
         },
@@ -38,7 +38,7 @@ export class StallsService {
       const result = await tx.stall.updateMany({
         where: {
           id: { in: expiredStallIds },
-          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING'] },
+          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'] },
           heldUntil: { lt: now },
         },
         data: {
@@ -201,7 +201,15 @@ export class StallsService {
     const stall = await prisma.stall.findUnique({ where: { id: stallId } });
     if (!stall) throw ApiError.notFound('Stall not found.');
 
-    if (stall.heldByUserId !== userId && stall.status === 'TEMPORARILY_HELD') {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const isPrivileged = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
+
+    const isInProgress =
+      stall.status === 'TEMPORARILY_HELD' ||
+      stall.status === 'PAYMENT_PENDING' ||
+      stall.status === 'BOOKING_IN_PROGRESS';
+
+    if (!isPrivileged && stall.heldByUserId !== userId && isInProgress) {
       throw ApiError.forbidden('You are not authorized to release this hold.');
     }
 
@@ -386,16 +394,39 @@ export class StallsService {
    * CANCEL ALL TEMPORARY HOLDS FOR A USER/SESSION
    */
   static async cancelUserHolds(userId: string) {
-    return await prisma.stall.updateMany({
-      where: {
-        heldByUserId: userId,
-        status: 'TEMPORARILY_HELD',
-      },
-      data: {
-        status: 'AVAILABLE',
-        heldUntil: null,
-        heldByUserId: null,
-      },
+    return await prisma.$transaction(async (tx) => {
+      const userStalls = await tx.stall.findMany({
+        where: {
+          heldByUserId: userId,
+          status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'] },
+        },
+        select: { id: true },
+      });
+
+      if (userStalls.length > 0) {
+        const stallIds = userStalls.map((s) => s.id);
+
+        await tx.booking.updateMany({
+          where: {
+            status: { in: ['INITIATED', 'PENDING_PAYMENT', 'HELD'] },
+            stalls: { some: { stallId: { in: stallIds } } },
+          },
+          data: {
+            status: 'CANCELLED',
+          },
+        });
+
+        await tx.stall.updateMany({
+          where: { id: { in: stallIds } },
+          data: {
+            status: 'AVAILABLE',
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+      }
+
+      return { count: userStalls.length };
     });
   }
 

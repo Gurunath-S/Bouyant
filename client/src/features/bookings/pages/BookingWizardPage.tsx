@@ -10,7 +10,8 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking, User } from '../../../types';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Button } from '../../../components/ui/Button';
-import { ArrowLeft, Check } from 'lucide-react';
+import { Modal } from '../../../components/ui/Modal';
+import { ArrowLeft, Check, AlertTriangle } from 'lucide-react';
 import type { CreateBookingPayload } from '../../../services/bookings/bookingService';
 import { Step1StallSelection } from '../components/wizard/Step1StallSelection';
 import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2CompanyDetails';
@@ -79,6 +80,22 @@ export const BookingWizardPage: React.FC = () => {
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
 
+  // Confirmation Warning Modal for leaving or changing stalls
+  const [confirmLeaveModal, setConfirmLeaveModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmButtonText: string;
+    targetAction: 'LEAVE_PAGE' | 'BACK_TO_STEP_1';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    confirmButtonText: 'Yes, Release Stall & Leave',
+    targetAction: 'LEAVE_PAGE',
+  });
+  const [isReleasingHolds, setIsReleasingHolds] = useState(false);
+
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;
     if (exhibition.status === 'COMPLETED' || exhibition.status === 'CANCELLED' || exhibition.status === 'DRAFT') {
@@ -143,6 +160,18 @@ export const BookingWizardPage: React.FC = () => {
     setCreatedBooking(null);
   }, [slug]);
 
+  // Warn user if closing tab / reloading page while holding stalls
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (selectedStallIds.length > 0 && currentStep <= 3) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [selectedStallIds.length, currentStep]);
+
   // If user logs out or switches accounts while wizard is loaded, reset company state
   useEffect(() => {
     if (!user) {
@@ -206,11 +235,19 @@ export const BookingWizardPage: React.FC = () => {
     };
   }, [isTimerActive, remainingSeconds]);
 
-  const handleRestartBookingFromExpired = () => {
+  const handleRestartBookingFromExpired = async () => {
     setIsExtensionModalOpen(false);
+    try {
+      if (user) {
+        await stallService.cancelUserHolds();
+      }
+    } catch (e) {
+      console.warn('Failed to cancel user holds on restart', e);
+    }
     clearStallSelection();
     setCurrentStep(1);
     setRemainingSeconds(900);
+    await loadInitialData();
   };
 
   // Step 1 -> Step 2 (Atomic Delta Synchronization)
@@ -242,6 +279,63 @@ export const BookingWizardPage: React.FC = () => {
       } else {
         const msg = err.response?.data?.message || 'Failed to hold stalls. Please try again.';
         setStallHoldError(msg);
+      }
+    }
+  };
+
+  // User initiates leaving the wizard or cancelling booking
+  const handleInitiateLeave = () => {
+    if (selectedStallIds.length === 0) {
+      navigate(`/exhibitions/${slug}`);
+      return;
+    }
+    setConfirmLeaveModal({
+      isOpen: true,
+      title: 'Leave Booking Wizard & Release Stalls?',
+      description: 'You currently have active stall reservation holds. If you leave this page, your temporary hold will be cancelled, selected stalls will immediately become available again on the floor plan for other exhibitors, and any entered booking details will be discarded.',
+      confirmButtonText: 'Yes, Release Stalls & Leave',
+      targetAction: 'LEAVE_PAGE',
+    });
+  };
+
+  // User in Step 2 initiates going back to Step 1 (changing stalls)
+  const handleInitiateBackToStep1 = () => {
+    if (selectedStallIds.length === 0) {
+      setCurrentStep(1);
+      return;
+    }
+    setConfirmLeaveModal({
+      isOpen: true,
+      title: 'Go Back to Stall Selection?',
+      description: 'Going back to the floor plan will release your temporary reservation hold on the selected stall(s). The stalls will immediately become available again for other exhibitors to select, and entered company details will be cleared.',
+      confirmButtonText: 'Yes, Release Hold & Go Back',
+      targetAction: 'BACK_TO_STEP_1',
+    });
+  };
+
+  // Confirming the leave/back action in the modal
+  const handleExecuteLeaveAction = async () => {
+    try {
+      setIsReleasingHolds(true);
+      if (user) {
+        await stallService.cancelAllHolds();
+      }
+    } catch (e) {
+      console.warn('Failed to release holds on leave/back:', e);
+    } finally {
+      setIsReleasingHolds(false);
+      clearStallSelection();
+      setSelectedCompany(null);
+      setAssignedRegNo('');
+      const action = confirmLeaveModal.targetAction;
+      setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }));
+
+      if (action === 'LEAVE_PAGE') {
+        navigate(`/exhibitions/${slug}`);
+      } else {
+        // Refresh stalls on floor plan so they show as available (green) immediately
+        await loadInitialData();
+        setCurrentStep(1);
       }
     }
   };
@@ -479,37 +573,63 @@ export const BookingWizardPage: React.FC = () => {
       {!isFullscreen && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5 gap-3">
-            <div>
-              <button
-                onClick={() => navigate(`/exhibitions/${slug}`)}
-                className="text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline flex items-center gap-1 mb-0.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibition Profile
-              </button>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] dark:text-slate-100 leading-tight">
-                Stall Reservation — {exhibition.title}
-              </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              {currentStep === 1 && (
+                <button
+                  type="button"
+                  onClick={handleInitiateLeave}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  title="Back to Exhibition Profile"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  <span>Back to Exhibition</span>
+                </button>
+              )}
+
+              {currentStep === 2 && (
+                <button
+                  type="button"
+                  onClick={handleInitiateBackToStep1}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  title="Change Stalls / Return to Floor Plan"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  <span>Back to Stall Selection</span>
+                </button>
+              )}
+
+              {currentStep === 3 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Back from Payment -> Clear entered company details for a clean slate
+                    setSelectedCompany(null);
+                    setAssignedRegNo('');
+                    setCurrentStep(2);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  title="Return to Company Details & Edit Profile"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  <span>Back to Company Details</span>
+                </button>
+              )}
+
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] dark:text-slate-100 leading-tight">
+                  Stall Reservation — {exhibition.title}
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Step {currentStep} of 3 • {currentStep === 1 ? 'Floor Plan Selection' : currentStep === 2 ? 'Exhibitor Company Details' : 'Tax Invoice & Contract Review'}
+                </p>
+              </div>
             </div>
 
             {currentStep <= 3 && selectedStallIds.length > 0 && (
               <button
-                onClick={async () => {
-                  const confirmCancel = window.confirm(
-                    'Are you sure you want to cancel this booking?\n\nAll temporarily held stalls will be released and may become available to other users.'
-                  );
-                  if (confirmCancel) {
-                    try {
-                      if (user) {
-                        await stallService.cancelAllHolds();
-                      }
-                    } catch (e) {
-                      console.warn('Failed to release holds on cancel:', e);
-                    }
-                    clearStallSelection();
-                    navigate(`/exhibitions/${slug}`);
-                  }
-                }}
-                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                type="button"
+                onClick={handleInitiateLeave}
+                className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 Cancel Booking
               </button>
@@ -598,7 +718,7 @@ export const BookingWizardPage: React.FC = () => {
             if (c.regNo) setAssignedRegNo(c.regNo);
           }}
           onSubmitCompanyForm={onSubmitCompanyForm}
-          onBack={() => setCurrentStep(1)}
+          onBack={handleInitiateBackToStep1}
           onContinueWithSelectedCompany={() => setCurrentStep(3)}
         />
       )}
@@ -617,7 +737,12 @@ export const BookingWizardPage: React.FC = () => {
           isTermsAccepted={isTermsAccepted}
           setIsTermsAccepted={setIsTermsAccepted}
           onProceedToPayment={handleProceedToPayment}
-          onBack={() => setCurrentStep(2)}
+          onBack={() => {
+            // When user goes back from payment/review, clear entered company data for fresh entry
+            setSelectedCompany(null);
+            setAssignedRegNo('');
+            setCurrentStep(2);
+          }}
         />
       )}
 
@@ -641,6 +766,63 @@ export const BookingWizardPage: React.FC = () => {
         isOpen={isExtensionModalOpen}
         onRestartBooking={handleRestartBookingFromExpired}
       />
+
+      {/* Confirmation Warning Modal for Leaving / Releasing Stalls */}
+      <Modal
+        isOpen={confirmLeaveModal.isOpen}
+        onClose={() => setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }))}
+        title={confirmLeaveModal.title}
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 rounded-xl text-amber-900 dark:text-amber-200 text-xs font-medium flex items-start gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">Reservation Hold Will Be Released</p>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                {confirmLeaveModal.description}
+              </p>
+            </div>
+          </div>
+
+          {selectedStallsObj.length > 0 && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <span className="font-bold text-slate-700 dark:text-slate-300 block">Stall(s) currently reserved:</span>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {selectedStallsObj.map((s) => (
+                  <span
+                    key={s.id}
+                    className="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-mono font-bold text-xs"
+                  >
+                    #{s.stallNumber} ({s.areaSqFt} sq.ft)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isReleasingHolds}
+              onClick={() => setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }))}
+              className="text-xs font-bold"
+            >
+              Cancel & Stay
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              isLoading={isReleasingHolds}
+              onClick={handleExecuteLeaveAction}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md"
+            >
+              {confirmLeaveModal.confirmButtonText}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
