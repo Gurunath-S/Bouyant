@@ -13,8 +13,9 @@ export const reportService = {
     return res.data;
   },
 
-  getOccupancy: async (): Promise<OccupancyReportData> => {
-    const res: any = await apiClient.get('/reports/occupancy');
+  getOccupancy: async (exhibitionId?: string): Promise<OccupancyReportData> => {
+    const params = exhibitionId && exhibitionId !== 'ALL' ? { exhibitionId } : undefined;
+    const res: any = await apiClient.get('/reports/occupancy', { params });
     return res.data;
   },
 };

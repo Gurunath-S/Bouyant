@@ -34,7 +34,8 @@ export class ReportsController {
   static getStallOccupancy = async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user!.role;
     const userId = req.user!.userId;
-    const data = await ReportsService.getStallOccupancyReport(role, userId);
+    const exhibitionId = req.query.exhibitionId as string | undefined;
+    const data = await ReportsService.getStallOccupancyReport(role, userId, exhibitionId);
 
     return sendResponse({
       res,

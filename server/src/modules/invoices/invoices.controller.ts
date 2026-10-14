@@ -61,8 +61,10 @@ export class InvoicesController {
 
   static downloadPdf = async (req: AuthenticatedRequest, res: Response) => {
     const pdfBuffer = await InvoicesService.generateInvoicePdf(req.params.id);
+    const cleanId = String(req.params.id || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-${req.params.id}.pdf`);
-    return res.send(pdfBuffer);
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice-${cleanId}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.end(pdfBuffer);
   };
 }

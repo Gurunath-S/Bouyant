@@ -30,30 +30,49 @@ export const ReportsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  async function fetchReportData() {
-    try {
-      setLoading(true);
-      const [over, occ, expos] = await Promise.all([
-        reportService.getOverview(),
-        reportService.getOccupancy(),
-        reportService.getExhibitions(),
-      ]);
-      setOverview(over);
-      setOccupancy(occ);
-      setExhibitions(expos);
-    } catch (err) {
-      console.error('Failed to load reports:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const isEventScoped = selectedExhibitionId !== 'ALL';
 
+  // 1. Load exhibitions list on mount
   useEffect(() => {
-    fetchReportData();
+    reportService
+      .getExhibitions()
+      .then((expos) => setExhibitions(expos || []))
+      .catch((err) => console.error('Failed to load exhibitions list:', err));
   }, []);
+
+  // 2. Fetch overview & occupancy whenever selectedExhibitionId changes
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchScopedData() {
+      try {
+        setRefreshing(true);
+        const [over, occ] = await Promise.all([
+          reportService.getOverview(selectedExhibitionId),
+          reportService.getOccupancy(selectedExhibitionId),
+        ]);
+        if (isMounted) {
+          setOverview(over);
+          setOccupancy(occ);
+        }
+      } catch (err) {
+        console.error('Failed to load report data:', err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    }
+
+    fetchScopedData();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedExhibitionId]);
 
   const getPageTitle = () => {
     if (isSuperAdmin) return 'Platform-Wide Executive Analytics';
@@ -120,7 +139,7 @@ export const ReportsPage: React.FC = () => {
             <select
               value={selectedExhibitionId}
               onChange={(e) => setSelectedExhibitionId(e.target.value)}
-              className="text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 outline-none"
+              className="text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
             >
               <option value="ALL">All Exhibitions & Bookings (Combined)</option>
               {exhibitions.map((ex) => (
@@ -129,9 +148,41 @@ export const ReportsPage: React.FC = () => {
                 </option>
               ))}
             </select>
+            {isEventScoped && (
+              <button
+                type="button"
+                onClick={() => setSelectedExhibitionId('ALL')}
+                className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline px-2 shrink-0"
+              >
+                Reset Scope
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* EVENT SCOPE ACTIVE BANNER */}
+      {isEventScoped && overview?.exhibition && (
+        <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent border border-purple-200 dark:border-purple-900/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wide bg-purple-600 text-white shadow-xs">
+              {overview.exhibition.status}
+            </span>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                {overview.exhibition.title} {overview.exhibition.edition ? `(Edition ${overview.exhibition.edition})` : ''}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {overview.exhibition.venue}, {overview.exhibition.city} • Event Code: {overview.exhibition.eventCode}-{overview.exhibition.edition || '01'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-3 py-1.5 rounded-xl">
+            <span className="inline-block w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+            <span>Event-Scoped Business Data Active</span>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-20 text-center text-xs text-slate-400">
@@ -144,7 +195,12 @@ export const ReportsPage: React.FC = () => {
           {/* 1.A SUPERADMIN & ADMIN FINANCIALS */}
           {(isSuperAdmin || isAdmin) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
+                {refreshing && (
+                  <div className="absolute top-2 right-2">
+                    <RefreshCw className="w-3 h-3 animate-spin text-purple-500" />
+                  </div>
+                )}
                 <div className="flex justify-between items-start">
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {isSuperAdmin ? 'Platform Gross Revenue' : 'Confirmed Booking Revenue'}
@@ -157,7 +213,7 @@ export const ReportsPage: React.FC = () => {
                   ₹{overview?.totalRevenue ? Number(overview.totalRevenue).toLocaleString() : '0'} INR
                 </p>
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2">
-                  <TrendingUp className="w-3.5 h-3.5" /> 100% Tax Compliant
+                  <TrendingUp className="w-3.5 h-3.5" /> {isEventScoped ? 'Selected Event Revenue' : '100% Tax Compliant'}
                 </span>
               </div>
 
@@ -172,7 +228,7 @@ export const ReportsPage: React.FC = () => {
                   {overview?.confirmedBookings || overview?.totalBookings || 0}
                 </p>
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
-                  Completed Paid Stall Reservations
+                  {isEventScoped ? 'Paid Bookings for this Event' : 'Completed Paid Stall Reservations'}
                 </span>
               </div>
 
@@ -200,10 +256,12 @@ export const ReportsPage: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                    {(overview?.activeAdmins || 0) + (overview?.activeStaff || 0)}
+                    {isEventScoped ? 1 : ((overview?.activeAdmins || 0) + (overview?.activeStaff || 0))}
                   </p>
                   <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-2 block">
-                    {overview?.activeAdmins || 0} Admins • {overview?.activeStaff || 0} Staff
+                    {isEventScoped
+                      ? `Creator: ${overview?.exhibition?.createdBy?.name || 'Administrator'}`
+                      : `${overview?.activeAdmins || 0} Admins • ${overview?.activeStaff || 0} Staff`}
                   </span>
                 </div>
               ) : (
@@ -215,10 +273,10 @@ export const ReportsPage: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                    {overview?.totalExhibitions || 0}
+                    {isEventScoped ? 1 : (overview?.totalExhibitions || 0)}
                   </p>
                   <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
-                    Across Platform Portfolios
+                    {isEventScoped ? 'Selected Event in Scope' : 'Across Platform Portfolios'}
                   </span>
                 </div>
               )}

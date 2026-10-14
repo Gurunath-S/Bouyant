@@ -83,6 +83,14 @@ export class ReportsService {
         totalRevenue,
         totalBookings: bookings.length,
         confirmedBookings: paidBookings.length,
+        totalExhibitions: 1,
+        publishedExhibitions: exhibition.status === 'PUBLISHED' ? 1 : 0,
+        activeAdmins: exhibition.createdBy?.role === 'ADMIN' || exhibition.createdBy?.role === 'SUPERADMIN' ? 1 : 0,
+        activeStaff: exhibition.createdBy?.role === 'STAFF' ? 1 : 0,
+        totalEventsRegistered: 1,
+        platformTotalEvents: 1,
+        upcomingEvents: new Date(exhibition.startDate) > new Date() ? 1 : 0,
+        totalStallsInRegisteredEvents: totalStalls,
         totalStalls,
         occupiedStalls,
         occupancyRate,
@@ -309,8 +317,16 @@ export class ReportsService {
     return exhibitions;
   }
 
-  static async getStallOccupancyReport(_role: string, _userId: string) {
+  static async getStallOccupancyReport(_role: string, _userId: string, exhibitionId?: string) {
+    const where: any = {};
+    if (exhibitionId && exhibitionId.toUpperCase() !== 'ALL') {
+      where.floorPlan = {
+        exhibitionId,
+      };
+    }
+
     const stalls = await prisma.stall.findMany({
+      where,
       select: {
         id: true,
         category: true,

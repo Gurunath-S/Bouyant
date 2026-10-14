@@ -1,6 +1,6 @@
 // services/InvoicePdfService.ts
 
-import puppeteer from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 
 export interface InvoicePdfData {
   invoiceNumber: string;
@@ -101,6 +101,47 @@ export function numberToIndianWords(amount: number): string {
   return `INR Rupees ${words} Only`;
 }
 
+let sharedBrowserPromise: Promise<Browser> | null = null;
+
+async function getSharedBrowser(): Promise<Browser> {
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = (async () => {
+      const b = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+        ],
+      });
+      b.on('disconnected', () => {
+        sharedBrowserPromise = null;
+      });
+      return b;
+    })();
+    sharedBrowserPromise.catch(() => {
+      sharedBrowserPromise = null;
+    });
+  }
+
+  try {
+    const browser = await sharedBrowserPromise;
+    if (!browser.connected) {
+      sharedBrowserPromise = null;
+      return getSharedBrowser();
+    }
+    return browser;
+  } catch (err) {
+    sharedBrowserPromise = null;
+    throw err;
+  }
+}
+
 export class InvoicePdfService {
   static buildInvoicePdfData(invoice: any, booking: any): InvoicePdfData {
     const totalGrand = Number(invoice.grandTotal || 0);
@@ -152,20 +193,14 @@ export class InvoicePdfService {
       note: 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media',
     };
   }
-
   static async generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     const html = this.buildInvoiceHtml(data);
-
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
-
       await page.setContent(html, {
-        waitUntil: 'load',
+        waitUntil: 'domcontentloaded',
       });
 
       const pdf = await page.pdf({
@@ -181,7 +216,7 @@ export class InvoicePdfService {
 
       return Buffer.from(pdf);
     } finally {
-      await browser.close();
+      await page.close().catch(() => {});
     }
   }
 

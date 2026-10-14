@@ -420,28 +420,12 @@ export class PaymentsService {
       // BOOKING STATE VALIDATION
       // =====================================================
 
-      if (booking.status !== 'PENDING_PAYMENT') {
+      // If Razorpay captured the payment, allow completing the booking
+      // even if the 30s background cron briefly marked it EXPIRED,
+      // provided the stalls have not been confirmed by another client.
+      if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'EXPIRED') {
         throw ApiError.conflict(
           `Booking cannot be completed because its current status is ${booking.status}.`
-        );
-      }
-
-      if (
-        booking.paymentStatus === 'UNPAID' &&
-        booking.expiresAt &&
-        booking.expiresAt <= new Date()
-      ) {
-        await tx.booking.update({
-          where: {
-            id: booking.id,
-          },
-          data: {
-            status: 'EXPIRED',
-          },
-        });
-
-        throw ApiError.badRequest(
-          'This booking hold has expired. Please create a new booking.'
         );
       }
 
@@ -450,21 +434,69 @@ export class PaymentsService {
           (item) => item.stallId
         );
 
+      // 1. Fetch current live stall records within transaction
+      const freshStalls = await tx.stall.findMany({
+        where: { id: { in: stallIds } },
+      });
+
+      if (freshStalls.length !== stallIds.length) {
+        throw ApiError.notFound('One or more stalls associated with this booking no longer exist.');
+      }
+
+      // 2. Prevent Double Booking: Check if any stall was booked by another confirmed booking
+      const conflictingBooked = await tx.bookingStall.findMany({
+        where: {
+          stallId: { in: stallIds },
+          bookingId: { not: booking.id },
+          booking: {
+            status: 'CONFIRMED',
+          },
+        },
+        include: { stall: true },
+      });
+
+      if (conflictingBooked.length > 0) {
+        const conflictStallNumbers = conflictingBooked
+          .map((b) => b.stall?.stallNumber || b.stallId)
+          .join(', ');
+        throw ApiError.conflict(
+          `Double Booking Conflict: Stall(s) ${conflictStallNumbers} were confirmed for another client.`
+        );
+      }
+
+      // 3. For UNPAID initial payment, ensure stalls are not actively held by an unrelated third-party
       if (booking.paymentStatus === 'UNPAID') {
         const companyUserIds = new Set(
-          booking.company.users.map((companyUser) => companyUser.id)
-        );
-        const invalidHeldStall = booking.stalls.find(
-          (item) =>
-            !['TEMPORARILY_HELD', 'PAYMENT_PENDING'].includes(item.stall.status) ||
-            !item.stall.heldByUserId ||
-            !companyUserIds.has(item.stall.heldByUserId)
+          (booking.company.users || []).map((companyUser) => companyUser.id)
         );
 
-        if (invalidHeldStall) {
-          throw ApiError.conflict(
-            'One or more stalls are no longer held for this booking.'
-          );
+        // Admins, SuperAdmins, and Staff are privileged users who can initiate/hold bookings
+        const privilegedUsers = await tx.user.findMany({
+          where: { role: { in: ['ADMIN', 'SUPERADMIN', 'STAFF'] } },
+          select: { id: true },
+        });
+        const privilegedUserIds = new Set(privilegedUsers.map((u) => u.id));
+
+        const now = new Date();
+
+        for (const stall of freshStalls) {
+          // If stall is held by another active user whose hold timer is still running
+          const isHeldByAnother =
+            stall.heldByUserId &&
+            !companyUserIds.has(stall.heldByUserId) &&
+            !privilegedUserIds.has(stall.heldByUserId);
+
+          const isHoldActive = stall.heldUntil && stall.heldUntil.getTime() > now.getTime();
+
+          if (
+            (stall.status === 'TEMPORARILY_HELD' || stall.status === 'PAYMENT_PENDING') &&
+            isHeldByAnother &&
+            isHoldActive
+          ) {
+            throw ApiError.conflict(
+              `Stall ${stall.stallNumber} is currently held by another user. Cannot confirm booking.`
+            );
+          }
         }
       }
 
