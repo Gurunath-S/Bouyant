@@ -15,7 +15,7 @@ import {
   Bath,
   Sliders,
   Type,
-  Sparkles,
+  LayoutTemplate,
   ChevronDown,
   Building,
   ChevronLeft,
@@ -285,7 +285,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
               onClick={() => setShowTemplatesMenu(!showTemplatesMenu)}
               className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
             >
-              <Sparkles className="w-3 h-3 text-amber-500" /> Templates <ChevronDown className="w-3 h-3" />
+              <LayoutTemplate className="w-3 h-3 text-blue-600" /> Templates <ChevronDown className="w-3 h-3" />
             </button>
 
             {showTemplatesMenu && (

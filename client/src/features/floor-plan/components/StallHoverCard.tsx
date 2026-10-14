@@ -2,6 +2,8 @@ import React from 'react';
 import { Stall } from '../../../types';
 import { StallStatusBadge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { useAuthStore } from '../../../stores/authStore';
+import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { X, Lock, ArrowRight, Maximize2, Tag } from 'lucide-react';
 
 interface StallHoverCardProps {
@@ -11,8 +13,26 @@ interface StallHoverCardProps {
 }
 
 export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, onHold }) => {
-  const isAvailable = stall.status === 'AVAILABLE';
-  const isHeld = stall.status === 'TEMPORARILY_HELD';
+  const { user } = useAuthStore();
+  const { heldStallIds, selectedStallIds } = useFloorPlanStore();
+
+  const isHeldByMe =
+    selectedStallIds.includes(stall.id) ||
+    heldStallIds.includes(stall.id) ||
+    (!!stall.heldByUserId && !!user && stall.heldByUserId === user.id);
+
+  const isInProgressByOther =
+    (stall.status === 'TEMPORARILY_HELD' ||
+      stall.status === 'PAYMENT_PENDING' ||
+      stall.status === 'BOOKING_IN_PROGRESS') &&
+    !isHeldByMe;
+
+  const isAvailable = stall.status === 'AVAILABLE' && !isInProgressByOther;
+  const isHeld =
+    isHeldByMe &&
+    (stall.status === 'TEMPORARILY_HELD' ||
+      stall.status === 'PAYMENT_PENDING' ||
+      stall.status === 'BOOKING_IN_PROGRESS');
 
   return (
     <div className="w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-5 space-y-4 shrink-0 animate-in slide-in-from-right duration-200 text-slate-900 dark:text-slate-100">
@@ -34,7 +54,7 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
 
       {/* Status & Category */}
       <div className="flex items-center justify-between">
-        <StallStatusBadge status={stall.status} />
+        <StallStatusBadge status={isInProgressByOther ? 'BLOCKED' : stall.status} />
         <span className="px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px] rounded uppercase">
           {stall.category}
         </span>
@@ -58,7 +78,6 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
         </div>
       </div>
 
-
       {/* Actions */}
       <div className="pt-2">
         {isAvailable ? (
@@ -77,7 +96,11 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
         ) : (
           <div className="p-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
             <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            Stall Currently Unavailable
+            {isInProgressByOther
+              ? 'Stall Blocked (Booking in progress)'
+              : stall.status === 'BOOKED_CONFIRMED'
+              ? 'Stall Already Booked'
+              : 'Stall Currently Blocked'}
           </div>
         )}
       </div>

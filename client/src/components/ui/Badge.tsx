@@ -36,10 +36,9 @@ export const StallStatusBadge: React.FC<{ status: StallStatus }> = ({ status }) 
     case 'AVAILABLE':
       return <Badge variant="success">Available</Badge>;
     case 'TEMPORARILY_HELD':
-      return <Badge variant="warning">Temporarily Held</Badge>;
     case 'BOOKING_IN_PROGRESS':
     case 'PAYMENT_PENDING':
-      return <Badge variant="info">Pending Payment</Badge>;
+      return <Badge variant="neutral">Blocked (In Progress)</Badge>;
     case 'BOOKED_CONFIRMED':
       return <Badge variant="neutral">Booked</Badge>;
     case 'BLOCKED':

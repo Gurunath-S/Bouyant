@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Stall } from '../../../types';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
+import { useAuthStore } from '../../../stores/authStore';
 import { useThemeStore } from '../../../stores/themeStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { ZoomIn, ZoomOut, Move, RotateCcw } from 'lucide-react';
@@ -29,9 +30,31 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   children,
   showGrid = false,
 }) => {
-  const { selectedStallIds, conflictingStallIds, zoomLevel, setZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
+  const { user } = useAuthStore();
+  const { selectedStallIds, heldStallIds, conflictingStallIds, zoomLevel, setZoomLevel, setBaseZoomLevel, selectedCategory, selectedStatus, selectedHall } = useFloorPlanStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+
+  const isHeldByMe = useCallback(
+    (stall: Stall) => {
+      if (selectedStallIds.includes(stall.id)) return true;
+      if (heldStallIds.includes(stall.id)) return true;
+      if (stall.heldByUserId && user && stall.heldByUserId === user.id) return true;
+      return false;
+    },
+    [selectedStallIds, heldStallIds, user]
+  );
+
+  const isInProgressByOther = useCallback(
+    (stall: Stall) => {
+      const isHoldStatus =
+        stall.status === 'TEMPORARILY_HELD' ||
+        stall.status === 'PAYMENT_PENDING' ||
+        stall.status === 'BOOKING_IN_PROGRESS';
+      return isHoldStatus && !isHeldByMe(stall);
+    },
+    [isHeldByMe]
+  );
 
   // Map-like pan & move state
   const containerRef = useRef<HTMLDivElement>(null);
@@ -155,7 +178,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const getStallStyles = (stall: Stall) => {
     const isConflicting = conflictingStallIds.includes(stall.id);
-    const isSelected = selectedStallIds.includes(stall.id);
+    const myHeld = isHeldByMe(stall);
+    const inProgressOther = isInProgressByOther(stall);
 
     if (isConflicting) {
       return {
@@ -163,15 +187,28 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         stroke: '#dc2626',
         strokeWidth: 3,
         textColor: isDark ? '#fca5a5' : '#991b1b',
+        strokeDasharray: 'none',
       };
     }
 
-    if (isSelected && stall.status !== 'BOOKED_CONFIRMED' && stall.status !== 'BLOCKED') {
+    if (myHeld && stall.status !== 'BOOKED_CONFIRMED' && stall.status !== 'BLOCKED') {
       return {
         fill: isDark ? '#1e3a8a' : '#dbeafe',
         stroke: '#2563eb',
         strokeWidth: 3,
         textColor: isDark ? '#93c5fd' : '#1d4ed8',
+        strokeDasharray: 'none',
+      };
+    }
+
+    // Stalls currently being booked by other users: display as blocked & greyish with dashed border
+    if (inProgressOther) {
+      return {
+        fill: isDark ? '#1e293b' : '#e2e8f0',
+        stroke: isDark ? '#475569' : '#94a3b8',
+        strokeWidth: 1.5,
+        textColor: isDark ? '#94a3b8' : '#64748b',
+        strokeDasharray: '4 3',
       };
     }
 
@@ -183,6 +220,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             stroke: '#059669',
             strokeWidth: 1.5,
             textColor: isDark ? '#a7f3d0' : '#064e3b',
+            strokeDasharray: 'none',
           };
         } else if (stall.category === 'CORNER') {
           return {
@@ -190,6 +228,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             stroke: '#d97706',
             strokeWidth: 1.5,
             textColor: isDark ? '#fde68a' : '#78350f',
+            strokeDasharray: 'none',
           };
         } else if (stall.category === 'ISLAND') {
           return {
@@ -197,6 +236,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             stroke: '#7c3aed',
             strokeWidth: 1.5,
             textColor: isDark ? '#ddd6fe' : '#4c1d95',
+            strokeDasharray: 'none',
           };
         }
         return {
@@ -204,21 +244,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           stroke: '#2563eb',
           strokeWidth: 1.5,
           textColor: isDark ? '#93c5fd' : '#1e3a8a',
+          strokeDasharray: 'none',
         };
       case 'TEMPORARILY_HELD':
-        return {
-          fill: isDark ? '#78350f' : '#fffbeb',
-          stroke: '#f59e0b',
-          strokeWidth: 1.5,
-          textColor: isDark ? '#fde68a' : '#b45309',
-        };
       case 'PAYMENT_PENDING':
       case 'BOOKING_IN_PROGRESS':
+        // If it got here and wasn't inProgressOther, it means it is held by current user
         return {
-          fill: isDark ? '#075985' : '#f0f9ff',
-          stroke: '#38bdf8',
-          strokeWidth: 1.5,
-          textColor: isDark ? '#bae6fd' : '#0369a1',
+          fill: isDark ? '#1e3a8a' : '#dbeafe',
+          stroke: '#2563eb',
+          strokeWidth: 2,
+          textColor: isDark ? '#93c5fd' : '#1d4ed8',
+          strokeDasharray: 'none',
         };
       case 'BOOKED_CONFIRMED':
         return {
@@ -226,13 +263,15 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           stroke: isDark ? '#475569' : '#94a3b8',
           strokeWidth: 1.5,
           textColor: isDark ? '#94a3b8' : '#64748b',
+          strokeDasharray: 'none',
         };
       case 'BLOCKED':
         return {
-          fill: isDark ? '#881337' : '#fef2f2',
-          stroke: '#f43f5e',
+          fill: isDark ? '#1e293b' : '#e2e8f0',
+          stroke: isDark ? '#475569' : '#94a3b8',
           strokeWidth: 1.5,
-          textColor: isDark ? '#fecdd3' : '#be123c',
+          textColor: isDark ? '#94a3b8' : '#64748b',
+          strokeDasharray: '4 3',
         };
       default:
         return {
@@ -240,6 +279,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           stroke: isDark ? '#334155' : '#cbd5e1',
           strokeWidth: 1,
           textColor: isDark ? '#94a3b8' : '#475569',
+          strokeDasharray: 'none',
         };
     }
   };
@@ -595,21 +635,35 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <g id="stalls-layer">
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
-              const isBlocked = stall.status === 'BLOCKED';
+              const inProgressOther = isInProgressByOther(stall);
+              const isBlocked = stall.status === 'BLOCKED' || inProgressOther;
               const isBooked = stall.status === 'BOOKED_CONFIRMED';
-              const isAvailable = stall.status === 'AVAILABLE';
+              const myHeld = isHeldByMe(stall);
+              const isAvailable = stall.status === 'AVAILABLE' && !isBlocked && !isBooked;
+
+              const cursorClass = isAvailable || myHeld
+                ? 'cursor-pointer hover:opacity-85'
+                : 'cursor-not-allowed opacity-90';
+
+              const titleText = inProgressOther
+                ? `Stall ${stall.stallNumber} • Blocked (Booking in progress by another user)`
+                : isBlocked
+                ? `Stall ${stall.stallNumber} • Blocked`
+                : isBooked
+                ? `Stall ${stall.stallNumber} • Booked`
+                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${stall.areaSqFt || Math.round((stall.width * stall.height) / 100)} sqft`;
 
               return (
                 <g
                   key={stall.id}
                   onClick={() => {
-                    if (!hasDragged) onStallSelect(stall);
+                    if (!hasDragged && (isAvailable || myHeld)) {
+                      onStallSelect(stall);
+                    }
                   }}
-                  className={`transition-transform duration-150 ${
-                    isAvailable ? 'cursor-pointer hover:opacity-85' : 'cursor-pointer opacity-95'
-                  }`}
+                  className={`transition-transform duration-150 ${cursorClass}`}
                 >
-                  <title>{`Stall ${stall.stallNumber} • ${stall.category} • ${stall.status} • ₹${Number(stall.price).toLocaleString()} • ${stall.areaSqFt || Math.round((stall.width * stall.height) / 100)} sqft`}</title>
+                  <title>{titleText}</title>
                   <rect
                     x={stall.xPosition}
                     y={stall.yPosition}
@@ -619,7 +673,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     fill={styles.fill}
                     stroke={styles.stroke}
                     strokeWidth={styles.strokeWidth}
-                    strokeDasharray={isBlocked ? '4 3' : 'none'}
+                    strokeDasharray={isBlocked ? (styles.strokeDasharray || '4 3') : 'none'}
                     className="transition-colors"
                   />
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Image as ImageIcon, Upload, Link2, Sparkles, Check, Trash2, AlertCircle } from 'lucide-react';
+import { Image as ImageIcon, Upload, Link2, Check, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { uploadService } from '../../services/upload/uploadService';
@@ -178,7 +178,7 @@ export const BannerImagePicker: React.FC<BannerImagePickerProps> = ({
               : 'hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+          <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
           <span>Curated Presets</span>
         </button>
 

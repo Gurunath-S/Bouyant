@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, LayoutGrid, Check, ArrowRight, ArrowDown, Sparkles } from 'lucide-react';
+import { X, LayoutGrid, Check, ArrowRight, ArrowDown } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
 
@@ -529,7 +529,7 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
           <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
                 Live Row Preview on Floor Plan
               </span>
               <span className="text-[11px] font-semibold text-slate-500">

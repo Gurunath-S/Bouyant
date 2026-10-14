@@ -108,16 +108,16 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
             Available
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-950 border border-amber-500 inline-block" />
-            Held
+            <span className="w-3 h-3 rounded bg-blue-100 dark:bg-blue-950 border-2 border-blue-600 inline-block" />
+            Selected
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-slate-400 dark:border-slate-600 inline-block" />
             Booked
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-rose-100 dark:bg-rose-950 border border-rose-500 inline-block" />
-            Blocked
+            <span className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-dashed border-slate-500 dark:border-slate-400 inline-block" />
+            Blocked / In Progress
           </span>
         </div>
 
