@@ -44,13 +44,23 @@ async function request(endpoint: string, { method = 'GET', body, token }: any = 
 let adminToken: string;
 
 async function setupAuth() {
-  const saLogin = await request('/auth/login', {
+  let saLogin = await request('/auth/login', {
     method: 'POST',
     body: {
       email: 'superadmin@buoyantmedia.com',
-      password: 'SuperAdminPassword123!',
+      password: 'Password123!',
     },
   });
+
+  if (saLogin.status !== 200) {
+    saLogin = await request('/auth/login', {
+      method: 'POST',
+      body: {
+        email: 'superadmin@buoyantmedia.com',
+        password: 'SuperAdminPassword123!',
+      },
+    });
+  }
 
   if (saLogin.status === 200 && saLogin.data?.data?.tokens?.accessToken) {
     adminToken = saLogin.data.data.tokens.accessToken;

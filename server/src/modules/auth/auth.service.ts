@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { UserRole } from '@prisma/client';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt.js';
 import { RegisterInput, LoginInput } from './auth.schemas.js';
+import { DEFAULT_ROLE_PAGE_ACCESS } from '../../config/permissions.js';
 
 export class AuthService {
   static async register(input: RegisterInput) {
@@ -104,12 +106,19 @@ export class AuthService {
       throw ApiError.forbidden('Your account has been deactivated. Please contact an administrator.');
     }
 
+    const userAccessList = (user as any).pageAccess as string[] | undefined;
+    const effectivePageAccess =
+      Array.isArray(userAccessList) && userAccessList.length > 0
+        ? userAccessList
+        : DEFAULT_ROLE_PAGE_ACCESS[user.role as UserRole] || [];
+
     const tokens = generateTokens({
       userId: user.id,
       email: user.email,
       role: user.role,
       companyId: user.companyId,
       spcode: user.spcode,
+      pageAccess: effectivePageAccess,
     });
 
     const userProfile = {
@@ -120,6 +129,7 @@ export class AuthService {
       phone: user.phone,
       role: user.role,
       spcode: user.spcode,
+      pageAccess: effectivePageAccess,
       isActive: user.isActive,
       companyId: user.companyId,
       company: user.company,
@@ -144,12 +154,19 @@ export class AuthService {
         throw ApiError.forbidden('Your account has been deactivated.');
       }
 
+      const userAccessList = (user as any).pageAccess as string[] | undefined;
+      const effectivePageAccess =
+        Array.isArray(userAccessList) && userAccessList.length > 0
+          ? userAccessList
+          : DEFAULT_ROLE_PAGE_ACCESS[user.role as UserRole] || [];
+
       const tokens = generateTokens({
         userId: user.id,
         email: user.email,
         role: user.role,
         companyId: user.companyId,
         spcode: user.spcode,
+        pageAccess: effectivePageAccess,
       });
 
       return tokens;
@@ -160,7 +177,7 @@ export class AuthService {
   }
 
   static async getCurrentUser(userId: string) {
-    const user = await prisma.user.findUnique({
+    const user: any = await (prisma.user as any).findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -170,6 +187,7 @@ export class AuthService {
         phone: true,
         role: true,
         spcode: true,
+        pageAccess: true,
         isActive: true,
         companyId: true,
         company: true,
@@ -185,6 +203,15 @@ export class AuthService {
       throw ApiError.forbidden('Your account has been deactivated.');
     }
 
-    return user;
+    const userAccessList = (user as any)?.pageAccess as string[] | undefined;
+    const effectivePageAccess =
+      Array.isArray(userAccessList) && userAccessList.length > 0
+        ? userAccessList
+        : DEFAULT_ROLE_PAGE_ACCESS[(user as any)?.role as UserRole] || [];
+
+    return {
+      ...user,
+      pageAccess: effectivePageAccess,
+    };
   }
 }

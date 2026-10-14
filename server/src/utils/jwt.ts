@@ -7,6 +7,7 @@ export interface TokenPayload {
   role: string;
   companyId?: string | null;
   spcode?: string | null;
+  pageAccess?: string[];
 }
 
 export const generateTokens = (payload: TokenPayload) => {

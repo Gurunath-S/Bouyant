@@ -55,6 +55,16 @@ export class UsersController {
     });
   };
 
+  static create = async (req: Request, res: Response) => {
+    const user = await UsersService.createUser(req.body);
+    return sendResponse({
+      res,
+      statusCode: 201,
+      message: `${user.role} account created successfully.`,
+      data: user,
+    });
+  };
+
   static createAdmin = async (req: Request, res: Response) => {
     const admin = await UsersService.createAdmin(req.body);
     return sendResponse({
@@ -75,8 +85,8 @@ export class UsersController {
     });
   };
 
-  static update = async (req: Request, res: Response) => {
-    const updated = await UsersService.updateUser(req.params.id, req.body);
+  static update = async (req: AuthenticatedRequest, res: Response) => {
+    const updated = await UsersService.updateUser(req.params.id, req.body, req.user);
     return sendResponse({
       res,
       statusCode: 200,

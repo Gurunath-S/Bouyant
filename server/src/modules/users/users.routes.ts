@@ -6,6 +6,7 @@ import { validateRequest } from '../../middlewares/validate.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { Permissions } from '../../config/permissions.js';
 import {
+  CreateUserSchema,
   CreateAdminSchema,
   CreateStaffSchema,
   UpdateUserSchema,
@@ -28,6 +29,14 @@ router.get(
   '/:id',
   requirePermission(Permissions.USER_VIEW),
   asyncHandler(UsersController.getById)
+);
+
+// Unified user creation route (Super Admin / Admin with governance page access)
+router.post(
+  '/',
+  requirePermission(Permissions.USER_CREATE_ADMIN, Permissions.USER_CREATE_STAFF),
+  validateRequest(CreateUserSchema),
+  asyncHandler(UsersController.create)
 );
 
 router.post(

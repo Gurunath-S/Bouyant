@@ -2,13 +2,15 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { UserRole } from '@prisma/client';
-import { ROLE_PERMISSIONS } from '../../config/permissions.js';
+import { ROLE_PERMISSIONS, DEFAULT_ROLE_PAGE_ACCESS } from '../../config/permissions.js';
 import {
+  CreateUserInput,
   CreateAdminInput,
   CreateStaffInput,
   UpdateUserInput,
 } from './users.schemas.js';
 import { normalizePagination } from '../../utils/pagination.js';
+import { TokenPayload } from '../../utils/jwt.js';
 
 export interface ListUsersParams {
   role?: string;
@@ -112,6 +114,7 @@ export class UsersService {
         phone: true,
         role: true,
         spcode: true,
+        pageAccess: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -187,8 +190,14 @@ export class UsersService {
         }
       }
 
+      const effectivePages =
+        u.pageAccess && u.pageAccess.length > 0
+          ? u.pageAccess
+          : DEFAULT_ROLE_PAGE_ACCESS[u.role as UserRole] || [];
+
       return {
         ...u,
+        pageAccess: effectivePages,
         isGlobal,
         eventAssociation,
       };
@@ -239,6 +248,7 @@ export class UsersService {
         phone: true,
         role: true,
         spcode: true,
+        pageAccess: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -371,10 +381,16 @@ export class UsersService {
       },
     });
 
+    const effectivePages =
+      user.pageAccess && user.pageAccess.length > 0
+        ? user.pageAccess
+        : DEFAULT_ROLE_PAGE_ACCESS[user.role as UserRole] || [];
+
     const rolePermissions = Array.from(ROLE_PERMISSIONS[user.role] || []);
 
     return {
       ...user,
+      pageAccess: effectivePages,
       attributedBookings,
       companyBookings,
       heldStalls,
@@ -382,7 +398,7 @@ export class UsersService {
     };
   }
 
-  static async createAdmin(input: CreateAdminInput) {
+  static async createUser(input: CreateUserInput) {
     const email = input.email.toLowerCase().trim();
 
     const existingEmail = await prisma.user.findUnique({
@@ -399,11 +415,16 @@ export class UsersService {
         where: { spcode },
       });
       if (existingSp) {
-        throw ApiError.conflict(`A user with Staff SP Code '${spcode}' already exists.`);
+        throw ApiError.conflict(`A user with SP Code '${spcode}' already exists.`);
       }
     }
 
     const passwordHash = await bcrypt.hash(input.password, 10);
+    const targetRole = input.role as UserRole;
+    const pageAccess =
+      input.pageAccess && input.pageAccess.length > 0
+        ? input.pageAccess
+        : DEFAULT_ROLE_PAGE_ACCESS[targetRole] || [];
 
     const user = await prisma.user.create({
       data: {
@@ -412,7 +433,8 @@ export class UsersService {
         passwordHash,
         phone: input.phone ? input.phone.trim() : null,
         spcode,
-        role: UserRole.ADMIN,
+        role: targetRole,
+        pageAccess,
         isActive: true,
       },
       select: {
@@ -422,69 +444,38 @@ export class UsersService {
         phone: true,
         role: true,
         spcode: true,
+        pageAccess: true,
         isActive: true,
         createdAt: true,
       },
     });
 
     return user;
+  }
+
+  static async createAdmin(input: CreateAdminInput) {
+    return this.createUser({
+      ...input,
+      role: 'ADMIN',
+      pageAccess: input.pageAccess || DEFAULT_ROLE_PAGE_ACCESS[UserRole.ADMIN],
+    });
   }
 
   static async createStaff(input: CreateStaffInput) {
-    const email = input.email.toLowerCase().trim();
-
-    const existingEmail = await prisma.user.findUnique({
-      where: { email },
+    return this.createUser({
+      ...input,
+      role: 'STAFF',
+      pageAccess: input.pageAccess || DEFAULT_ROLE_PAGE_ACCESS[UserRole.STAFF],
     });
-    if (existingEmail) {
-      throw ApiError.conflict('An account with this email address already exists.');
-    }
-
-    let spcode: string | null = null;
-    if (input.spcode && input.spcode.trim()) {
-      spcode = input.spcode.trim().toUpperCase();
-      const existingSp = await prisma.user.findUnique({
-        where: { spcode },
-      });
-      if (existingSp) {
-        throw ApiError.conflict(`A user with Staff SP Code '${spcode}' already exists.`);
-      }
-    }
-
-    const passwordHash = await bcrypt.hash(input.password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        name: input.name.trim(),
-        email,
-        passwordHash,
-        phone: input.phone ? input.phone.trim() : null,
-        spcode,
-        role: UserRole.STAFF,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        spcode: true,
-        isActive: true,
-        createdAt: true,
-      },
-    });
-
-    return user;
   }
 
-  static async updateUser(id: string, input: UpdateUserInput) {
+  static async updateUser(id: string, input: UpdateUserInput, callerUser?: TokenPayload) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw ApiError.notFound('User not found.');
     }
 
-    if (user.role === UserRole.SUPERADMIN) {
+    if (user.role === UserRole.SUPERADMIN && callerUser?.role !== 'SUPERADMIN') {
       throw ApiError.forbidden('Platform Super Admin details cannot be modified through this endpoint.');
     }
 
@@ -508,6 +499,8 @@ export class UsersService {
         name: input.name ? input.name.trim() : undefined,
         phone: input.phone !== undefined ? (input.phone ? input.phone.trim() : null) : undefined,
         spcode,
+        role: input.role ? (input.role as UserRole) : undefined,
+        pageAccess: input.pageAccess !== undefined ? input.pageAccess : undefined,
       },
       select: {
         id: true,
@@ -516,6 +509,7 @@ export class UsersService {
         phone: true,
         role: true,
         spcode: true,
+        pageAccess: true,
         isActive: true,
         updatedAt: true,
       },
