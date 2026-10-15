@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
   requiredPage?: string;
 }
 
-export const getRoleDefaultDashboard = (role?: UserRole): string => {
+const getRoleDefaultDashboard = (role?: UserRole): string => {
   switch (role) {
     case 'SUPERADMIN':
       return '/super-admin/dashboard';
