@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
-import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation } from '../../../data/indianStatesCities';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, normalizeCountryName } from '../../../data/indianStatesCities';
 import { Building2, CheckCircle2, Save, FileText } from 'lucide-react';
 
 export const CompanyProfilePage: React.FC = () => {
@@ -38,7 +38,11 @@ export const CompanyProfilePage: React.FC = () => {
   useEffect(() => {
     if (user?.company) {
       Object.keys(user.company).forEach((key) => {
-        setValue(key, (user.company as any)[key]);
+        if (key === 'country') {
+          setValue('country', normalizeCountryName((user.company as any)[key] || 'India'));
+        } else {
+          setValue(key, (user.company as any)[key]);
+        }
       });
     }
   }, [user, setValue]);
@@ -208,7 +212,7 @@ export const CompanyProfilePage: React.FC = () => {
               required
               value={watchedCountry ?? ''}
               onChange={(val) => {
-                setValue('country', val, { shouldValidate: true });
+                setValue('country', normalizeCountryName(val), { shouldValidate: true });
               }}
               options={ALL_COUNTRIES}
               placeholder="Select or type Country..."

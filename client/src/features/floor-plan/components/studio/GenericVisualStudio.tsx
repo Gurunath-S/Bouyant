@@ -39,6 +39,7 @@ import { CreateStallRowModal } from './CreateStallRowModal';
 import { CreateCustomStallModal } from './CreateCustomStallModal';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
 import { uploadService } from '../../../../services/upload/uploadService';
+import { showConfirm, showAlert } from '../../../../stores/dialogStore';
 
 interface GenericVisualStudioProps {
   exhibitionTitle: string;
@@ -1879,7 +1880,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       // Keep autoSaveKey active so unexpected network drops or wizard step changes never erase user work
     } catch (err: any) {
       console.error('Failed to save layout:', err);
-      alert(err?.response?.data?.message || err?.message || 'Failed to save floor plan layout.');
+      await showAlert({
+        title: 'Studio Save Failed',
+        message: err?.response?.data?.message || err?.message || 'Failed to save floor plan layout.',
+        type: 'danger',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -2164,8 +2169,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Restored from auto-saved session</span>
               <button
-                onClick={() => {
-                  if (window.confirm('Clear auto-saved draft and reset to empty canvas?')) {
+                onClick={async () => {
+                  const confirmed = await showConfirm({
+                    title: 'Clear Auto-Saved Draft?',
+                    message: 'Clear auto-saved draft and reset to an empty canvas? All unsaved studio elements will be cleared.',
+                    type: 'warning',
+                    confirmText: 'Clear Canvas',
+                    cancelText: 'Cancel',
+                  });
+                  if (confirmed) {
                     localStorage.removeItem(autoSaveKey);
                     setHalls([]);
                     setFacilities([]);

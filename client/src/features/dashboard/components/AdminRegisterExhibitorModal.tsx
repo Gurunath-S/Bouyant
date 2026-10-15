@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
-import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation } from '../../../data/indianStatesCities';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, normalizeCountryName } from '../../../data/indianStatesCities';
 import { Modal } from '../../../components/ui/Modal';
 import { formatDisplayDate } from '../../../utils/date';
 import {
@@ -554,8 +554,8 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                 <div>
                   <SearchableCombobox
                     label="Country"
-                    value={newCompany.country ?? ''}
-                    onChange={(val) => setNewCompany({ ...newCompany, country: val })}
+                    value={normalizeCountryName(newCompany.country ?? 'India')}
+                    onChange={(val) => setNewCompany({ ...newCompany, country: normalizeCountryName(val) })}
                     options={ALL_COUNTRIES}
                     placeholder="Select or type country..."
                   />

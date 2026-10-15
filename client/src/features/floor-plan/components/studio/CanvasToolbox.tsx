@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { StudioTool, FacilityType } from '../../../../types/floorPlanStudio';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
+import { showConfirm } from '../../../../stores/dialogStore';
 
 interface CanvasToolboxProps {
   activeTool: StudioTool;
@@ -296,12 +297,15 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
                 {STARTER_TEMPLATES.map((tmpl) => (
                   <button
                     key={tmpl.id}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Apply "${tmpl.name}"? This will replace your current unsaved studio objects.`
-                        )
-                      ) {
+                    onClick={async () => {
+                      const confirmed = await showConfirm({
+                        title: `Apply "${tmpl.name}"?`,
+                        message: `Applying this template will replace your current unsaved studio objects. Are you sure you want to proceed?`,
+                        type: 'warning',
+                        confirmText: 'Apply Template',
+                        cancelText: 'Cancel',
+                      });
+                      if (confirmed) {
                         onApplyTemplate(tmpl.id);
                         setShowTemplatesMenu(false);
                       }

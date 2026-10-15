@@ -12,6 +12,7 @@ import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { formatDisplayDate } from '../../../utils/date';
 import { useAuthStore } from '../../../stores/authStore';
+import { showConfirm, showAlert } from '../../../stores/dialogStore';
 import {
   Layers,
   RotateCcw,
@@ -460,8 +461,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY]);
 
-  const handleDiscardDraft = () => {
-    if (window.confirm('Discard the restored draft and start completely clean from scratch?')) {
+  const handleDiscardDraft = async () => {
+    const confirmed = await showConfirm({
+      title: 'Discard Restored Draft?',
+      message: 'Discard the restored draft and start completely clean from scratch? All unsaved hall configurations will be reset.',
+      type: 'warning',
+      confirmText: 'Discard Draft',
+      cancelText: 'Keep Draft',
+    });
+    if (confirmed) {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem('buoyant_exhibition_draft_new');
       setHasRestoredDraft(false);
@@ -564,7 +572,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       navigate('/admin/events');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to save exhibition event.');
+      await showAlert({
+        title: 'Save Failed',
+        message: err.response?.data?.message || 'Failed to save exhibition event.',
+        type: 'danger',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1552,7 +1564,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     layoutData: savedLayout,
                     stalls: savedStalls,
                   });
-                  alert('Floor plan layout saved successfully to database!');
+                  await showAlert({
+                    title: 'Floor Plan Saved',
+                    message: 'Floor plan layout saved successfully to database!',
+                    type: 'success',
+                  });
                 } else if (id && !floorPlanId) {
                   const ev = await exhibitionService.getExhibitionBySlug(id);
                   const fp = ev?.floorPlans?.[0];
@@ -1565,7 +1581,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       layoutData: savedLayout,
                       stalls: savedStalls,
                     });
-                    alert('Floor plan layout saved successfully to database!');
+                    await showAlert({
+                      title: 'Floor Plan Saved',
+                      message: 'Floor plan layout saved successfully to database!',
+                      type: 'success',
+                    });
                   }
                 } else {
                   const payload = {
@@ -1608,11 +1628,19 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   if (created?.slug) {
                     navigate(`/admin/events/${created.slug}/edit`, { replace: true });
                   }
-                  alert('Exhibition draft and floor plan saved successfully to database!');
+                  await showAlert({
+                    title: 'Floor Plan Saved',
+                    message: 'Exhibition draft and floor plan saved successfully to database!',
+                    type: 'success',
+                  });
                 }
               } catch (err: any) {
                 console.error('Failed to save layout:', err);
-                alert(err?.response?.data?.message || err?.message || 'Failed to save floor plan layout to database.');
+                await showAlert({
+                  title: 'Save Failed',
+                  message: err?.response?.data?.message || err?.message || 'Failed to save floor plan layout to database.',
+                  type: 'danger',
+                });
               }
             }}
           />

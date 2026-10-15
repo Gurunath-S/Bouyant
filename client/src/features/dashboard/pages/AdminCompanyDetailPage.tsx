@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Company, Exhibition, Booking } from '../../../types';
+import { normalizeCountryName } from '../../../data/indianStatesCities';
 import { BackButton } from '../../../components/ui/BackButton';
 import {
   ArrowLeft,
@@ -626,7 +627,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
             <p className="font-semibold text-slate-800 dark:text-slate-200">
               {company.city}, {company.state} - {company.pinCode}
             </p>
-            <p className="text-[11px] text-slate-400">{company.country || 'India'}</p>
+            <p className="text-[11px] text-slate-400">{normalizeCountryName(company.country || 'India')}</p>
           </div>
         </div>
       </div>

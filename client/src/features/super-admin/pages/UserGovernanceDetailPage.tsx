@@ -4,6 +4,7 @@ import { userService } from '../../../services/users/userService';
 import { AdminStaffUser } from '../../../types';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Button } from '../../../components/ui/Button';
+import { showConfirm } from '../../../stores/dialogStore';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import {
@@ -76,11 +77,16 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const handleToggleStatus = async () => {
     if (!user) return;
     const nextState = !user.isActive;
-    const confirmMsg = nextState
-      ? `Activate login and platform privileges for ${user.name}?`
-      : `Deactivate account for ${user.name}? They will be immediately blocked from signing in.`;
+    const confirmed = await showConfirm({
+      title: nextState ? 'Activate User Account?' : 'Deactivate User Account?',
+      message: nextState
+        ? `Are you sure you want to activate login and platform privileges for ${user.name}?`
+        : `Are you sure you want to deactivate the account for ${user.name}? They will be immediately blocked from signing in.`,
+      type: nextState ? 'info' : 'warning',
+      confirmText: nextState ? 'Yes, Activate' : 'Yes, Deactivate',
+    });
 
-    if (!window.confirm(confirmMsg)) return;
+    if (!confirmed) return;
 
     try {
       setTogglingStatus(true);
