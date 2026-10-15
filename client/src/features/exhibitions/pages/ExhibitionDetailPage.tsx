@@ -20,11 +20,15 @@ import {
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
+import { useAuthStore } from '../../../stores/authStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { formatDisplayDate } from '../../../utils/date';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
+import { BackButton } from '../../../components/ui/BackButton';
+import { getDashboardUrl } from '../../../utils/navigation';
 
 export const ExhibitionDetailPage: React.FC = () => {
+  const { user, isAuthenticated } = useAuthStore();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
@@ -150,14 +154,26 @@ export const ExhibitionDetailPage: React.FC = () => {
     );
   }
 
+  const getBackConfig = () => {
+    if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN') {
+      return { to: '/admin/events', label: 'Back to Exhibitions Console' };
+    }
+    if (user?.role === 'STAFF') {
+      return { to: '/staff/events', label: 'Back to Staff Events' };
+    }
+    return { to: '/exhibitions', label: 'Back to All Exhibitions' };
+  };
+
+  const backConfig = getBackConfig();
+
   if (!exhibition) {
     return (
       <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 max-w-xl mx-auto my-12">
         <h3 className="text-lg font-bold text-[#121B3D] dark:text-slate-100">Event Not Found</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">The requested exhibition could not be located in our directory.</p>
-        <Button variant="outline" onClick={() => navigate('/')}>
-          Back to all events
-        </Button>
+        <div className="flex justify-center">
+          <BackButton to={backConfig.to} label={backConfig.label} variant="outline" />
+        </div>
       </div>
     );
   }
@@ -173,13 +189,16 @@ export const ExhibitionDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans selection:bg-[#0E8074] selection:text-white transition-colors duration-200">
       {/* Back Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-[#121B3D] dark:hover:text-slate-100 font-semibold text-sm transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to all events
-        </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-wrap items-center justify-between gap-3">
+        <BackButton to={backConfig.to} label={backConfig.label} />
+        {isAuthenticated && (
+          <Link
+            to={getDashboardUrl(user?.role)}
+            className="text-xs font-bold text-slate-500 hover:text-[#09539b] dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors"
+          >
+            Go to {user?.role === 'SUPERADMIN' ? 'Super Admin' : user?.role === 'ADMIN' ? 'Admin' : user?.role === 'STAFF' ? 'Staff' : 'Exhibitor'} Dashboard →
+          </Link>
+        )}
       </div>
 
       {/* ========================================================================= */}

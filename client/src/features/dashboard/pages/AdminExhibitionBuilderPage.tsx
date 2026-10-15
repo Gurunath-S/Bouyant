@@ -9,6 +9,7 @@ import { DateInput } from '../../../components/ui/DateInput';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { formatDisplayDate } from '../../../utils/date';
 import { useAuthStore } from '../../../stores/authStore';
 import {
@@ -601,12 +602,23 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
           <div>
-            <button
-              onClick={() => navigate('/admin/events')}
-              className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 mb-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Exhibitions Console
-            </button>
+            {currentStep === 2 ? (
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 mb-1 cursor-pointer group"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" /> Back to Event Details (Step 1)
+              </button>
+            ) : (
+              <BackButton
+                to="/admin/events"
+                label="Back to Exhibitions Console"
+                variant="ghost"
+                size="xs"
+                className="text-purple-600 dark:text-purple-400 hover:underline mb-1 p-0"
+              />
+            )}
             <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               {isViewMode
@@ -1523,6 +1535,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             initialLayoutData={layoutData}
             initialStalls={stalls as any}
             isViewOnly={isViewMode}
+            onBack={() => setCurrentStep(1)}
             onChangeLayout={({ layoutData: currentLayout, stalls: currentStalls }) => {
               setLayoutData(currentLayout);
               setStalls(currentStalls as any);
@@ -1602,7 +1615,6 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 alert(err?.response?.data?.message || err?.message || 'Failed to save floor plan layout to database.');
               }
             }}
-            onBack={() => setCurrentStep(1)}
           />
 
           <div className="pt-2 flex justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">

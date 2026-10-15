@@ -5,6 +5,7 @@ import { Booking } from '../../../types';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { BookmarkCheck, FileText, CreditCard, Download } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
@@ -42,6 +43,11 @@ export const MyBookingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Back to Dashboard */}
+      <div>
+        <BackButton to="/dashboard" label="Back to Dashboard" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>

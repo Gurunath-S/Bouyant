@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking, Company, Exhibition, Stall, User } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
+import { getBookingsUrl, getEventsConsoleUrl, getDashboardUrl } from '../../../../utils/navigation';
 import {
   CheckCircle2,
   XCircle,
@@ -56,7 +57,7 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
           <Button variant="primary" onClick={onRetryPayment} className="bg-[#09539b]" leftIcon={<RefreshCw className="w-4 h-4" />}>
             Retry Payment
           </Button>
-          <Button variant="outline" onClick={() => navigate('/exhibitions')}>
+          <Button variant="outline" onClick={() => navigate(getEventsConsoleUrl(user?.role))}>
             Cancel
           </Button>
         </div>
@@ -115,16 +116,22 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
         <Button
           variant="primary"
           className="flex-1 bg-[#09539b] hover:bg-[#012970]"
-          onClick={() => navigate('/my-bookings')}
+          onClick={() => navigate(getBookingsUrl(user?.role))}
         >
-          View My Bookings Dashboard
+          {user?.role === 'SUPERADMIN' || user?.role === 'ADMIN' || user?.role === 'STAFF'
+            ? 'View Bookings Management'
+            : 'View My Bookings Dashboard'}
         </Button>
         <Button
           variant="outline"
           className="flex-1"
-          onClick={() => navigate(`/exhibitions/${exhibition.slug}`)}
+          onClick={() => navigate(getEventsConsoleUrl(user?.role))}
         >
-          Back to Exhibition Catalog
+          {user?.role === 'SUPERADMIN' || user?.role === 'ADMIN'
+            ? 'Back to Exhibitions Console'
+            : user?.role === 'STAFF'
+            ? 'Back to Staff Events'
+            : 'Browse All Exhibitions'}
         </Button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
 import { companyService } from '../../../services/companies/companyService';
@@ -10,6 +10,7 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { Exhibition, Stall, Company, Booking, User } from '../../../types';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { Modal } from '../../../components/ui/Modal';
 import { ArrowLeft, Check, AlertTriangle } from 'lucide-react';
 import type { CreateBookingPayload } from '../../../services/bookings/bookingService';
@@ -32,6 +33,9 @@ export const BookingWizardPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const location = useLocation();
+  const fromReferrer = (location.state as any)?.from;
+  const fromReferrerLabel = (location.state as any)?.fromLabel;
   const {
     selectedStallIds,
     setHeldStallIds,
@@ -286,7 +290,11 @@ export const BookingWizardPage: React.FC = () => {
   // User initiates leaving the wizard or cancelling booking
   const handleInitiateLeave = () => {
     if (selectedStallIds.length === 0) {
-      navigate(`/exhibitions/${slug}`);
+      if (fromReferrer) {
+        navigate(fromReferrer);
+      } else {
+        navigate(`/exhibitions/${slug}`);
+      }
       return;
     }
     setConfirmLeaveModal({
@@ -331,7 +339,11 @@ export const BookingWizardPage: React.FC = () => {
       setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }));
 
       if (action === 'LEAVE_PAGE') {
-        navigate(`/exhibitions/${slug}`);
+        if (fromReferrer) {
+          navigate(fromReferrer);
+        } else {
+          navigate(`/exhibitions/${slug}`);
+        }
       } else {
         // Refresh stalls on floor plan so they show as available (green) immediately
         await loadInitialData();
@@ -547,9 +559,9 @@ export const BookingWizardPage: React.FC = () => {
     return (
       <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 max-w-xl mx-auto my-12 shadow-xs">
         <h3 className="text-lg font-bold text-[#012970] dark:text-slate-100">Exhibition Event Not Found</h3>
-        <Button variant="outline" onClick={() => navigate('/exhibitions')}>
-          Back to Exhibition Catalog
-        </Button>
+        <div className="flex justify-center">
+          <BackButton to="/exhibitions" label="Back to Exhibition Catalog" variant="outline" />
+        </div>
       </div>
     );
   }
@@ -578,11 +590,11 @@ export const BookingWizardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleInitiateLeave}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
-                  title="Back to Exhibition Profile"
+                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  title={fromReferrer ? `Back to ${fromReferrerLabel || 'Previous Page'}` : 'Back to Exhibition Profile'}
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                  <span>Back to Exhibition</span>
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>{fromReferrer ? `Back to ${fromReferrerLabel || 'Previous'}` : 'Back to Exhibition'}</span>
                 </button>
               )}
 
@@ -590,10 +602,10 @@ export const BookingWizardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleInitiateBackToStep1}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
                   title="Change Stalls / Return to Floor Plan"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
                   <span>Back to Stall Selection</span>
                 </button>
               )}
@@ -602,15 +614,12 @@ export const BookingWizardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    // Back from Payment -> Clear entered company details for a clean slate
-                    setSelectedCompany(null);
-                    setAssignedRegNo('');
                     setCurrentStep(2);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
                   title="Return to Company Details & Edit Profile"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
                   <span>Back to Company Details</span>
                 </button>
               )}
@@ -738,9 +747,6 @@ export const BookingWizardPage: React.FC = () => {
           setIsTermsAccepted={setIsTermsAccepted}
           onProceedToPayment={handleProceedToPayment}
           onBack={() => {
-            // When user goes back from payment/review, clear entered company data for fresh entry
-            setSelectedCompany(null);
-            setAssignedRegNo('');
             setCurrentStep(2);
           }}
         />

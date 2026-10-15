@@ -22,6 +22,7 @@ import {
   EyeOff,
   ChevronLeft,
   ChevronRight,
+  KeyRound,
 } from 'lucide-react';
 
 const loginSchema = z.object({
@@ -80,9 +81,41 @@ export const LoginPage: React.FC = () => {
     return `${sStr} – ${eStr}`;
   };
 
+  const DEMO_ACCOUNTS = [
+    {
+      role: 'Demo Exhibitor',
+      badge: 'Client',
+      badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+      email: 'demo@buoyantmedia.com',
+      password: 'DemoUser123!',
+    },
+    {
+      role: 'Exhibition Admin',
+      badge: 'Admin',
+      badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+      email: 'admin@buoyantmedia.com',
+      password: 'Password123!',
+    },
+    {
+      role: 'Operations Staff',
+      badge: 'Staff',
+      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+      email: 'staff@buoyantmedia.com',
+      password: 'Password123!',
+    },
+    {
+      role: 'Super Admin',
+      badge: 'SuperAdmin',
+      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+      email: 'superadmin@buoyantmedia.com',
+      password: 'Password123!',
+    },
+  ];
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -285,6 +318,46 @@ export const LoginPage: React.FC = () => {
                 {errorMsg}
               </div>
             )}
+
+            {/* Quick Demo Credentials Autofill Panel */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  Demo Accounts (Click to Fill)
+                </span>
+                <span className="text-[10px] text-slate-400">Instant login</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setValue('email', acc.email, { shouldValidate: true });
+                      setValue('password', acc.password, { shouldValidate: true });
+                    }}
+                    className="p-2 text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 hover:border-purple-400 dark:hover:border-purple-500 rounded-xl transition-all shadow-2xs group cursor-pointer"
+                    title={`Click to fill ${acc.email}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                        {acc.role}
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${acc.badgeColor}`}>
+                        {acc.badge}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
+                      {acc.email}
+                    </p>
+                    <p className="text-[9px] font-mono text-slate-500 truncate">
+                      PW: {acc.password}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>

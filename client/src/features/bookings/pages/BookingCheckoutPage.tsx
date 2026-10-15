@@ -5,10 +5,11 @@ import { bookingService } from '../../../services/bookings/bookingService';
 import { paymentService } from '../../../services/payments/paymentService';
 import { companyService } from '../../../services/companies/companyService';
 import { useAuthStore } from '../../../stores/authStore';
-import { Stall, Company } from '../../../types';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { Input } from '../../../components/ui/Input';
 import { ShieldCheck, Building2, CreditCard, AlertCircle } from 'lucide-react';
+import { Stall, Company } from '../../../types';
 
 export const BookingCheckoutPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -122,11 +123,12 @@ export const BookingCheckoutPage: React.FC = () => {
 
   if (!stall) {
     return (
-      <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-3">
-        <h3 className="text-lg font-bold text-slate-900">Stall Hold Expired or Invalid</h3>
-        <Button variant="outline" onClick={() => navigate('/exhibitions')}>
-          Return to Floor Plan
-        </Button>
+      <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 max-w-md mx-auto my-12">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Stall Hold Expired or Invalid</h3>
+        <p className="text-xs text-slate-500">The 15-minute hold on this booth has ended.</p>
+        <div className="flex justify-center">
+          <BackButton to="/exhibitions" label="Return to Floor Plan" variant="outline" />
+        </div>
       </div>
     );
   }
@@ -137,6 +139,11 @@ export const BookingCheckoutPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Top Back Navigation */}
+      <div>
+        <BackButton to="/exhibitions" label="Back to Exhibitions" />
+      </div>
+
       {/* Header & Progress Stepper */}
       <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

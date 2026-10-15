@@ -7,6 +7,7 @@ import { authService } from '../../../services/auth/authService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
 import {
   Lock,
@@ -66,14 +67,17 @@ export const RegisterPage: React.FC = () => {
           </div>
         </div>
 
-        <a
-          href="https://buoyantevents.com"
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs font-bold text-[#09539b] hover:text-[#012970] dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1.5 transition-colors bg-[#f6f9ff] dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-[#e1ecff] dark:border-slate-700"
-        >
-          Official Website <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        <div className="flex items-center gap-3">
+          <BackButton to="/login" label="Back to Login" variant="outline" size="xs" />
+          <a
+            href="https://buoyantevents.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-bold text-[#09539b] hover:text-[#012970] dark:text-blue-400 dark:hover:text-blue-300 hidden sm:flex items-center gap-1.5 transition-colors bg-[#f6f9ff] dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-[#e1ecff] dark:border-slate-700"
+          >
+            Official Website <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </header>
 
       {/* Main Content Body */}

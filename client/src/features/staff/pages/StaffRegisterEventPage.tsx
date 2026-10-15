@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import {
   CalendarPlus,
   ArrowLeft,
@@ -201,12 +202,13 @@ export const StaffRegisterEventPage: React.FC = () => {
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-slate-800 pb-4 flex items-center justify-between">
         <div>
-          <Link
+          <BackButton
             to={isAdminOrSuperAdmin ? '/admin/events' : '/staff/dashboard'}
-            className={`text-xs font-bold text-slate-500 ${isAdminOrSuperAdmin ? 'hover:text-purple-600' : 'hover:text-emerald-600'} flex items-center gap-1.5 mb-1 transition-colors`}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to {isAdminOrSuperAdmin ? 'Manage Exhibitions' : 'Dashboard'}
-          </Link>
+            label={`Back to ${isAdminOrSuperAdmin ? 'Manage Exhibitions' : 'Dashboard'}`}
+            variant="ghost"
+            size="xs"
+            className={`mb-1 p-0 ${isAdminOrSuperAdmin ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+          />
           <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
             <CalendarPlus className={`w-6 h-6 ${isAdminOrSuperAdmin ? 'text-purple-600' : 'text-emerald-600'}`} />
             Register New Exhibition Event

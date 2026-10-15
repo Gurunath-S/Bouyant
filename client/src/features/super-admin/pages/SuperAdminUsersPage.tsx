@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { userService } from '../../../services/users/userService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { AdminStaffUser, CreateAdminStaffPayload, CreateUserPayload, UpdateUserPayload, Exhibition } from '../../../types';
@@ -35,6 +35,7 @@ import {
   CheckSquare,
   Square,
   Check,
+  ExternalLink,
 } from 'lucide-react';
 
 export const SuperAdminUsersPage: React.FC = () => {
@@ -667,7 +668,13 @@ export const SuperAdminUsersPage: React.FC = () => {
                           {user.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100">{user.name}</p>
+                          <Link
+                            to={`/super-admin/users/${user.id}`}
+                            className="font-bold text-slate-900 dark:text-slate-100 hover:text-purple-600 dark:hover:text-purple-400 hover:underline transition-colors block"
+                            title="Open Staff & Admin Works Detail Page"
+                          >
+                            {user.name}
+                          </Link>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                             <Mail className="w-3 h-3 text-slate-400" />
                             {user.email}
@@ -777,14 +784,14 @@ export const SuperAdminUsersPage: React.FC = () => {
                     {/* 7. Actions */}
                     <td className="px-5 py-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenDetails(user.id)}
-                          className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors"
-                          title="View Complete User Details"
+                        <Link
+                          to={`/super-admin/users/${user.id}`}
+                          className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors inline-flex items-center"
+                          title="View Staff & Admin Work Audit Profile (Dedicated Page)"
                           aria-label={`View details for ${user.name}`}
                         >
                           <Eye className="w-3.5 h-3.5" />
-                        </button>
+                        </Link>
 
                         <button
                           onClick={() => handleOpenEdit(user)}
@@ -904,14 +911,27 @@ export const SuperAdminUsersPage: React.FC = () => {
                 </div>
               </div>
 
-              {viewDetailsUser.spcode && (
-                <div className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl">
-                  <p className="text-[9px] font-bold text-indigo-500 uppercase">Sales SP Code</p>
-                  <p className="font-mono font-black text-sm text-indigo-700 dark:text-indigo-300">
-                    {viewDetailsUser.spcode}
-                  </p>
-                </div>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {viewDetailsUser.spcode && (
+                  <div className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                    <p className="text-[9px] font-bold text-indigo-500 uppercase">Sales SP Code</p>
+                    <p className="font-mono font-black text-sm text-indigo-700 dark:text-indigo-300">
+                      {viewDetailsUser.spcode}
+                    </p>
+                  </div>
+                )}
+                <Link to={`/super-admin/users/${viewDetailsUser.id}`}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
+                  >
+                    Open Dedicated Work Audit Page
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Navigation Tabs Inside Modal */}

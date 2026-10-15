@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
     "seed:clean": "tsx prisma/clean_seed.ts",
+    "seed:users": "tsx prisma/seed_users.ts",
     "clear": "tsx prisma/clear_db.ts"
   },
   "prisma": {

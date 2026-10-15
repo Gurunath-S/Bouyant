@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Company, Exhibition, Booking } from '../../../types';
+import { BackButton } from '../../../components/ui/BackButton';
 import {
   ArrowLeft,
   Building2,
@@ -359,7 +360,9 @@ export const AdminCompanyDetailPage: React.FC = () => {
     if (!company || !targetExhibitionId) return;
     const targetExpo = exhibitions.find((e) => e.id === targetExhibitionId);
     if (!targetExpo) return;
-    navigate(`/exhibitions/${targetExpo.slug}/book`);
+    navigate(`/exhibitions/${targetExpo.slug}/book`, {
+      state: { from: `/admin/companies/${id}`, fromLabel: `Company ${company.name}` },
+    });
   };
 
   const toggleExpandBooking = (bookingId: string) => {
@@ -383,13 +386,9 @@ export const AdminCompanyDetailPage: React.FC = () => {
         </div>
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Exhibitor Not Found</h3>
         <p className="text-xs text-slate-500">{error || 'The requested company record does not exist.'}</p>
-        <Link
-          to="/admin/companies"
-          className="inline-flex items-center gap-2 text-xs font-bold text-purple-600 hover:underline"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Exhibitor Directory</span>
-        </Link>
+        <div className="flex justify-center">
+          <BackButton to="/admin/companies" label="Back to Exhibitors Directory" variant="outline" />
+        </div>
       </div>
     );
   }
@@ -399,13 +398,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
       {/* Top Breadcrumb & Page Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Link
-            to="/admin/companies"
-            className="inline-flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-400 hover:text-purple-600 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Exhibitors Directory</span>
-          </Link>
+          <BackButton to="/admin/companies" label="Exhibitors Directory" variant="ghost" size="xs" />
           <span>/</span>
           <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
             {company.name}

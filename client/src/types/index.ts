@@ -86,6 +86,9 @@ export interface Exhibition {
   category?: string;
   bannerUrl?: string;
   totalStalls: number;
+  bookedStallsCount?: number;
+  availableStallsCount?: number;
+  isFull?: boolean;
   createdByUserId?: string | null;
   createdBy?: Partial<User> | null;
   floorPlans?: FloorPlan[];

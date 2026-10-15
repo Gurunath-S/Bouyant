@@ -5,6 +5,7 @@ import { bookingService } from '../../../services/bookings/bookingService';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
+import { getDashboardUrl } from '../../../utils/navigation';
 import {
   Check,
   CheckCircle2,
@@ -222,9 +223,15 @@ export const PaymentSuccessPage: React.FC = () => {
             {/* Close Button Top-Right */}
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => {
+                if (isAuthenticated) {
+                  navigate(getDashboardUrl(user?.role));
+                } else {
+                  navigate('/');
+                }
+              }}
               className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full z-20 cursor-pointer"
-              title="Close Receipt"
+              title={isAuthenticated ? 'Close & Return to Dashboard' : 'Close Receipt'}
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -360,10 +367,7 @@ export const PaymentSuccessPage: React.FC = () => {
                     leftIcon={<CheckCircle2 className="w-4.5 h-4.5 shrink-0" />}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center cursor-pointer"
                     onClick={() => {
-                      if (user?.role === 'SUPERADMIN') navigate('/super-admin/dashboard');
-                      else if (user?.role === 'ADMIN') navigate('/admin/dashboard');
-                      else if (user?.role === 'STAFF') navigate('/staff/dashboard');
-                      else navigate('/dashboard');
+                      navigate(getDashboardUrl(user?.role));
                     }}
                   >
                     Done — Back to Dashboard

@@ -1,11 +1,13 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
+import { StallsService } from '../stalls/stalls.service.js';
 import { CreateExhibitionInput, UpdateExhibitionInput } from './exhibitions.schemas.js';
 
 export class ExhibitionsService {
   static async listExhibitions(status?: string, search = '') {
-    // Auto-complete any expired published exhibitions
+    // Auto-release expired stall holds and auto-complete expired published exhibitions
     try {
+      await StallsService.releaseExpiredHolds();
       await prisma.exhibition.updateMany({
         where: {
           status: 'PUBLISHED',
@@ -16,7 +18,7 @@ export class ExhibitionsService {
         },
       });
     } catch (err) {
-      console.warn('Could not auto-complete expired exhibitions:', err);
+      console.warn('Could not auto-release expired holds or complete exhibitions:', err);
     }
 
     const validExhibitionStatuses = ['DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'ARCHIVED'];
@@ -41,15 +43,33 @@ export class ExhibitionsService {
       include: {
         floorPlans: {
           select: { 
-            id: true, name: true, isPublished: true, _count: {
+            id: true,
+            name: true,
+            isPublished: true,
+            stalls: {
               select: {
-                stalls: {
-                  where: {
-                    status: 'AVAILABLE',
-                  },
-                },
+                id: true,
+                stallNumber: true,
+                status: true,
+                category: true,
+                price: true,
+                heldUntil: true,
               },
-            }
+            },
+          },
+        },
+        bookings: {
+          where: {
+            status: { notIn: ['CANCELLED', 'EXPIRED'] },
+          },
+          select: {
+            id: true,
+            status: true,
+            stalls: {
+              select: {
+                stallId: true,
+              },
+            },
           },
         },
         _count: {
@@ -60,8 +80,46 @@ export class ExhibitionsService {
         },
       },
     });
+
+    const now = new Date();
+    const enrichedExhibitions = exhibitions.map((exhibition) => {
+      const allStalls = (exhibition.floorPlans || []).flatMap((fp) => fp.stalls || []);
+      const totalStallsFromDb = allStalls.length > 0 ? allStalls.length : (exhibition.totalStalls || 0);
+
+      // Booked stall IDs from non-cancelled bookings
+      const bookedStallIdsFromBookings = new Set(
+        (exhibition.bookings || []).flatMap((b) => (b.stalls || []).map((s) => s.stallId))
+      );
+
+      // Booked stalls count
+      let bookedStallsCount = allStalls.filter((s) => {
+        if (s.status === 'BOOKED_CONFIRMED' || s.status === 'BLOCKED') return true;
+        if (bookedStallIdsFromBookings.has(s.id)) return true;
+        if (['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'].includes(s.status)) {
+          if (s.heldUntil && new Date(s.heldUntil) > now) return true;
+        }
+        return false;
+      }).length;
+
+      // Fallback if floorPlan stalls are 0 but bookings exist
+      if (allStalls.length === 0 && bookedStallIdsFromBookings.size > 0) {
+        bookedStallsCount = bookedStallIdsFromBookings.size;
+      }
+
+      const totalStalls = totalStallsFromDb;
+      const availableStallsCount = Math.max(0, totalStalls - bookedStallsCount);
+      const isFull = totalStalls > 0 && (availableStallsCount === 0 || bookedStallsCount >= totalStalls);
+
+      return {
+        ...exhibition,
+        totalStalls,
+        bookedStallsCount,
+        availableStallsCount,
+        isFull,
+      };
+    });
    
-    return exhibitions;
+    return enrichedExhibitions;
   }
 
   static async getExhibitionBySlugOrId(identifier: string) {

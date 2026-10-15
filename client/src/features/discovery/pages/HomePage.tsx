@@ -6,6 +6,8 @@ import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
 import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
 import { formatDisplayDate } from '../../../utils/date';
+import { useAuthStore } from '../../../stores/authStore';
+import { getDashboardUrl, getRoleDisplayName } from '../../../utils/navigation';
 import {
   Calendar,
   MapPin,
@@ -18,9 +20,11 @@ import {
   Search,
   MousePointerClick,
   FileCheck2,
+  LayoutDashboard,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
+  const { user, isAuthenticated } = useAuthStore();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,6 +72,23 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans flex flex-col justify-between selection:bg-[#0E8074] selection:text-white">
       <PublicNavbar />
+      {isAuthenticated && (
+        <div className="bg-gradient-to-r from-[#09539b] via-[#152B75] to-[#012970] text-white px-4 py-2.5 text-xs font-semibold shadow-md flex items-center justify-between flex-wrap gap-2 z-20">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              Signed in as <strong>{user?.name || user?.email}</strong> ({getRoleDisplayName(user?.role)})
+            </span>
+          </div>
+          <Link
+            to={getDashboardUrl(user?.role)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-white font-bold text-xs backdrop-blur-md transition-colors"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Return to {user?.role === 'SUPERADMIN' ? 'Super Admin' : user?.role === 'ADMIN' ? 'Admin' : user?.role === 'STAFF' ? 'Staff' : 'Exhibitor'} Dashboard →</span>
+          </Link>
+        </div>
+      )}
 
       <main className="flex-1">
         {/* ========================================================================= */}

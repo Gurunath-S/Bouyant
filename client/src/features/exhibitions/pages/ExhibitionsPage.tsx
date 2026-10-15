@@ -4,10 +4,13 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
+import { useAuthStore } from '../../../stores/authStore';
 import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
 
 export const ExhibitionsPage: React.FC = () => {
+  const { user, isAuthenticated } = useAuthStore();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -61,8 +64,28 @@ export const ExhibitionsPage: React.FC = () => {
     return matchesSearch;
   });
 
+  const getBackConfig = () => {
+    if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN') {
+      return { to: '/admin/events', label: 'Back to Exhibitions Console' };
+    }
+    if (user?.role === 'STAFF') {
+      return { to: '/staff/dashboard', label: 'Back to Staff Dashboard' };
+    }
+    if (user?.role === 'CLIENT') {
+      return { to: '/dashboard', label: 'Back to Exhibitor Portal' };
+    }
+    return { to: '/', label: 'Back to Home' };
+  };
+
+  const backConfig = getBackConfig();
+
   return (
-    <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-8 space-y-8">
+    <div className="max-w-[1600px] mx-auto px-6 lg:px-12 py-8 space-y-6">
+      {/* Top Back Navigation */}
+      <div>
+        <BackButton to={backConfig.to} label={backConfig.label} />
+      </div>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
@@ -98,12 +121,15 @@ export const ExhibitionsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((expo) => {
             const isCurrentUpcoming = currentUpcomingEvent && expo.id === currentUpcomingEvent.id;
+            const isFull = expo.isFull === true || (expo.totalStalls > 0 && expo.availableStallsCount === 0);
 
             return (
               <div
                 key={expo.id}
                 className={`bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${
-                  isCurrentUpcoming
+                  isFull
+                    ? 'border-rose-300 dark:border-rose-900/60'
+                    : isCurrentUpcoming
                     ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-md'
                     : 'border-slate-200 dark:border-slate-800 opacity-90'
                 }`}
@@ -118,7 +144,11 @@ export const ExhibitionsPage: React.FC = () => {
                     className="w-full h-full object-cover opacity-90 dark:opacity-80"
                   />
                   <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                    {expo.status === 'PUBLISHED' ? (
+                    {isFull ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 backdrop-blur-md font-extrabold text-[10px] rounded uppercase shadow-xs bg-rose-600 text-white border border-rose-400">
+                        Housefull • Stalls Full
+                      </span>
+                    ) : expo.status === 'PUBLISHED' ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 backdrop-blur-md font-extrabold text-[10px] rounded uppercase shadow-xs bg-purple-600 text-white border border-purple-400">
                         <Tag className="w-3 h-3 text-purple-200" /> Open Event
                       </span>
@@ -132,11 +162,15 @@ export const ExhibitionsPage: React.FC = () => {
 
                 <div className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
-                    {expo.status === 'PUBLISHED' && (
+                    {isFull ? (
+                      <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 text-[10px] font-bold">
+                        ALL STALLS BOOKED
+                      </span>
+                    ) : expo.status === 'PUBLISHED' ? (
                       <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
                         OPEN FOR STALL BOOKINGS
                       </span>
-                    )}
+                    ) : null}
                   </div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">{expo.title}</h3>
                   <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{expo.description}</p>
@@ -160,15 +194,20 @@ export const ExhibitionsPage: React.FC = () => {
                 <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
                     {expo.totalStalls} Stalls
+                    {typeof expo.bookedStallsCount === 'number' && (
+                      <span className="text-[11px] text-slate-400 font-normal ml-1">
+                        ({expo.bookedStallsCount} booked)
+                      </span>
+                    )}
                   </span>
                   <Link to={`/exhibitions/${expo.slug || expo.id}`}>
                     <Button
-                      variant={expo.status === 'PUBLISHED' ? 'primary' : 'outline'}
+                      variant={!isFull && expo.status === 'PUBLISHED' ? 'primary' : 'outline'}
                       size="sm"
-                      className={expo.status === 'PUBLISHED' ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold' : ''}
+                      className={!isFull && expo.status === 'PUBLISHED' ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold' : ''}
                       rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
                     >
-                      {expo.status === 'PUBLISHED' ? 'Book Stalls Now' : 'View Details'}
+                      {isFull ? 'See Details' : expo.status === 'PUBLISHED' ? 'Book Stalls Now' : 'View Details'}
                     </Button>
                   </Link>
                 </div>

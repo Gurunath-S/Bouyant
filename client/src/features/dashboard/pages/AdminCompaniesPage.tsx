@@ -232,7 +232,9 @@ export const AdminCompaniesPage: React.FC = () => {
     if (!targetExpo) return;
 
     // Navigate to the exhibition booking wizard with company context
-    navigate(`/exhibitions/${targetExpo.slug}/book`);
+    navigate(`/exhibitions/${targetExpo.slug}/book`, {
+      state: { from: '/admin/companies', fromLabel: 'Exhibitors Directory' },
+    });
   };
 
   return (

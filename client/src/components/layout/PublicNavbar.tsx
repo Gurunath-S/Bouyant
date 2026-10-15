@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { LogOut, Menu, X, User } from 'lucide-react';
+import { ConfirmLeaveToHomeModal } from '../ui/ConfirmLeaveToHomeModal';
+import { getDashboardUrl, getRoleDisplayName } from '../../utils/navigation';
 
 export const PublicNavbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showHomeConfirmModal, setShowHomeConfirmModal] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
-
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
     await logout();
+  };
+
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (isAuthenticated) {
+      e.preventDefault();
+      setShowHomeConfirmModal(true);
+    }
   };
 
   return (
@@ -22,7 +32,11 @@ export const PublicNavbar: React.FC = () => {
       <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E6EAF0] dark:border-slate-800 sticky top-0 z-30 shadow-xs transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
           {/* Left: Buoyant Media Logo */}
-          <Link to="/" className="flex items-center gap-3 shrink-0">
+          <Link
+            to={isAuthenticated ? getDashboardUrl(user?.role) : '/'}
+            className="flex items-center gap-3 shrink-0"
+            title={isAuthenticated ? 'Go to Dashboard' : 'BUOYANT Media Home'}
+          >
             <div className="dark:bg-white/95 dark:px-2.5 dark:py-1 dark:rounded-xl dark:shadow-xs transition-all flex items-center">
               <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 sm:h-10 object-contain" />
             </div>
@@ -33,6 +47,7 @@ export const PublicNavbar: React.FC = () => {
             <nav className="flex items-center gap-6">
               <Link
                 to="/"
+                onClick={handleHomeClick}
                 className={`text-sm font-bold transition-colors ${
                   isActive('/')
                     ? 'text-[#1E3FA0] dark:text-blue-400 border-b-2 border-[#1E3FA0] dark:border-blue-400 pb-0.5'
@@ -55,10 +70,16 @@ export const PublicNavbar: React.FC = () => {
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                <Link to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}>
+                <Link to={getDashboardUrl(user?.role)}>
                   <button className="inline-flex items-center gap-2 bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs transition-all">
                     <User className="w-3.5 h-3.5" />
-                    {user?.role === 'ADMIN' ? 'Admin Dashboard' : 'Exhibitor Portal'}
+                    {user?.role === 'SUPERADMIN'
+                      ? 'Super Admin Portal'
+                      : user?.role === 'ADMIN'
+                      ? 'Admin Dashboard'
+                      : user?.role === 'STAFF'
+                      ? 'Staff Portal'
+                      : 'Exhibitor Portal'}
                   </button>
                 </Link>
                 <button
@@ -92,7 +113,10 @@ export const PublicNavbar: React.FC = () => {
           <div className="sm:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 space-y-3 animate-in slide-in-from-top-2 duration-150">
             <Link
               to="/"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={(e) => {
+                setMobileMenuOpen(false);
+                handleHomeClick(e);
+              }}
               className="block py-2 text-sm font-bold text-[#1E3FA0] dark:text-blue-400"
             >
               Home
@@ -106,11 +130,11 @@ export const PublicNavbar: React.FC = () => {
             </Link>
             {isAuthenticated ? (
               <Link
-                to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}
+                to={getDashboardUrl(user?.role)}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <button className="w-full font-bold bg-[#1E3FA0] dark:bg-blue-600 text-white py-2.5 rounded-xl">
-                  Go to {user?.role === 'ADMIN' ? 'Admin Dashboard' : 'Dashboard'}
+                  Go to {getRoleDisplayName(user?.role)} Dashboard
                 </button>
               </Link>
             ) : (
@@ -123,6 +147,20 @@ export const PublicNavbar: React.FC = () => {
           </div>
         )}
       </header>
+
+      {/* Leave To Public Home Confirmation Modal */}
+      <ConfirmLeaveToHomeModal
+        isOpen={showHomeConfirmModal}
+        onClose={() => setShowHomeConfirmModal(false)}
+        onConfirmHome={() => {
+          setShowHomeConfirmModal(false);
+          navigate('/');
+        }}
+        onGoToDashboard={() => {
+          setShowHomeConfirmModal(false);
+          navigate(getDashboardUrl(user?.role));
+        }}
+      />
 
       {/* Sign Out Confirmation Modal */}
       {showLogoutModal && (

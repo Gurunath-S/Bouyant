@@ -245,6 +245,35 @@ async function main() {
     },
   });
 
+  const demoPasswordHash = await bcrypt.hash('DemoUser123!', 10);
+  await prisma.user.create({
+    data: {
+      email: 'demo@buoyantmedia.com',
+      passwordHash: demoPasswordHash,
+      username: 'demo_user',
+      name: 'Demo Exhibitor',
+      phone: '+919876543210',
+      role: UserRole.CLIENT,
+      companyId: sampleCompany.id,
+      pageAccess: [],
+      isActive: true,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: 'user@buoyantmedia.com',
+      passwordHash: demoPasswordHash,
+      username: 'client_user',
+      name: 'Demo Client User',
+      phone: '+919876500004',
+      role: UserRole.CLIENT,
+      companyId: sampleCompany.id,
+      pageAccess: [],
+      isActive: true,
+    },
+  });
+
   // 5. SEED ALL 4 CURRENT EVENTS WITH FLOOR PLANS & STALLS (ALL STALLS AVAILABLE)
   console.log('🎪 Seeding 4 Official Platform Exhibition Events, Floor Plans & Stalls...');
 

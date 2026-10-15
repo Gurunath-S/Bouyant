@@ -5,6 +5,7 @@ import { bookingService } from '../../../services/bookings/bookingService';
 import { Exhibition, Booking } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -206,6 +207,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Back to Dashboard */}
+      <div>
+        <BackButton
+          to={isStaff ? '/staff/dashboard' : '/admin/dashboard'}
+          label="Back to Dashboard"
+        />
+      </div>
+
       {/* Top Header */}
       <div className="border-b border-slate-200 dark:border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -411,16 +420,39 @@ export const AdminEventRegistrationPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredExhibitions.map((e) => {
-                const bookedCount = (e as any)._count?.bookings || 0;
-                const totalStalls = e.totalStalls || 50;
-                const percentBooked = Math.min(100, Math.round((bookedCount / totalStalls) * 100));
+                // Calculate accurate stall numbers
+                const allStalls = (e.floorPlans || []).flatMap((fp: any) => fp.stalls || []);
+                const stallCountFromDb = allStalls.length > 0 ? allStalls.length : (e.totalStalls || 0);
+
+                let bookedCount = typeof e.bookedStallsCount === 'number'
+                  ? e.bookedStallsCount
+                  : allStalls.filter((s: any) => s.status !== 'AVAILABLE').length;
+
+                // Fallback check against adminBookings
+                if (bookedCount === 0 && adminBookings.length > 0) {
+                  const evBookings = adminBookings.filter(
+                    (b) => b.exhibitionId === e.id && b.status !== 'CANCELLED' && b.status !== 'EXPIRED'
+                  );
+                  if (evBookings.length > 0) {
+                    bookedCount = evBookings.reduce((sum, b) => sum + (b.stalls?.length || 1), 0);
+                  }
+                }
+
+                const totalStalls = stallCountFromDb > 0 ? stallCountFromDb : (e.totalStalls || 0);
+                const availableStalls = typeof e.availableStallsCount === 'number'
+                  ? e.availableStallsCount
+                  : Math.max(0, totalStalls - bookedCount);
+                const percentBooked = totalStalls > 0 ? Math.min(100, Math.round((bookedCount / totalStalls) * 100)) : 0;
+                const isFull = e.isFull === true || (totalStalls > 0 && (availableStalls === 0 || bookedCount >= totalStalls));
                 const isCurrentUpcoming = currentUpcomingEvent && e.id === currentUpcomingEvent.id;
 
                 return (
                   <div
                     key={e.id}
                     className={`bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between group ${
-                      isCurrentUpcoming
+                      isFull
+                        ? 'border-rose-300 dark:border-rose-900/60'
+                        : isCurrentUpcoming
                         ? 'border-purple-600 ring-2 ring-purple-500/20 shadow-md'
                         : 'border-slate-200 dark:border-slate-800 opacity-90'
                     }`}
@@ -441,7 +473,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </span>
                           <span
                             className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
-                              isCurrentUpcoming
+                              isFull
+                                ? 'bg-rose-600 text-white ring-2 ring-rose-400 shadow-sm'
+                                : isCurrentUpcoming
                                 ? 'bg-purple-600 text-white ring-2 ring-purple-300'
                                 : e.status === 'PUBLISHED'
                                 ? 'bg-slate-700 text-slate-200'
@@ -450,7 +484,11 @@ export const AdminEventRegistrationPage: React.FC = () => {
                                 : 'bg-amber-500 text-white'
                             }`}
                           >
-                            {isCurrentUpcoming ? 'Current Active Event' : e.status}
+                            {isFull
+                              ? 'Fully Booked • Housefull'
+                              : isCurrentUpcoming
+                              ? 'Current Active Event'
+                              : e.status}
                           </span>
                         </div>
 
@@ -481,18 +519,39 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </div>
 
                         {/* Stall Capacity Meter */}
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                          <div className="flex justify-between text-[11px] mb-1">
-                            <span className="text-slate-400">Booked Stalls:</span>
-                            <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">Booked Stalls:</span>
+                            <span className="font-bold font-mono text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                               {bookedCount} / {totalStalls} stalls ({percentBooked}%)
+                              {isFull && (
+                                <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 text-[9px] font-black uppercase rounded">
+                                  Full
+                                </span>
+                              )}
                             </span>
                           </div>
                           <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-purple-600 rounded-full transition-all"
+                              className={`h-full rounded-full transition-all ${
+                                isFull
+                                  ? 'bg-rose-500'
+                                  : percentBooked >= 85
+                                  ? 'bg-amber-500'
+                                  : 'bg-purple-600'
+                              }`}
                               style={{ width: `${percentBooked}%` }}
                             />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-400">
+                            <span>
+                              {isFull ? (
+                                <strong className="text-rose-600 dark:text-rose-400 font-semibold">0 stalls remaining</strong>
+                              ) : (
+                                `${availableStalls} ${availableStalls === 1 ? 'stall' : 'stalls'} available`
+                              )}
+                            </span>
+                            <span>{isFull ? 'Registrations Closed' : 'Allocation Open'}</span>
                           </div>
                         </div>
                       </div>
@@ -501,25 +560,44 @@ export const AdminEventRegistrationPage: React.FC = () => {
                     {/* Card Actions */}
                     <div className="p-4 pt-0">
                       <div className="flex items-center gap-2">
-                        <Link
-                          to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
-                          className="flex-1"
-                        >
-                          <Button
-                            type="button"
-                            variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
-                            size="md"
-                            disabled={e.status !== 'PUBLISHED'}
-                            leftIcon={<UserPlus className="w-4 h-4" />}
-                            className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
-                              e.status === 'PUBLISHED'
-                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
-                            }`}
+                        {isFull ? (
+                          // When stall is full: hide registration and show "See Details" navigating to event details page
+                          <Link
+                            to={`/exhibitions/${e.slug || e.id}`}
+                            className="flex-1"
                           >
-                            {e.status === 'PUBLISHED' ? 'Register to Event' : `Status: ${e.status}`}
-                          </Button>
-                        </Link>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="md"
+                              leftIcon={<Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+                              className="w-full font-black text-xs py-2.5 rounded-xl border-purple-300 dark:border-purple-800/80 hover:bg-purple-50 dark:hover:bg-purple-950/50 text-purple-700 dark:text-purple-300 shadow-xs"
+                            >
+                              See Details
+                            </Button>
+                          </Link>
+                        ) : (
+                          // When not full: show regular registration button
+                          <Link
+                            to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
+                            className="flex-1"
+                          >
+                            <Button
+                              type="button"
+                              variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
+                              size="md"
+                              disabled={e.status !== 'PUBLISHED'}
+                              leftIcon={<UserPlus className="w-4 h-4" />}
+                              className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
+                                e.status === 'PUBLISHED'
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                              }`}
+                            >
+                              {e.status === 'PUBLISHED' ? 'Register to Event' : `Status: ${e.status}`}
+                            </Button>
+                          </Link>
+                        )}
 
                         <button
                           type="button"

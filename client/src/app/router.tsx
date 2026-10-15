@@ -35,6 +35,7 @@ const InvoiceDetailPage = lazy(() => import('../features/invoices/pages/InvoiceD
 const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const SuperAdminDashboardPage = lazy(() => import('../features/super-admin/pages/SuperAdminDashboardPage').then(m => ({ default: m.SuperAdminDashboardPage })));
 const SuperAdminUsersPage = lazy(() => import('../features/super-admin/pages/SuperAdminUsersPage').then(m => ({ default: m.SuperAdminUsersPage })));
+const UserGovernanceDetailPage = lazy(() => import('../features/super-admin/pages/UserGovernanceDetailPage').then(m => ({ default: m.UserGovernanceDetailPage })));
 const StaffDashboardPage = lazy(() => import('../features/staff/pages/StaffDashboardPage').then(m => ({ default: m.StaffDashboardPage })));
 const StaffRegisterEventPage = lazy(() => import('../features/staff/pages/StaffRegisterEventPage').then(m => ({ default: m.StaffRegisterEventPage })));
 const StaffEventsPage = lazy(() => import('../features/staff/pages/StaffEventsPage').then(m => ({ default: m.StaffEventsPage })));
@@ -161,6 +162,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
             <SuperAdminUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'super-admin/users/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
+            <UserGovernanceDetailPage />
           </ProtectedRoute>
         ),
       },

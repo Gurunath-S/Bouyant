@@ -3,12 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { Button } from '../../../components/ui/Button';
+import { BackButton } from '../../../components/ui/BackButton';
+import { useAuthStore } from '../../../stores/authStore';
+import { getInvoicesUrl } from '../../../utils/navigation';
 import { Printer, ArrowLeft, Download } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { numberToIndianWords } from '../../../utils/numberToWords';
 
 export const InvoiceDetailPage: React.FC = () => {
+  const { user } = useAuthStore();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -39,13 +43,22 @@ export const InvoiceDetailPage: React.FC = () => {
     return <div className="p-12 text-center text-slate-500 font-medium">Loading Tax Invoice...</div>;
   }
 
+  const getBackConfig = () => {
+    if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN' || user?.role === 'STAFF') {
+      return { to: '/admin/payments?tab=INVOICES', label: 'Back to Billing & Invoices' };
+    }
+    return { to: '/invoices', label: 'Back to My Invoices' };
+  };
+  const backConfig = getBackConfig();
+
   if (!invoice) {
     return (
-      <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-3">
-        <h3 className="text-lg font-bold text-slate-900">Invoice Not Found</h3>
-        <Button variant="outline" onClick={() => navigate('/invoices')}>
-          Back to Invoices
-        </Button>
+      <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 max-w-md mx-auto my-12">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Invoice Not Found</h3>
+        <p className="text-xs text-slate-500">The requested invoice record could not be loaded.</p>
+        <div className="flex justify-center">
+          <BackButton to={backConfig.to} label={backConfig.label} variant="outline" />
+        </div>
       </div>
     );
   }
@@ -71,12 +84,7 @@ export const InvoiceDetailPage: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-6 print:m-0 print:p-0 print:bg-white print:text-black font-sans text-xs">
       {/* Actions & Buttons (Hidden during print) */}
       <div className="flex items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
-        <button
-          onClick={() => navigate('/invoices')}
-          className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Invoices
-        </button>
+        <BackButton to={backConfig.to} label={backConfig.label} />
 
         <div className="flex items-center gap-2">
           <Button
