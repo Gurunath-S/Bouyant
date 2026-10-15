@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stall, StallCategory } from '../../../types';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
-import { Filter, ZoomIn, ZoomOut, RotateCcw, Building } from 'lucide-react';
+import { Filter, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface StallFilterBarProps {
-  stalls: Stall[];
+  stalls?: Stall[];
   onZoomChange?: (zoom: number) => void;
   currentZoom?: number;
   halls?: Array<{ id: string; name: string }>;
@@ -12,72 +12,24 @@ interface StallFilterBarProps {
 }
 
 export const StallFilterBar: React.FC<StallFilterBarProps> = ({
-  stalls,
   onZoomChange,
   currentZoom = 100,
-  halls,
   showZoomControls = true,
 }) => {
   const {
     selectedCategory,
     setSelectedCategory,
-    selectedHall,
     setSelectedHall,
   } = useFloorPlanStore();
 
+  useEffect(() => {
+    setSelectedHall('ALL');
+  }, [setSelectedHall]);
+
   const categories: (StallCategory | null)[] = [null, 'STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
 
-  // Extract unique stall prefixes if halls aren't provided
-  const stallPrefixes = React.useMemo(() => {
-    if (halls && halls.length > 0) return halls.map((h) => ({ id: h.id, label: h.name }));
-    const set = new Set<string>();
-    stalls.forEach((s) => {
-      const parts = s.stallNumber.split('-');
-      if (parts.length > 1 && parts[0].length <= 4) {
-        set.add(parts[0]);
-      }
-    });
-    return Array.from(set).map((p) => ({ id: p, label: `Zone / Hall ${p}` }));
-  }, [stalls, halls]);
-
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs space-y-3 transition-colors duration-200">
-      {/* Top Row: Hall / Zone Filter & Live Pricing */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-        {/* Hall / Pavilion Selector */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mr-1">
-            <Building className="w-3.5 h-3.5 text-blue-600" /> Filter by Area:
-          </span>
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => setSelectedHall('ALL')}
-              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                selectedHall === 'ALL'
-                  ? 'bg-[#012970] text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              All Stalls ({stalls.length})
-            </button>
-            {stallPrefixes.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedHall(p.id)}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                  selectedHall === p.id
-                    ? 'bg-[#09539b] text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-
-      </div>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs transition-colors duration-200">
 
       {/* Bottom Row: Category Chips, Legend Indicators & Zoom Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">

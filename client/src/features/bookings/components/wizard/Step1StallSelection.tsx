@@ -174,7 +174,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-blue-200 font-medium">
-              Combined Area: <b className="text-white">{selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
+              Combined Area: <b className="text-white">{Math.round(selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
             </p>
           </div>
 

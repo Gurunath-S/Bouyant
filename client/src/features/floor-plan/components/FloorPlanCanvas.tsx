@@ -651,7 +651,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 ? `Stall ${stall.stallNumber} • Blocked`
                 : isBooked
                 ? `Stall ${stall.stallNumber} • Booked`
-                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${stall.areaSqFt || Math.round((stall.width * stall.height) / 100)} sqft`;
+                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${Math.round(stall.areaSqFt || (stall.width * stall.height) / 100)} sqft`;
 
               return (
                 <g
@@ -687,11 +687,11 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                       stall.xPosition,
                       stall.yPosition
                     );
-                    const showSubtext =
+                    const showStatusSubtext =
                       zoomLevel >= 70 &&
                       typo.lines.length === 1 &&
-                      ((isAvailable && stall.height >= 48 && stall.width >= 45) ||
-                        ((isBooked || isBlocked) && stall.height > 40));
+                      (isBooked || isBlocked) &&
+                      stall.height > 40;
 
                     return (
                       <>
@@ -700,8 +700,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                             key={lIdx}
                             x={typo.centerX}
                             y={
-                              showSubtext
-                                ? typo.startY + lIdx * typo.lineHeight + (isBooked || isBlocked ? -4 : (stall.height >= 48 ? -2 : 0))
+                              showStatusSubtext
+                                ? typo.startY + lIdx * typo.lineHeight - 4
                                 : typo.startY + lIdx * typo.lineHeight
                             }
                             textAnchor="middle"
@@ -716,23 +716,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                           </text>
                         ))}
 
-                        {/* Stall Area / Dimension Subtext if space permits and not zoomed out */}
-                        {showSubtext && isAvailable && (
-                          <text
-                            x={stall.xPosition + stall.width / 2}
-                            y={stall.yPosition + stall.height / 2 + 10}
-                            textAnchor="middle"
-                            fill={styles.textColor}
-                            fontSize="9"
-                            fontWeight="600"
-                            className="select-none pointer-events-none font-mono opacity-85"
-                          >
-                            {stall.areaSqFt ? `${stall.areaSqFt} sqft` : `${Math.round(stall.width / pxPerMeter)}×${Math.round(stall.height / pxPerMeter)}m`}
-                          </text>
-                        )}
-
                         {/* Status Indicator (Only if booked/blocked) */}
-                        {showSubtext && (isBooked || isBlocked) && (
+                        {showStatusSubtext && (
                           <text
                             x={stall.xPosition + stall.width / 2}
                             y={stall.yPosition + stall.height / 2 + 11}

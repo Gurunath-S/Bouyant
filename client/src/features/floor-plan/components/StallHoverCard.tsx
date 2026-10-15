@@ -66,7 +66,7 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
           <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
             <Maximize2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Physical Area:
           </span>
-          <span className="font-bold text-slate-900 dark:text-slate-100">{stall.areaSqFt} Sq.Ft</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100">{Math.round(stall.areaSqFt)} Sq.Ft</span>
         </div>
         <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
           <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
