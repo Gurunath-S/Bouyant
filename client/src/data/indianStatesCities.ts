@@ -102,6 +102,26 @@ export const TOP_NATIONAL_HUBS: string[] = [
 ];
 
 /**
+ * Normalizes any country representation (e.g. "IN", "in", "IND", "India")
+ * to its official full name (e.g. "India").
+ */
+export function normalizeCountryName(countryName?: string | null): string {
+  if (!countryName) return 'India';
+  const trimmed = countryName.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === 'in' || lower === 'ind' || lower === 'india') return 'India';
+
+  try {
+    const match = Country.getAllCountries().find(
+      (c) => c.isoCode.toLowerCase() === lower || c.name.toLowerCase() === lower
+    );
+    if (match) return match.name;
+  } catch {}
+
+  return trimmed;
+}
+
+/**
  * Pre-computed all ~250 countries from country-state-city with India first
  */
 export const ALL_COUNTRIES: string[] = (() => {
@@ -123,7 +143,7 @@ export const COMMON_COUNTRIES: string[] = ALL_COUNTRIES;
 export function findCountryCode(countryName?: string): string | null {
   if (!countryName) return 'IN';
   const trimmed = countryName.trim().toLowerCase();
-  if (trimmed === 'india' || trimmed === 'in') return 'IN';
+  if (trimmed === 'india' || trimmed === 'in' || trimmed === 'ind') return 'IN';
 
   try {
     const match = Country.getAllCountries().find(
@@ -191,18 +211,19 @@ export function findStateObject(countryCode: string, stateName: string) {
  * Get states/provinces for any country dynamically
  */
 export function getStatesForCountry(countryName?: string): string[] {
-  if (!countryName || countryName.trim().toLowerCase() === 'india') {
+  const norm = normalizeCountryName(countryName);
+  if (!countryName || norm.toLowerCase() === 'india') {
     return ALL_INDIAN_STATES;
   }
 
-  const code = findCountryCode(countryName);
+  const code = findCountryCode(norm);
   if (!code) return ALL_INDIAN_STATES;
 
   try {
     const states = State.getStatesOfCountry(code) || [];
     if (!states || states.length === 0) {
       // For city-states without subdivisions (e.g. Singapore, Monaco, Vatican City)
-      return [countryName];
+      return [norm];
     }
     return states.map((s) => s.name).sort((a, b) => a.localeCompare(b));
   } catch {
@@ -216,7 +237,8 @@ export function getStatesForCountry(countryName?: string): string[] {
  * - If country provided without state: returns national hubs + all country cities
  */
 export function getCitiesForLocation(countryName?: string, stateName?: string): string[] {
-  const isIndia = !countryName || countryName.trim().toLowerCase() === 'india';
+  const norm = normalizeCountryName(countryName);
+  const isIndia = norm.toLowerCase() === 'india';
 
   if (isIndia) {
     if (stateName && stateName.trim()) {
@@ -245,7 +267,7 @@ export function getCitiesForLocation(countryName?: string, stateName?: string): 
   }
 
   // International Countries
-  const code = findCountryCode(countryName);
+  const code = findCountryCode(norm);
   if (!code) return [];
 
   try {
@@ -272,8 +294,9 @@ export function getCitiesForLocation(countryName?: string, stateName?: string): 
  */
 export function getStateForCity(cityName?: string, countryName?: string): string | null {
   if (!cityName) return null;
-  const isIndia = !countryName || countryName.trim().toLowerCase() === 'india';
-  const countryCode = isIndia ? 'IN' : findCountryCode(countryName);
+  const norm = normalizeCountryName(countryName);
+  const isIndia = norm.toLowerCase() === 'india';
+  const countryCode = isIndia ? 'IN' : findCountryCode(norm);
   if (!countryCode) return null;
 
   try {

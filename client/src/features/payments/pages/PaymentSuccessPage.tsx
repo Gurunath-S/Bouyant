@@ -6,6 +6,7 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { getDashboardUrl } from '../../../utils/navigation';
+import { normalizeCountryName } from '../../../data/indianStatesCities';
 import {
   Check,
   CheckCircle2,
@@ -208,7 +209,7 @@ export const PaymentSuccessPage: React.FC = () => {
                 {(booking?.company?.city || booking?.company?.state) && (
                   <div className="flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span><strong>Location:</strong> {[booking?.company?.city, booking?.company?.state, booking?.company?.country].filter(Boolean).join(', ')}</span>
+                    <span><strong>Location:</strong> {[booking?.company?.city, booking?.company?.state, normalizeCountryName(booking?.company?.country)].filter(Boolean).join(', ')}</span>
                   </div>
                 )}
               </div>

@@ -9,6 +9,14 @@ import { EmailService } from '../../services/email.service.js';
 import { generateTokens } from '../../utils/jwt.js';
 import { normalizePagination } from '../../utils/pagination.js';
 
+function normalizeCountry(country?: string | null): string {
+  if (!country) return 'India';
+  const trimmed = country.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === 'in' || lower === 'ind' || lower === 'india') return 'India';
+  return trimmed;
+}
+
 export class CompaniesService {
 
   static async verifyGst(gstNumber: string, edition?: string, eventCode?: string, spcode?: string, year?: string) {
@@ -255,7 +263,7 @@ export class CompaniesService {
             city: input.city,
             state: input.state,
             pinCode: input.pinCode || companyToUse.pinCode,
-            country: input.country || companyToUse.country,
+            country: normalizeCountry(input.country || companyToUse.country),
             gstNumber: cleanGst || companyToUse.gstNumber,
             panNumber: cleanPan || companyToUse.panNumber,
             industry: input.industry || companyToUse.industry,
@@ -312,7 +320,7 @@ export class CompaniesService {
             city: input.city,
             state: input.state,
             pinCode: input.pinCode || companyToUse.pinCode,
-            country: input.country || companyToUse.country,
+            country: normalizeCountry(input.country || companyToUse.country),
             gstNumber: cleanGst || companyToUse.gstNumber,
             panNumber: cleanPan || companyToUse.panNumber,
             industry: input.industry || companyToUse.industry,
@@ -388,7 +396,7 @@ export class CompaniesService {
               city: input.city,
               state: input.state,
               pinCode: input.pinCode || existingCompany.pinCode,
-              country: input.country || existingCompany.country,
+              country: normalizeCountry(input.country || existingCompany.country),
               gstNumber: cleanGst || existingCompany.gstNumber,
               panNumber: cleanPan || existingCompany.panNumber,
               industry: input.industry || existingCompany.industry,
@@ -405,7 +413,7 @@ export class CompaniesService {
               city: input.city,
               state: input.state,
               pinCode: input.pinCode || '400051',
-              country: input.country || 'India',
+              country: normalizeCountry(input.country || 'India'),
               gstNumber: cleanGst,
               panNumber: cleanPan,
               tanNumber: effectiveTan,

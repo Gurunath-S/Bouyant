@@ -14,6 +14,9 @@ export interface SearchableComboboxProps {
   className?: string;
 }
 
+// Module-level coordinator to ensure strictly ONE dropdown is open at a time across the entire app
+let activeDropdownCloser: (() => void) | null = null;
+
 export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   label,
   value,
@@ -30,10 +33,68 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   const [searchTerm, setSearchTerm] = useState(value ?? '');
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [openUpward, setOpenUpward] = useState(false);
+  const [maxListHeight, setMaxListHeight] = useState(220);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const componentId = useId();
+
+  const closeDropdown = React.useCallback(() => {
+    setIsOpen(false);
+    setIsUserTyping(false);
+    setHighlightedIndex(-1);
+    if (activeDropdownCloser === closeDropdown) {
+      activeDropdownCloser = null;
+    }
+  }, []);
+
+  const openDropdown = React.useCallback(() => {
+    if (activeDropdownCloser && activeDropdownCloser !== closeDropdown) {
+      activeDropdownCloser();
+    }
+    activeDropdownCloser = closeDropdown;
+    setIsOpen(true);
+    setIsUserTyping(false);
+  }, [closeDropdown]);
+
+  // Clean up global closer on unmount
+  useEffect(() => {
+    return () => {
+      if (activeDropdownCloser === closeDropdown) {
+        activeDropdownCloser = null;
+      }
+    };
+  }, [closeDropdown]);
+
+  // Viewport collision detection: preferentially open downward so inputs above are not obscured
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const calculatePlacement = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      // Only flip upward if space below is critically tight (< 130px) AND space above is significantly larger (> 200px)
+      const shouldFlipUp = spaceBelow < 130 && spaceAbove > 200;
+      setOpenUpward(shouldFlipUp);
+
+      const availableSpace = shouldFlipUp ? spaceAbove : spaceBelow;
+      const computedMax = Math.max(120, Math.min(220, availableSpace - 16));
+      setMaxListHeight(computedMax);
+    };
+
+    calculatePlacement();
+    window.addEventListener('resize', calculatePlacement);
+    window.addEventListener('scroll', calculatePlacement, true);
+    return () => {
+      window.removeEventListener('resize', calculatePlacement);
+      window.removeEventListener('scroll', calculatePlacement, true);
+    };
+  }, [isOpen]);
 
   // Keep internal input text in sync when external value changes (e.g. GST autofill or reset)
   useEffect(() => {
@@ -41,8 +102,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     setIsUserTyping(false);
   }, [value]);
 
-  // Filter options based on user input:
-  // If user has NOT actively typed anything new, show all options!
+  // Filter options based on user input
   const filteredOptions = React.useMemo(() => {
     if (!isUserTyping) {
       return options;
@@ -52,7 +112,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     return options.filter((opt) => opt.toLowerCase().includes(q));
   }, [options, searchTerm, isUserTyping]);
 
-  // Display up to 120 items for ultra-smooth 60fps scrolling with large datasets (4,000+ cities)
+  // Display up to 120 items for fast 60fps scrolling with large datasets
   const displayedOptions = React.useMemo(() => {
     return filteredOptions.slice(0, 120);
   }, [filteredOptions]);
@@ -71,22 +131,28 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setIsUserTyping(false);
+        closeDropdown();
         setSearchTerm(value ?? '');
-        setHighlightedIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [value]);
+  }, [value, closeDropdown]);
+
+  // Close dropdown when focus completely leaves the combobox container (e.g. tabbing away)
+  const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const nextTarget = e.relatedTarget as Node | null;
+    if (!containerRef.current?.contains(nextTarget)) {
+      closeDropdown();
+      setSearchTerm(value ?? '');
+    }
+  };
 
   const handleSelectOption = (option: string) => {
     setSearchTerm(option);
     setIsUserTyping(false);
     onChange(option);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
+    closeDropdown();
     inputRef.current?.blur();
   };
 
@@ -95,7 +161,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     setSearchTerm(val);
     setIsUserTyping(true);
     onChange(val);
-    if (!isOpen) setIsOpen(true);
+    if (!isOpen) openDropdown();
     setHighlightedIndex(0);
   };
 
@@ -104,7 +170,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     setSearchTerm('');
     setIsUserTyping(false);
     onChange('');
-    setIsOpen(true);
+    openDropdown();
     setHighlightedIndex(-1);
     inputRef.current?.focus();
   };
@@ -115,8 +181,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
-        setIsUserTyping(false);
-        setIsOpen(true);
+        openDropdown();
         setHighlightedIndex(0);
       }
       return;
@@ -138,20 +203,17 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
         } else if (displayedOptions.length === 1) {
           handleSelectOption(displayedOptions[0]);
         } else {
-          setIsOpen(false);
-          setIsUserTyping(false);
+          closeDropdown();
         }
         break;
       case 'Escape':
         e.preventDefault();
-        setIsOpen(false);
-        setIsUserTyping(false);
+        closeDropdown();
         setSearchTerm(value ?? '');
         setHighlightedIndex(-1);
         break;
       case 'Tab':
-        setIsOpen(false);
-        setIsUserTyping(false);
+        closeDropdown();
         break;
     }
   };
@@ -167,7 +229,11 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   }, [highlightedIndex, isOpen]);
 
   return (
-    <div ref={containerRef} className={`w-full space-y-1.5 relative ${className}`}>
+    <div
+      ref={containerRef}
+      onBlur={handleContainerBlur}
+      className={`w-full space-y-1.5 relative ${isOpen ? 'z-50' : 'z-0'} ${className}`}
+    >
       {label && (
         <label
           htmlFor={componentId}
@@ -184,10 +250,13 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
           type="text"
           value={searchTerm}
           onChange={handleInputChange}
+          onClick={() => {
+            if (!disabled && !isOpen) {
+              openDropdown();
+            }
+          }}
           onFocus={(e) => {
             if (!disabled) {
-              setIsUserTyping(false);
-              setIsOpen(true);
               e.target.select();
             }
           }}
@@ -208,7 +277,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
             <button
               type="button"
               onClick={handleClear}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors cursor-pointer"
               title="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
@@ -220,28 +289,31 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
             tabIndex={-1}
             onClick={() => {
               if (!disabled) {
-                const nextOpen = !isOpen;
-                setIsOpen(nextOpen);
-                if (nextOpen) {
-                  setIsUserTyping(false);
+                if (isOpen) {
+                  closeDropdown();
+                } else {
+                  openDropdown();
                   inputRef.current?.focus();
                   inputRef.current?.select();
                 }
               }
             }}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors cursor-pointer"
           >
             <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Floating Dropdown Listbox */}
+      {/* Floating Dropdown Listbox with Smart Flip Up/Down & Adaptive Max Height */}
       {isOpen && !disabled && (
         <ul
           ref={listboxRef}
           role="listbox"
-          className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800/60"
+          style={{ maxHeight: `${maxListHeight}px` }}
+          className={`absolute z-50 w-full overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800/60 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          }`}
         >
           {displayedOptions.length === 0 ? (
             <li className="px-3.5 py-2.5 text-slate-400 dark:text-slate-500 italic flex items-center justify-between">

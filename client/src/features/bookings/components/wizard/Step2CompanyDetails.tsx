@@ -8,7 +8,7 @@ import { Input } from '../../../../components/ui/Input';
 import { Textarea } from '../../../../components/ui/Textarea';
 import { Button } from '../../../../components/ui/Button';
 import { SearchableCombobox } from '../../../../components/ui/SearchableCombobox';
-import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity } from '../../../../data/indianStatesCities';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity, normalizeCountryName } from '../../../../data/indianStatesCities';
 import {
   Building2,
   ShieldCheck,
@@ -21,6 +21,7 @@ import {
   Loader2,
   RotateCw,
   AtSign,
+  Lock,
 } from 'lucide-react';
 import { authService } from '../../../../services/auth/authService';
 import { useAuthStore } from '../../../../stores/authStore';
@@ -67,6 +68,7 @@ interface Step2CompanyDetailsProps {
   onSelectCompany: (company: Company) => void;
   onSubmitCompanyForm: (data: CompanyFormData) => Promise<void>;
   onBack: () => void;
+  onCancel?: () => void;
   onContinueWithSelectedCompany: () => void;
 }
 
@@ -80,6 +82,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   onSelectCompany,
   onSubmitCompanyForm,
   onBack,
+  onCancel,
   onContinueWithSelectedCompany,
 }) => {
   const [isAddingNewCompany, setIsAddingNewCompany] = useState(true);
@@ -128,11 +131,44 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   const watchedContactPerson = watch('contactPerson');
   const watchedName = watch('name');
+  const watchedCategory = watch('category');
+  const watchedAddress = watch('address');
+  const watchedMobile = watch('mobile');
+  const watchedEmail = watch('email');
   const watchedUsername = watch('username');
   const watchedGstNumber = watch('gstNumber');
   const watchedState = watch('state');
   const watchedCity = watch('city');
   const watchedCountry = watch('country');
+
+  // Compute remaining missing fields to gate page advancement and provide visual guidance
+  const missingFields = React.useMemo(() => {
+    const list: string[] = [];
+    if (!watchedName?.trim() || watchedName.trim().length < 2) list.push('Legal / Trade Name');
+    if (!watchedCategory?.trim() || watchedCategory.trim().length < 2) list.push('Product / Service Category');
+    if (!watchedContactPerson?.trim() || watchedContactPerson.trim().length < 2) list.push('Contact Person');
+    if (!watchedEmail?.trim() || !watchedEmail.trim().includes('@')) list.push('Corporate Email');
+    if (!watchedMobile?.trim() || watchedMobile.trim().replace(/\D/g, '').length !== 10) list.push('10-digit Mobile');
+    if (!watchedAddress?.trim() || watchedAddress.trim().length < 5) list.push('Corporate Address');
+    if (!watchedCountry?.trim()) list.push('Country');
+    if (!watchedState?.trim()) list.push('State');
+    if (!watchedCity?.trim()) list.push('City');
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') list.push('Valid Portal Username');
+    return list;
+  }, [
+    watchedName,
+    watchedCategory,
+    watchedContactPerson,
+    watchedEmail,
+    watchedMobile,
+    watchedAddress,
+    watchedCountry,
+    watchedState,
+    watchedCity,
+    usernameStatus,
+  ]);
+
+  const isFormComplete = missingFields.length === 0 && Object.keys(errors).length === 0;
 
   const availableStates = React.useMemo(() => {
     return getStatesForCountry(watchedCountry);
@@ -144,22 +180,34 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   const verifiedGstRef = React.useRef<string>('');
 
+  // Determine if username belongs to an already registered/logged-in user account (Only lock for exhibitors logged into their own CLIENT account)
+  const isClientUser = Boolean(user && user.role === 'CLIENT' && user.username);
+  const isUsernameLocked = isClientUser;
+
   // Update form fields dynamically whenever `user` state changes or resets
   React.useEffect(() => {
-    if (user && user.role === 'CLIENT' && selectedCompany) {
+    if (selectedCompany) {
       setValue('name', selectedCompany.name || '');
-      setValue('username', user.username || '');
-      setValue('contactPerson', selectedCompany.contactPerson || user.name || '');
-      setValue('mobile', selectedCompany.mobile || user.phone || '');
-      setValue('email', selectedCompany.email || user.email || '');
+      if (isClientUser && user?.username) {
+        setValue('username', user.username);
+      }
+      setValue('contactPerson', selectedCompany.contactPerson || user?.name || '');
+      setValue('mobile', selectedCompany.mobile || user?.phone || '');
+      setValue('email', selectedCompany.email || user?.email || '');
       setValue('pinCode', selectedCompany.pinCode || '');
       setValue('address', selectedCompany.address || '');
       setValue('city', selectedCompany.city || '');
       setValue('state', selectedCompany.state || '');
-      setValue('country', selectedCompany.country || 'India');
+      setValue('country', normalizeCountryName(selectedCompany.country || 'India'));
       setValue('gstNumber', selectedCompany.gstNumber || '');
       setValue('panNumber', selectedCompany.panNumber || '');
       setValue('tanNumber', selectedCompany.tanNumber || '');
+      if (selectedCompany.website) setValue('website', selectedCompany.website);
+    } else if (user && user.role === 'CLIENT') {
+      if (user.username) setValue('username', user.username);
+      if (user.name) setValue('contactPerson', user.name);
+      if (user.phone) setValue('mobile', user.phone);
+      if (user.email) setValue('email', user.email);
     } else if (!selectedCompany) {
       // Clean slate with no stale data from any previous user session
       setValue('name', '');
@@ -201,6 +249,13 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       return;
     }
 
+    // If the username is locked to the logged-in client user, it is already valid and theirs
+    if (isUsernameLocked || (isClientUser && user?.username && rawUser.toLowerCase() === user.username.toLowerCase())) {
+      setUsernameStatus('available');
+      setUsernameMessage('Current account username');
+      return;
+    }
+
     if (!/^[a-zA-Z0-9_-]{3,30}$/.test(rawUser)) {
       setUsernameStatus('invalid');
       setUsernameMessage('Username must be 3-30 characters (letters, numbers, _ or - only).');
@@ -227,7 +282,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [watchedUsername]);
+  }, [watchedUsername, isUsernameLocked, isClientUser, user?.username]);
 
   // Helper to generate a clean username suggestion
   const generateSuggestedUsername = (person: string, companyName: string) => {
@@ -246,9 +301,9 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     return candidate.slice(0, 20);
   };
 
-  // Auto-fill username as user types contact person or company name if not manually edited
+  // Auto-fill username as user types contact person or company name if not manually edited and not logged in as a Client
   React.useEffect(() => {
-    if (!isUsernameManuallyEdited && !user?.username) {
+    if (!isUsernameManuallyEdited && !isClientUser) {
       if (watchedContactPerson || watchedName) {
         const suggested = generateSuggestedUsername(watchedContactPerson || '', watchedName || '');
         if (suggested && suggested.length >= 3) {
@@ -256,11 +311,11 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
         }
       }
     }
-  }, [watchedContactPerson, watchedName, isUsernameManuallyEdited, user?.username, setValue]);
+  }, [watchedContactPerson, watchedName, isUsernameManuallyEdited, isClientUser, setValue]);
 
   const handleRegenerateUsername = () => {
-    const p = watchedContactPerson || 'user';
-    const clean = (p || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'user';
+    const p = watchedContactPerson || watchedName || 'exhibitor';
+    const clean = (p || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'exhibitor';
     const suffix = Math.floor(100 + Math.random() * 900);
     const newSuggested = `${clean}_${suffix}`;
     setIsUsernameManuallyEdited(true);
@@ -303,7 +358,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           if (comp.city) setValue('city', comp.city, { shouldValidate: true, shouldDirty: true });
           if (comp.state) setValue('state', comp.state, { shouldValidate: true, shouldDirty: true });
           if (comp.pinCode) setValue('pinCode', comp.pinCode, { shouldValidate: true, shouldDirty: true });
-          if (comp.country) setValue('country', comp.country || 'India', { shouldValidate: true, shouldDirty: true });
+          if (comp.country) setValue('country', normalizeCountryName(comp.country || 'India'), { shouldValidate: true, shouldDirty: true });
           // Only fill contact details if user has NOT already entered them in the form
           if (!getValues('contactPerson') && comp.contactPerson) setValue('contactPerson', comp.contactPerson, { shouldValidate: true, shouldDirty: true });
           if (!getValues('mobile') && comp.mobile) setValue('mobile', comp.mobile, { shouldValidate: true, shouldDirty: true });
@@ -345,15 +400,28 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {selectedStalls.length > 0 ? (
               <>
-                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0)} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
+                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({Math.round(selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
               </>
             ) : null}
             Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={onBack} leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}>
-          Change Stall
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={onBack} leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}>
+            Back to Stall Selection
+          </Button>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="text-xs font-bold bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300"
+            >
+              Cancel Booking
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Existing Registered Company Cards (If Logged In) */}
@@ -558,18 +626,27 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             {/* Row 4: Portal Username & Corporate Website */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <AtSign className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
-                  Portal Username <span className="text-slate-400 font-normal">(Optional)</span>
+                  Portal Username
+                  {isUsernameLocked ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      <Lock className="w-2.5 h-2.5 text-slate-500" /> Existing Account
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 font-normal">(Optional)</span>
+                  )}
                 </label>
-                <button
-                  type="button"
-                  onClick={handleRegenerateUsername}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer"
-                  title="Generate another unique username suggestion"
-                >
-                  <RotateCw className="w-3 h-3 text-[#09539b] dark:text-blue-400" /> Suggest
-                </button>
+                {!isUsernameLocked && (
+                  <button
+                    type="button"
+                    onClick={handleRegenerateUsername}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer"
+                    title="Generate another unique username suggestion"
+                  >
+                    <RotateCw className="w-3 h-3 text-[#09539b] dark:text-blue-400" /> Suggest
+                  </button>
+                )}
               </div>
 
               <div className="relative">
@@ -577,41 +654,48 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   type="text"
                   placeholder="e.g. john_acme26"
                   maxLength={30}
+                  readOnly={isUsernameLocked}
                   {...register('username', {
-                    onChange: () => setIsUsernameManuallyEdited(true),
+                    onChange: () => {
+                      if (!isUsernameLocked) setIsUsernameManuallyEdited(true);
+                    },
                   })}
-                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs transition-colors pr-20 ${
-                    errors.username || usernameStatus === 'taken' || usernameStatus === 'invalid'
-                      ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                  className={`w-full px-3.5 py-2 text-xs font-mono font-medium rounded-lg border transition-colors pr-20 ${
+                    isUsernameLocked
+                      ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 cursor-not-allowed select-none'
+                      : errors.username || usernameStatus === 'taken' || usernameStatus === 'invalid'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-500'
                       : usernameStatus === 'available'
-                      ? 'border-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
-                      : 'border-slate-300 dark:border-slate-700 focus:border-[#09539b] focus:ring-1 focus:ring-[#09539b]'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                      : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 focus:border-[#09539b] focus:ring-1 focus:ring-[#09539b]'
                   }`}
                 />
 
                 {/* Right Status Badge */}
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] pointer-events-none">
-                  {usernameStatus === 'checking' && (
+                  {isUsernameLocked ? (
+                    <span className="text-slate-500 dark:text-slate-400 font-bold bg-slate-200 dark:bg-slate-700/80 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked
+                    </span>
+                  ) : usernameStatus === 'checking' ? (
                     <span className="flex items-center gap-0.5 text-slate-400 font-medium">
                       <Loader2 className="w-3 h-3 animate-spin text-[#09539b]" />
                     </span>
-                  )}
-                  {usernameStatus === 'available' && (
+                  ) : usernameStatus === 'available' ? (
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                       ✓ Available
                     </span>
-                  )}
-                  {usernameStatus === 'taken' && (
+                  ) : usernameStatus === 'taken' ? (
                     <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 px-1 py-0.5 rounded border border-rose-200 dark:border-rose-800">
                       Taken
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              {errors.username ? (
+              {!isUsernameLocked && errors.username ? (
                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{errors.username.message}</p>
-              ) : usernameMessage && (usernameStatus === 'taken' || usernameStatus === 'invalid') ? (
+              ) : !isUsernameLocked && usernameMessage && (usernameStatus === 'taken' || usernameStatus === 'invalid') ? (
                 <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">{usernameMessage}</p>
               ) : null}
             </div>
@@ -619,7 +703,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
             {/* Row 5: Tax Identifiers (PAN & TAN) Paired Side-by-Side */}
             <Input
-              label="Permanent Account Number (PAN) *"
+              label="Permanent Account Number (PAN) (Optional)"
               placeholder="e.g. AAACT1029F"
               maxLength={10}
               className="font-mono uppercase tracking-wider"
@@ -662,10 +746,11 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             <SearchableCombobox
               label="Country"
               required
-              value={watchedCountry ?? ''}
+              value={normalizeCountryName(watchedCountry || 'India')}
               onChange={(val) => {
-                setValue('country', val, { shouldValidate: true, shouldDirty: true });
-                const newStates = getStatesForCountry(val);
+                const normVal = normalizeCountryName(val);
+                setValue('country', normVal, { shouldValidate: true, shouldDirty: true });
+                const newStates = getStatesForCountry(normVal);
                 if (watchedState && !newStates.some((s) => s.toLowerCase() === (watchedState || '').toLowerCase())) {
                   setValue('state', '', { shouldValidate: true, shouldDirty: true });
                   setValue('city', '', { shouldValidate: true, shouldDirty: true });
@@ -721,6 +806,19 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           </div>
 
 
+          {/* Required Fields Completion Status Notice */}
+          {missingFields.length > 0 && (
+            <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-200 text-xs font-semibold rounded-xl flex items-start gap-2.5 animate-fadeIn">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Required fields to proceed:</span>{' '}
+                <span className="font-medium text-amber-800 dark:text-amber-300">
+                  {missingFields.join(' • ')}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Missing Fields Error Alert */}
           {Object.keys(errors).length > 0 && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 animate-fadeIn">
@@ -731,7 +829,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             </div>
           )}
 
-          <div className="pt-4 flex justify-between items-center border-t border-slate-100">
+          <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
@@ -746,8 +844,13 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               type="submit"
               variant="primary"
               size="lg"
+              disabled={!isFormComplete || isSubmitting}
               isLoading={isSubmitting}
-              className="bg-[#09539b] hover:bg-[#012970] font-bold"
+              className={`font-bold transition-all shadow-sm ${
+                !isFormComplete
+                  ? 'opacity-50 cursor-not-allowed bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                  : 'bg-[#09539b] hover:bg-[#012970] text-white cursor-pointer'
+              }`}
               rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
             >
               Save & Continue to Tax Review & Contract
