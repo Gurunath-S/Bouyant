@@ -5,6 +5,7 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
 import { PublicNavbar } from '../components/layout/PublicNavbar';
 import { PublicFooter } from '../components/layout/PublicFooter';
+import { BookingLayout } from '../components/layout/BookingLayout';
 import { ScrollToTop } from '../components/common/ScrollToTop';
 import { useAuthStore } from '../stores/authStore';
 
@@ -123,8 +124,17 @@ export const router = createBrowserRouter([
     children: [
       { path: 'exhibitions', element: <ExhibitionsPage /> },
       { path: 'exhibitions/:slug', element: <ExhibitionDetailPage /> },
-      { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
       { path: 'booking/success', element: <PaymentSuccessPage /> },
+    ],
+  },
+
+  // Focused Distraction-Free Stall Booking Shell (Unauthenticated Guests & Authenticated Users)
+  {
+    path: '/',
+    element: <BookingLayout />,
+    children: [
+      { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
+      { path: 'checkout', element: <BookingCheckoutPage /> },
     ],
   },
 
@@ -139,9 +149,7 @@ export const router = createBrowserRouter([
     children: [
       // Client Routes
       { path: 'dashboard', element: <ClientDashboardPage /> },
-      { path: 'exhibitions/:slug/book', element: <BookingWizardPage /> },
       { path: 'my-company', element: <CompanyProfilePage /> },
-      { path: 'checkout', element: <BookingCheckoutPage /> },
       { path: 'my-bookings', element: <MyBookingsPage /> },
       { path: 'payment-success', element: <PaymentSuccessPage /> },
       { path: 'invoices', element: <MyInvoicesPage /> },

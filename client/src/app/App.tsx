@@ -4,6 +4,7 @@ import { router } from './router';
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore, applyTheme } from '../stores/themeStore';
 import { authService } from '../services/auth/authService';
+import { GlobalDialog } from '../components/ui/GlobalDialog';
 
 export const App: React.FC = () => {
   const { setUser, isAuthenticated } = useAuthStore();
@@ -24,5 +25,10 @@ export const App: React.FC = () => {
     }
   }, [isAuthenticated, setUser]);
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <GlobalDialog />
+    </>
+  );
 };

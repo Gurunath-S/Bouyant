@@ -23,6 +23,7 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { formatDisplayDate } from '../../../utils/date';
+import { showAlert } from '../../../stores/dialogStore';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { BackButton } from '../../../components/ui/BackButton';
 import { getDashboardUrl } from '../../../utils/navigation';
@@ -754,12 +755,16 @@ export const ExhibitionDetailPage: React.FC = () => {
               <p className="text-xs text-slate-300 mt-0.5">Share this event with your network</p>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (navigator.share) {
                   navigator.share({ title: exhibition.title, url: window.location.href });
                 } else {
                   navigator.clipboard.writeText(window.location.href);
-                  alert('Event link copied to clipboard!');
+                  await showAlert({
+                    title: 'Link Copied',
+                    message: 'Event link has been copied to your clipboard!',
+                    type: 'success',
+                  });
                 }
               }}
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors shrink-0"
