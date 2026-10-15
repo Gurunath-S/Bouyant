@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { RotateCcw, Clock } from 'lucide-react';
 import { Button } from './Button';
 
 interface TimerExtensionModalProps {
@@ -19,47 +19,92 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden transform transition-all scale-100">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 relative overflow-hidden transform transition-all scale-100">
         
-        {/* Visual Top Decorative Banner */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-rose-600 to-red-600" />
+        {/* Visual Top Decorative Gradient */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600" />
 
-        {/* TIMEOUT / EXPIRED DISPLAY */}
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-950/80 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-inner">
-            <AlertTriangle className="w-7 h-7" />
-          </div>
-          <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-red-600 dark:text-red-400 block">
-              Reservation Session Expired
-            </span>
-            <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 font-sora mt-0.5">
-              Your 15-minute stall hold has ended
-            </h3>
-          </div>
+        {/* Bespoke Time Out Vector Illustration */}
+        <div className="relative w-28 h-28 mx-auto flex items-center justify-center mt-1">
+          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/20 via-rose-500/20 to-indigo-500/10 rounded-full blur-xl animate-pulse" />
+          <svg
+            className="w-24 h-24 relative z-10 drop-shadow-md"
+            viewBox="0 0 120 120"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Background Dial Base */}
+            <circle cx="60" cy="64" r="44" className="fill-slate-50 dark:fill-slate-800/90 stroke-slate-200 dark:stroke-slate-700" strokeWidth="2.5" />
+            
+            {/* Top Stopwatch stem & pusher crown */}
+            <rect x="56" y="10" width="8" height="10" rx="3" className="fill-slate-400 dark:fill-slate-500" />
+            <rect x="52" y="8" width="16" height="4" rx="2" className="fill-slate-600 dark:fill-slate-300" />
+            <rect x="80" y="18" width="6" height="8" rx="2" transform="rotate(35 80 18)" className="fill-slate-400 dark:fill-slate-500" />
+
+            {/* Expired Meter Outer Ring (amber to rose) */}
+            <circle
+              cx="60"
+              cy="64"
+              r="38"
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray="170 60"
+              className="text-amber-500/30 dark:text-amber-400/25"
+            />
+            <circle
+              cx="60"
+              cy="64"
+              r="38"
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray="45 200"
+              className="text-rose-500 dark:text-rose-400"
+            />
+
+            {/* Cardinal Clock ticks */}
+            <line x1="60" y1="31" x2="60" y2="36" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+            <line x1="60" y1="92" x2="60" y2="97" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+            <line x1="27" y1="64" x2="32" y2="64" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+            <line x1="88" y1="64" x2="93" y2="64" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+
+            {/* Inner Plate */}
+            <circle cx="60" cy="64" r="28" className="fill-white dark:fill-slate-900 shadow-xs" />
+
+            {/* Digital readout badge "00:00" */}
+            <rect x="42" y="55" width="36" height="18" rx="6" className="fill-rose-50 dark:fill-rose-950/80 stroke-rose-200 dark:stroke-rose-800/60" strokeWidth="1" />
+            <text x="60" y="68" textAnchor="middle" className="fill-rose-600 dark:fill-rose-400 text-[11px] font-black font-mono tracking-tight">00:00</text>
+
+            {/* Alert / Exclamation Indicator */}
+            <circle cx="60" cy="42" r="3" className="fill-rose-500 animate-ping opacity-75" />
+            <circle cx="60" cy="42" r="3" className="fill-rose-500" />
+          </svg>
         </div>
 
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/40 rounded-2xl p-4 space-y-2">
-          <p className="text-xs text-red-900 dark:text-red-200 font-bold">
-            Hold Period Expired
-          </p>
-          <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-            The 15-minute hold window for your selected stalls ended. To prevent double-booking, the stalls were released back to the live floor plan. Please select your stall and fill out the form again.
+        {/* Content Header & Short Message */}
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+            <Clock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+            Time Out
+          </div>
+          <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight font-sora">
+            Reservation Session Expired
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
+            Your 15-minute stall hold has ended. Selected booths were released back to the floor plan so other exhibitors can reserve them.
           </p>
         </div>
 
-        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          Please restart your reservation to re-select available stalls on the interactive hall layout.
-        </p>
-
+        {/* Action Button */}
         <div className="pt-2">
           <Button
             variant="primary"
             onClick={onRestartBooking}
-            className="w-full justify-center bg-gradient-to-r from-[#09539b] to-[#1E3FA0] hover:from-[#073d74] hover:to-[#152B75] text-white font-extrabold py-3.5 shadow-md hover:shadow-lg"
+            className="w-full justify-center bg-gradient-to-r from-[#09539b] to-[#1E3FA0] hover:from-[#073d74] hover:to-[#152B75] text-white font-extrabold py-3.5 shadow-md hover:shadow-lg transition-all rounded-xl cursor-pointer"
             leftIcon={<RotateCcw className="w-4 h-4" />}
           >
-            Re-select Stall & Fill Form
+            Re-select Stall on Floor Plan
           </Button>
         </div>
       </div>

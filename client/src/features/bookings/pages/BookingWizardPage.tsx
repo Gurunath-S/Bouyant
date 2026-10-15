@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation, useBlocker } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
 import { companyService } from '../../../services/companies/companyService';
@@ -19,6 +19,8 @@ import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
+import { showAlert } from '../../../stores/dialogStore';
+import { normalizeCountryName } from '../../../data/indianStatesCities';
 
 function generateFallbackBookingRef() {
   return 'BKG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
@@ -57,7 +59,7 @@ export const BookingWizardPage: React.FC = () => {
 
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [partialPercentage, setPartialPercentage] = useState<number>(50);
-  const [isTermsAccepted, setIsTermsAccepted] = useState(true);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
 
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
   const [_razorpayOrderInfo, setRazorpayOrderInfo] = useState<{
@@ -99,6 +101,36 @@ export const BookingWizardPage: React.FC = () => {
     targetAction: 'LEAVE_PAGE',
   });
   const [isReleasingHolds, setIsReleasingHolds] = useState(false);
+
+  // Intercept any internal SPA navigation attempt while user has active stall holds in steps 1, 2, or 3
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !isReleasingHolds &&
+      useFloorPlanStore.getState().selectedStallIds.length > 0 &&
+      currentStep <= 3 &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Sync React Router blocker state with confirmation warning modal
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      setConfirmLeaveModal({
+        isOpen: true,
+        title: 'Leave Booking Wizard & Release Stalls?',
+        description:
+          'You currently have active stall reservation holds. If you leave this page, your temporary hold will be cancelled, selected stalls will immediately become available again on the floor plan for other exhibitors, and any entered booking details will be discarded.',
+        confirmButtonText: 'Yes, Release Stalls & Leave',
+        targetAction: 'LEAVE_PAGE',
+      });
+    }
+  }, [blocker.state]);
+
+  const handleCancelLeaveModal = () => {
+    setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }));
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  };
 
   const isBookingClosed = React.useMemo(() => {
     if (!exhibition) return false;
@@ -338,7 +370,9 @@ export const BookingWizardPage: React.FC = () => {
       const action = confirmLeaveModal.targetAction;
       setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }));
 
-      if (action === 'LEAVE_PAGE') {
+      if (blocker.state === 'blocked') {
+        blocker.proceed();
+      } else if (action === 'LEAVE_PAGE') {
         if (fromReferrer) {
           navigate(fromReferrer);
         } else {
@@ -366,7 +400,7 @@ export const BookingWizardPage: React.FC = () => {
         spcode: exhibition?.spcode,
         year: eventYear,
         pinCode: data.pinCode,
-        country: data.country || 'India',
+        country: normalizeCountryName(data.country || 'India'),
       } as any);
 
       const createdComp = res.company || res;
@@ -405,7 +439,11 @@ export const BookingWizardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Backend company creation error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Failed to register company details. Please try again.';
-      alert(errMsg);
+      await showAlert({
+        title: 'Registration Error',
+        message: errMsg,
+        type: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -477,7 +515,11 @@ export const BookingWizardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Booking order creation error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Booking order initialization failed.';
-      alert('Payment Order Error: ' + errMsg);
+      await showAlert({
+        title: 'Payment Order Error',
+        message: errMsg,
+        type: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -487,7 +529,11 @@ export const BookingWizardPage: React.FC = () => {
   const executeRazorpayGateway = async (booking: Booking, orderInfo: any) => {
     // Ensure Razorpay SDK script is loaded
     if (typeof (window as any).Razorpay === 'undefined') {
-      alert('Razorpay SDK is loading. Please check your internet connection or try again in a moment.');
+      await showAlert({
+        title: 'Payment Gateway Loading',
+        message: 'Razorpay SDK is loading. Please check your internet connection or try again in a moment.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -542,7 +588,11 @@ export const BookingWizardPage: React.FC = () => {
       razorpayInstance.open();
     } catch (err: any) {
       console.error('Failed to open Razorpay modal:', err);
-      alert('Unable to launch Razorpay popup: ' + err.message);
+      await showAlert({
+        title: 'Payment Window Blocked',
+        message: 'Unable to launch Razorpay popup: ' + err.message,
+        type: 'danger',
+      });
     }
   };
 
@@ -598,32 +648,6 @@ export const BookingWizardPage: React.FC = () => {
                 </button>
               )}
 
-              {currentStep === 2 && (
-                <button
-                  type="button"
-                  onClick={handleInitiateBackToStep1}
-                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
-                  title="Change Stalls / Return to Floor Plan"
-                >
-                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
-                  <span>Back to Stall Selection</span>
-                </button>
-              )}
-
-              {currentStep === 3 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentStep(2);
-                  }}
-                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
-                  title="Return to Company Details & Edit Profile"
-                >
-                  <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
-                  <span>Back to Company Details</span>
-                </button>
-              )}
-
               <div>
                 <h1 className="text-xl sm:text-2xl font-extrabold text-[#012970] dark:text-slate-100 leading-tight">
                   Stall Reservation — {exhibition.title}
@@ -633,16 +657,6 @@ export const BookingWizardPage: React.FC = () => {
                 </p>
               </div>
             </div>
-
-            {currentStep <= 3 && selectedStallIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleInitiateLeave}
-                className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                Cancel Booking
-              </button>
-            )}
           </div>
 
           {/* Stepper Tabs (Active during wizard steps 1, 2, & 3) */}
@@ -655,16 +669,49 @@ export const BookingWizardPage: React.FC = () => {
               ].map((step, idx, arr) => {
                 const isCompleted = currentStep > step.num;
                 const isCurrent = currentStep === step.num;
+                // Only allow navigating to past completed steps or step 2 if stalls are chosen
+                // Step 3 can NEVER be clicked ahead directly unless Company Details in Step 2 have already been completed
+                const isClickable =
+                  !isCurrent &&
+                  ((step.num === 1) ||
+                   (step.num === 2 && selectedStallIds.length > 0) ||
+                   (step.num === 3 && Boolean(selectedCompany && selectedCompany.id && selectedCompany.name)));
+
+                const handleTabClick = () => {
+                  if (!isClickable) return;
+                  if (step.num === 1) {
+                    handleInitiateBackToStep1();
+                  } else if (step.num === 2) {
+                    setCurrentStep(2);
+                  } else if (step.num === 3 && selectedCompany && selectedCompany.id) {
+                    setCurrentStep(3);
+                  }
+                };
+
                 return (
                   <React.Fragment key={step.num}>
-                    <div
-                      className={`flex items-center gap-2 whitespace-nowrap transition-colors ${
+                    <button
+                      type="button"
+                      disabled={!isClickable && !isCurrent}
+                      onClick={handleTabClick}
+                      className={`flex items-center gap-2 whitespace-nowrap transition-all rounded-lg px-2.5 py-1 text-left ${
                         isCurrent
-                          ? 'text-[#09539b] dark:text-blue-400'
-                          : isCompleted
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-400 dark:text-slate-500'
+                          ? 'text-[#09539b] dark:text-blue-400 cursor-default font-extrabold'
+                          : isCompleted && isClickable
+                          ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer'
+                          : isClickable
+                          ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'
+                          : 'text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed'
                       }`}
+                      title={
+                        !isClickable && !isCurrent
+                          ? step.num === 3
+                            ? 'Complete all required Company Details in Step 2 to proceed to Review & Pay'
+                            : 'Select a stall first to proceed'
+                          : isClickable
+                          ? `Navigate to ${step.label}`
+                          : undefined
+                      }
                     >
                       <span
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-all ${
@@ -678,7 +725,7 @@ export const BookingWizardPage: React.FC = () => {
                         {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.num}
                       </span>
                       <span>{step.label}</span>
-                    </div>
+                    </button>
                     {idx < arr.length - 1 && (
                       <div
                         className={`h-0.5 min-w-[16px] sm:min-w-[28px] flex-1 mx-1.5 transition-colors ${
@@ -728,6 +775,7 @@ export const BookingWizardPage: React.FC = () => {
           }}
           onSubmitCompanyForm={onSubmitCompanyForm}
           onBack={handleInitiateBackToStep1}
+          onCancel={handleInitiateLeave}
           onContinueWithSelectedCompany={() => setCurrentStep(3)}
         />
       )}
@@ -749,6 +797,7 @@ export const BookingWizardPage: React.FC = () => {
           onBack={() => {
             setCurrentStep(2);
           }}
+          onCancel={handleInitiateLeave}
         />
       )}
 
@@ -776,7 +825,7 @@ export const BookingWizardPage: React.FC = () => {
       {/* Confirmation Warning Modal for Leaving / Releasing Stalls */}
       <Modal
         isOpen={confirmLeaveModal.isOpen}
-        onClose={() => setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={handleCancelLeaveModal}
         title={confirmLeaveModal.title}
         maxWidth="md"
       >
@@ -800,7 +849,7 @@ export const BookingWizardPage: React.FC = () => {
                     key={s.id}
                     className="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-mono font-bold text-xs"
                   >
-                    #{s.stallNumber} ({s.areaSqFt} sq.ft)
+                    #{s.stallNumber}
                   </span>
                 ))}
               </div>
@@ -812,7 +861,7 @@ export const BookingWizardPage: React.FC = () => {
               type="button"
               variant="outline"
               disabled={isReleasingHolds}
-              onClick={() => setConfirmLeaveModal((prev) => ({ ...prev, isOpen: false }))}
+              onClick={handleCancelLeaveModal}
               className="text-xs font-bold"
             >
               Cancel & Stay
