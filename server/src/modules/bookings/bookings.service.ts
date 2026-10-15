@@ -336,9 +336,28 @@ export class BookingsService {
     );
 
     // --------------------------------------------------
-    // 2. Check discount permission
+    // 2. Determine payment base amount (partial advance or full)
     // --------------------------------------------------
+    const isPartial = input.paymentType === 'PARTIAL';
+    let paymentBaseAmount = basePrice;
 
+    if (isPartial) {
+      if (input.percentage === undefined) {
+        throw ApiError.badRequest(
+          'Percentage is required for partial payment.'
+        );
+      }
+
+      const percentage = new Prisma.Decimal(input.percentage);
+      paymentBaseAmount = basePrice
+        .mul(percentage)
+        .div(100)
+        .toDecimalPlaces(2);
+    }
+
+    // --------------------------------------------------
+    // 3. Check discount permission and calculate on payable base
+    // --------------------------------------------------
     const canApplyDiscount = [
       'ADMIN',
       'SUPERADMIN',
@@ -354,86 +373,55 @@ export class BookingsService {
         );
       }
 
-      const requestedDiscount = new Prisma.Decimal(
+      const rawDiscount = new Prisma.Decimal(
         input.discountAmount
       );
 
-      if (requestedDiscount.lt(0)) {
+      if (rawDiscount.lt(0)) {
         throw ApiError.badRequest(
           'Discount amount cannot be negative.'
         );
       }
 
-      // IMPORTANT:
-      // Discount is compared with FULL booking base price
-      if (requestedDiscount.gte(basePrice)) {
-        throw ApiError.badRequest(
-          'Discount cannot be greater than or equal to the booking amount.'
-        );
+      if (input.discountType === 'PERCENT') {
+        if (rawDiscount.gt(100)) {
+          throw ApiError.badRequest(
+            'Discount percentage cannot exceed 100%.'
+          );
+        }
+        discountAmount = paymentBaseAmount
+          .mul(rawDiscount)
+          .div(100)
+          .toDecimalPlaces(2);
+      } else {
+        if (rawDiscount.gte(paymentBaseAmount)) {
+          throw ApiError.badRequest(
+            'Discount cannot be greater than or equal to the payable base amount.'
+          );
+        }
+        discountAmount = rawDiscount;
       }
-
-      discountAmount = requestedDiscount;
     }
 
     // --------------------------------------------------
-    // 3. Calculate FULL BOOKING GRAND TOTAL
+    // 4. Tax and Current Payable Calculation
     // --------------------------------------------------
-
-    const discountedBookingAmount = basePrice.sub(
-      discountAmount
-    );
-
     const taxRate = new Prisma.Decimal('0.18');
 
-    const bookingTaxAmount = discountedBookingAmount.mul(
-      taxRate
-    );
-
-    const grandTotal = discountedBookingAmount.add(
-      bookingTaxAmount
-    );
+    const discountedAmount = paymentBaseAmount.sub(discountAmount);
+    const taxAmount = discountedAmount.mul(taxRate).toDecimalPlaces(2);
+    const payableAmount = discountedAmount.add(taxAmount);
 
     // --------------------------------------------------
-    // 4. Determine CURRENT PAYMENT amount
+    // 5. Full booking values & Remaining balance
     // --------------------------------------------------
+    const unpaidBase = isPartial ? basePrice.sub(paymentBaseAmount) : new Prisma.Decimal(0);
+    const unpaidTax = unpaidBase.mul(taxRate).toDecimalPlaces(2);
+    const remainingBalance = unpaidBase.add(unpaidTax);
 
-    let paymentBaseAmount = basePrice;
-
-    if (input.paymentType === 'PARTIAL') {
-      if (input.percentage === undefined) {
-        throw ApiError.badRequest(
-          'Percentage is required for partial payment.'
-        );
-      }
-
-      const percentage = new Prisma.Decimal(input.percentage);
-
-      paymentBaseAmount = basePrice
-        .mul(percentage)
-        .div(100);
-    }
-
-    // --------------------------------------------------
-    // 5. Apply discount to CURRENT PAYMENT
-    // --------------------------------------------------
-
-    const discountedAmount = paymentBaseAmount.sub(
-      discountAmount
-    );
-
-    // --------------------------------------------------
-    // 6. GST for CURRENT PAYMENT
-    // --------------------------------------------------
-
-    const taxAmount = discountedAmount.mul(taxRate);
-
-    // --------------------------------------------------
-    // 7. CURRENT PAYMENT AMOUNT
-    // --------------------------------------------------
-
-    const payableAmount = discountedAmount.add(
-      taxAmount
-    );
+    const discountedBookingAmount = basePrice.sub(discountAmount);
+    const bookingTaxAmount = taxAmount.add(unpaidTax);
+    const grandTotal = payableAmount.add(remainingBalance);
 
     return {
       basePrice,
@@ -449,6 +437,7 @@ export class BookingsService {
       discountedAmount,
       taxAmount,
       payableAmount,
+      remainingBalance,
     };
   }
 
@@ -1033,7 +1022,7 @@ static async createBooking(
                 result.grandTotal,
 
               discountAmount:
-                input.discountAmount,
+                result.discountAmount,
 
               discountType:
                 input.discountType,

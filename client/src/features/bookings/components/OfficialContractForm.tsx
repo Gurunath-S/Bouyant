@@ -1,5 +1,6 @@
 import React from 'react';
 import { Company, Exhibition, Stall } from '../../../types';
+import { normalizeCountryName } from '../../../data/indianStatesCities';
 import { Building2, Calendar, MapPin, Printer, ShieldCheck, CreditCard } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
 
@@ -88,7 +89,7 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
           </div>
           <div>
             <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase block font-bold">Corporate Address</span>
-            <span className="font-medium text-slate-700 dark:text-slate-300">{company.address}, {company.city}, {company.state}</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">{company.address}, {company.city}, {company.state}, {normalizeCountryName(company.country || 'India')}</span>
           </div>
           <div>
             <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase block font-bold">GSTIN & PAN</span>
