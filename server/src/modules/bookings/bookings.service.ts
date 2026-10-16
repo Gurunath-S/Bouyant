@@ -1,12 +1,13 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { CreateBookingInput } from './bookings.schemas.js';
-import { StallStatus,BookingStatus,PaymentStatus} from '@prisma/client';
+import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus } from '@prisma/client';
 import { Prisma,Stall} from '@prisma/client';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { razorpay } from '../../config/razorpay.js';
 import { env } from '../../config/env.js';
 import { normalizePagination } from '../../utils/pagination.js';
+import { generateReference } from '../../utils/reference.js';
 export class BookingsService {
   /**
    * CREATE BOOKING WITH STRICT CONCURRENCY & AUTHORITATIVE SERVER PRICING
@@ -745,6 +746,9 @@ static async createBooking(
 
 	  const isPrivilegedUser = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role ?? '');
 
+	  // Admin/Staff/SuperAdmin can skip Razorpay and directly confirm with an offline payment record
+	  const isDirectConfirm = !!(input.confirmDirectly && isPrivilegedUser);
+
 	  if (!user) {
 	    throw ApiError.unauthorized('Please log in before creating a booking.');
 	  }
@@ -752,6 +756,27 @@ static async createBooking(
 	  if (!isPrivilegedUser && user.companyId !== input.companyId) {
 	    throw ApiError.forbidden('You can only create bookings for your own company.');
 	  }
+
+  // ==================================================
+  // 2b. Staff Attribution — stamp company.spcode
+  //
+  // Staff users don't belong to exhibitor companies, so
+  // we track their bookings via company.spcode.
+  // Always stamp when acting user is STAFF, using their
+  // personal spcode (e.g. ST01) or a generic 'ST-STAFF'
+  // if the account has no spcode assigned yet.
+  // We only overwrite if the company doesn't already carry
+  // a staff-attributed spcode (startsWith 'ST').
+  // ==================================================
+  if (
+    user?.role === 'STAFF' &&
+    !company.spcode?.toUpperCase().startsWith('ST')
+  ) {
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { spcode: user.spcode ?? 'ST-STAFF' },
+    });
+  }
 
   // ==================================================
   // 3. Get selected stalls
@@ -831,9 +856,119 @@ static async createBooking(
     user,
     input
   );
- 
+
   // ==================================================
-  // 7. Generate booking reference
+  // 7a. ADMIN DIRECT CONFIRM — bypass Razorpay entirely
+  // ==================================================
+
+  if (isDirectConfirm) {
+    const adminBookingRef = `BKG-2026-${crypto
+      .randomUUID()
+      .replace(/-/g, '')
+      .substring(0, 10)
+      .toUpperCase()}`;
+
+    return await prisma.$transaction(
+      async (tx) => {
+        // 1. Mark stalls as confirmed immediately
+        await tx.stall.updateMany({
+          where: { id: { in: input.stallIds } },
+          data: {
+            status: StallStatus.BOOKED_CONFIRMED,
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+
+        // 2. Cancel any previous PENDING_PAYMENT booking for these stalls
+        await tx.booking.updateMany({
+          where: {
+            companyId: input.companyId,
+            exhibitionId: exhibition.id,
+            status: BookingStatus.PENDING_PAYMENT,
+            stalls: { some: { stallId: { in: input.stallIds } } },
+          },
+          data: { status: BookingStatus.CANCELLED },
+        });
+
+        // 3. Create confirmed booking
+        const booking = await tx.booking.create({
+          data: {
+            bookingReference: adminBookingRef,
+            companyId: input.companyId,
+            exhibitionId: exhibition.id,
+            status: BookingStatus.CONFIRMED,
+            paymentStatus: BookingPaymentStatus.PAID_FULL,
+            totalAmount: result.basePrice,
+            taxAmount: result.bookingTaxAmount,
+            grandTotal: result.grandTotal,
+            paidAmount: result.grandTotal,
+            balanceAmount: new Prisma.Decimal(0),
+            discountAmount: result.discountAmount,
+            discountType: input.discountType,
+            stalls: {
+              create: stalls.map((s) => ({
+                stallId: s.id,
+                price: new Prisma.Decimal(s.price.toString()),
+              })),
+            },
+          },
+          include: {
+            stalls: { include: { stall: true } },
+            exhibition: true,
+            company: true,
+          },
+        });
+
+        // 4. Create offline/admin payment record (no Razorpay)
+        const paymentRef = generateReference('PAY', 10, false);
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference: paymentRef,
+            bookingId: booking.id,
+            amount: result.grandTotal,
+            currency: 'INR',
+            status: PaymentStatus.SUCCESS,
+            provider: 'OFFLINE_ADMIN',
+            paymentMethod: input.paymentMethod || 'ADMIN_DIRECT_ALLOCATION',
+            paidAt: new Date(),
+          },
+        });
+
+        // 5. Auto-generate invoice
+        const invoiceNum = generateReference('INV', 6);
+        await tx.invoice.create({
+          data: {
+            invoiceNumber: invoiceNum,
+            bookingId: booking.id,
+            paymentId: payment.id,
+            companyId: input.companyId,
+            totalAmount: result.basePrice,
+            taxAmount: result.bookingTaxAmount,
+            grandTotal: result.grandTotal,
+            status: 'ISSUED',
+            issueDate: new Date(),
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Booking confirmed and allocated directly by admin. No payment gateway required.',
+          data: {
+            bookingId: booking.id,
+            bookingReference: booking.bookingReference,
+            paymentId: payment.id,
+            paymentStatus: 'SUCCESS',
+            bookingStatus: 'CONFIRMED',
+          },
+        };
+      },
+      { timeout: 15000 }
+    );
+  }
+
+  // ==================================================
+  // 7. Generate booking reference (standard Razorpay flow)
   // ==================================================
 
   const bookingRef = `BKG-2026-${crypto
@@ -1383,7 +1518,19 @@ static async createBooking(
     }
     if (registeredByRole && registeredByRole !== 'ALL') {
       if (registeredByRole === 'ADMIN') {
+        // ADMIN-registered: company has an ADMIN or SUPERADMIN user linked to it.
         andConditions.push({ company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } });
+      } else if (registeredByRole === 'STAFF') {
+        // STAFF-registered: staff members don't belong to exhibitor companies.
+        // Attribution is tracked via company.spcode which is set to the staff member's spcode
+        // (e.g. ST00, ST01, ST02, ST03…) when they register an exhibitor.
+        // We also fall back to exhibition.spcode for events submitted by staff.
+        andConditions.push({
+          OR: [
+            { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+            { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+          ],
+        });
       } else {
         andConditions.push({ company: { users: { some: { role: registeredByRole as any } } } });
       }

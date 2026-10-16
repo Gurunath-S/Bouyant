@@ -218,10 +218,21 @@ export class ReportsService {
       };
     }
 
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { spcode: true },
+    });
+    const userSpcode = userRecord?.spcode;
+
     // STAFF: Operational / Event-Registration reports (No platform revenue or user admin stats)
     const [staffExhibitions, upcomingExhibitions, totalEventsCount] = await Promise.all([
       prisma.exhibition.findMany({
-        where: { createdByUserId: userId },
+        where: {
+          OR: [
+            { createdByUserId: userId },
+            ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
+          ],
+        },
         include: {
           _count: {
             select: { bookings: true },

@@ -8,6 +8,7 @@ import { Permissions } from '../../config/permissions.js';
 const router = Router();
 
 router.post('/verify', asyncHandler(PaymentsController.verifyPayment));
+router.post('/webhook', asyncHandler(PaymentsController.handleWebhook));
 router.post('/balance/:bookingId', authenticateToken, asyncHandler(PaymentsController.balancePayment));
 router.use(authenticateToken);
 

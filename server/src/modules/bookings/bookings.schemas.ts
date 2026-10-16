@@ -29,6 +29,16 @@ export const CreateBookingSchema = z.object({
     .max(100, 'Payment percentage cannot exceed 100%')
     .optional()
     .default(100),
+
+  // Admin / Staff / SuperAdmin only — bypass Razorpay and directly confirm the booking
+  confirmDirectly: z.boolean().optional().default(false),
+
+  // Optional payment method label recorded on the offline payment record
+  paymentMethod: z.string().optional(),
+
+  // Internal booking notes (admin use)
+  notes: z.string().optional(),
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;
+

@@ -19,6 +19,7 @@ export class PaymentsService {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+  skipSignatureCheck?: boolean;
 }) {
   // =========================================================
   // 1. BASIC INPUT VALIDATION
@@ -27,7 +28,7 @@ export class PaymentsService {
   if (
     !data.razorpay_order_id ||
     !data.razorpay_payment_id ||
-    !data.razorpay_signature
+    (!data.skipSignatureCheck && !data.razorpay_signature)
   ) {
     throw ApiError.badRequest(
       'Razorpay payment details are required.'
@@ -80,40 +81,42 @@ export class PaymentsService {
   // 4. VERIFY RAZORPAY SIGNATURE
   // =========================================================
 
-  const signatureBody =
-    `${data.razorpay_order_id}|${data.razorpay_payment_id}`;
+  if (!data.skipSignatureCheck) {
+    const signatureBody =
+      `${data.razorpay_order_id}|${data.razorpay_payment_id}`;
 
-  const expectedSignature = crypto
-    .createHmac(
-      'sha256',
-      env.RAZORPAY_API_SECRET
-    )
-    .update(signatureBody)
-    .digest('hex');
+    const expectedSignature = crypto
+      .createHmac(
+        'sha256',
+        env.RAZORPAY_API_SECRET
+      )
+      .update(signatureBody)
+      .digest('hex');
 
-  const receivedSignature = data.razorpay_signature;
+    const receivedSignature = data.razorpay_signature;
 
-  const expectedBuffer = Buffer.from(
-    expectedSignature,
-    'utf8'
-  );
-
-  const receivedBuffer = Buffer.from(
-    receivedSignature,
-    'utf8'
-  );
-
-  const isAuthentic =
-    expectedBuffer.length === receivedBuffer.length &&
-    crypto.timingSafeEqual(
-      expectedBuffer,
-      receivedBuffer
+    const expectedBuffer = Buffer.from(
+      expectedSignature,
+      'utf8'
     );
 
-  if (!isAuthentic) {
-    throw ApiError.badRequest(
-      'Payment signature verification failed.'
+    const receivedBuffer = Buffer.from(
+      receivedSignature,
+      'utf8'
     );
+
+    const isAuthentic =
+      expectedBuffer.length === receivedBuffer.length &&
+      crypto.timingSafeEqual(
+        expectedBuffer,
+        receivedBuffer
+      );
+
+    if (!isAuthentic) {
+      throw ApiError.badRequest(
+        'Payment signature verification failed.'
+      );
+    }
   }
 
   // =========================================================
@@ -422,8 +425,12 @@ export class PaymentsService {
 
       // If Razorpay captured the payment, allow completing the booking
       // even if the 30s background cron briefly marked it EXPIRED,
-      // provided the stalls have not been confirmed by another client.
-      if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'EXPIRED') {
+      // or if it was already CONFIRMED with partial payment.
+      if (
+        booking.status !== 'PENDING_PAYMENT' &&
+        booking.status !== 'EXPIRED' &&
+        booking.status !== 'CONFIRMED'
+      ) {
         throw ApiError.conflict(
           `Booking cannot be completed because its current status is ${booking.status}.`
         );
@@ -584,11 +591,11 @@ export class PaymentsService {
           status:
             bookingIsFullyPaid
               ? 'CONFIRMED'
-              : 'PENDING_PAYMENT',
+              : (booking.status === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING_PAYMENT'),
           paymentStatus:
-                bookingIsFullyPaid
-                  ? 'PAID_FULL'
-                  : 'PARTIALLY_PAID',
+            bookingIsFullyPaid
+              ? 'PAID_FULL'
+              : 'PARTIALLY_PAID',
         },
       });
 
@@ -822,7 +829,9 @@ export class PaymentsService {
 
 static async createBalancePaymentOrder(
   bookingId: string,
-  user?: TokenPayload
+  user?: TokenPayload,
+  customAmount?: number,
+  nextDueDate?: string
 ) {
   // -----------------------------------------
   // 1. Validate bookingId
@@ -878,42 +887,41 @@ static async createBalancePaymentOrder(
   // 3. Validate booking status
   // -----------------------------------------
 
-  if (booking.status !== 'PENDING_PAYMENT') {
+  if (booking.status === 'CANCELLED' || booking.status === 'EXPIRED') {
+    throw ApiError.badRequest(
+      `Balance payment is not allowed for booking with status ${booking.status}.`
+    );
+  }
+
+  if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'CONFIRMED') {
     throw ApiError.badRequest(
       `Balance payment is not allowed for booking with status ${booking.status}.`
     );
   }
 
   // -----------------------------------------
-  // 4. Validate balance amount
+  // 4. Validate authoritative balance amount
   // -----------------------------------------
 
-  const balanceAmount =
-    new Prisma.Decimal(
-      booking.balanceAmount.toString()
-    );
+  const grandTotal = new Prisma.Decimal(booking.grandTotal.toString());
+  const paidAmount = new Prisma.Decimal(booking.paidAmount?.toString() || '0');
+  let balanceAmount = new Prisma.Decimal(booking.balanceAmount?.toString() || '0');
 
   if (balanceAmount.lessThanOrEqualTo(0)) {
+    const calculatedBalance = grandTotal.minus(paidAmount);
+    if (calculatedBalance.greaterThan(0)) {
+      balanceAmount = calculatedBalance;
+    }
+  }
+
+  if (balanceAmount.lessThanOrEqualTo(0) || booking.paymentStatus === 'PAID_FULL') {
     throw ApiError.badRequest(
       'No balance amount is pending for this booking.'
     );
   }
 
   // -----------------------------------------
-  // 5. Validate booking expiry
-  // -----------------------------------------
-
-  // if (
-  //   booking.expiresAt &&
-  //   booking.expiresAt <= new Date()
-  // ) {
-  //   throw ApiError.badRequest(
-  //     'This booking has expired. Balance payment is no longer allowed.'
-  //   );
-  // }
-
-  // -----------------------------------------
-  // 6. Validate stalls
+  // 5. Validate stalls
   // -----------------------------------------
 
   if (!booking.stalls.length) {
@@ -922,91 +930,122 @@ static async createBalancePaymentOrder(
     );
   }
 
-  // -----------------------------------------
-  // 7. Validate stall status
-  // -----------------------------------------
+  // Verify no stalls were booked by another confirmed booking
+  const stallIds = booking.stalls.map((s) => s.stallId);
+  const conflictingBooked = await prisma.bookingStall.findMany({
+    where: {
+      stallId: { in: stallIds },
+      bookingId: { not: booking.id },
+      booking: { status: 'CONFIRMED' },
+    },
+    include: { stall: true },
+  });
 
-  const invalidStall = booking.stalls.find(
-    (item) =>
-      item.stall.status !== 'PAYMENT_PENDING' &&
-      item.stall.status !== 'BOOKED_CONFIRMED'
+  if (conflictingBooked.length > 0) {
+    const conflictStallNumbers = conflictingBooked
+      .map((b) => b.stall?.stallNumber || b.stallId)
+      .join(', ');
+    throw ApiError.conflict(
+      `Stall(s) ${conflictStallNumbers} were confirmed for another client.`
+    );
+  }
+
+  const blockedStall = booking.stalls.find(
+    (item) => item.stall.status === 'BLOCKED'
   );
 
-  if (invalidStall) {
+  if (blockedStall && !canManagePayments) {
     throw ApiError.badRequest(
-      'One or more stalls are no longer available for balance payment.'
+      `Stall ${blockedStall.stall.stallNumber} is blocked and unavailable for balance payment.`
     );
   }
 
   // -----------------------------------------
-  // 8. Create Razorpay Order
+  // 6. Determine Payable Amount & Partial Status
+  // -----------------------------------------
+
+  let payableAmount = balanceAmount;
+  if (customAmount !== undefined && customAmount !== null && !isNaN(customAmount)) {
+    const requested = new Prisma.Decimal(customAmount);
+    if (requested.lessThanOrEqualTo(0)) {
+      throw ApiError.badRequest('Payment amount must be greater than zero.');
+    }
+    if (requested.greaterThan(balanceAmount)) {
+      throw ApiError.badRequest(
+        `Payment amount of ₹${requested.toNumber().toLocaleString('en-IN')} cannot exceed the remaining balance of ₹${balanceAmount.toNumber().toLocaleString('en-IN')}.`
+      );
+    }
+    payableAmount = requested;
+  }
+
+  const isPartial = payableAmount.lessThan(balanceAmount);
+
+  // -----------------------------------------
+  // 7. Create Razorpay Order
   // -----------------------------------------
 
   let razorpayOrder;
 
-try {
-  razorpayOrder = await razorpay.orders.create({
-    amount: balanceAmount
-      .mul(100)
-      .toNumber(),
+  try {
+    razorpayOrder = await razorpay.orders.create({
+      amount: payableAmount.mul(100).toNumber(),
+      currency: 'INR',
+      receipt: `BAL-${booking.bookingReference}`.substring(0, 40),
+      notes: {
+        bookingId: booking.id,
+        bookingReference: booking.bookingReference,
+        paymentType: isPartial ? 'PARTIAL_BALANCE' : 'BALANCE',
+        companyId: booking.companyId,
+        payerUserId: user.userId,
+        payerRole: user.role,
+        ...(nextDueDate ? { nextDueDate } : {}),
+      },
+    });
+  } catch (error: any) {
+    console.error('Razorpay order creation failed:', error?.message || error);
+    throw ApiError.internal(
+      'Payment gateway is currently unavailable. Please try again later.'
+    );
+  }
 
-    currency: 'INR',
-
-    receipt: `BAL-${booking.bookingReference}`,
-
-    notes: {
-      bookingId: booking.id,
-      bookingReference: booking.bookingReference,
-      paymentType: 'BALANCE',
-    },
-  });
-   } catch (_error) {
-
-      throw ApiError.internal(
-        'Payment gateway is currently unavailable. Please try again later.'
-      );
-    }
   // -----------------------------------------
-  // 9. Create Payment record
+  // 8. Create Payment record
   // -----------------------------------------
-  const paymentReference = `PAY-${Date.now()}`;
+  const paymentReference = generateReference('PAY', 6);
+  const installmentTypeStr = isPartial
+    ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
+    : 'BALANCE';
 
   const payment = await prisma.payment.create({
-  data: {
-    paymentReference,
-
-    bookingId: booking.id,
-
-    amount: balanceAmount,
-
-    status: 'PENDING',
-
-    razorpayOrderId: razorpayOrder.id,
-  },
-});
+    data: {
+      paymentReference,
+      bookingId: booking.id,
+      amount: payableAmount,
+      currency: 'INR',
+      status: 'PENDING',
+      provider: 'RAZORPAY',
+      razorpayOrderId: razorpayOrder.id,
+      installmentType: installmentTypeStr,
+    },
+  });
 
   // -----------------------------------------
-  // 10. Return Razorpay details
+  // 9. Return Razorpay details
   // -----------------------------------------
 
   return {
     bookingId: booking.id,
-
-    bookingReference:
-      booking.bookingReference,
-
+    bookingReference: booking.bookingReference,
     paymentId: payment.id,
-
-    razorpayOrderId:
-      razorpayOrder.id,
-
+    razorpayOrderId: razorpayOrder.id,
     amount: razorpayOrder.amount,
-
     currency: razorpayOrder.currency,
-
     keyId: env.RAZORPAY_API_KEY,
-
     balanceAmount,
+    payableAmount,
+    isPartial,
+    remainingAfterPayment: balanceAmount.minus(payableAmount),
+    nextDueDate: nextDueDate || null,
   };
 }
 
@@ -1103,5 +1142,50 @@ try {
       totalPages: Math.ceil(total / take),
       totalFilteredAmount,
     };
+  }
+
+  static async handleWebhook(body: any, signature: string | undefined) {
+    if (!signature) {
+      throw ApiError.badRequest('Missing Razorpay webhook signature header.');
+    }
+
+    const secret = (process.env.RAZORPAY_WEBHOOK_SECRET || env.RAZORPAY_API_SECRET || '').trim();
+    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+    const expectedSignature = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
+
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    const receivedBuf = Buffer.from(signature, 'utf8');
+
+    if (expectedBuf.length !== receivedBuf.length || !crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
+      throw ApiError.badRequest('Invalid Razorpay webhook signature.');
+    }
+
+    const event = typeof body === 'string' ? JSON.parse(body) : body;
+    const paymentEntity = event?.payload?.payment?.entity;
+    const orderId = paymentEntity?.order_id;
+    const paymentId = paymentEntity?.id;
+
+    if (!orderId || !paymentId) {
+      return { success: true, message: 'Event acknowledged (no payment/order payload).' };
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { razorpayOrderId: orderId },
+    });
+
+    if (!payment) {
+      return { success: true, message: 'No local payment record found for order.' };
+    }
+
+    if (payment.status === 'SUCCESS') {
+      return { success: true, message: 'Payment already processed successfully.' };
+    }
+
+    return await this.verifyAndProcessPayment({
+      razorpay_order_id: orderId,
+      razorpay_payment_id: paymentId,
+      razorpay_signature: signature,
+      skipSignatureCheck: true,
+    });
   }
 }

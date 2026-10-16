@@ -26,16 +26,25 @@ export class PaymentsController {
     });
   };
 
+  static handleWebhook = async (req: Request, res: Response) => {
+    const signature = req.headers['x-razorpay-signature'] as string | undefined;
+    const result = await PaymentsService.handleWebhook(req.body, signature);
+    return res.status(200).json(result);
+  };
+
    static async balancePayment(
 	  req: AuthenticatedRequest,
 	  res: Response
 	) {
 	  const { bookingId } = req.params;
+    const { amount, nextDueDate } = req.body || {};
 
 	  const result =
 	    await PaymentsService.createBalancePaymentOrder(
 	      bookingId,
-        req.user
+        req.user,
+        amount !== undefined && amount !== null ? Number(amount) : undefined,
+        nextDueDate ? String(nextDueDate) : undefined
 	    );
 
   res.status(201).json({
