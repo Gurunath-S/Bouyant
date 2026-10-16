@@ -75,6 +75,7 @@ export interface FloorPlanLayoutData {
   halls: HallZone[];
   facilities: FacilityObject[];
   annotations: AnnotationObject[];
+  stallColors?: Record<string, string>; // Maps stallNumber or stallId -> hex color
   backgroundImageUrl?: string;
   backgroundOpacity?: number;
 }
@@ -92,6 +93,7 @@ export interface DraftStallItem {
   yPosition: number;
   status: StallStatus;
   rotation?: number; // 0, 90, 180, 270
+  color?: string; // Optional custom color in hex format (e.g. #3b82f6)
 }
 
 export type StudioTool =

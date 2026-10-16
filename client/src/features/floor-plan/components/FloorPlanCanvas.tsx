@@ -19,6 +19,7 @@ interface FloorPlanCanvasProps {
 }
 
 import { getStallTypography } from '../utils/stallTypography';
+import { getFacilityIconKey, renderFacilitySvgIcon } from '../utils/facilityIconRenderer';
 
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   stalls,
@@ -213,7 +214,20 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
 
     switch (stall.status) {
-      case 'AVAILABLE':
+      case 'AVAILABLE': {
+        const customStallColor =
+          (stall as any).color ||
+          layoutData?.stallColors?.[stall.stallNumber] ||
+          layoutData?.stallColors?.[stall.id];
+        if (customStallColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(customStallColor)) {
+          return {
+            fill: isDark ? `${customStallColor}33` : `${customStallColor}18`,
+            stroke: customStallColor,
+            strokeWidth: 1.5,
+            textColor: isDark ? '#ffffff' : customStallColor,
+            strokeDasharray: 'none',
+          };
+        }
         if (stall.category === 'PREMIUM') {
           return {
             fill: isDark ? '#064e3b' : '#f0fdf4',
@@ -246,6 +260,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           textColor: isDark ? '#93c5fd' : '#1e3a8a',
           strokeDasharray: 'none',
         };
+      }
       case 'TEMPORARILY_HELD':
       case 'PAYMENT_PENDING':
       case 'BOOKING_IN_PROGRESS':
@@ -585,30 +600,98 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 ? `rotate(${fac.rotation} ${fac.x + fac.width / 2} ${fac.y + fac.height / 2})`
                 : undefined;
 
+              const mode = fac.displayMode || 'both';
+              const iconKey = getFacilityIconKey(fac.iconName, fac.type);
+              const iconSize = Math.max(12, Math.min(64, fac.iconSize || 24));
+
               return (
                 <g key={fac.id} transform={transformAttr}>
-                  <rect
-                    x={fac.x}
-                    y={fac.y}
-                    width={fac.width}
-                    height={fac.height}
-                    rx="6"
-                    fill={bgFill}
-                    stroke={strokeCol}
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x={fac.x + fac.width / 2}
-                    y={fac.y + fac.height / 2 + 4}
-                    textAnchor="middle"
-                    fill={textCol}
-                    fontSize="10"
-                    fontWeight="bold"
-                    letterSpacing="0.8"
-                    className="select-none pointer-events-none uppercase"
-                  >
-                    {fac.label}
-                  </text>
+                  {mode !== 'icon-only' && (
+                    <rect
+                      x={fac.x}
+                      y={fac.y}
+                      width={fac.width}
+                      height={fac.height}
+                      rx="6"
+                      fill={bgFill}
+                      stroke={strokeCol}
+                      strokeWidth="1.5"
+                    />
+                  )}
+
+                  {mode === 'icon-only' &&
+                    renderFacilitySvgIcon(
+                      iconKey,
+                      fac.x + fac.width / 2,
+                      fac.y + fac.height / 2,
+                      iconSize,
+                      strokeCol
+                    )}
+
+                  {mode === 'text-only' && (
+                    <text
+                      x={fac.x + fac.width / 2}
+                      y={fac.y + fac.height / 2 + 4}
+                      textAnchor="middle"
+                      fill={textCol}
+                      fontSize="10"
+                      fontWeight="bold"
+                      letterSpacing="0.8"
+                      className="select-none pointer-events-none uppercase"
+                    >
+                      {fac.label}
+                    </text>
+                  )}
+
+                  {mode === 'both' && (
+                    <g>
+                      {fac.height >= 44 ? (
+                        <>
+                          {renderFacilitySvgIcon(
+                            iconKey,
+                            fac.x + fac.width / 2,
+                            fac.y + fac.height / 2 - 7,
+                            iconSize,
+                            textCol
+                          )}
+                          <text
+                            x={fac.x + fac.width / 2}
+                            y={fac.y + fac.height / 2 + iconSize / 2 + 2}
+                            textAnchor="middle"
+                            fill={textCol}
+                            fontSize="9"
+                            fontWeight="bold"
+                            letterSpacing="0.8"
+                            className="select-none pointer-events-none uppercase"
+                          >
+                            {fac.label}
+                          </text>
+                        </>
+                      ) : (
+                        <>
+                          {renderFacilitySvgIcon(
+                            iconKey,
+                            fac.x + 14,
+                            fac.y + fac.height / 2,
+                            iconSize,
+                            textCol
+                          )}
+                          <text
+                            x={fac.x + 28}
+                            y={fac.y + fac.height / 2 + 3}
+                            textAnchor="start"
+                            fill={textCol}
+                            fontSize="9"
+                            fontWeight="bold"
+                            letterSpacing="0.8"
+                            className="select-none pointer-events-none uppercase"
+                          >
+                            {fac.label}
+                          </text>
+                        </>
+                      )}
+                    </g>
+                  )}
                 </g>
               );
             })}

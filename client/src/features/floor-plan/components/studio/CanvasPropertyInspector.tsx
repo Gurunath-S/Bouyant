@@ -16,6 +16,19 @@ import {
   Sliders,
   Ban,
   CheckCircle2,
+  Palette,
+  RotateCcw,
+  DoorOpen,
+  LogIn,
+  LogOut,
+  BadgeCheck,
+  Bath,
+  Utensils,
+  Coffee,
+  Presentation,
+  Shield,
+  Zap,
+  Star,
 } from 'lucide-react';
 import { StallCategory, StallStatus } from '../../../../types';
 import {
@@ -505,6 +518,58 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 </select>
               </div>
 
+              {/* Bulk Custom Stall Color Applicator */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-blue-600" /> Bulk Stall Accent Color
+                  </span>
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => onBulkUpdateStalls({ color: undefined })}
+                    className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" /> Reset Defaults
+                  </button>
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  {[
+                    { name: 'Standard Blue', hex: '#2563eb' },
+                    { name: 'Emerald', hex: '#059669' },
+                    { name: 'Amber', hex: '#d97706' },
+                    { name: 'Purple', hex: '#7c3aed' },
+                    { name: 'Rose', hex: '#e11d48' },
+                    { name: 'Cyan', hex: '#0891b2' },
+                    { name: 'Indigo', hex: '#4f46e5' },
+                    { name: 'Orange', hex: '#ea580c' },
+                    { name: 'Teal', hex: '#0d9488' },
+                    { name: 'Slate', hex: '#475569' },
+                  ].map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      disabled={readOnly}
+                      title={c.name}
+                      onClick={() => onBulkUpdateStalls({ color: c.hex })}
+                      className="w-5 h-5 rounded-md transition-transform border border-black/10 hover:scale-110 cursor-pointer shadow-2xs"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ))}
+                  <div className="relative w-5 h-5 rounded-md overflow-hidden border border-slate-300 ml-1">
+                    <input
+                      type="color"
+                      disabled={readOnly}
+                      defaultValue="#2563eb"
+                      onChange={(e) => onBulkUpdateStalls({ color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      title="Pick custom color for selected stalls"
+                    />
+                    <div className="w-full h-full bg-gradient-to-tr from-rose-500 via-amber-400 to-blue-500" />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Set Rental Price (₹ INR)
@@ -621,6 +686,91 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <option value="CORNER">Corner</option>
               <option value="ISLAND">Island Suite</option>
             </select>
+          </div>
+
+          {/* Custom Stall Color Selection */}
+          <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-blue-600" />
+                Stall Accent Color
+              </label>
+              {stall.color && (
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => onUpdateStall(stall.id, { color: undefined })}
+                  className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" /> Reset Default
+                </button>
+              )}
+            </div>
+
+            {/* Presets Grid */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { name: 'Standard Blue', hex: '#2563eb' },
+                { name: 'Emerald', hex: '#059669' },
+                { name: 'Amber', hex: '#d97706' },
+                { name: 'Purple', hex: '#7c3aed' },
+                { name: 'Rose', hex: '#e11d48' },
+                { name: 'Cyan', hex: '#0891b2' },
+                { name: 'Indigo', hex: '#4f46e5' },
+                { name: 'Orange', hex: '#ea580c' },
+                { name: 'Teal', hex: '#0d9488' },
+                { name: 'Slate', hex: '#475569' },
+              ].map((c) => {
+                const isSelected = (stall.color || '').toLowerCase() === c.hex.toLowerCase();
+                return (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    disabled={readOnly}
+                    title={c.name}
+                    onClick={() => onUpdateStall(stall.id, { color: c.hex })}
+                    className={`w-6 h-6 rounded-lg transition-transform border border-black/10 relative cursor-pointer ${
+                      isSelected ? 'ring-2 ring-offset-2 ring-blue-600 scale-110 shadow-xs' : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Custom Color Native Picker & Hex Input */}
+            <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2">
+              <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden border border-slate-300 shadow-2xs">
+                <input
+                  type="color"
+                  disabled={readOnly}
+                  value={stall.color || (stall.category === 'PREMIUM' ? '#059669' : stall.category === 'CORNER' ? '#d97706' : stall.category === 'ISLAND' ? '#7c3aed' : '#2563eb')}
+                  onChange={(e) => onUpdateStall(stall.id, { color: e.target.value })}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title="Pick custom color"
+                />
+                <div
+                  className="w-full h-full rounded-lg"
+                  style={{
+                    backgroundColor: stall.color || (stall.category === 'PREMIUM' ? '#059669' : stall.category === 'CORNER' ? '#d97706' : stall.category === 'ISLAND' ? '#7c3aed' : '#2563eb'),
+                  }}
+                />
+              </div>
+
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  disabled={readOnly}
+                  value={stall.color || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onUpdateStall(stall.id, { color: val });
+                  }}
+                  placeholder="Custom Hex (e.g. #3b82f6)"
+                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Dimensions & Push Row Controls */}
@@ -1092,18 +1242,18 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     if (!fac) return null;
 
     const availableIcons = [
-      { id: 'door', label: 'Door / Gate' },
-      { id: 'log-in', label: 'Entrance' },
-      { id: 'log-out', label: 'Exit' },
-      { id: 'badge', label: 'Registration' },
-      { id: 'restroom', label: 'Restroom' },
-      { id: 'utensils', label: 'Food / Dining' },
-      { id: 'coffee', label: 'Cafeteria' },
-      { id: 'presentation', label: 'Stage' },
-      { id: 'shield', label: 'Security' },
-      { id: 'info', label: 'Info Booth' },
-      { id: 'zap', label: 'Power / Tech' },
-      { id: 'star', label: 'Vip / Zone' },
+      { id: 'door', label: 'Door / Gate', icon: DoorOpen },
+      { id: 'log-in', label: 'Entrance', icon: LogIn },
+      { id: 'log-out', label: 'Exit', icon: LogOut },
+      { id: 'badge', label: 'Registration', icon: BadgeCheck },
+      { id: 'restroom', label: 'Restroom', icon: Bath },
+      { id: 'utensils', label: 'Food / Dining', icon: Utensils },
+      { id: 'coffee', label: 'Cafeteria', icon: Coffee },
+      { id: 'presentation', label: 'Stage', icon: Presentation },
+      { id: 'shield', label: 'Security', icon: Shield },
+      { id: 'info', label: 'Info Booth', icon: Info },
+      { id: 'zap', label: 'Power / Tech', icon: Zap },
+      { id: 'star', label: 'VIP Zone', icon: Star },
     ];
 
     return (
@@ -1183,63 +1333,116 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </div>
             </div>
 
-            {/* Custom Icon Picker */}
+            {/* Clean Standalone Icon Grid Picker */}
             {(fac.displayMode || 'both') !== 'text-only' && (
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Choose Icon
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Select Standalone Icon
                 </label>
-                <select
-                  disabled={readOnly}
-                  value={fac.iconName || 'default'}
-                  onChange={(e) => onUpdateFacility(fac.id, { iconName: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
-                >
-                  <option value="default">Default Type Icon</option>
-                  {availableIcons.map((ic) => (
-                    <option key={ic.id} value={ic.id}>
-                      {ic.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {availableIcons.map((ic) => {
+                    const IconComp = ic.icon;
+                    const isSelected = (fac.iconName || (fac.type === 'entrance' ? 'log-in' : fac.type === 'exit' ? 'log-out' : fac.type === 'restroom' ? 'restroom' : fac.type === 'dining' || fac.type === 'food-court' ? 'utensils' : 'door')) === ic.id;
+                    return (
+                      <button
+                        key={ic.id}
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => onUpdateFacility(fac.id, { iconName: ic.id })}
+                        className={`p-2 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs scale-105'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                        title={ic.label}
+                      >
+                        <IconComp className="w-4 h-4 shrink-0" />
+                        <span className="text-[9px] font-semibold truncate w-full text-center">
+                          {ic.label.split('/')[0].trim()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Font & Icon Size Customization */}
-            <div className="grid grid-cols-2 gap-2">
-              {(fac.displayMode || 'both') !== 'icon-only' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Font Size (px)
+            {/* Icon Size Controls: Presets (Small, Medium, Large) + Numeric Input */}
+            {(fac.displayMode || 'both') !== 'text-only' && (
+              <div className="space-y-1.5 pt-2 border-t border-amber-200/60">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700">
+                    Icon Size
                   </label>
-                  <input
-                    type="number"
-                    disabled={readOnly}
-                    min="8"
-                    max="28"
-                    value={fac.fontSize || 10}
-                    onChange={(e) => onUpdateFacility(fac.id, { fontSize: Number(e.target.value) })}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
-                  />
+                  <span className="text-[10px] font-mono font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
+                    {fac.iconSize || 24}px
+                  </span>
                 </div>
-              )}
-              {(fac.displayMode || 'both') !== 'text-only' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Icon Size (px)
-                  </label>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { label: 'Small', size: 16 },
+                    { label: 'Medium', size: 24 },
+                    { label: 'Large', size: 36 },
+                  ].map((p) => {
+                    const isSelected = (fac.iconSize || 24) === p.size;
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => onUpdateFacility(fac.id, { iconSize: p.size })}
+                        className={`py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {p.label} ({p.size}px)
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="range"
+                    disabled={readOnly}
+                    min="12"
+                    max="64"
+                    step="2"
+                    value={fac.iconSize || 24}
+                    onChange={(e) => onUpdateFacility(fac.id, { iconSize: Number(e.target.value) })}
+                    className="flex-1 accent-amber-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                  />
                   <input
                     type="number"
                     disabled={readOnly}
                     min="12"
-                    max="48"
-                    value={fac.iconSize || 18}
-                    onChange={(e) => onUpdateFacility(fac.id, { iconSize: Number(e.target.value) })}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                    max="64"
+                    value={fac.iconSize || 24}
+                    onChange={(e) => onUpdateFacility(fac.id, { iconSize: Math.max(12, Math.min(64, Number(e.target.value))) })}
+                    className="w-14 px-1.5 py-1 text-xs border border-slate-300 rounded-lg font-mono text-center bg-white"
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Font Size Customization for Text */}
+            {(fac.displayMode || 'both') !== 'icon-only' && (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Font Size (px)
+                </label>
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  min="8"
+                  max="28"
+                  value={fac.fontSize || 10}
+                  onChange={(e) => onUpdateFacility(fac.id, { fontSize: Number(e.target.value) })}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
+                />
+              </div>
+            )}
 
             {(fac.displayMode || 'both') !== 'icon-only' && (
               <div>

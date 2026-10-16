@@ -40,6 +40,7 @@ import { CreateCustomStallModal } from './CreateCustomStallModal';
 import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
 import { uploadService } from '../../../../services/upload/uploadService';
 import { showConfirm, showAlert } from '../../../../stores/dialogStore';
+import { getFacilityIconKey, renderFacilitySvgIcon } from '../../utils/facilityIconRenderer';
 
 interface GenericVisualStudioProps {
   exhibitionTitle: string;
@@ -122,7 +123,14 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [halls, setHalls] = useState<HallZone[]>(initialLayoutData?.halls || []);
   const [facilities, setFacilities] = useState<FacilityObject[]>(initialLayoutData?.facilities || []);
   const [annotations, setAnnotations] = useState<AnnotationObject[]>(initialLayoutData?.annotations || []);
-  const [stalls, setStalls] = useState<DraftStallItem[]>(initialStalls || []);
+  const [stalls, setStalls] = useState<DraftStallItem[]>(() => {
+    const rawStalls = initialStalls || [];
+    const colorsMap = initialLayoutData?.stallColors || {};
+    return rawStalls.map((s) => ({
+      ...s,
+      color: s.color || colorsMap[s.stallNumber] || colorsMap[s.id] || undefined,
+    }));
+  });
 
   // Full Background Image / Blueprint
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>(
@@ -296,6 +304,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
     const timer = setTimeout(() => {
       if (onChangeLayoutRef.current) {
+        const stallColors: Record<string, string> = {};
+        stalls.forEach((s) => {
+          if (s.color) {
+            stallColors[s.stallNumber] = s.color;
+            stallColors[s.id] = s.color;
+          }
+        });
         const currentLayout: FloorPlanLayoutData = {
           canvasWidth,
           canvasHeight,
@@ -304,6 +319,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           halls,
           facilities,
           annotations,
+          stallColors,
           backgroundImageUrl,
           backgroundOpacity,
         };
@@ -1865,6 +1881,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      const stallColors: Record<string, string> = { ...(initialLayoutData?.stallColors || {}) };
+      stalls.forEach((s) => {
+        if (s.color) {
+          stallColors[s.stallNumber] = s.color;
+          stallColors[s.id] = s.color;
+        }
+      });
       const layoutData: FloorPlanLayoutData = {
         canvasWidth,
         canvasHeight,
@@ -1873,6 +1896,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         halls,
         facilities,
         annotations,
+        stallColors,
         backgroundImageUrl,
         backgroundOpacity,
       };
@@ -2811,87 +2835,51 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   const transformAttr = fac.rotation ? `rotate(${fac.rotation} ${fac.x + fac.width / 2} ${fac.y + fac.height / 2})` : undefined;
                   const mode = fac.displayMode || 'both';
                   const fontSize = fac.fontSize || 10;
-                  const iconSize = fac.iconSize || (fac.height >= 40 ? 20 : 16);
+                  const iconSize = fac.iconSize || (fac.height >= 40 ? 24 : 18);
                   const fontWeight = fac.fontWeight || 'bold';
-
-                  // SVG Icon helper for facility types
-                  const renderFacilityIconGraphics = (iconKey: string, cx: number, cy: number, size: number) => {
-                    const half = size / 2;
-                    if (iconKey === 'log-in' || (iconKey === 'default' && fac.type === 'entrance')) {
-                      return (
-                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                          <polyline points="10 17 15 12 10 7" />
-                          <line x1="15" y1="12" x2="3" y2="12" />
-                        </g>
-                      );
-                    }
-                    if (iconKey === 'log-out' || (iconKey === 'default' && fac.type === 'exit')) {
-                      return (
-                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                          <polyline points="16 17 21 12 16 7" />
-                          <line x1="21" y1="12" x2="9" y2="12" />
-                        </g>
-                      );
-                    }
-                    if (iconKey === 'utensils' || (iconKey === 'default' && (fac.type === 'dining' || fac.type === 'food-court'))) {
-                      return (
-                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 2v6h3V2z" />
-                          <path d="M18 8a3 3 0 0 0 3 3v11" />
-                          <path d="M5 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2" />
-                          <path d="M8 12v10" />
-                        </g>
-                      );
-                    }
-                    if (iconKey === 'restroom' || (iconKey === 'default' && fac.type === 'restroom')) {
-                      return (
-                        <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="9" cy="5" r="2" />
-                          <path d="M7 10h4l1 6H6z" />
-                          <path d="M8 16v5" />
-                          <path d="M10 16v5" />
-                          <circle cx="17" cy="5" r="2" />
-                          <path d="M15 10l1 5h2l1-5z" />
-                        </g>
-                      );
-                    }
-                    // Default door/gate
-                    return (
-                      <g transform={`translate(${cx - half}, ${cy - half})`} fill="none" stroke={textCol} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
-                        <path d="M2 20h20" />
-                        <circle cx="14" cy="12" r="1" fill={textCol} />
-                      </g>
-                    );
-                  };
+                  const iconKey = getFacilityIconKey(fac.iconName, fac.type);
 
                   return (
                     <g
                       key={fac.id}
                       transform={transformAttr}
                       onMouseDown={(e) => handleItemMouseDown(e, 'facility', fac.id)}
-                      className="cursor-move"
+                      className="cursor-move group"
                     >
-                      <rect
-                        x={fac.x}
-                        y={fac.y}
-                        width={fac.width}
-                        height={fac.height}
-                        rx="6"
-                        fill={bgFill}
-                        stroke={isSelected ? '#2563eb' : strokeCol}
-                        strokeWidth={isSelected ? 3 : 1.5}
-                      />
+                      {/* Standalone clean icon presentation when icon-only mode */}
+                      {mode === 'icon-only' ? (
+                        <rect
+                          x={fac.x}
+                          y={fac.y}
+                          width={fac.width}
+                          height={fac.height}
+                          rx={Math.min(fac.width, fac.height) / 2}
+                          fill={isSelected ? '#dbeafe' : 'transparent'}
+                          stroke={isSelected ? '#2563eb' : 'transparent'}
+                          strokeWidth={isSelected ? 2 : 0}
+                          className="hover:stroke-blue-400 hover:stroke-1"
+                        />
+                      ) : (
+                        <rect
+                          x={fac.x}
+                          y={fac.y}
+                          width={fac.width}
+                          height={fac.height}
+                          rx="6"
+                          fill={bgFill}
+                          stroke={isSelected ? '#2563eb' : strokeCol}
+                          strokeWidth={isSelected ? 3 : 1.5}
+                        />
+                      )}
 
                       {/* Display Mode: Icon Only */}
                       {mode === 'icon-only' && (
-                        renderFacilityIconGraphics(
-                          fac.iconName || 'default',
+                        renderFacilitySvgIcon(
+                          iconKey,
                           fac.x + fac.width / 2,
                           fac.y + fac.height / 2,
-                          iconSize
+                          iconSize,
+                          isSelected ? '#2563eb' : strokeCol
                         )
                       )}
 
@@ -2925,11 +2913,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         <g>
                           {fac.height >= 48 ? (
                             <>
-                              {renderFacilityIconGraphics(
-                                fac.iconName || 'default',
+                              {renderFacilitySvgIcon(
+                                iconKey,
                                 fac.x + fac.width / 2,
                                 fac.y + fac.height / 2 - 7,
-                                iconSize
+                                iconSize,
+                                textCol
                               )}
                               <text
                                 x={fac.x + fac.width / 2}
@@ -2955,11 +2944,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                             </>
                           ) : (
                             <>
-                              {renderFacilityIconGraphics(
-                                fac.iconName || 'default',
+                              {renderFacilitySvgIcon(
+                                iconKey,
                                 fac.x + 16,
                                 fac.y + fac.height / 2,
-                                iconSize
+                                iconSize,
+                                textCol
                               )}
                               <text
                                 x={fac.x + 28}
@@ -3221,15 +3211,26 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         </text>
                       )}
 
-                      {mode === 'icon-only' && (
-                        <circle cx={ann.x} cy={ann.y - fontSize / 2} r={iconSize / 2} fill={color} />
-                      )}
+                      {mode === 'icon-only' &&
+                        renderFacilitySvgIcon(
+                          ann.iconName || 'info',
+                          ann.x + iconSize / 2,
+                          ann.y - fontSize / 2,
+                          iconSize,
+                          color
+                        )}
 
                       {mode === 'both' && (
                         <g>
-                          <circle cx={ann.x - 10} cy={ann.y - fontSize / 3} r={iconSize / 2.5} fill={color} />
+                          {renderFacilitySvgIcon(
+                            ann.iconName || 'info',
+                            ann.x - 10,
+                            ann.y - fontSize / 3,
+                            iconSize,
+                            color
+                          )}
                           <text
-                            x={ann.x + 4}
+                            x={ann.x + 8}
                             y={ann.y}
                             fill={color}
                             fontSize={fontSize}
@@ -3281,6 +3282,15 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     strokeCol = '#7c3aed';
                     textCol = '#4c1d95';
                     accentCol = '#8b5cf6';
+                  }
+
+                  // Custom Multi-Color Stall Selection Override
+                  const customStallColor = stall.color || initialLayoutData?.stallColors?.[stall.stallNumber] || initialLayoutData?.stallColors?.[stall.id];
+                  if (customStallColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(customStallColor)) {
+                    fillCol = `${customStallColor}18`;
+                    strokeCol = customStallColor;
+                    accentCol = customStallColor;
+                    textCol = customStallColor;
                   }
 
                   if (isBlocked) {

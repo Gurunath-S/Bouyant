@@ -62,6 +62,61 @@ export class FloorPlansService {
     }
 
     const { name, width, height, layoutData, stalls } = payload;
+    const hexColorRegex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+    let validatedLayoutData = layoutData;
+    if (layoutData !== undefined) {
+      let parsedLayout: any = layoutData;
+      if (typeof layoutData === 'string') {
+        try {
+          parsedLayout = JSON.parse(layoutData);
+        } catch {
+          parsedLayout = {};
+        }
+      } else {
+        parsedLayout = { ...layoutData };
+      }
+
+      // Validate stallColors map if provided
+      if (parsedLayout.stallColors && typeof parsedLayout.stallColors === 'object') {
+        for (const [key, colorVal] of Object.entries(parsedLayout.stallColors)) {
+          if (colorVal && typeof colorVal === 'string') {
+            if (!hexColorRegex.test(colorVal)) {
+              throw ApiError.badRequest(`Invalid stall color "${colorVal}" for ${key}. Colors must be valid hexadecimal values.`);
+            }
+          }
+        }
+      }
+
+      // Validate facility icon sizes and display modes
+      if (Array.isArray(parsedLayout.facilities)) {
+        parsedLayout.facilities = parsedLayout.facilities.map((fac: any) => {
+          if (fac.iconSize !== undefined) {
+            const size = Number(fac.iconSize);
+            if (isNaN(size) || size < 10 || size > 72) {
+              fac.iconSize = 24;
+            }
+          }
+          if (fac.displayMode && !['both', 'icon-only', 'text-only'].includes(fac.displayMode)) {
+            fac.displayMode = 'both';
+          }
+          return fac;
+        });
+      }
+
+      validatedLayoutData = parsedLayout;
+    }
+
+    // Validate incoming stall colors if present
+    if (Array.isArray(stalls)) {
+      for (const s of stalls) {
+        if ((s as any).color && typeof (s as any).color === 'string') {
+          if (!hexColorRegex.test((s as any).color)) {
+            throw ApiError.badRequest(`Invalid stall color "${(s as any).color}" for stall ${s.stallNumber}. Colors must be valid hexadecimal values.`);
+          }
+        }
+      }
+    }
 
     return await prisma.$transaction(
       async (tx) => {
@@ -70,8 +125,8 @@ export class FloorPlansService {
         if (name) updateData.name = name;
         if (width) updateData.width = Math.round(width);
         if (height) updateData.height = Math.round(height);
-        if (layoutData !== undefined) {
-          updateData.backgroundUrl = typeof layoutData === 'string' ? layoutData : JSON.stringify(layoutData);
+        if (validatedLayoutData !== undefined) {
+          updateData.backgroundUrl = typeof validatedLayoutData === 'string' ? validatedLayoutData : JSON.stringify(validatedLayoutData);
         }
 
         await tx.floorPlan.update({
