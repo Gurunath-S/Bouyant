@@ -2,8 +2,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Booking } from '../../../types';
-import { BookingStatusBadge } from '../../../components/ui/Badge';
-import { BookmarkCheck, FileText, CreditCard, Download } from 'lucide-react';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
+import { BookmarkCheck, FileText, CreditCard, Download, Clock } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
@@ -92,74 +92,102 @@ export const MyBookingsPage: React.FC = () => {
                 <th className="py-3.5 px-4">Exhibition Event</th>
                 <th className="py-3.5 px-4">Stall Number</th>
                 <th className="py-3.5 px-4">Company Entity</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Grand Total</th>
+                <th className="py-3.5 px-4">Status & Payment</th>
+                <th className="py-3.5 px-4 text-right">Financials (Total / Paid / Due)</th>
                 <th className="py-3.5 px-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {paginatedBookings.map((b, idx) => (
-                <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
-                  <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
-                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{b.bookingReference}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
-                  <td className="py-3.5 px-4">{b.company?.name}</td>
-                  <td className="py-3.5 px-4">
-                    <BookingStatusBadge status={b.status} />
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                    ₹{Number(b.grandTotal).toLocaleString()}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {Number(b.balanceAmount || 0) > 0 && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          leftIcon={<CreditCard className="w-3.5 h-3.5" />}
-                          onClick={() => {
-                            setSelectedPaymentBooking(b);
-                            setIsPaymentModalOpen(true);
-                          }}
-                        >
-                          Pay Balance (₹{Number(b.balanceAmount).toLocaleString()})
-                        </Button>
-                      )}
-                      {b.invoice ? (
-                        <div className="flex items-center gap-1.5">
-                          <Link to={`/invoices/${b.invoice.id}`}>
-                            <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
-                              View
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            leftIcon={<Download className="w-3.5 h-3.5" />}
-                            onClick={() => downloadInvoicePdf(b)}
-                            title="Download Tax Invoice Bill (PDF)"
-                          >
-                            Bill PDF
-                          </Button>
-                        </div>
+              {paginatedBookings.map((b, idx) => {
+                const grandTotal = Number(b.grandTotal || 0);
+                const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' ? grandTotal : 0));
+                const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                const isEligibleForPayment = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && (b.paymentStatus as string) !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+
+                return (
+                  <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
+                    <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                      {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{b.bookingReference}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
+                    <td className="py-3.5 px-4">{b.company?.name}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col gap-1 items-start">
+                        <BookingStatusBadge status={b.status} />
+                        <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <span className="font-mono font-extrabold text-slate-900 dark:text-slate-100 block">
+                        ₹{grandTotal.toLocaleString()}
+                      </span>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono block">
+                        Paid: ₹{paidAmount.toLocaleString()}
+                      </span>
+                      {balanceDue > 0 ? (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-mono font-bold block">
+                          Due: ₹{balanceDue.toLocaleString()}
+                        </span>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<Download className="w-3.5 h-3.5" />}
-                          onClick={() => downloadInvoicePdf(b)}
-                          title="Download Tax Invoice Bill (PDF)"
-                        >
-                          Bill PDF
-                        </Button>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                          Settled
+                        </span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {isEligibleForPayment && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                            onClick={() => {
+                              setSelectedPaymentBooking(b);
+                              setIsPaymentModalOpen(true);
+                            }}
+                          >
+                            Pay Remaining (₹{balanceDue.toLocaleString()})
+                          </Button>
+                        )}
+                        {paidAmount > 0 ? (
+                          b.invoice ? (
+                            <div className="flex items-center gap-1.5">
+                              <Link to={`/invoices/${b.invoice.id}`}>
+                                <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5" />}>
+                                  View
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                leftIcon={<Download className="w-3.5 h-3.5" />}
+                                onClick={() => downloadInvoicePdf(b)}
+                                title="Download Tax Invoice Bill (PDF)"
+                              >
+                                Bill PDF
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              leftIcon={<Download className="w-3.5 h-3.5" />}
+                              onClick={() => downloadInvoicePdf(b)}
+                              title="Download Tax Invoice Bill (PDF)"
+                            >
+                              Bill PDF
+                            </Button>
+                          )
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">No Payment</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 

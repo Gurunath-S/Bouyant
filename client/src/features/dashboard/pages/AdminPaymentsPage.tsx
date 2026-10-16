@@ -609,14 +609,6 @@ export const AdminPaymentsPage: React.FC = () => {
                 >
                   {isModalDownloading ? 'Generating PDF...' : 'Download PDF (.pdf)'}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.print()}
-                  leftIcon={<Printer className="w-3.5 h-3.5" />}
-                >
-                  Print
-                </Button>
               </div>
             </div>
 

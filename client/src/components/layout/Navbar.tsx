@@ -73,8 +73,8 @@ export const Navbar: React.FC = () => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Notifications Button */}
-          <Link
+          {/* Notifications Button — hidden */}
+          {/* <Link
             to="/notifications"
             className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             title="Notifications"
@@ -83,7 +83,7 @@ export const Navbar: React.FC = () => {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white dark:ring-slate-900" />
           </Link>
 
-          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-1" /> */}
 
           {/* User Profile Dropdown */}
           <div className="relative">

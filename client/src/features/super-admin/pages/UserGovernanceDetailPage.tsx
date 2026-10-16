@@ -195,19 +195,6 @@ export const UserGovernanceDetailPage: React.FC = () => {
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <BackButton to="/super-admin/users" label="Back to User Governance" />
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            leftIcon={<Printer className="w-3.5 h-3.5" />}
-            className="print:hidden text-xs"
-          >
-            Print Audit Report
-          </Button>
-        </div>
       </div>
 
       {/* Action Toast Alert */}

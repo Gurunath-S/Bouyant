@@ -145,19 +145,11 @@ export const ClientDashboardPage: React.FC = () => {
                 </Button>
               </Link>
               <Link to="/invoices">
-                <Button variant="secondary" leftIcon={<Receipt className="w-4 h-4" />}>
-                  Tax Invoices
+                <Button variant="secondary" leftIcon={<FileText className="w-4 h-4" />}>
+                  Invoices
                 </Button>
               </Link>
-              <Link to="/exhibitions">
-                <Button
-                  variant="ghost"
-                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-xs"
-                  rightIcon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Book New Stall
-                </Button>
-              </Link>
+
             </div>
           </div>
         </div>
@@ -182,7 +174,7 @@ export const ClientDashboardPage: React.FC = () => {
           <div className="space-y-1">
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Amount Paid</p>
             <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Successful Receipts</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Payments Completed</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-800/80 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
             <CreditCard className="w-6 h-6" />
@@ -305,72 +297,93 @@ export const ClientDashboardPage: React.FC = () => {
 
                   {/* Financial Summary & Actions */}
                   <div className="flex flex-wrap items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-                    <div className="text-left md:text-right">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Grand Total</p>
-                      <p className="text-base font-extrabold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(Number(booking.grandTotal || 0))}
-                      </p>
-                      {Number(booking.balanceAmount || 0) > 0 ? (
-                        <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
-                          <Clock className="w-3 h-3" /> Balance Due: {formatCurrency(Number(booking.balanceAmount))}
-                        </p>
-                      ) : (
-                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-                          <CheckCircle2 className="w-3 h-3" /> Fully Paid
-                        </p>
-                      )}
-                    </div>
+                    {(() => {
+                      const grandTotal = Number(booking.grandTotal || 0);
+                      const paidAmount = Number(booking.paidAmount || (booking.paymentStatus === 'PAID' || (booking.paymentStatus as string) === 'PAID_FULL' ? grandTotal : 0));
+                      const balanceDue = Number(booking.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                      const isEligibleForPayment = booking.status !== 'CANCELLED' && booking.status !== 'EXPIRED' && booking.paymentStatus !== 'PAID' && (booking.paymentStatus as string) !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {Number(booking.balanceAmount || 0) > 0 && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          leftIcon={<CreditCard className="w-3.5 h-3.5" />}
-                          onClick={() => {
-                            setSelectedPaymentBooking(booking);
-                            setIsPaymentModalOpen(true);
-                          }}
-                        >
-                          Pay Balance ({formatCurrency(Number(booking.balanceAmount))})
-                        </Button>
-                      )}
-                      {booking.invoice?.id ? (
+                      return (
                         <>
-                          <Link to={`/invoices/${booking.invoice.id}`}>
-                            <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5 text-blue-600" />}>
-                              View Bill
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                            onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
-                          >
-                            PDF
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                          onClick={() => downloadInvoicePdf(booking.id, booking.bookingReference)}
-                        >
-                          Bill PDF
-                        </Button>
-                      )}
+                          <div className="text-left md:text-right space-y-0.5">
+                            <div className="flex items-center md:justify-end gap-2 text-xs text-slate-500 dark:text-slate-400">
+                              <span>Total:</span>
+                              <span className="font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+                                {formatCurrency(grandTotal)}
+                              </span>
+                            </div>
+                            <div className="flex items-center md:justify-end gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>Already Paid:</span>
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                                {formatCurrency(paidAmount)}
+                              </span>
+                            </div>
+                            {balanceDue > 0 ? (
+                              <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center md:justify-end gap-1 pt-0.5">
+                                <Clock className="w-3 h-3" /> Remaining: {formatCurrency(balanceDue)}
+                              </p>
+                            ) : (
+                              <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center md:justify-end gap-1 pt-0.5">
+                                <CheckCircle2 className="w-3 h-3" /> Fully Settled
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {isEligibleForPayment && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                                onClick={() => {
+                                  setSelectedPaymentBooking(booking);
+                                  setIsPaymentModalOpen(true);
+                                }}
+                              >
+                                Pay Remaining Amount ({formatCurrency(balanceDue)})
+                              </Button>
+                            )}
+                            {paidAmount > 0 && (
+                              booking.invoice?.id ? (
+                                <>
+                                  <Link to={`/invoices/${booking.invoice.id}`}>
+                                    <Button variant="outline" size="sm" leftIcon={<FileText className="w-3.5 h-3.5 text-blue-600" />}>
+                                      View Bill
+                                    </Button>
+                                  </Link>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                                    onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
+                                  >
+                                    PDF
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                                  onClick={() => downloadInvoicePdf(booking.id, booking.bookingReference)}
+                                >
+                                  Bill PDF
+                                </Button>
+                              )
+                            )}
                       <Link to="/my-bookings">
                         <Button variant="secondary" size="sm" rightIcon={<ExternalLink className="w-3.5 h-3.5" />}>
                           Details
                         </Button>
                       </Link>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      })}
           </div>
         )}
       </div>

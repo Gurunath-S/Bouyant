@@ -6,17 +6,19 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  /** Show a red asterisk next to the label */
+  required?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, leftIcon, rightIcon, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, leftIcon, rightIcon, required, className = '', id, ...props }, ref) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
       <div className="w-full space-y-1.5">
         {label && (
           <label htmlFor={inputId} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-            {label}
+            {label} {required && <span className="text-rose-500">*</span>}
           </label>
         )}
         <div className="relative rounded-lg shadow-xs">

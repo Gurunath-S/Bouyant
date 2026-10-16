@@ -218,18 +218,6 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Print Action */}
-      {onPrint && (
-        <div className="pt-2 flex justify-end print:hidden">
-          <button
-            onClick={onPrint}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#012970] dark:text-slate-200 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-300 dark:border-slate-700 transition-colors"
-          >
-            <Printer className="w-4 h-4 text-[#09539b] dark:text-blue-400" /> Print Official Contract Form
-          </button>
-        </div>
-      )}
     </div>
   );
 };

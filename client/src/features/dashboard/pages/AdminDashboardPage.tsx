@@ -19,10 +19,12 @@ import {
   RefreshCw,
   AlertCircle,
   ChevronDown,
-  Check
+  Check,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { formatDisplayDate } from '../../../utils/date';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
@@ -33,6 +35,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<any | null>(null);
+  const [payingBooking, setPayingBooking] = useState<any | null>(null);
 
   // Table Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -653,35 +656,89 @@ export const AdminDashboardPage: React.FC = () => {
                       <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall {getStallNumbers(b)}</td>
                       <td className="py-3.5 px-4 font-medium">{b.company?.name}</td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                        ₹{Number(b.grandTotal).toLocaleString()}
+                      <td className="py-3.5 px-4 text-right">
+                        {(() => {
+                          const grandTotal = Number(b.grandTotal || 0);
+                          const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
+                          const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                          return (
+                            <div>
+                              <span className="font-mono font-extrabold text-slate-900 dark:text-slate-100 block">
+                                ₹{grandTotal.toLocaleString()}
+                              </span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block">
+                                Paid: ₹{paidAmount.toLocaleString()}
+                              </span>
+                              {balanceDue > 0 ? (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold block">
+                                  Due: ₹{balanceDue.toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
+                                  Settled
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`px-2.5 py-0.5 font-bold text-[10px] rounded-full border ${
-                            b.status === 'CONFIRMED'
-                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
-                              : b.status === 'PENDING_PAYMENT'
-                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                          }`}
-                        >
-                          {b.status}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`px-2 py-0.5 font-bold text-[10px] rounded-full border ${
+                              b.status === 'CONFIRMED'
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                                : b.status === 'PENDING_PAYMENT'
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                            }`}
+                          >
+                            {b.status}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400 uppercase">
+                            {b.paymentStatus || 'UNPAID'}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInspectedBooking(b);
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded-lg transition-all"
-                          title="Inspect full booking details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Inspect</span>
-                        </button>
+                        {(() => {
+                          const grandTotal = Number(b.grandTotal || 0);
+                          const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
+                          const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                          const isEligibleForPayment = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
+
+                          return (
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInspectedBooking(b);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded-lg transition-all"
+                                title="Inspect full booking details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Inspect</span>
+                              </button>
+
+                              {isEligibleForPayment && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPayingBooking(b);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-all"
+                                  title={paidAmount > 0 ? "Pay / Collect Remaining Balance" : "Pay Booking Amount"}
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  <span>{paidAmount > 0 ? `Pay Remaining (₹${balanceDue.toLocaleString()})` : `Pay Now (₹${balanceDue.toLocaleString()})`}</span>
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
@@ -711,7 +768,22 @@ export const AdminDashboardPage: React.FC = () => {
         booking={inspectedBooking}
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
+        onRefresh={fetchAdminDashboardData}
       />
+
+      {/* Complete Payment Modal */}
+      {payingBooking && (
+        <CompletePaymentModal
+          booking={payingBooking}
+          isOpen={!!payingBooking}
+          onClose={() => setPayingBooking(null)}
+          onSuccess={() => {
+            setPayingBooking(null);
+            fetchAdminDashboardData();
+          }}
+          isAdminMode={true}
+        />
+      )}
     </div>
   );
 };

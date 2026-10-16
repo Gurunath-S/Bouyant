@@ -39,10 +39,6 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
   if (!booking) return null;
 
-  const basePrice = Number(booking.totalAmount || 0);
-  const taxAmount = Number(booking.taxAmount || 0);
-  const grandTotal = Number(booking.grandTotal || 0);
-
   return (
     <Modal
       isOpen={isOpen}
@@ -176,26 +172,40 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
             <FileText className="w-4 h-4 text-[#09539b] dark:text-blue-400" /> Payment & Tax Summary
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Base Rental Fee</p>
-              <p className="text-base font-extrabold font-mono text-slate-900 dark:text-white mt-1">
-                ₹{basePrice.toLocaleString()} INR
-              </p>
-            </div>
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">GST Tax (18%)</p>
-              <p className="text-base font-extrabold font-mono text-slate-900 dark:text-white mt-1">
-                ₹{taxAmount.toLocaleString()} INR
-              </p>
-            </div>
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Settled Grand Total</p>
-              <p className="text-base font-black font-mono text-emerald-700 dark:text-emerald-300 mt-1">
-                ₹{grandTotal.toLocaleString()} INR
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const grandTotal = Number(booking.grandTotal || 0);
+            const paidAmount = Number(booking.paidAmount || (booking.paymentStatus === 'PAID' || (booking.paymentStatus as string) === 'PAID_FULL' ? grandTotal : 0));
+            const balanceDue = Number(booking.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Total Amount</p>
+                  <p className="text-sm font-extrabold font-mono text-slate-900 dark:text-white mt-1">
+                    ₹{grandTotal.toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Already Paid</p>
+                  <p className="text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                    ₹{paidAmount.toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase">Remaining Due</p>
+                  <p className="text-sm font-black font-mono text-amber-700 dark:text-amber-300 mt-1">
+                    ₹{balanceDue.toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col justify-center items-center">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Payment Status</p>
+                  <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                    {booking.paymentStatus || 'UNPAID'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Payment Transaction Audit */}
@@ -241,18 +251,26 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {Number((booking as any).balanceAmount ?? (booking.paymentStatus === 'PAID' ? 0 : grandTotal)) > 0 && booking.status !== 'CANCELLED' && (
-              <Button
-                variant="primary"
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => setShowPaymentModal(true)}
-                leftIcon={<CreditCard className="w-3.5 h-3.5" />}
-              >
-                Pay / Record Balance
-              </Button>
-            )}
-            {(booking.invoice || booking.id) && (
+            {(() => {
+              const grandTotal = Number(booking.grandTotal || 0);
+              const paidAmount = Number(booking.paidAmount || (booking.paymentStatus === 'PAID' || (booking.paymentStatus as string) === 'PAID_FULL' ? grandTotal : 0));
+              const balanceDue = Number(booking.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+              const isEligible = booking.status !== 'CANCELLED' && booking.status !== 'EXPIRED' && booking.paymentStatus !== 'PAID' && (booking.paymentStatus as string) !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+
+              if (!isEligible) return null;
+              return (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  onClick={() => setShowPaymentModal(true)}
+                  leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                >
+                  Pay Remaining Amount (₹{balanceDue.toLocaleString()})
+                </Button>
+              );
+            })()}
+            {Number(booking.paidAmount || 0) > 0 && (booking.invoice || booking.id) && (
               <>
                 {booking.invoice?.id && (
                   <Link to={`/invoices/${booking.invoice.id}`} target="_blank">

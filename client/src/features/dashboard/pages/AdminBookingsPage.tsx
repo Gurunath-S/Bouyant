@@ -4,7 +4,7 @@ import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
 import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download } from 'lucide-react';
-import { BookingStatusBadge } from '../../../components/ui/Badge';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -244,24 +244,39 @@ export const AdminBookingsPage: React.FC = () => {
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 block">{b.company?.contactPerson}</span>
                       </td>
                       <td className="py-3.5 px-4">
-                        <BookingStatusBadge status={b.status} />
+                        <div className="flex flex-col gap-1 items-start">
+                          <BookingStatusBadge status={b.status} />
+                          <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <span className="font-mono font-extrabold text-slate-900 dark:text-slate-100 block">
-                          ₹{Number(b.grandTotal).toLocaleString()}
-                        </span>
-                        {Number(b.balanceAmount) > 0 ? (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block mt-0.5">
-                            Due: ₹{Number(b.balanceAmount).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5">
-                            Fully Paid
-                          </span>
-                        )}
+                        {(() => {
+                          const grandTotal = Number(b.grandTotal || 0);
+                          const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
+                          const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                          return (
+                            <div>
+                              <span className="font-mono font-extrabold text-slate-900 dark:text-slate-100 block">
+                                ₹{grandTotal.toLocaleString()}
+                              </span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block">
+                                Paid: ₹{paidAmount.toLocaleString()}
+                              </span>
+                              {balanceDue > 0 ? (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold block mt-0.5">
+                                  Due: ₹{balanceDue.toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5 font-semibold">
+                                  Settled
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 justify-center">
+                        <div className="inline-flex items-center gap-1.5 justify-center flex-wrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -275,33 +290,43 @@ export const AdminBookingsPage: React.FC = () => {
                             <span>View</span>
                           </button>
 
-                          {Number(b.balanceAmount) > 0 && b.status !== 'CANCELLED' && (
+                          {(() => {
+                            const grandTotal = Number(b.grandTotal || 0);
+                            const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
+                            const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+                            const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+
+                            if (!isEligible) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPayingBooking(b);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded transition-colors"
+                                title="Collect / Pay remaining balance"
+                              >
+                                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Pay Remaining</span>
+                              </button>
+                            );
+                          })()}
+
+                          {Number(b.paidAmount || 0) > 0 && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setPayingBooking(b);
+                                downloadInvoicePdf(b);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded transition-colors"
-                              title="Collect / Record pending balance"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded transition-colors"
+                              title="Download Tax Invoice / Bill"
                             >
-                              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>Pay</span>
+                              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                              <span>Bill</span>
                             </button>
                           )}
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadInvoicePdf(b);
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded transition-colors"
-                            title="Download Tax Invoice / Bill"
-                          >
-                            <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                            <span>Bill</span>
-                          </button>
                         </div>
                       </td>
                     </tr>

@@ -232,7 +232,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     <div
       ref={containerRef}
       onBlur={handleContainerBlur}
-      className={`w-full space-y-1.5 relative ${isOpen ? 'z-50' : 'z-0'} ${className}`}
+      className={`w-full space-y-1.5 relative z-10 ${className}`}
     >
       {label && (
         <label

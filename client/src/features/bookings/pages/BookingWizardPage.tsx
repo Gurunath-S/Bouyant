@@ -559,9 +559,14 @@ export const BookingWizardPage: React.FC = () => {
             await new Promise((res) => setTimeout(res, 1000));
           }
 
-          // STRICT REQUIREMENT: DO NOT keep previous user logged in after booking completion!
-          // Wipe auth tokens and temporary session immediately
-          useAuthStore.getState().logout();
+          // Only wipe auth if we created a temporary exhibitor session (pendingUserAuth).
+          // If a privileged user (STAFF/ADMIN) was already logged in, keep their session intact
+          // so they can return to their dashboard after booking.
+          const currentRole = useAuthStore.getState().user?.role;
+          const isPrivileged = currentRole === 'STAFF' || currentRole === 'ADMIN' || currentRole === 'SUPERADMIN';
+          if (!isPrivileged) {
+            useAuthStore.getState().logout();
+          }
           navigate(`/booking/success?bookingId=${booking.id}`);
         } catch (err: any) {
           setPaymentStatusState('FAILED');
