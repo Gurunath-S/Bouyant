@@ -198,20 +198,9 @@ export class CompaniesService {
     const normalizedEmail = input.email.trim().toLowerCase();
     const cleanMobile = input.mobile.trim();
 
-    // 1. Resolve or Generate Unique Username
-    let requestedUsername = anyInput.username ? anyInput.username.trim().toLowerCase() : null;
-    if (requestedUsername) {
-      const existingUserWithUsername = await prisma.user.findUnique({
-        where: { username: requestedUsername },
-      });
-      if (existingUserWithUsername && existingUserWithUsername.email !== normalizedEmail) {
-        throw ApiError.conflict(`Username "${requestedUsername}" is already taken. Please choose another username.`);
-      }
-    } else {
-      requestedUsername = await this.generateUniqueUsername(input.contactPerson || input.name);
-    }
+    const cleanPhoneDigits = cleanMobile.replace(/\D/g, '').slice(-10);
 
-    // 2. SMART CHECK: Company & User Identity Resolution according to business rules
+    // 1. SMART CHECK: Company & User Identity Resolution according to business rules
     let existingCompany = cleanGst
       ? await prisma.company.findUnique({ where: { gstNumber: cleanGst } })
       : null;
@@ -221,7 +210,14 @@ export class CompaniesService {
     }
 
     if (!existingCompany && cleanMobile) {
-      existingCompany = await prisma.company.findUnique({ where: { mobile: cleanMobile } });
+      existingCompany = await prisma.company.findFirst({
+        where: {
+          OR: [
+            { mobile: cleanMobile },
+            ...(cleanPhoneDigits ? [{ mobile: { contains: cleanPhoneDigits } }] : []),
+          ],
+        },
+      });
     }
 
     if (!existingCompany && normalizedEmail) {
@@ -234,16 +230,55 @@ export class CompaniesService {
       include: { company: true },
     });
 
-    // Find user by phone
-    const existingUserByPhone = await prisma.user.findFirst({
-      where: { phone: cleanMobile },
-      include: { company: true },
-    });
-
-    // Check for exact identity match (Same Email + Same Phone)
-    const exactMatchingUser = (existingUserByEmail && existingUserByEmail.phone === cleanMobile)
-      ? existingUserByEmail
+    // Find user by phone (flexible matching on exact, prefix, or last 10 digits)
+    const existingUserByPhone = cleanPhoneDigits
+      ? await prisma.user.findFirst({
+          where: {
+            OR: [
+              { phone: cleanMobile },
+              { phone: { contains: cleanPhoneDigits } },
+            ],
+          },
+          include: { company: true },
+        })
       : null;
+
+    // Check for exact identity match (Same Email + Same Phone / matching phone digits)
+    const exactMatchingUser = (existingUserByEmail && (
+      existingUserByEmail.phone === cleanMobile ||
+      (cleanPhoneDigits && existingUserByEmail.phone?.replace(/\D/g, '').slice(-10) === cleanPhoneDigits)
+    )) ? existingUserByEmail : null;
+
+    // 2. Resolve or Generate Unique Username safely (never block booking on username collisions)
+    let requestedUsername = anyInput.username ? anyInput.username.trim().toLowerCase() : null;
+    if (requestedUsername) {
+      const existingUserWithUsername = await prisma.user.findUnique({
+        where: { username: requestedUsername },
+      });
+      if (existingUserWithUsername) {
+        const isSameUser = existingUserWithUsername.email === normalizedEmail ||
+          (cleanPhoneDigits && existingUserWithUsername.phone?.replace(/\D/g, '').slice(-10) === cleanPhoneDigits);
+
+        if (!isSameUser) {
+          // Username belongs to another account - retain user's existing username or auto-assign a unique suffix
+          if (existingUserByEmail?.username) {
+            requestedUsername = existingUserByEmail.username;
+          } else if (existingUserByPhone?.username) {
+            requestedUsername = existingUserByPhone.username;
+          } else {
+            requestedUsername = await this.generateUniqueUsername(requestedUsername);
+          }
+        }
+      }
+    } else {
+      if (existingUserByEmail?.username) {
+        requestedUsername = existingUserByEmail.username;
+      } else if (existingUserByPhone?.username) {
+        requestedUsername = existingUserByPhone.username;
+      } else {
+        requestedUsername = await this.generateUniqueUsername(input.contactPerson || input.name);
+      }
+    }
 
     // CASE 1: EXACT MATCH (Same GST + Same Email + Same Phone) or same email+phone
     // -> Update existing user and company with the freshly submitted details.

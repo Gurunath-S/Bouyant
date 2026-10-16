@@ -35,6 +35,20 @@ export const CompanyProfilePage: React.FC = () => {
     return getCitiesForLocation(watchedCountry, watchedState);
   }, [watchedCountry, watchedState]);
 
+  // Reset state + city when country changes
+  const handleCountryChange = (val: string) => {
+    const normalized = normalizeCountryName(val);
+    setValue('country', normalized, { shouldValidate: true });
+    setValue('state', '', { shouldValidate: false });
+    setValue('city', '', { shouldValidate: false });
+  };
+
+  // Reset city when state changes
+  const handleStateChange = (val: string) => {
+    setValue('state', val, { shouldValidate: true });
+    setValue('city', '', { shouldValidate: false });
+  };
+
   useEffect(() => {
     if (user?.company) {
       Object.keys(user.company).forEach((key) => {
@@ -137,12 +151,14 @@ export const CompanyProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Official Company Name"
+              required
               placeholder="TechCorp Global Solutions Pvt Ltd"
               {...register('name', { required: 'Company name is required' })}
               error={errors.name?.message as string}
             />
             <Input
               label="Industry / Business Domain"
+              required
               placeholder="Information Technology & SaaS"
               {...register('industry', { required: 'Industry is required' })}
               error={errors.industry?.message as string}
@@ -152,6 +168,7 @@ export const CompanyProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Exhibitor Category"
+              required
               placeholder="Enterprise Hardware / Software"
               {...register('category', { required: 'Category is required' })}
               error={errors.category?.message as string}
@@ -167,23 +184,26 @@ export const CompanyProfilePage: React.FC = () => {
         {/* Section 2: Contact Details */}
         <div className="space-y-4 pt-2">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400">
-            2. Contact Person & Address
+            2. Contact Person &amp; Address
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
               label="Contact Person Name"
+              required
               placeholder="Alex Rivera"
               {...register('contactPerson', { required: 'Contact person is required' })}
               error={errors.contactPerson?.message as string}
             />
             <Input
               label="Designation"
+              required
               placeholder="Head of Marketing"
               {...register('designation', { required: 'Designation is required' })}
               error={errors.designation?.message as string}
             />
             <Input
               label="Mobile Number (10 digits)"
+              required
               placeholder="9876543210"
               maxLength={10}
               type="tel"
@@ -202,18 +222,23 @@ export const CompanyProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input
               label="Corporate Email"
+              required
               type="email"
               placeholder="alex@techcorpglobal.com"
-              {...register('email', { required: 'Email is required' })}
+              {...register('email', {
+                required: 'Email is required',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Please enter a valid email address',
+                },
+              })}
               error={errors.email?.message as string}
             />
             <SearchableCombobox
               label="Country"
               required
               value={watchedCountry ?? ''}
-              onChange={(val) => {
-                setValue('country', normalizeCountryName(val), { shouldValidate: true });
-              }}
+              onChange={handleCountryChange}
               options={ALL_COUNTRIES}
               placeholder="Select or type Country..."
               error={errors.country?.message as string}
@@ -222,9 +247,7 @@ export const CompanyProfilePage: React.FC = () => {
               label="State / Province"
               required
               value={watchedState ?? ''}
-              onChange={(val) => {
-                setValue('state', val, { shouldValidate: true });
-              }}
+              onChange={handleStateChange}
               options={availableStates}
               placeholder="Select or type State..."
               error={errors.state?.message as string}
@@ -268,7 +291,7 @@ export const CompanyProfilePage: React.FC = () => {
         {/* Section 3: Tax Identifiers */}
         <div className="space-y-4 pt-2">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-2">
-            <FileText className="w-4 h-4" /> 3. Tax Identifiers (for GST & Invoicing)
+            <FileText className="w-4 h-4" /> 3. Tax Identifiers (for GST &amp; Invoicing)
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input

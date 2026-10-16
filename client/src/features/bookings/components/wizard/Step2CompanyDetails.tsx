@@ -272,8 +272,14 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           setUsernameStatus('available');
           setUsernameMessage('Username is available!');
         } else {
-          setUsernameStatus('taken');
-          setUsernameMessage(res.message || 'Username is already taken. Please choose another.');
+          if (!isUsernameManuallyEdited) {
+            const clean = rawUser.replace(/_\d+$/, '').slice(0, 12);
+            const fresh = `${clean}_${Math.floor(100 + Math.random() * 900)}`;
+            setValue('username', fresh, { shouldValidate: true, shouldDirty: false });
+          } else {
+            setUsernameStatus('taken');
+            setUsernameMessage(res.message || 'Username is already taken. Please choose another.');
+          }
         }
       } catch (_err: any) {
         setUsernameStatus('idle');
@@ -296,9 +302,11 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     } else if (cPart) {
       candidate = `user_${cPart}`;
     } else {
-      candidate = `exhibitor_${Math.floor(100 + Math.random() * 900)}`;
+      candidate = 'exhibitor';
     }
-    return candidate.slice(0, 20);
+    const clean = candidate.slice(0, 14);
+    const suffix = Math.floor(100 + Math.random() * 900);
+    return `${clean}_${suffix}`.slice(0, 20);
   };
 
   // Auto-fill username as user types contact person or company name if not manually edited and not logged in as a Client
