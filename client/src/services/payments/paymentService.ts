@@ -39,8 +39,8 @@ export const paymentService = {
     return res;
   },
 
-  createBalanceOrder: async (bookingId: string) => {
-    const res: any = await apiClient.post(`/payments/balance/${bookingId}`);
+  createBalanceOrder: async (bookingId: string, payload?: { amount?: number; nextDueDate?: string }) => {
+    const res: any = await apiClient.post(`/payments/balance/${bookingId}`, payload || {});
     return res?.data?.data || res?.data || res;
   },
 };

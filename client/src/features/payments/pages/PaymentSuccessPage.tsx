@@ -37,8 +37,13 @@ export const PaymentSuccessPage: React.FC = () => {
 
   useEffect(() => {
     useFloorPlanStore.getState().clearStallSelection();
-    // Clear any previous user session so the next booking on this machine starts 100% fresh
-    useAuthStore.getState().logout();
+    // Only wipe auth for temporary guest/exhibitor sessions.
+    // Staff / Admin must remain logged in to return to their dashboard.
+    const role = useAuthStore.getState().user?.role;
+    const isPrivileged = role === 'STAFF' || role === 'ADMIN' || role === 'SUPERADMIN';
+    if (!isPrivileged) {
+      useAuthStore.getState().logout();
+    }
     if (bookingId) {
       bookingService
         .getPublicBookingSummary(bookingId)

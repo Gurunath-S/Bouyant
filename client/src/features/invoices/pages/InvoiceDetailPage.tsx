@@ -88,15 +88,12 @@ export const InvoiceDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="primary"
             size="sm"
             onClick={() => downloadInvoicePdf(invoice.id || id || '', invoice.invoiceNumber)}
-            leftIcon={<Download className="w-4 h-4 text-purple-600" />}
+            leftIcon={<Download className="w-4 h-4 text-white" />}
           >
             Download Official PDF
-          </Button>
-          <Button variant="primary" size="sm" onClick={handlePrint} leftIcon={<Printer className="w-4 h-4" />}>
-            Print Invoice
           </Button>
         </div>
       </div>

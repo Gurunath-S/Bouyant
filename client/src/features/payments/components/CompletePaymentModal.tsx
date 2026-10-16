@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Booking } from '../../../types';
 import { paymentService } from '../../../services/payments/paymentService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
-import { formatCurrency } from '../../../utils/date';
+import { formatCurrency, formatDisplayDate } from '../../../utils/date';
 import {
   CreditCard,
-  QrCode,
-  Building2,
   CheckCircle2,
   X,
   AlertCircle,
   Loader2,
-  Banknote,
-  FileCheck,
   ShieldCheck,
+  Calendar,
 } from 'lucide-react';
 
 interface CompletePaymentModalProps {
@@ -35,33 +33,72 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const { user } = useAuthStore();
   const isStaffOrAdmin = isAdminMode || ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role || '');
 
-  const [paymentMethod, setPaymentMethod] = useState<string>('CREDIT_CARD_VISA');
-  const [transactionId, setTransactionId] = useState<string>('');
-  const [payAmount, setPayAmount] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Partial / reduced payment options
+  const [paymentOption, setPaymentOption] = useState<'full' | 'half' | 'custom'>('full');
+  const [customAmount, setCustomAmount] = useState<string>('');
+  const [nextDueDate, setNextDueDate] = useState<string>('');
+
+  const handleClose = () => {
+    setError(null);
+    setSuccessMessage(null);
+    onClose();
+  };
+
+  const grandTotal = Number(booking?.grandTotal || 0);
+  const paidAmount = Number(booking?.paidAmount || 0);
+  const balanceDue = Number(booking?.balanceAmount || Math.max(0, grandTotal - paidAmount));
+  const stallNumbers = booking?.stalls?.map((s) => s.stall?.stallNumber || s.stallId).join(', ') || 'Assigned Booth';
+
   useEffect(() => {
-    if (booking) {
-      const balance = Number(booking.balanceAmount || 0);
-      const grandTotal = Number(booking.grandTotal || 0);
-      const currentPaid = Number(booking.paidAmount || 0);
-      const due = balance > 0 ? balance : Math.max(0, grandTotal - currentPaid);
-      setPayAmount(due > 0 ? due : grandTotal);
-      setTransactionId(`TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`);
-      setPaymentMethod(isStaffOrAdmin ? 'ADMIN_CASH_DIRECT' : 'CREDIT_CARD_VISA');
+    if (booking && balanceDue > 0) {
+      setPaymentOption('full');
+      setCustomAmount(String(balanceDue));
+      const d = new Date();
+      d.setDate(d.getDate() + 15);
+      setNextDueDate(d.toISOString().slice(0, 10));
       setError(null);
       setSuccessMessage(null);
     }
-  }, [booking, isStaffOrAdmin]);
+  }, [booking?.id, balanceDue]);
+
+  const payableAmount = useMemo(() => {
+    if (paymentOption === 'full') return balanceDue;
+    if (paymentOption === 'half') return Math.max(1, Math.round(balanceDue / 2));
+    const num = parseFloat(customAmount);
+    return isNaN(num) ? 0 : Math.min(balanceDue, Math.max(1, Math.round(num)));
+  }, [paymentOption, customAmount, balanceDue]);
+
+  const isPartialPayment = payableAmount < balanceDue;
+  const remainingAfterPayment = Math.max(0, balanceDue - payableAmount);
+
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  // Lock background scrolling and handle Escape key
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && !isProcessing) {
+          handleClose();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = 'unset';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen, isProcessing]);
 
   if (!isOpen || !booking) return null;
-
-  const grandTotal = Number(booking.grandTotal || 0);
-  const paidAmount = Number(booking.paidAmount || 0);
-  const balanceDue = Number(booking.balanceAmount || Math.max(0, grandTotal - paidAmount));
-  const stallNumbers = booking.stalls?.map((s) => s.stall?.stallNumber || s.stallId).join(', ') || 'Assigned Booth';
 
   const executeRazorpay = (orderData: any) => {
     if (typeof (window as any).Razorpay === 'undefined') {
@@ -75,7 +112,9 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       amount: orderData.amount,
       currency: orderData.currency || 'INR',
       name: 'Buoyant Media',
-      description: `Balance Payment — Ref: ${booking.bookingReference}`,
+      description: isPartialPayment
+        ? `Partial Payment — Ref: ${booking.bookingReference}`
+        : `Balance Payment — Ref: ${booking.bookingReference}`,
       order_id: orderData.razorpayOrderId,
       handler: async function (paymentResponse: any) {
         try {
@@ -85,11 +124,14 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             razorpay_payment_id: paymentResponse.razorpay_payment_id,
             razorpay_signature: paymentResponse.razorpay_signature,
           });
-          setSuccessMessage(`Payment of ${formatCurrency(payAmount > 0 ? payAmount : balanceDue)} verified successfully! Your booking status has been updated.`);
+          const successText = isPartialPayment
+            ? `Partial payment of ${formatCurrency(payableAmount)} verified successfully! Remaining ${formatCurrency(remainingAfterPayment)} is scheduled for ${formatDisplayDate(nextDueDate)}.`
+            : `Payment of ${formatCurrency(payableAmount)} verified successfully! Your booking status has been updated.`;
+          setSuccessMessage(successText);
           setTimeout(() => {
             onSuccess();
-            onClose();
-          }, 1500);
+            handleClose();
+          }, 1800);
         } catch (err: any) {
           console.error('Failed to verify Razorpay balance payment:', err);
           setError(err.response?.data?.message || err.message || 'Razorpay payment verification failed.');
@@ -124,32 +166,32 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (payableAmount <= 0) {
+      setError('Please specify a valid payment amount greater than ₹0.');
+      return;
+    }
+
+    if (payableAmount > balanceDue) {
+      setError(`Payment amount cannot exceed the remaining balance of ₹${balanceDue.toLocaleString('en-IN')}.`);
+      return;
+    }
+
+    if (isPartialPayment && !nextDueDate) {
+      setError('Please select a promise due date for the remaining balance.');
+      return;
+    }
+
     try {
       setIsProcessing(true);
       setError(null);
 
-      // Admin manual recording (Cash / Direct Offline Payment)
-      if (isStaffOrAdmin && paymentMethod === 'ADMIN_CASH_DIRECT') {
-        await paymentService.verifyPayment({
-          bookingId: booking.id,
-          action: 'SUCCESS',
-          paymentMethod,
-          transactionId: transactionId.trim() || `TXN-${Date.now()}`,
-          payAmount: payAmount > 0 ? payAmount : balanceDue,
-        });
+      // Online Razorpay Payment flow with custom/reduced amount and due date
+      const orderInfo = await paymentService.createBalanceOrder(booking.id, {
+        amount: payableAmount,
+        nextDueDate: isPartialPayment ? nextDueDate : undefined,
+      });
 
-        setSuccessMessage(`Payment recorded successfully! Booking ${booking.bookingReference} status updated.`);
-
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 1500);
-        setIsProcessing(false);
-        return;
-      }
-
-      // Online Razorpay Payment flow for balance completion
-      const orderInfo = await paymentService.createBalanceOrder(booking.id);
       if (!orderInfo || (!orderInfo.razorpayOrderId && !orderInfo.id)) {
         throw new Error('Failed to generate balance payment order from payment gateway.');
       }
@@ -162,18 +204,25 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden my-8 transition-all">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 text-white px-6 py-5 flex items-center justify-between">
+  return createPortal(
+    <div
+      className="fixed inset-0 w-screen h-screen z-[99999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isProcessing) {
+          handleClose();
+        }
+      }}
+    >
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 my-auto">
+        {/* Header - Fixed Top */}
+        <div className="shrink-0 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
               <CreditCard className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-extrabold text-base text-white">
-                {isStaffOrAdmin ? 'Record / Complete Payment (Admin)' : 'Complete Booking Payment'}
+                {paidAmount > 0 ? 'Pay Remaining Balance' : 'Complete Booking Payment'}
               </h3>
               <p className="text-xs text-slate-300">
                 Ref: <span className="font-mono font-bold text-blue-300">{booking.bookingReference}</span>
@@ -181,197 +230,261 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isProcessing}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content Body */}
-        <form onSubmit={handleSubmitPayment} className="p-6 space-y-5">
-          {error && (
-            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          {/* Booking Summary Box */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2.5 text-xs">
-            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-              <span>Exhibition:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
-                {booking.exhibition?.title || 'Trade Fair'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-              <span>Stalls:</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{stallNumbers}</span>
-            </div>
-            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-              <span>Company:</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
-                {booking.company?.name || 'Company Account'}
-              </span>
-            </div>
-
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 grid grid-cols-3 gap-2 text-center">
-              <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">Grand Total</span>
-                <p className="font-extrabold text-slate-900 dark:text-slate-100 text-xs mt-0.5">{formatCurrency(grandTotal)}</p>
+        {/* Form Container spanning scrollable body and sticky footer */}
+        <form onSubmit={handleSubmitPayment} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+            {error && (
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                <span>{error}</span>
               </div>
-              <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">Paid So Far</span>
-                <p className="font-extrabold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">{formatCurrency(paidAmount)}</p>
+            )}
+
+            {successMessage && (
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span>{successMessage}</span>
               </div>
-              <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-bold">Balance Due</span>
-                <p className="font-extrabold text-amber-700 dark:text-amber-300 text-xs mt-0.5">{formatCurrency(balanceDue)}</p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+              {/* Left Column (5 cols): Dossier & Authorization Notice */}
+              <div className="md:col-span-5 space-y-4">
+                {/* Payer Authorization & Audit Notice Banner */}
+                <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-start gap-2.5 text-xs text-blue-900 dark:text-blue-200">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Payer Authorization Notice</p>
+                    <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5 leading-relaxed">
+                      Initiating as <span className="font-semibold">{user?.name || 'Authorized User'}</span> ({user?.role || 'CLIENT'}) for <span className="font-semibold">{booking.company?.name || 'Exhibitor'}</span>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Booking Summary Box */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                    <span>Exhibition:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]" title={booking.exhibition?.title}>
+                      {booking.exhibition?.title || 'Trade Fair'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                    <span>Stalls:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{stallNumbers}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                    <span>Payment Status:</span>
+                    <span className="font-mono font-bold px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                      {booking.paymentStatus || 'UNPAID'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <span className="text-[9px] text-slate-400 uppercase font-semibold block">Total</span>
+                      <p className="font-extrabold text-slate-900 dark:text-slate-100 text-xs mt-0.5">{formatCurrency(grandTotal)}</p>
+                    </div>
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <span className="text-[9px] text-slate-400 uppercase font-semibold block">Paid</span>
+                      <p className="font-extrabold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">{formatCurrency(paidAmount)}</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
+                      <span className="text-[9px] text-amber-600 dark:text-amber-400 uppercase font-bold block">Balance</span>
+                      <p className="font-extrabold text-amber-700 dark:text-amber-300 text-xs mt-0.5">{formatCurrency(balanceDue)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Razorpay Supported Instruments & Security Banner */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl flex flex-col gap-1 text-xs">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="font-semibold text-xs">Razorpay Secure 256-bit SSL</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-6">
+                    UPI • NetBanking • Credit/Debit Cards • Wallets
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Column (7 cols): Payment Amount Selection & Options */}
+              <div className="md:col-span-7 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Choose Payment Option
+                  </label>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Flexible Installments
+                  </span>
+                </div>
+
+                {/* Quick Option Selector Chips */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentOption('full')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      paymentOption === 'full'
+                        ? 'border-[#012970] dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/50 text-[#012970] dark:text-blue-300 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">100% Full</div>
+                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(balanceDue)}</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentOption('half')}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      paymentOption === 'half'
+                        ? 'border-[#012970] dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/50 text-[#012970] dark:text-blue-300 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">50% Part</div>
+                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(Math.round(balanceDue / 2))}</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentOption('custom');
+                      if (!customAmount || parseFloat(customAmount) >= balanceDue) {
+                        setCustomAmount(String(Math.round(balanceDue / 2)));
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      paymentOption === 'custom'
+                        ? 'border-[#012970] dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/50 text-[#012970] dark:text-blue-300 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Custom</div>
+                    <div className="font-extrabold text-xs mt-0.5">Pay Less</div>
+                  </button>
+                </div>
+
+                {/* Editable Amount Input if Custom */}
+                {paymentOption === 'custom' && (
+                  <div className="space-y-1.5 animate-in fade-in duration-150">
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Enter Custom Payment Amount (Min: ₹1, Max: {formatCurrency(balanceDue)})
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={balanceDue}
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        placeholder="Enter amount"
+                        className="w-full pl-8 pr-12 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-base font-extrabold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                        INR
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Breakdown Box */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Amount Being Paid Now:</span>
+                  <span className="text-base font-black text-slate-900 dark:text-slate-100">
+                    {formatCurrency(payableAmount)}
+                  </span>
+                </div>
+
+                {/* When paying less than total balance: Ask for Remaining Due Date */}
+                {isPartialPayment && (
+                  <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 rounded-2xl space-y-2 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                      <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span className="font-bold text-xs">Remaining Balance Promise Date</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                      Paying <b>{formatCurrency(payableAmount)}</b> now. The remaining balance of{' '}
+                      <b className="text-amber-950 dark:text-amber-100 font-mono">{formatCurrency(remainingAfterPayment)}</b> will be due on:
+                    </p>
+                    <input
+                      type="date"
+                      min={tomorrowStr}
+                      required
+                      value={nextDueDate}
+                      onChange={(e) => setNextDueDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                      Select the scheduled date when the remaining balance will be paid.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Amount to Pay Field */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span>Payment Amount (₹)</span>
-              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-normal">
-                {balanceDue > 0 ? 'Remaining Balance' : 'Full Invoice Amount'}
+          {/* Footer - Sticky Bottom, Always Visible */}
+          <div className="shrink-0 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500">Payable Now:</span>
+              <span className="font-black text-slate-900 dark:text-slate-100 text-sm">
+                {formatCurrency(payableAmount)}
               </span>
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={grandTotal}
-              value={payAmount}
-              onChange={(e) => setPayAmount(Number(e.target.value))}
-              disabled={isProcessing}
-              className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-extrabold text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Payment Method Selection */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Select Payment Method
-            </label>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('CREDIT_CARD_VISA')}
-                className={`p-3 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
-                  paymentMethod === 'CREDIT_CARD_VISA'
-                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <CreditCard className="w-4 h-4 text-blue-600" /> Credit / Debit Card
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('UPI_RAZORPAY')}
-                className={`p-3 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
-                  paymentMethod === 'UPI_RAZORPAY'
-                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <QrCode className="w-4 h-4 text-emerald-600" /> UPI / QR Code
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('NETBANKING')}
-                className={`p-3 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
-                  paymentMethod === 'NETBANKING'
-                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Building2 className="w-4 h-4 text-purple-600" /> Net Banking
-              </button>
-
-              {isStaffOrAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('ADMIN_CASH_DIRECT')}
-                  className={`p-3 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
-                    paymentMethod === 'ADMIN_CASH_DIRECT'
-                      ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Banknote className="w-4 h-4 text-amber-600" /> Cash / Offline (Admin)
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('BANK_TRANSFER')}
-                  className={`p-3 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
-                    paymentMethod === 'BANK_TRANSFER'
-                      ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <FileCheck className="w-4 h-4 text-indigo-600" /> Bank Wire (NEFT)
-                </button>
+              {isPartialPayment && (
+                <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                  (Remaining: {formatCurrency(remainingAfterPayment)})
+                </span>
               )}
             </div>
-          </div>
 
-          {/* Transaction Reference Input (For Offline / Admin Cash / Wire) */}
-          {(paymentMethod === 'ADMIN_CASH_DIRECT' || paymentMethod === 'BANK_TRANSFER') && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Transaction / Reference ID
-              </label>
-              <input
-                type="text"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value)}
+            <div className="flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleClose}
                 disabled={isProcessing}
-                placeholder="e.g. TXN-998811 or Bank Ref"
-                className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                required={paymentMethod === 'ADMIN_CASH_DIRECT' || paymentMethod === 'BANK_TRANSFER'}
-              />
+                className="px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isProcessing || payableAmount <= 0 || (isPartialPayment && !nextDueDate)}
+                leftIcon={
+                  isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )
+                }
+                className="bg-[#012970] hover:bg-[#09539b] text-white font-bold px-5"
+              >
+                {isProcessing
+                  ? 'Opening Razorpay...'
+                  : isPartialPayment
+                  ? `Pay Partial Now (${formatCurrency(payableAmount)})`
+                  : `Pay Remaining Balance (${formatCurrency(payableAmount)})`}
+              </Button>
             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
-            <Button variant="outline" type="button" onClick={onClose} disabled={isProcessing}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={isProcessing || payAmount <= 0}
-              leftIcon={
-                isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4" />
-                )
-              }
-            >
-              {isProcessing
-                ? 'Processing Payment...'
-                : `Pay ${formatCurrency(payAmount)}`}
-            </Button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
