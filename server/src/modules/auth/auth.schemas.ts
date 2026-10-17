@@ -17,5 +17,16 @@ export const RefreshTokenSchema = z.object({
   refreshToken: z.string().optional(),
 });
 
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email('Valid email address is required').trim().toLowerCase(),
+});
+
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(10, 'Reset token is required').trim(),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
+});
+
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;

@@ -1,23 +1,67 @@
 import nodemailer from 'nodemailer';
 import dns from 'dns';
+import { env } from '../config/env.js';
+import { escapeHtml } from '../utils/htmlEscape.js';
+import { resolveClientOrigin } from '../utils/urlHelper.js';
 
-const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
+export function getSmtpUser(): string {
+  return (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+}
 
-const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+export function getSmtpPass(): string {
+  return (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
+}
+
+export function isSmtpConfigured(): boolean {
+  return Boolean(getSmtpUser() && getSmtpPass());
+}
+
+let testTransporterOverride: any = null;
+
+export function setEmailTransporterForTesting(mock: any) {
+  testTransporterOverride = mock;
+}
+
+export function resetEmailTransporterForTesting() {
+  testTransporterOverride = null;
+}
+
+export function getEmailTransporter() {
+  return testTransporterOverride || transporter;
+}
+
+export const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+export const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+export const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+
+// In production, TLS certificate verification is strictly mandatory and cannot be disabled.
+// In non-production environments, it defaults to true unless explicitly overridden for local mock/dev.
+const rejectUnauthorized =
+  env.NODE_ENV === 'production'
+    ? true
+    : process.env.SMTP_REJECT_UNAUTHORIZED === 'false'
+    ? false
+    : true;
+
+export function getSmtpSecurityConfig() {
+  return {
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    rejectUnauthorized,
+  };
+}
 
 const transporter = nodemailer.createTransport({
   host: smtpHost,
   port: smtpPort,
   secure: smtpSecure,
-  auth: smtpUser ? {
-    user: smtpUser,
-    pass: smtpPass,
+  auth: getSmtpUser() ? {
+    user: getSmtpUser(),
+    pass: getSmtpPass(),
   } : undefined,
   tls: {
-    rejectUnauthorized: false,
+    rejectUnauthorized,
   },
   connectionTimeout: 10000,
   greetingTimeout: 10000,
@@ -32,13 +76,14 @@ const transporter = nodemailer.createTransport({
 } as any);
 
 export const verifyEmailTransporter = async () => {
-  if (!smtpUser) {
+  const user = getSmtpUser();
+  if (!user) {
     console.warn('⚠️ [EMAIL SERVICE] Neither SMTP_USER nor EMAIL_USER is configured in environment variables.');
     return;
   }
-  console.log(`🔌 [EMAIL SERVICE] Testing Gmail Service connection for account: ${smtpUser}...`);
+  console.log(`🔌 [EMAIL SERVICE] Testing Gmail Service connection for account: ${user}...`);
   try {
-    await transporter.verify();
+    await getEmailTransporter().verify();
     console.log('✅ [EMAIL SERVICE] Gmail SMTP Service verified and ready!');
   } catch (err: any) {
     console.error('❌ [EMAIL SERVICE] Gmail SMTP Verification Failed:', err?.message || err);
@@ -109,6 +154,27 @@ export interface InvoiceEmailPayload {
   temporaryPassword?: string | null;
 }
 
+export interface AccountCredentialsEmailPayload {
+  toEmail: string;
+  toName: string;
+  companyName: string;
+  username: string;
+  temporaryPassword?: string | null;
+}
+
+export interface PasswordResetEmailPayload {
+  toEmail: string;
+  toName: string;
+  resetUrl: string;
+}
+
+export interface EmailDeliveryResult {
+  status: 'ACCEPTED' | 'FAILED' | 'SKIPPED';
+  messageId?: string;
+  attempts?: number;
+  error?: string;
+}
+
 export interface AdminNotificationPayload {
   type: 'COMPANY_REGISTERED' | 'PAYMENT_RECEIVED';
   companyName: string;
@@ -138,7 +204,12 @@ export class EmailService {
       ? `Partial Payment - ${payload.paymentPercentage}%`
       : 'Full Payment';
 
-    const loginUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/login`;
+    const loginUrl = `${resolveClientOrigin()}/login`;
+    const safeLoginUrl = escapeHtml(loginUrl);
+    const safeToName = escapeHtml(payload.toName);
+    const safeCompanyName = escapeHtml(payload.companyName);
+    const safeExhibitionTitle = escapeHtml(payload.exhibitionTitle);
+    const safeBookingReference = escapeHtml(payload.bookingReference);
 
     const html = `
       <!DOCTYPE html>
@@ -158,15 +229,15 @@ export class EmailService {
           <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
             <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
               <h1 style="margin:0; font-size:22px; font-weight:800; tracking-tight: -0.5px;">Booking Confirmed 🎉</h1>
-              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">${payload.exhibitionTitle}</p>
+              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">${safeExhibitionTitle}</p>
             </div>
 
             <div class="mobile-padding" style="padding:28px 32px;">
               <p style="font-size:15px; color:#1e293b; margin:0 0 16px; line-height:1.6;">
-                Dear <strong>${payload.toName}</strong>,
+                Dear <strong>${safeToName}</strong>,
               </p>
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 24px;">
-                Thank you for reserving stall(s) at <strong>${payload.exhibitionTitle}</strong>.
+                Thank you for reserving stall(s) at <strong>${safeExhibitionTitle}</strong>.
                 Your payment has been successfully processed and your reservation is confirmed.
               </p>
 
@@ -177,16 +248,16 @@ export class EmailService {
                 <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; border-collapse:collapse;">
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top; width:45%;">Company Name</td>
-                    <td align="right" style="color:#0f172a; font-weight:700; vertical-align:top; width:55%;">${payload.companyName}</td>
+                    <td align="right" style="color:#0f172a; font-weight:700; vertical-align:top; width:55%;">${safeCompanyName}</td>
                   </tr>
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Booking Reference</td>
-                    <td align="right" style="color:#6366f1; font-weight:800; font-family:monospace; font-size:14px; vertical-align:top;">${payload.bookingReference}</td>
+                    <td align="right" style="color:#6366f1; font-weight:800; font-family:monospace; font-size:14px; vertical-align:top;">${safeBookingReference}</td>
                   </tr>
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Allocated Stall(s)</td>
                     <td align="right" style="color:#0f172a; font-weight:700; vertical-align:top;">
-                      ${payload.stalls.map((s) => `<div>${s.stallNumber} <span style="font-weight:normal; color:#64748b; font-size:12px;">(${s.category})</span></div>`).join('')}
+                      ${payload.stalls.map((s) => `<div>${escapeHtml(s.stallNumber)} <span style="font-weight:normal; color:#64748b; font-size:12px;">(${escapeHtml(s.category)})</span></div>`).join('')}
                     </td>
                   </tr>
                   <tr>
@@ -220,30 +291,36 @@ export class EmailService {
                 <table class="mobile-table" width="100%" cellpadding="5" cellspacing="0" style="font-size:13px; margin-bottom:16px;">
                   <tr>
                     <td style="color:#475569; font-weight:500; width:45%;">Registered Email:</td>
-                    <td style="color:#0f172a; font-weight:700;">${payload.userName || payload.toEmail}</td>
+                    <td style="color:#0f172a; font-weight:700;">${escapeHtml(payload.toEmail)}</td>
                   </tr>
+                  ${payload.userName && payload.userName !== payload.toEmail ? `
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">Username:</td>
+                    <td style="color:#0f172a; font-weight:700; font-family:monospace;">${escapeHtml(payload.userName)}</td>
+                  </tr>
+                  ` : ''}
                   ${payload.temporaryPassword ? `
                   <tr>
-                    <td style="color:#475569; font-weight:500;">Temporary Password:</td>
-                    <td style="color:#1d4ed8; font-weight:800; font-family:monospace; font-size:15px;">${payload.temporaryPassword}</td>
+                    <td style="color:#475569; font-weight:500;">Initial Password:</td>
+                    <td style="color:#1d4ed8; font-weight:800; font-family:monospace; font-size:15px;">${escapeHtml(payload.temporaryPassword)}</td>
                   </tr>
                   ` : `
                   <tr>
                     <td style="color:#475569; font-weight:500;">Password:</td>
-                    <td style="color:#64748b; font-style:italic;">Your account password set during registration</td>
+                    <td style="color:#64748b; font-style:italic;">Use your account password set during registration</td>
                   </tr>
                   `}
                 </table>
 
                 <!-- PROMINENT BUTTON -->
                 <div style="text-align:center; margin-top:20px;">
-                  <a href="${loginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; shadow:0 2px 4px rgba(37,99,235,0.2);">
+                  <a href="${safeLoginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; shadow:0 2px 4px rgba(37,99,235,0.2);">
                     Login to Exhibitor Portal
                   </a>
                 </div>
 
                 <p style="margin:14px 0 0; text-align:center; font-size:11px; color:#64748b; word-break:break-all;">
-                  Direct Link: <a href="${loginUrl}" style="color:#2563eb; text-decoration:underline;">${loginUrl}</a>
+                  Direct Link: <a href="${safeLoginUrl}" style="color:#2563eb; text-decoration:underline;">${safeLoginUrl}</a>
                 </p>
               </div>
 
@@ -262,7 +339,8 @@ export class EmailService {
 
     console.log(`✉️ [EMAIL SERVICE] Sending confirmation email to: ${payload.toEmail}`);
 
-    if (smtpUser) {
+    const user = getSmtpUser();
+    if (user) {
       const attachments = payload.pdfBuffer
         ? [
             {
@@ -273,8 +351,8 @@ export class EmailService {
           ]
         : [];
 
-      await transporter.sendMail({
-        from: `"Buoyant Media" <${smtpUser}>`,
+      await getEmailTransporter().sendMail({
+        from: `"Buoyant Media" <${user}>`,
         to: payload.toEmail,
         subject: `Booking Confirmed - ${payload.bookingReference}`,
         html,
@@ -297,6 +375,14 @@ export class EmailService {
       ? `Partial Payment (${payload.paymentPercentage}%)`
       : 'Full Payment (100%)';
 
+    const safeCompanyName = escapeHtml(payload.companyName);
+    const safeExhibitionTitle = escapeHtml(payload.exhibitionTitle);
+    const safeBookingReference = escapeHtml(payload.bookingReference);
+    const safeContactPerson = payload.contactPerson ? escapeHtml(payload.contactPerson) : '';
+    const safeEmail = payload.email ? escapeHtml(payload.email) : '';
+    const safePhone = payload.phone ? escapeHtml(payload.phone) : '';
+    const safeGstNumber = payload.gstNumber ? escapeHtml(payload.gstNumber) : '';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -316,12 +402,12 @@ export class EmailService {
             <div class="mobile-header" style="background:#4338ca; padding:24px 32px; color:#ffffff;">
               <span style="background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; uppercase; letter-spacing:0.5px;">EXHIBITION ADMIN ALERT</span>
               <h1 style="margin:8px 0 0; font-size:20px; font-weight:800;">New Payment Received 💳</h1>
-              <p style="margin:4px 0 0; color:#c7d2fe; font-size:13px; font-weight:500;">${payload.exhibitionTitle}</p>
+              <p style="margin:4px 0 0; color:#c7d2fe; font-size:13px; font-weight:500;">${safeExhibitionTitle}</p>
             </div>
 
             <div class="mobile-padding" style="padding:24px 32px;">
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">
-                A new payment has been processed for stall booking <strong>${payload.bookingReference}</strong> in <strong>${payload.exhibitionTitle}</strong>.
+                A new payment has been processed for stall booking <strong>${safeBookingReference}</strong> in <strong>${safeExhibitionTitle}</strong>.
               </p>
 
               <!-- EXHIBITOR DETAILS -->
@@ -330,27 +416,27 @@ export class EmailService {
                 <table class="mobile-table" width="100%" cellpadding="4" cellspacing="0" style="font-size:13px;">
                   <tr>
                     <td style="color:#64748b; font-weight:500; width:45%;">Company Name</td>
-                    <td align="right" style="color:#0f172a; font-weight:700; width:55%;">${payload.companyName}</td>
+                    <td align="right" style="color:#0f172a; font-weight:700; width:55%;">${safeCompanyName}</td>
                   </tr>
-                  ${payload.contactPerson ? `
+                  ${safeContactPerson ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500;">Contact Person</td>
-                    <td align="right" style="color:#0f172a; font-weight:600;">${payload.contactPerson}</td>
+                    <td align="right" style="color:#0f172a; font-weight:600;">${safeContactPerson}</td>
                   </tr>` : ''}
-                  ${payload.email ? `
+                  ${safeEmail ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500;">Email Address</td>
-                    <td align="right" style="color:#0f172a; font-weight:600;">${payload.email}</td>
+                    <td align="right" style="color:#0f172a; font-weight:600;">${safeEmail}</td>
                   </tr>` : ''}
-                  ${payload.phone ? `
+                  ${safePhone ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500;">Phone Number</td>
-                    <td align="right" style="color:#0f172a; font-weight:600;">${payload.phone}</td>
+                    <td align="right" style="color:#0f172a; font-weight:600;">${safePhone}</td>
                   </tr>` : ''}
-                  ${payload.gstNumber ? `
+                  ${safeGstNumber ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500;">GSTIN Tax ID</td>
-                    <td align="right" style="color:#0f172a; font-weight:600; font-family:monospace;">${payload.gstNumber}</td>
+                    <td align="right" style="color:#0f172a; font-weight:600; font-family:monospace;">${safeGstNumber}</td>
                   </tr>` : ''}
                 </table>
               </div>
@@ -406,7 +492,8 @@ export class EmailService {
       </html>
     `;
 
-    if (smtpUser) {
+    const user = getSmtpUser();
+    if (user) {
       const attachments = payload.pdfBuffer
         ? [
             {
@@ -417,8 +504,8 @@ export class EmailService {
           ]
         : [];
 
-      await transporter.sendMail({
-        from: `"Buoyant Media Admin Alert" <${smtpUser}>`,
+      await getEmailTransporter().sendMail({
+        from: `"Buoyant Media Admin Alert" <${user}>`,
         to: payload.notificationEmails.join(','),
         subject: `Payment Received: ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`,
         html,
@@ -437,5 +524,252 @@ export class EmailService {
   static async sendAdminAlert(payload: AdminNotificationPayload) {
     console.log(`\n📢 [ADMIN EMAIL ALERT] Dispatching alert: ${payload.type} for ${payload.companyName}`);
     return true;
+  }
+
+  static async sendAccountCredentialsEmail(payload: AccountCredentialsEmailPayload): Promise<EmailDeliveryResult> {
+    const loginUrl = `${resolveClientOrigin()}/login`;
+    const safeLoginUrl = escapeHtml(loginUrl);
+    const safeToName = escapeHtml(payload.toName);
+    const safeCompanyName = escapeHtml(payload.companyName);
+    const safeUsername = escapeHtml(payload.username);
+    const safeToEmail = escapeHtml(payload.toEmail);
+    const safeTempPassword = payload.temporaryPassword ? escapeHtml(payload.temporaryPassword) : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <style>
+            @media only screen and (max-width: 480px) {
+              .mobile-table tr { display: block !important; margin-bottom: 10px !important; }
+              .mobile-table td { display: block !important; text-align: left !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+              .mobile-padding { padding: 20px 16px !important; }
+              .mobile-header { padding: 20px 16px !important; }
+            }
+          </style>
+        </head>
+        <body style="margin:0; padding:0; background:#f4f6f9; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
+          <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+            <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
+              <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px;">Welcome to Buoyant Media 🌟</h1>
+              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">Your Exhibitor Account Credentials</p>
+            </div>
+
+            <div class="mobile-padding" style="padding:28px 32px;">
+              <p style="font-size:15px; color:#1e293b; margin:0 0 16px; line-height:1.6;">
+                Dear <strong>${safeToName}</strong>,
+              </p>
+              <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 24px;">
+                Your exhibitor account for <strong>${safeCompanyName}</strong> has been successfully created. You can use the credentials below to sign in to the Exhibitor Portal to manage your stall reservations, view invoices, and complete payments.
+              </p>
+
+              <!-- CREDENTIALS BOX -->
+              <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:20px; margin-bottom:24px;">
+                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">LOGIN CREDENTIALS</h3>
+
+                <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; margin-bottom:16px; border-collapse:collapse;">
+                  <tr>
+                    <td style="color:#475569; font-weight:500; width:40%;">Company:</td>
+                    <td style="color:#0f172a; font-weight:700;">${safeCompanyName}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">Username:</td>
+                    <td style="color:#1e40af; font-weight:800; font-family:monospace; font-size:14px;">${safeUsername}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">Registered Email:</td>
+                    <td style="color:#0f172a; font-weight:700;">${safeToEmail}</td>
+                  </tr>
+                  ${safeTempPassword ? `
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">Initial Password:</td>
+                    <td style="color:#1d4ed8; font-weight:800; font-family:monospace; font-size:15px;">${safeTempPassword}</td>
+                  </tr>
+                  ` : `
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">Password:</td>
+                    <td style="color:#64748b; font-style:italic;">Use your account password set during registration</td>
+                  </tr>
+                  `}
+                </table>
+
+                <!-- PROMINENT BUTTON -->
+                <div style="text-align:center; margin-top:20px;">
+                  <a href="${safeLoginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                    Log In to Exhibitor Portal
+                  </a>
+                </div>
+
+                <p style="margin:14px 0 0; text-align:center; font-size:11px; color:#64748b; word-break:break-all;">
+                  Direct Link: <a href="${safeLoginUrl}" style="color:#2563eb; text-decoration:underline;">${safeLoginUrl}</a>
+                </p>
+              </div>
+
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; font-size:12px; color:#64748b; line-height:1.5;">
+                🔒 <strong>Security Tip:</strong> You can sign in using either your username (<strong>${safeUsername}</strong>) or registered email (<strong>${safeToEmail}</strong>). For your security, do not share these credentials with unauthorized persons.
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; padding:18px 32px; text-align:center; color:#94a3b8; font-size:12px; border-top:1px solid #f1f5f9;">
+              This is an automated credential notification from Buoyant Media Exhibition Platform.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    console.log(`✉️ [EMAIL SERVICE] Dispatching initial account credentials email to: ${payload.toEmail} (Username: ${payload.username})`);
+
+    const user = getSmtpUser();
+    if (!user) {
+      const isProd = env.NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
+      if (isProd) {
+        console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in production. Credentials email delivery failed for: ${payload.toEmail}`);
+        return { status: 'FAILED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+      }
+      console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in environment. Credentials email skipped for: ${payload.toEmail}`);
+      return { status: 'SKIPPED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+    }
+
+    const maxAttempts = 3;
+    let lastError: any = null;
+    const currentTransporter = getEmailTransporter();
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const info = await currentTransporter.sendMail({
+          from: `"Buoyant Media" <${user}>`,
+          to: payload.toEmail,
+          subject: `Your Buoyant Exhibitor Account Credentials - ${payload.companyName}`,
+          html,
+        });
+
+        console.log(`✅ [EMAIL SERVICE] Account credentials email accepted by SMTP server for: ${payload.toEmail} (MessageId: ${info.messageId})`);
+        return {
+          status: 'ACCEPTED',
+          messageId: info.messageId,
+          attempts: attempt,
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.error(`⚠️ [EMAIL SERVICE] Attempt ${attempt}/${maxAttempts} failed to deliver credentials to ${payload.toEmail}:`, err?.message || err);
+        if (attempt < maxAttempts) {
+          await new Promise((res) => setTimeout(res, 200));
+        }
+      }
+    }
+
+    return {
+      status: 'FAILED',
+      attempts: maxAttempts,
+      error: lastError?.message || 'SMTP_DELIVERY_FAILED',
+    };
+  }
+
+  static async sendPasswordResetEmail(payload: PasswordResetEmailPayload): Promise<EmailDeliveryResult> {
+    console.log(`✉️ [EMAIL SERVICE] Dispatching password reset recovery email to: ${payload.toEmail}`);
+
+    const safeToName = escapeHtml(payload.toName);
+    const safeResetUrl = escapeHtml(payload.resetUrl);
+
+    const user = getSmtpUser();
+    if (!user) {
+      const isProd = env.NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
+      if (isProd) {
+        console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in production. Password reset email delivery failed for: ${payload.toEmail}`);
+        return { status: 'FAILED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+      }
+      console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in environment. Password reset email skipped for: ${payload.toEmail}`);
+      return { status: 'SKIPPED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <style>
+            @media only screen and (max-width: 480px) {
+              .mobile-padding { padding: 20px 16px !important; }
+              .mobile-header { padding: 20px 16px !important; }
+            }
+          </style>
+        </head>
+        <body style="margin:0; padding:0; background:#f4f6f9; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
+          <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+            <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
+              <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px;">Account Password Reset 🔑</h1>
+              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">Buoyant Media Exhibitor Portal</p>
+            </div>
+
+            <div class="mobile-padding" style="padding:28px 32px;">
+              <p style="font-size:15px; color:#1e293b; margin:0 0 16px; line-height:1.6;">
+                Dear <strong>${safeToName}</strong>,
+              </p>
+              <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 24px;">
+                We received a request to set up or reset your password for your Buoyant Media account. Click the button below to establish your secure password.
+              </p>
+
+              <div style="text-align:center; margin:28px 0;">
+                <a href="${safeResetUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                  Reset My Password
+                </a>
+              </div>
+
+              <p style="margin:16px 0 0; text-align:center; font-size:11px; color:#64748b; word-break:break-all;">
+                Direct Link: <a href="${safeResetUrl}" style="color:#2563eb; text-decoration:underline;">${safeResetUrl}</a>
+              </p>
+
+              <div style="margin-top:24px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; font-size:12px; color:#64748b; line-height:1.5;">
+                🔒 <strong>Security Notice:</strong> This single-use link will expire in 1 hour. If you did not request a password reset, you can safely disregard this email; your existing password will remain unchanged.
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; padding:18px 32px; text-align:center; color:#94a3b8; font-size:12px; border-top:1px solid #f1f5f9;">
+              This is an automated security notification from Buoyant Media Exhibition Platform.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const maxAttempts = 3;
+    let lastError: any = null;
+    const currentTransporter = getEmailTransporter();
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const info = await currentTransporter.sendMail({
+          from: `"Buoyant Media Security" <${user}>`,
+          to: payload.toEmail,
+          subject: 'Reset Your Buoyant Exhibitor Account Password',
+          html,
+        });
+
+        console.log(`✅ [EMAIL SERVICE] Password reset email accepted by SMTP server for: ${payload.toEmail} (MessageId: ${info.messageId})`);
+        return {
+          status: 'ACCEPTED',
+          messageId: info.messageId,
+          attempts: attempt,
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.error(`⚠️ [EMAIL SERVICE] Attempt ${attempt}/${maxAttempts} failed to deliver password reset to ${payload.toEmail}:`, err?.message || err);
+        if (attempt < maxAttempts) {
+          await new Promise((res) => setTimeout(res, 200));
+        }
+      }
+    }
+
+    return {
+      status: 'FAILED',
+      attempts: maxAttempts,
+      error: lastError?.message || 'SMTP_DELIVERY_FAILED',
+    };
+  }
+
+  static isConfigured(): boolean {
+    return isSmtpConfigured();
   }
 }

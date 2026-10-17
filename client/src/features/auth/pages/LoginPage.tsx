@@ -8,6 +8,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
 import { PublicFooter } from '../../../components/layout/PublicFooter';
 import { PublicNavbar } from '../../../components/layout/PublicNavbar';
 import { Exhibition } from '../../../types';
@@ -37,6 +38,32 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = forgotEmail.trim();
+    if (!clean) {
+      setForgotError('Please enter your account email address.');
+      return;
+    }
+    try {
+      setForgotSubmitting(true);
+      setForgotError('');
+      const res = await authService.forgotPassword(clean);
+      setForgotMessage(res.message || 'If an account associated with this email exists, a password reset link has been dispatched.');
+    } catch (err: any) {
+      setForgotError(err?.response?.data?.message || err?.message || 'Failed to request password reset.');
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
 
   // Dynamic Exhibitions Carousel State
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
@@ -116,6 +143,7 @@ export const LoginPage: React.FC = () => {
     register,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -392,7 +420,7 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {/* Sleek Remember Me Checkbox */}
+              {/* Sleek Remember Me Checkbox & Forgot Password Link */}
               <div className="flex items-center justify-between text-xs pt-1">
                 <label className="inline-flex items-center gap-2.5 cursor-pointer group select-none">
                   <input
@@ -403,6 +431,20 @@ export const LoginPage: React.FC = () => {
                     Remember me
                   </span>
                 </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentEmail = getValues('email');
+                    if (currentEmail) setForgotEmail(currentEmail);
+                    setForgotMessage('');
+                    setForgotError('');
+                    setShowForgotModal(true);
+                  }}
+                  className="font-semibold text-[#1E3FA0] dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  Forgot password?
+                </button>
               </div>
 
               <div className="pt-2">
@@ -427,6 +469,80 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        maxWidth="md"
+        title="Reset Account Password"
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Enter your registered corporate email address. We will dispatch a secure, single-use password reset link.
+          </p>
+
+          {forgotError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300">
+              {forgotError}
+            </div>
+          )}
+
+          {forgotMessage && (
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 rounded-xl text-xs text-indigo-700 dark:text-indigo-300">
+              {forgotMessage}
+            </div>
+          )}
+
+          {!forgotMessage ? (
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+              <Input
+                label="Registered Email Address"
+                type="email"
+                required
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="name@company.com"
+                disabled={forgotSubmitting}
+                leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
+              />
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setShowForgotModal(false)}
+                  disabled={forgotSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  isLoading={forgotSubmitting}
+                  className="bg-[#1E3FA0] hover:bg-[#152B75] text-white"
+                >
+                  Send Recovery Link
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="pt-2 flex justify-end">
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={() => setShowForgotModal(false)}
+                className="bg-[#1E3FA0] hover:bg-[#152B75] text-white"
+              >
+                Close
+              </Button>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Footer — Identical to Homepage */}
       <PublicFooter />

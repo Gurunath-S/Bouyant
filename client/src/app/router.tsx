@@ -15,6 +15,7 @@ import { LoginPage } from '../features/auth/pages/LoginPage';
 
 // Lazy loaded page components
 const RegisterPage = lazy(() => import('../features/auth/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ResetPasswordPage = lazy(() => import('../features/auth/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const ClientDashboardPage = lazy(() => import('../features/dashboard/pages/ClientDashboardPage').then(m => ({ default: m.ClientDashboardPage })));
 const AdminDashboardPage = lazy(() => import('../features/dashboard/pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
 const AdminEventsPage = lazy(() => import('../features/dashboard/pages/AdminEventsPage').then(m => ({ default: m.AdminEventsPage })));
@@ -115,6 +116,10 @@ export const router = createBrowserRouter([
       {
         path: '/register',
         element: <RegisterPage />,
+      },
+      {
+        path: '/reset-password',
+        element: <ResetPasswordPage />,
       },
 
   // Public Exhibition Discovery & Booking Confirmation Routes

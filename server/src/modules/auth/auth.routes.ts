@@ -3,7 +3,8 @@ import { AuthController } from './auth.controller.js';
 import { validateRequest } from '../../middlewares/validate.js';
 import { authenticateToken } from '../../middlewares/auth.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
-import { LoginSchema } from './auth.schemas.js';
+import { LoginSchema, ForgotPasswordSchema, ResetPasswordSchema } from './auth.schemas.js';
+import { forgotPasswordLimiter, resetPasswordLimiter } from '../../middlewares/rateLimiter.js';
 
 const router = Router();
 
@@ -11,6 +12,8 @@ const router = Router();
 router.get('/check-username', asyncHandler(AuthController.checkUsername));
 router.post('/login', validateRequest(LoginSchema), asyncHandler(AuthController.login));
 router.post('/refresh', asyncHandler(AuthController.refresh));
+router.post('/forgot-password', forgotPasswordLimiter, validateRequest(ForgotPasswordSchema), asyncHandler(AuthController.forgotPassword));
+router.post('/reset-password', resetPasswordLimiter, validateRequest(ResetPasswordSchema), asyncHandler(AuthController.resetPassword));
 router.get('/me', authenticateToken, asyncHandler(AuthController.me));
 router.post('/logout', asyncHandler(AuthController.logout));
 

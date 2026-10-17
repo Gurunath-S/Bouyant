@@ -102,4 +102,24 @@ export class AuthController {
       message: 'Logged out successfully.',
     });
   };
+
+  static forgotPassword = async (req: Request, res: Response) => {
+    const result = await AuthService.forgotPassword(req.body.email);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
+
+  static resetPassword = async (req: Request, res: Response) => {
+    const result = await AuthService.resetPassword(req.body.token, req.body.password);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
 }

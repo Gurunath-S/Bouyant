@@ -1,10 +1,21 @@
 import bcrypt from 'bcryptjs';
+import jwt, { Secret } from 'jsonwebtoken';
+import { env } from '../../config/env.js';
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { UserRole } from '@prisma/client';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt.js';
+import { EmailService } from '../../services/email.service.js';
 import { RegisterInput, LoginInput } from './auth.schemas.js';
 import { DEFAULT_ROLE_PAGE_ACCESS } from '../../config/permissions.js';
+import { resolveClientOrigin } from '../../utils/urlHelper.js';
+
+const FORGOT_PASSWORD_EMAIL_COOLDOWN_MS = 60 * 1000; // 60 seconds per email
+const forgotPasswordEmailTimestamps = new Map<string, number>();
+
+export function resetForgotPasswordCooldownForTesting() {
+  forgotPasswordEmailTimestamps.clear();
+}
 
 export class AuthService {
   static async register(input: RegisterInput) {
@@ -63,11 +74,14 @@ export class AuthService {
 
   static async checkUsernameAvailability(username: string) {
     const clean = username.trim().toLowerCase();
-    if (!clean || clean.length < 3) {
-      return { available: false, message: 'Username must be at least 3 characters long.' };
+    if (!clean || clean.length < 3 || clean.length > 30) {
+      return { available: false, message: 'Username must be between 3 and 30 characters long.' };
     }
-    if (!/^[a-zA-Z0-9_-]+$/.test(clean)) {
-      return { available: false, message: 'Username can only contain letters, numbers, hyphens, and underscores.' };
+    if (!/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/.test(clean) || /\.{2,}/.test(clean)) {
+      return {
+        available: false,
+        message: 'Username can only contain letters, numbers, hyphens, underscores, and non-consecutive dots.',
+      };
     }
     const existing = await prisma.user.findUnique({
       where: { username: clean },
@@ -212,6 +226,123 @@ export class AuthService {
     return {
       ...user,
       pageAccess: effectivePageAccess,
+    };
+  }
+
+  static async forgotPassword(email: string) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const genericResponse = {
+      message: 'If an account associated with this email exists, a password reset link has been dispatched.',
+    };
+
+    if (!cleanEmail) {
+      return genericResponse;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Account enumeration defense: Return identical response whether user exists or not
+    if (!user || user.isActive === false) {
+      return genericResponse;
+    }
+
+    // Cryptographic single-use token: Secret is HMAC keyed with (JWT_SECRET + user.passwordHash)
+    // When the user resets their password, passwordHash updates, instantly invalidating this token.
+    const secret = `${env.JWT_SECRET}:${user.passwordHash}`;
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        type: 'password_reset',
+      },
+      secret as Secret,
+      { expiresIn: '1h' }
+    );
+
+    // Per-account cooldown defense against distributed email-bombing botnets
+    const lastDispatched = forgotPasswordEmailTimestamps.get(cleanEmail);
+    const now = Date.now();
+    if (lastDispatched && now - lastDispatched < FORGOT_PASSWORD_EMAIL_COOLDOWN_MS) {
+      console.log(`ℹ️ [AUTH] Password reset email throttled by per-account cooldown (60s) for: ${cleanEmail}`);
+      return genericResponse;
+    }
+    forgotPasswordEmailTimestamps.set(cleanEmail, now);
+
+    // Bounded memory cleanup
+    if (forgotPasswordEmailTimestamps.size > 2000) {
+      for (const [k, v] of forgotPasswordEmailTimestamps.entries()) {
+        if (now - v > FORGOT_PASSWORD_EMAIL_COOLDOWN_MS * 2) {
+          forgotPasswordEmailTimestamps.delete(k);
+        }
+      }
+    }
+
+    const clientUrl = resolveClientOrigin();
+    const resetUrl = `${clientUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    // Dispatch recovery email to the verified user email
+    try {
+      await EmailService.sendPasswordResetEmail({
+        toEmail: user.email,
+        toName: user.name,
+        resetUrl,
+      });
+    } catch (err: any) {
+      console.error('Password reset email dispatch failure:', err?.message || err);
+    }
+
+    return genericResponse;
+  }
+
+  static async resetPassword(token: string, newPassword: string) {
+    if (!token || typeof token !== 'string') {
+      throw ApiError.badRequest('Invalid or malformed password reset token.');
+    }
+
+    let unverified: any;
+    try {
+      unverified = jwt.decode(token);
+    } catch {
+      throw ApiError.badRequest('Invalid or malformed password reset token.');
+    }
+
+    if (!unverified || typeof unverified !== 'object' || !unverified.userId || unverified.type !== 'password_reset') {
+      throw ApiError.badRequest('Invalid or malformed password reset token.');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: unverified.userId },
+    });
+
+    if (!user || user.isActive === false) {
+      throw ApiError.badRequest('Invalid or expired password reset link.');
+    }
+
+    const secret = `${env.JWT_SECRET}:${user.passwordHash}`;
+    try {
+      jwt.verify(token, secret as Secret, { algorithms: ['HS256'] });
+    } catch (err: any) {
+      if (err.name === 'TokenExpiredError') {
+        throw ApiError.badRequest('Password reset link has expired. Please request a new one.');
+      }
+      throw ApiError.badRequest('Invalid or expired password reset link.');
+    }
+
+    // Enforce password length
+    if (!newPassword || newPassword.length < 8) {
+      throw ApiError.badRequest('New password must be at least 8 characters long.');
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: newHash },
+    });
+
+    return {
+      message: 'Password has been reset successfully. You may now log in with your new password.',
     };
   }
 }
