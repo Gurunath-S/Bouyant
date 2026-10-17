@@ -2,14 +2,14 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { InvoicesService } from './invoices.service.js';
 import { sendResponse } from '../../utils/response.js';
+import { ApiError } from '../../utils/apiError.js';
 
 export class InvoicesController {
   static getById = async (req: AuthenticatedRequest, res: Response) => {
-    const isClient = req.user!.role === 'CLIENT';
-    const invoice = await InvoicesService.getInvoiceById(
-      req.params.id,
-      isClient ? req.user!.userId : undefined
-    );
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required.');
+    }
+    const invoice = await InvoicesService.getInvoiceById(req.params.id, req.user);
 
     return sendResponse({
       res,
@@ -20,7 +20,10 @@ export class InvoicesController {
   };
 
   static myInvoices = async (req: AuthenticatedRequest, res: Response) => {
-    const invoices = await InvoicesService.listUserInvoices(req.user!.userId);
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required.');
+    }
+    const invoices = await InvoicesService.listUserInvoices(req.user);
     return sendResponse({
       res,
       statusCode: 200,
@@ -60,11 +63,17 @@ export class InvoicesController {
   };
 
   static downloadPdf = async (req: AuthenticatedRequest, res: Response) => {
-    const pdfBuffer = await InvoicesService.generateInvoicePdf(req.params.id);
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required to download invoice PDF.');
+    }
+    const pdfBuffer = await InvoicesService.generateInvoicePdf(req.params.id, req.user);
     const cleanId = String(req.params.id || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Invoice-${cleanId}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.end(pdfBuffer);
   };
 }

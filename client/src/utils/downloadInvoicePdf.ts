@@ -104,40 +104,30 @@ export async function downloadInvoicePdf(
 
   let pdfBlob: Blob | null = null;
 
-  // 1. First attempt: Public PDF download endpoint
+  // Primary and supported download path: Authenticated apiClient arraybuffer endpoint
   try {
-    const downloadUrl = `/api/v1/invoices/public/${encodeURIComponent(idOrReference)}/pdf`;
-    const res = await fetch(downloadUrl);
-    const contentType = res.headers.get('content-type') || '';
-
-    if (res.ok && contentType.includes('application/pdf')) {
-      const arrayBuffer = await res.arrayBuffer();
-      // Verify PDF magic bytes '%PDF'
-      const uint8 = new Uint8Array(arrayBuffer.slice(0, 4));
+    const authRes = await apiClient.get(`/invoices/${encodeURIComponent(idOrReference)}/pdf`, {
+      responseType: 'arraybuffer',
+    });
+    const data = authRes.data;
+    if (data) {
+      const uint8 = new Uint8Array(data.slice(0, 4));
       const header = String.fromCharCode(...uint8);
       if (header.startsWith('%PDF')) {
-        pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        pdfBlob = new Blob([data], { type: 'application/pdf' });
       }
     }
-  } catch (publicErr) {
-    console.warn('Public PDF endpoint attempt failed:', publicErr);
-  }
-
-  // 2. Second attempt: Authenticated apiClient arraybuffer endpoint
-  if (!pdfBlob) {
-    try {
-      const authRes = await apiClient.get(`/invoices/${encodeURIComponent(idOrReference)}/pdf`, {
-        responseType: 'arraybuffer',
-      });
-      const data = authRes.data;
-      if (data) {
-        const uint8 = new Uint8Array(data.slice(0, 4));
-        const header = String.fromCharCode(...uint8);
-        if (header.startsWith('%PDF')) {
-          pdfBlob = new Blob([data], { type: 'application/pdf' });
-        }
-      }
-    } catch (authErr) {
+  } catch (authErr: any) {
+    const status = authErr?.response?.status;
+    if (status === 401) {
+      console.warn('Authentication required to download invoice PDF.');
+    } else if (status === 403) {
+      console.warn('Access denied: You are not authorized to download this invoice.');
+    } else if (status === 404) {
+      console.warn('Invoice document not found.');
+    } else if (status === 429) {
+      console.warn('Download rate limit reached. Please wait a moment before trying again.');
+    } else {
       console.warn('Authenticated PDF endpoint attempt failed:', authErr);
     }
   }

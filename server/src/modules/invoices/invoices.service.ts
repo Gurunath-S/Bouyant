@@ -2,9 +2,11 @@ import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 import { normalizePagination } from '../../utils/pagination.js';
+import { TokenPayload } from '../../utils/jwt.js';
+import { hasUserPermission, Permissions } from '../../config/permissions.js';
 
 export class InvoicesService {
-  static async getInvoiceById(identifier: string, _userId?: string) {
+  static async getInvoiceById(identifier: string, user?: TokenPayload) {
     let invoice = await prisma.invoice.findFirst({
       where: {
         OR: [
@@ -71,64 +73,69 @@ export class InvoicesService {
       }
     }
 
-    // What if a booking exists with no invoice yet (e.g. pending/held/initiated booking or on-the-fly bill)?
     if (!invoice) {
-      const booking = await prisma.booking.findFirst({
-        where: {
-          OR: [{ id: identifier }, { bookingReference: identifier }],
-        },
-        include: {
-          company: true,
-          exhibition: true,
-          stalls: { include: { stall: true } },
-          payments: {
-            where: { status: 'SUCCESS' },
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-      });
-
-      if (booking) {
-        // Create an official invoice for this booking so it has a permanent record
-        const invCount = await prisma.invoice.count();
-        const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invCount + 1).padStart(3, '0')}`;
-        invoice = await prisma.invoice.create({
-          data: {
-            invoiceNumber,
-            bookingId: booking.id,
-            companyId: booking.companyId,
-            totalAmount: booking.totalAmount,
-            taxAmount: booking.taxAmount,
-            grandTotal: booking.grandTotal,
-            status: 'ISSUED',
-            issueDate: new Date(),
-          },
-          include: {
-            company: true,
-            payment: true,
-            booking: {
-              include: {
-                stalls: { include: { stall: true } },
-                exhibition: true,
-                payments: {
-                  where: { status: 'SUCCESS' },
-                  orderBy: { createdAt: 'asc' },
-                },
-                invoices: true,
-              },
-            },
-          },
-        });
-      }
+      throw ApiError.notFound('Invoice or bill not found.');
     }
 
-    if (!invoice) throw ApiError.notFound('Invoice or bill not found.');
+    // Enforce authorization and tenant isolation if user context is provided
+    if (user) {
+      const isPrivileged =
+        user.role === 'SUPERADMIN' ||
+        user.role === 'ADMIN' ||
+        hasUserPermission(user, Permissions.INVOICE_MANAGE);
+
+      if (!isPrivileged) {
+        if (user.role === 'CLIENT') {
+          let userCompanyId = user.companyId;
+          if (!userCompanyId && user.userId) {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: user.userId },
+              select: { companyId: true },
+            });
+            userCompanyId = dbUser?.companyId || null;
+          }
+
+          if (
+            !userCompanyId ||
+            (invoice.companyId !== userCompanyId && invoice.booking?.companyId !== userCompanyId)
+          ) {
+            throw ApiError.forbidden('Not authorized to access this invoice.');
+          }
+        } else {
+          // Any other unprivileged role (e.g. STAFF without INVOICE_MANAGE)
+          throw ApiError.forbidden('Not authorized to access this invoice.');
+        }
+      }
+    }
 
     return invoice;
   }
 
-  static async listUserInvoices(_userId: string) {
+  static async listUserInvoices(userOrUserId: TokenPayload | string) {
+    let companyId: string | null = null;
+    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+      companyId = userOrUserId.companyId || null;
+      if (!companyId && userOrUserId.userId) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userOrUserId.userId },
+          select: { companyId: true },
+        });
+        companyId = dbUser?.companyId || null;
+      }
+    } else if (typeof userOrUserId === 'string') {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userOrUserId },
+        select: { companyId: true },
+      });
+      companyId = dbUser?.companyId || null;
+    }
+
+    if (!companyId) {
+      return [];
+    }
+
     return await prisma.invoice.findMany({
+      where: { companyId },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
         company: { select: { name: true } },
@@ -144,9 +151,15 @@ export class InvoicesService {
 
   private static pdfCache = new Map<string, { buffer: Buffer; cachedAt: number }>();
 
-  static async generateInvoicePdf(invoiceId: string) {
-    const invoice = await this.getInvoiceById(invoiceId);
-    const cacheKey = `${invoice.id}_${invoice.updatedAt?.getTime() || 0}`;
+  static clearPdfCache() {
+    this.pdfCache.clear();
+  }
+
+  static async generateInvoicePdf(invoiceId: string, user?: TokenPayload) {
+    // Ownership/authorization is checked first inside getInvoiceById
+    const invoice = await this.getInvoiceById(invoiceId, user);
+    const bookingUpdatedAt = invoice.booking?.updatedAt?.getTime() || 0;
+    const cacheKey = `${invoice.id}_${invoice.updatedAt?.getTime() || 0}_${bookingUpdatedAt}`;
     const cached = this.pdfCache.get(cacheKey);
     if (cached && Date.now() - cached.cachedAt < 1000 * 60 * 30) {
       return cached.buffer;

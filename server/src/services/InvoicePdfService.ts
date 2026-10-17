@@ -1,6 +1,7 @@
 // services/InvoicePdfService.ts
 
 import puppeteer, { type Browser } from 'puppeteer';
+import { ApiError } from '../utils/apiError.js';
 
 export interface InvoicePdfData {
   invoiceNumber: string;
@@ -11,7 +12,10 @@ export interface InvoicePdfData {
     address?: string;
     city?: string;
     state?: string;
+    pinCode?: string;
+    country?: string;
     gstin?: string;
+    pan?: string;
     contactPerson?: string;
     email?: string;
     mobile?: string;
@@ -142,7 +146,116 @@ async function getSharedBrowser(): Promise<Browser> {
   }
 }
 
+let activeRenders = 0;
+export const MAX_CONCURRENT_PDF_RENDERS = 3;
+export const MAX_RENDER_QUEUE_SIZE = 10;
+export const QUEUE_WAIT_TIMEOUT_MS = 15000;
+
+interface QueueItem {
+  resolve: (release: () => void) => void;
+  reject: (err: any) => void;
+  timer: NodeJS.Timeout;
+  isCancelled: boolean;
+}
+
+const renderQueue: QueueItem[] = [];
+
+export async function acquirePdfRenderSlot(timeoutMs: number = QUEUE_WAIT_TIMEOUT_MS): Promise<() => void> {
+  if (activeRenders < MAX_CONCURRENT_PDF_RENDERS) {
+    activeRenders++;
+    let released = false;
+    return () => {
+      if (!released) {
+        released = true;
+        releasePdfRenderSlot();
+      }
+    };
+  }
+
+  if (renderQueue.length >= MAX_RENDER_QUEUE_SIZE) {
+    throw ApiError.serviceUnavailable(
+      'PDF generation service is currently at maximum capacity. Please try again shortly.'
+    );
+  }
+
+  return new Promise<() => void>((resolve, reject) => {
+    let item: QueueItem;
+
+    const timer = setTimeout(() => {
+      item.isCancelled = true;
+      const idx = renderQueue.indexOf(item);
+      if (idx !== -1) {
+        renderQueue.splice(idx, 1);
+      }
+      reject(
+        ApiError.serviceUnavailable(
+          'PDF generation request timed out while waiting for an available rendering slot.'
+        )
+      );
+    }, timeoutMs);
+
+    item = {
+      resolve: (release) => {
+        clearTimeout(timer);
+        resolve(release);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+      timer,
+      isCancelled: false,
+    };
+
+    renderQueue.push(item);
+  });
+}
+
+export function releasePdfRenderSlot() {
+  activeRenders = Math.max(0, activeRenders - 1);
+
+  while (renderQueue.length > 0) {
+    const next = renderQueue.shift();
+    if (next && !next.isCancelled) {
+      activeRenders++;
+      let released = false;
+      const releaseCb = () => {
+        if (!released) {
+          released = true;
+          releasePdfRenderSlot();
+        }
+      };
+      next.resolve(releaseCb);
+      return;
+    }
+  }
+}
+
+export function getActivePdfRendersCount(): number {
+  return activeRenders;
+}
+
+export function getRenderQueueLength(): number {
+  return renderQueue.length;
+}
+
+export function resetRenderQueueForTesting(): void {
+  activeRenders = 0;
+  while (renderQueue.length > 0) {
+    const item = renderQueue.shift();
+    if (item) {
+      clearTimeout(item.timer);
+      item.isCancelled = true;
+    }
+  }
+}
+
 export class InvoicePdfService {
+  /**
+   * Builds the invoice PDF rendering data payload.
+   * Prioritizes the immutable point-in-time Booking snapshots (Phase 2.3/2.4)
+   * with field-by-field fallback to the associated Master Company profile.
+   */
   static buildInvoicePdfData(invoice: any, booking: any): InvoicePdfData {
     const totalGrand = Number(invoice.grandTotal || 0);
     const taxAmt = Number(invoice.taxAmount || 0);
@@ -156,18 +269,37 @@ export class InvoicePdfService {
       amount: Number(bs.price || bs.stall?.price || 0),
     }));
 
+    // Precedence: Immutable Booking Snapshots -> Associated Company profile -> Invoice Company fallback
+    const comp = booking?.company || invoice?.company || {};
+
+    const billingName = (booking?.billingName && booking.billingName.trim()) || comp.name || 'Exhibitor Company';
+    const billingGst = (booking?.billingGst && booking.billingGst.trim()) || comp.gstNumber || undefined;
+    const billingPan = (booking?.billingPan && booking.billingPan.trim()) || comp.panNumber || undefined;
+    const billingAddress = (booking?.billingAddress && booking.billingAddress.trim()) || comp.address || '';
+    const billingCity = (booking?.billingCity && booking.billingCity.trim()) || comp.city || '';
+    const billingState = (booking?.billingState && booking.billingState.trim()) || comp.state || '';
+    const billingPinCode = (booking?.billingPinCode && booking.billingPinCode.trim()) || comp.pinCode || '';
+    const billingCountry = (booking?.billingCountry && booking.billingCountry.trim()) || comp.country || 'India';
+
+    const contactPerson = (booking?.contactPerson && booking.contactPerson.trim()) || comp.contactPerson || '';
+    const contactEmail = (booking?.contactEmail && booking.contactEmail.trim()) || comp.email || '';
+    const contactPhone = (booking?.contactPhone && booking.contactPhone.trim()) || comp.mobile || '';
+
     return {
       invoiceNumber: invoice.invoiceNumber || '160',
       invoiceDate: invoice.createdAt ? new Date(invoice.createdAt) : new Date(),
       company: {
-        name: booking?.company?.name || 'Exhibitor Company',
-        address: booking?.company?.address || '',
-        city: booking?.company?.city || 'COIMBATORE',
-        state: booking?.company?.state || 'Tamil Nadu',
-        gstin: booking?.company?.gstNumber || undefined,
-        contactPerson: booking?.company?.contactPerson || '',
-        email: booking?.company?.email || '',
-        mobile: booking?.company?.mobile || '',
+        name: billingName,
+        address: billingAddress,
+        city: billingCity,
+        state: billingState,
+        pinCode: billingPinCode,
+        country: billingCountry,
+        gstin: billingGst,
+        pan: billingPan,
+        contactPerson,
+        email: contactEmail,
+        mobile: contactPhone,
       },
       exhibition: {
         title: booking?.exhibition?.title || 'MEDICCON EXPO',
@@ -193,30 +325,36 @@ export class InvoicePdfService {
       note: 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media',
     };
   }
+
   static async generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
-    const html = this.buildInvoiceHtml(data);
-    const browser = await getSharedBrowser();
-    const page = await browser.newPage();
-
+    const releaseSlot = await acquirePdfRenderSlot();
     try {
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-      });
+      const html = this.buildInvoiceHtml(data);
+      const browser = await getSharedBrowser();
+      const page = await browser.newPage();
 
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '8mm',
-          right: '8mm',
-          bottom: '8mm',
-          left: '8mm',
-        },
-      });
+      try {
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+        });
 
-      return Buffer.from(pdf);
+        const pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '8mm',
+            right: '8mm',
+            bottom: '8mm',
+            left: '8mm',
+          },
+        });
+
+        return Buffer.from(pdf);
+      } finally {
+        await page.close().catch(() => {});
+      }
     } finally {
-      await page.close().catch(() => {});
+      releaseSlot();
     }
   }
 
@@ -415,11 +553,14 @@ export class InvoicePdfService {
     <tr>
       <td style="padding: 6px; line-height: 1.35;">
         <div style="font-size: 10px;">Buyer (Bill To)</div>
-        <div class="bold" style="font-size: 13px; margin-top: 2px;">${data.company.name.toUpperCase()}</div>
-        <div>${data.company.address ? data.company.address.toUpperCase() : 'NO:115/5, SIVANANDHAPURAM'}</div>
-        <div>${data.company.city ? data.company.city.toUpperCase() : 'COIMBATORE'}</div>
-        <div>GSTIN/UIN : ${data.company.gstin || '33GWSPS1468G1ZX'}</div>
-        <div>State Name  : ${data.company.state || 'Tamil Nadu'}</div>
+        <div class="bold" style="font-size: 13px; margin-top: 2px;">${(data.company.name || 'EXHIBITOR COMPANY').toUpperCase()}</div>
+        ${data.company.address ? `<div>${data.company.address.toUpperCase()}</div>` : ''}
+        <div>${[data.company.city, data.company.state, data.company.pinCode].filter(Boolean).join(', ').toUpperCase()}</div>
+        <div>GSTIN/UIN : ${data.company.gstin || 'URP'}</div>
+        ${data.company.pan ? `<div>PAN : ${data.company.pan.toUpperCase()}</div>` : ''}
+        ${data.company.contactPerson ? `<div>Contact Person : ${data.company.contactPerson}</div>` : ''}
+        ${data.company.mobile || data.company.email ? `<div>Contact : ${[data.company.mobile, data.company.email].filter(Boolean).join(' | ')}</div>` : ''}
+        <div>State Name : ${data.company.state || 'Tamil Nadu'}</div>
       </td>
     </tr>
   </table>
