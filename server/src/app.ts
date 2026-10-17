@@ -24,6 +24,11 @@ import { uploadRoutes } from './modules/upload/upload.routes.js';
 export const createApp = (): Express => {
   const app = express();
 
+  // Reverse proxy configuration
+  if (env.TRUST_PROXY !== false) {
+    app.set('trust proxy', env.TRUST_PROXY);
+  }
+
   // Core Middlewares
   app.use(compression());
   app.use(helmet());

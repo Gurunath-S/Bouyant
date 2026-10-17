@@ -20,6 +20,15 @@ export const env = {
   GSTIN_API_KEY: process.env.GSTIN_API_KEY || '',
   RAZORPAY_API_KEY: (process.env.RAZORPAY_API_KEY || process.env.RAZORPAY_KEY_ID || "").trim(),
   RAZORPAY_API_SECRET: (process.env.RAZORPAY_API_SECRET || process.env.RAZORPAY_KEY_SECRET || "").trim(),
+  TRUST_PROXY: process.env.TRUST_PROXY !== undefined
+    ? (process.env.TRUST_PROXY === 'true'
+        ? true
+        : process.env.TRUST_PROXY === 'false'
+        ? false
+        : !isNaN(Number(process.env.TRUST_PROXY))
+        ? Number(process.env.TRUST_PROXY)
+        : process.env.TRUST_PROXY)
+    : (process.env.NODE_ENV === 'production' ? 1 : false),
 
   // WhatsApp Configuration
   WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true',

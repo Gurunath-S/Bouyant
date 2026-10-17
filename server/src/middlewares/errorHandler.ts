@@ -33,6 +33,7 @@ export const errorHandler = (
     success: false,
     message,
     errors,
+    ...(err.code ? { code: err.code } : {}),
     ...(env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
   });
 };
