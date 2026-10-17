@@ -37,6 +37,8 @@ interface Step3TaxAuditBillProps {
   onProceedToPayment: (payload: CreateBookingPayload) => void;
   onBack: () => void;
   onCancel?: () => void;
+  isPaymentModalDismissed?: boolean;
+  onCancelBookingAndRelease?: () => void;
 }
 
 export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
@@ -53,7 +55,10 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   onProceedToPayment,
   onBack,
   onCancel,
+  isPaymentModalDismissed,
+  onCancelBookingAndRelease,
 }) => {
+
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [termsError, setTermsError] = useState(false);
   const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
@@ -588,6 +593,29 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
             {/* Action Buttons & Terms Agreement */}
             <div className="space-y-3 pt-2">
+              {isPaymentModalDismissed && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-left">
+                  <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>Payment window was closed or cancelled</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300/80 leading-relaxed">
+                    Your stall reservation hold is temporarily maintained. You can review your details and retry payment, or cancel this booking to immediately release the stall(s).
+                  </p>
+                  {onCancelBookingAndRelease && (
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={onCancelBookingAndRelease}
+                        className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 underline cursor-pointer"
+                      >
+                        Cancel Booking &amp; Release Stalls
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {termsError && (
                 <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
@@ -641,8 +669,21 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                   and booth allocation rules.
                 </label>
               </div>
+
+              {onCancelBookingAndRelease && (
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={onCancelBookingAndRelease}
+                    className="text-[11px] font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                  >
+                    Cancel Booking &amp; Free Stalls
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { CompaniesController } from './companies.controller.js';
-import { authenticateToken } from '../../middlewares/auth.js';
+import { authenticateToken, optionalAuth } from '../../middlewares/auth.js';
 import { requirePermission } from '../../middlewares/permission.js';
 import { validateRequest } from '../../middlewares/validate.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -9,8 +9,8 @@ import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
 
-// Public Routes
-router.post('/', validateRequest(CreateCompanySchema), asyncHandler(CompaniesController.create));
+// Public Routes (Supports optional authentication token)
+router.post('/', optionalAuth, validateRequest(CreateCompanySchema), asyncHandler(CompaniesController.create));
 router.post('/verify-gst', validateRequest(GstVerificationSchema), asyncHandler(CompaniesController.verifyGst));
 
 // Protected Routes

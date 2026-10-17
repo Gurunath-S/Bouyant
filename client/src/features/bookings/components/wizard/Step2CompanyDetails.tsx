@@ -22,16 +22,31 @@ import {
   RotateCw,
   AtSign,
   Lock,
+  LogIn,
 } from 'lucide-react';
 import { authService } from '../../../../services/auth/authService';
-import { useAuthStore } from '../../../../stores/authStore';
 
 export const companySchema = z.object({
   name: z.string().min(2, 'Company Name is required'),
   username: z
     .string()
     .trim()
-    .regex(/^[a-zA-Z0-9_-]{3,30}$/, 'Username must be 3-30 characters (letters, numbers, underscore, hyphen only)')
+    .refine(
+      (val) => {
+        if (!val) return true;
+        const clean = val.toLowerCase();
+        return (
+          clean.length >= 3 &&
+          clean.length <= 30 &&
+          /^[a-z0-9][a-z0-9._-]*[a-z0-9]$/.test(clean) &&
+          !/\.{2,}/.test(clean)
+        );
+      },
+      {
+        message:
+          'Username must be 3-30 characters (letters, numbers, hyphens, underscores, dots without leading/trailing symbols or consecutive dots)',
+      }
+    )
     .optional()
     .or(z.literal('')),
   contactPerson: z.string().min(2, 'Contact Person Name is required'),
@@ -70,6 +85,7 @@ interface Step2CompanyDetailsProps {
   onBack: () => void;
   onCancel?: () => void;
   onContinueWithSelectedCompany: () => void;
+  onOpenLoginModal?: (email?: string) => void;
 }
 
 export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
@@ -84,6 +100,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   onBack,
   onCancel,
   onContinueWithSelectedCompany,
+  onOpenLoginModal,
 }) => {
   const [isAddingNewCompany, setIsAddingNewCompany] = useState(true);
   const [isVerifyingGst, setIsVerifyingGst] = useState(false);
@@ -153,7 +170,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     if (!watchedCountry?.trim()) list.push('Country');
     if (!watchedState?.trim()) list.push('State');
     if (!watchedCity?.trim()) list.push('City');
-    if (usernameStatus === 'taken' || usernameStatus === 'invalid') list.push('Valid Portal Username');
+    if (usernameStatus === 'invalid') list.push('Valid Portal Username');
     return list;
   }, [
     watchedName,
@@ -227,7 +244,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('tanNumber', '');
       setValue('website', '');
     }
-  }, [user, selectedCompany, setValue]);
+  }, [user, selectedCompany, setValue, isClientUser]);
+
+  // Ensure authenticated client exhibitor uses their verified username and does not trigger taken check
+  React.useEffect(() => {
+    if (isClientUser && user?.username) {
+      setValue('username', user.username, { shouldValidate: true });
+      setUsernameStatus('available');
+      setUsernameMessage('Current account username');
+    }
+  }, [isClientUser, user?.username, setValue]);
 
   // Automatically reset GST verified status if user modifies the GST number input
   React.useEffect(() => {
@@ -256,9 +282,15 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       return;
     }
 
-    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(rawUser)) {
+    const clean = rawUser.toLowerCase();
+    if (
+      clean.length < 3 ||
+      clean.length > 30 ||
+      !/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/.test(clean) ||
+      /\.{2,}/.test(clean)
+    ) {
       setUsernameStatus('invalid');
-      setUsernameMessage('Username must be 3-30 characters (letters, numbers, _ or - only).');
+      setUsernameMessage('Username must be 3-30 characters (letters, numbers, hyphens, underscores, dots without leading/trailing symbols or consecutive dots).');
       return;
     }
 
@@ -273,9 +305,8 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           setUsernameMessage('Username is available!');
         } else {
           if (!isUsernameManuallyEdited) {
-            const clean = rawUser.replace(/_\d+$/, '').slice(0, 12);
-            const fresh = `${clean}_${Math.floor(100 + Math.random() * 900)}`;
-            setValue('username', fresh, { shouldValidate: true, shouldDirty: false });
+            const nextCandidate = rawUser.endsWith('2') ? `${rawUser.slice(0, -1)}3` : `${rawUser}2`;
+            setValue('username', nextCandidate, { shouldValidate: true, shouldDirty: false });
           } else {
             setUsernameStatus('taken');
             setUsernameMessage(res.message || 'Username is already taken. Please choose another.');
@@ -288,25 +319,27 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [watchedUsername, isUsernameLocked, isClientUser, user?.username]);
+  }, [watchedUsername, isUsernameLocked, isClientUser, user?.username, setValue, isUsernameManuallyEdited]);
 
-  // Helper to generate a clean username suggestion
+  // Helper to generate a clean, readable username suggestion derived from name
   const generateSuggestedUsername = (person: string, companyName: string) => {
-    const pPart = (person || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cPart = (companyName || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6);
-    let candidate = '';
-    if (pPart && cPart) {
-      candidate = `${pPart}_${cPart}`;
-    } else if (pPart) {
-      candidate = pPart;
-    } else if (cPart) {
-      candidate = `user_${cPart}`;
-    } else {
-      candidate = 'exhibitor';
+    const raw = (person || companyName || '').trim().toLowerCase();
+    const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const filteredTokens =
+      tokens.length > 2 && ['dr', 'mr', 'ms', 'mrs', 'prof'].includes(tokens[0])
+        ? tokens.slice(1)
+        : tokens;
+
+    if (filteredTokens.length >= 2) {
+      const first = filteredTokens[0].slice(0, 14);
+      const last = filteredTokens[filteredTokens.length - 1].slice(0, 14);
+      return `${first}.${last}`.slice(0, 25);
     }
-    const clean = candidate.slice(0, 14);
-    const suffix = Math.floor(100 + Math.random() * 900);
-    return `${clean}_${suffix}`.slice(0, 20);
+    if (filteredTokens.length === 1) {
+      const single = filteredTokens[0].slice(0, 25);
+      return single.length >= 3 ? single : `${single}.user`;
+    }
+    return 'exhibitor';
   };
 
   // Auto-fill username as user types contact person or company name if not manually edited and not logged in as a Client
@@ -322,12 +355,93 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   }, [watchedContactPerson, watchedName, isUsernameManuallyEdited, isClientUser, setValue]);
 
   const handleRegenerateUsername = () => {
-    const p = watchedContactPerson || watchedName || 'exhibitor';
-    const clean = (p || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'exhibitor';
-    const suffix = Math.floor(100 + Math.random() * 900);
-    const newSuggested = `${clean}_${suffix}`;
+    const raw = (watchedContactPerson || watchedName || 'exhibitor').trim().toLowerCase();
+    const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const filteredTokens =
+      tokens.length > 2 && ['dr', 'mr', 'ms', 'mrs', 'prof'].includes(tokens[0])
+        ? tokens.slice(1)
+        : tokens;
+
+    let baseDot = 'exhibitor';
+    let baseJoined = 'exhibitor';
+
+    if (filteredTokens.length >= 2) {
+      const first = filteredTokens[0].slice(0, 14);
+      const last = filteredTokens[filteredTokens.length - 1].slice(0, 14);
+      baseDot = `${first}.${last}`.slice(0, 25);
+      baseJoined = `${first}${last}`.slice(0, 25);
+    } else if (filteredTokens.length === 1) {
+      const single = filteredTokens[0].slice(0, 25);
+      baseDot = single.length >= 3 ? single : `${single}.user`;
+      baseJoined = baseDot;
+    }
+
+    const current = (watchedUsername || '').toLowerCase().trim();
+    let nextSuggested = baseDot;
+    if (current === baseDot && baseJoined !== baseDot) {
+      nextSuggested = baseJoined;
+    } else if (current === baseJoined || current === baseDot) {
+      nextSuggested = `${baseDot}2`;
+    } else if (current === `${baseDot}2`) {
+      nextSuggested = `${baseDot}3`;
+    } else {
+      nextSuggested = baseDot;
+    }
+
     setIsUsernameManuallyEdited(true);
-    setValue('username', newSuggested, { shouldValidate: true, shouldDirty: true });
+    setValue('username', nextSuggested, { shouldValidate: true, shouldDirty: true });
+  };
+
+  const handleSuggestAlternative = async () => {
+    const raw = (watchedUsername || watchedContactPerson || watchedName || 'exhibitor').trim().toLowerCase();
+    const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const filteredTokens =
+      tokens.length > 2 && ['dr', 'mr', 'ms', 'mrs', 'prof'].includes(tokens[0])
+        ? tokens.slice(1)
+        : tokens;
+
+    let base = 'exhibitor';
+    let altBase = 'exhibitor';
+
+    if (filteredTokens.length >= 2) {
+      const first = filteredTokens[0].slice(0, 14);
+      const last = filteredTokens[filteredTokens.length - 1].slice(0, 14);
+      base = `${first}.${last}`.slice(0, 25);
+      altBase = `${first}${last}`.slice(0, 25);
+    } else if (filteredTokens.length === 1) {
+      const single = filteredTokens[0].slice(0, 25);
+      base = single.length >= 3 ? single : `${single}.user`;
+      altBase = base;
+    }
+
+    setIsUsernameManuallyEdited(true);
+    setUsernameStatus('checking');
+    setUsernameMessage('Finding a clean available alternative...');
+
+    const candidatesToTry = [
+      altBase,
+      `${base}2`,
+      `${base}3`,
+      `${base}4`,
+      `${base}5`,
+    ];
+
+    let found = '';
+    for (const candidate of candidatesToTry) {
+      try {
+        const res = await authService.checkUsernameAvailability(candidate);
+        if (res.available) {
+          found = candidate;
+          break;
+        }
+      } catch (_e) {
+        // Continue searching
+      }
+    }
+    const finalSuggestion = found || `${base}2`;
+    setValue('username', finalSuggestion, { shouldValidate: true, shouldDirty: true });
+    setUsernameStatus('available');
+    setUsernameMessage('Suggested available alternative');
   };
 
 
@@ -660,7 +774,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="e.g. john_acme26"
+                  placeholder="e.g. arun.kumar"
                   maxLength={30}
                   readOnly={isUsernameLocked}
                   {...register('username', {
@@ -694,7 +808,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                       ✓ Available
                     </span>
                   ) : usernameStatus === 'taken' ? (
-                    <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 px-1 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                    <span className="text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
                       Taken
                     </span>
                   ) : null}
@@ -703,8 +817,34 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
               {!isUsernameLocked && errors.username ? (
                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{errors.username.message}</p>
-              ) : !isUsernameLocked && usernameMessage && (usernameStatus === 'taken' || usernameStatus === 'invalid') ? (
+              ) : !isUsernameLocked && usernameStatus === 'invalid' && usernameMessage ? (
                 <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">{usernameMessage}</p>
+              ) : !isUsernameLocked && usernameStatus === 'taken' ? (
+                <div className="mt-1.5 p-2 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg text-xs space-y-1.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-800 dark:text-amber-300 font-medium text-[11px]">
+                      This username belongs to an existing account.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    {onOpenLoginModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenLoginModal(watchedEmail || '')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-[#09539b] hover:bg-[#012970] rounded-md transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <LogIn className="w-3 h-3" /> Sign In to This Account
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSuggestAlternative}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <RotateCw className="w-3 h-3 text-[#09539b] dark:text-blue-400" /> Suggest Alternative
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
             <Input label="Official Corporate Website (Optional)" placeholder="https://example.com" error={errors.website?.message} {...register('website')} />

@@ -21,12 +21,25 @@ export class CompaniesController {
   };
 
   static create = async (req: AuthenticatedRequest, res: Response) => {
-    const company = await CompaniesService.createCompany(req.body, req.user?.spcode || undefined);
+    const company = await CompaniesService.createCompany(req.body, {
+      actingUser: req.user,
+      userSpcode: req.user?.spcode || undefined,
+    });
+
+    const isDeliveryFailed = company.emailDelivery?.status === 'FAILED';
+    const isDeliverySkipped = company.emailDelivery?.status === 'SKIPPED';
+
+    let message = 'Company profile created successfully.';
+    if (isDeliveryFailed) {
+      message = 'Company profile created, but credential delivery email failed. Please use password recovery.';
+    } else if (isDeliverySkipped && !company.isExistingUser) {
+      message = 'Company profile created. Credential email delivery was skipped.';
+    }
 
     return sendResponse({
       res,
       statusCode: 201,
-      message: 'Company profile created successfully.',
+      message,
       data: company,
     });
   };

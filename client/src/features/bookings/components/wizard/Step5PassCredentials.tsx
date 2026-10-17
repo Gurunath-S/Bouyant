@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking, Company, Exhibition, Stall, User } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
-import { getBookingsUrl, getEventsConsoleUrl, getDashboardUrl } from '../../../../utils/navigation';
+import { getBookingsUrl, getEventsConsoleUrl } from '../../../../utils/navigation';
 import {
   CheckCircle2,
   XCircle,
@@ -104,10 +104,10 @@ export const Step5PassCredentials: React.FC<Step5PassCredentialsProps> = ({
       <div className="p-5 bg-indigo-50/80 dark:bg-indigo-950/40 border-2 border-indigo-200 dark:border-indigo-800/80 rounded-2xl text-left space-y-3">
         <div className="flex items-center gap-2">
           <Mail className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
-          <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200">Exhibitor Portal Login Credentials</h4>
+          <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200">Exhibitor Portal Access & Booking Confirmation</h4>
         </div>
         <p className="text-xs text-indigo-900 dark:text-indigo-300 leading-relaxed">
-          Your account credentials & booking confirmation details have been sent to your registered email: <b className="text-indigo-950 dark:text-indigo-100 font-semibold">{userEmail}</b>. You can use those credentials to log into your Exhibitor Portal anytime.
+          Booking confirmation details and account access instructions have been dispatched to your registered email: <b className="text-indigo-950 dark:text-indigo-100 font-semibold">{userEmail}</b>. You can log into your Exhibitor Portal anytime, or use password recovery if you need to establish a new password.
         </p>
       </div>
 

@@ -19,6 +19,7 @@ import { Step2CompanyDetails, CompanyFormData } from '../components/wizard/Step2
 import { Step3TaxAuditBill } from '../components/wizard/Step3TaxAuditBill';
 import { Step5PassCredentials } from '../components/wizard/Step5PassCredentials';
 import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal';
+import { AccountExistsLoginModal } from '../components/wizard/AccountExistsLoginModal';
 import { showAlert } from '../../../stores/dialogStore';
 import { normalizeCountryName } from '../../../data/indianStatesCities';
 
@@ -75,6 +76,7 @@ export const BookingWizardPage: React.FC = () => {
   const [paymentStatusState, setPaymentStatusState] = useState<'IDLE' | 'PROCESSING' | 'SUCCESS' | 'FAILED'>('IDLE');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
   const [generatedOTP, setGeneratedOTP] = useState<string>('');
+  const [isPaymentModalDismissed, setIsPaymentModalDismissed] = useState<boolean>(false);
 
   const [loading, setLoading] = useState(true);
   const [stallHoldError, setStallHoldError] = useState('');
@@ -85,6 +87,17 @@ export const BookingWizardPage: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(900); // 15 minutes = 900s
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
+
+  // Inline Login Modal state when company registration returns HTTP 409 ACCOUNT_EXISTS
+  const [accountExistsModal, setAccountExistsModal] = useState<{
+    isOpen: boolean;
+    email: string;
+    pendingFormData: CompanyFormData | null;
+  }>({
+    isOpen: false,
+    email: '',
+    pendingFormData: null,
+  });
 
   // Confirmation Warning Modal for leaving or changing stalls
   const [confirmLeaveModal, setConfirmLeaveModal] = useState<{
@@ -274,12 +287,22 @@ export const BookingWizardPage: React.FC = () => {
   const handleRestartBookingFromExpired = async () => {
     setIsExtensionModalOpen(false);
     try {
-      if (user) {
-        await stallService.cancelUserHolds();
+      const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+      if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+        await bookingService.cancelBooking(createdBooking.id, {
+          token: tokenToUse,
+          reason: 'Hold timer expired',
+        });
       }
+      await stallService.cancelAllHolds({
+        token: tokenToUse,
+        stallIds: selectedStallIds,
+      });
     } catch (e) {
       console.warn('Failed to cancel user holds on restart', e);
     }
+    setCreatedBooking(null);
+    setIsPaymentModalDismissed(false);
     clearStallSelection();
     setCurrentStep(1);
     setRemainingSeconds(900);
@@ -357,13 +380,35 @@ export const BookingWizardPage: React.FC = () => {
   const handleExecuteLeaveAction = async () => {
     try {
       setIsReleasingHolds(true);
-      if (user) {
-        await stallService.cancelAllHolds();
+      const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+
+      // 1. Explicitly cancel the created booking in database if it exists
+      if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+        try {
+          await bookingService.cancelBooking(createdBooking.id, {
+            token: tokenToUse,
+            reason: 'User left/cancelled booking wizard',
+          });
+        } catch (bkgErr) {
+          console.warn('Failed to cancel active booking on leave:', bkgErr);
+        }
+      }
+
+      // 2. Release temporary stall holds
+      try {
+        await stallService.cancelAllHolds({
+          token: tokenToUse,
+          stallIds: selectedStallIds,
+        });
+      } catch (holdErr) {
+        console.warn('Failed to release holds on leave/back:', holdErr);
       }
     } catch (e) {
       console.warn('Failed to release holds on leave/back:', e);
     } finally {
       setIsReleasingHolds(false);
+      setCreatedBooking(null);
+      setIsPaymentModalDismissed(false);
       clearStallSelection();
       setSelectedCompany(null);
       setAssignedRegNo('');
@@ -383,6 +428,41 @@ export const BookingWizardPage: React.FC = () => {
         await loadInitialData();
         setCurrentStep(1);
       }
+    }
+  };
+
+  // Voluntary cancellation of the current pending booking and release of stalls
+  const handleCancelCurrentBooking = async () => {
+    try {
+      setIsReleasingHolds(true);
+      const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+      if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+        await bookingService.cancelBooking(createdBooking.id, {
+          token: tokenToUse,
+          reason: 'User cancelled booking voluntarily after closing payment window',
+        });
+      }
+      await stallService.cancelAllHolds({
+        token: tokenToUse,
+        stallIds: selectedStallIds,
+      });
+      setCreatedBooking(null);
+      setIsPaymentModalDismissed(false);
+      clearStallSelection();
+      setSelectedCompany(null);
+      setCurrentStep(1);
+      await loadInitialData();
+      await showAlert({
+        title: 'Booking Cancelled',
+        message: 'Your stall booking was cancelled and the selected stalls have been released back to available.',
+        type: 'info',
+      });
+    } catch (err: any) {
+      console.warn('Error cancelling booking:', err);
+      setCurrentStep(1);
+      await loadInitialData();
+    } finally {
+      setIsReleasingHolds(false);
     }
   };
 
@@ -438,6 +518,33 @@ export const BookingWizardPage: React.FC = () => {
       setCurrentStep(3);
     } catch (err: any) {
       console.error('Backend company creation error:', err);
+      const statusCode = err.statusCode || err.response?.status || err.originalError?.response?.status;
+      const errorCode =
+        err.code ||
+        err.errors?.[0]?.code ||
+        err.response?.data?.code ||
+        err.response?.data?.errors?.[0]?.code ||
+        err.originalError?.response?.data?.code ||
+        err.originalError?.response?.data?.errors?.[0]?.code;
+
+      const isAccountExists =
+        statusCode === 409 &&
+        (errorCode === 'ACCOUNT_EXISTS' || (err.message && err.message.includes('ACCOUNT_EXISTS')));
+
+      if (isAccountExists) {
+        const conflictEmail =
+          err.errors?.[0]?.email ||
+          err.response?.data?.errors?.[0]?.email ||
+          data.email;
+
+        setAccountExistsModal({
+          isOpen: true,
+          email: conflictEmail || data.email,
+          pendingFormData: data,
+        });
+        return;
+      }
+
       const errMsg = err.response?.data?.message || err.message || 'Failed to register company details. Please try again.';
       await showAlert({
         title: 'Registration Error',
@@ -449,14 +556,67 @@ export const BookingWizardPage: React.FC = () => {
     }
   };
 
+  const handleAccountExistsLoginSuccess = async (
+    loggedInUser: User,
+    tokens: { accessToken: string; refreshToken?: string }
+  ) => {
+    // 1. Authenticate through the existing auth store
+    useAuthStore.getState().setTokens(tokens.accessToken, tokens.refreshToken);
+    useAuthStore.getState().setUser(loggedInUser);
+
+    // 2. Fetch existing user companies if available
+    try {
+      const userCompanies = await companyService.getMyCompanies();
+      if (userCompanies && userCompanies.length > 0) {
+        setCompanies((prev) => {
+          const combined = [...prev];
+          for (const uc of userCompanies) {
+            if (!combined.some((c) => c.id === uc.id)) {
+              combined.push(uc);
+            }
+          }
+          return combined;
+        });
+      }
+    } catch (compErr) {
+      console.warn('Could not fetch existing companies after inline login:', compErr);
+    }
+
+    // 3. Resume the registration step using the newly authenticated session
+    const dataToResume = accountExistsModal.pendingFormData;
+    setAccountExistsModal({
+      isOpen: false,
+      email: '',
+      pendingFormData: null,
+    });
+
+    if (dataToResume) {
+      await onSubmitCompanyForm(dataToResume);
+    }
+  };
+
   // Step 3 -> Step 4
   const handleProceedToPayment = async (payload: CreateBookingPayload) => {
     if (selectedStallIds.length === 0 || !selectedCompany) return;
 
     try {
       setLoading(true);
+      setIsPaymentModalDismissed(false);
 
       const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+
+      // Cancel any previous unfulfilled booking before creating an updated one
+      if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+        try {
+          await bookingService.cancelBooking(createdBooking.id, {
+            token: tokenToUse,
+            reason: 'Replaced by updated payment order',
+          });
+        } catch (prevErr) {
+          console.warn('Cancelled previous pending booking before retry', prevErr);
+        }
+      }
+
       const response = await bookingService.createBooking(
         payload,
         tokenToUse ? { token: tokenToUse } : undefined
@@ -559,14 +719,7 @@ export const BookingWizardPage: React.FC = () => {
             await new Promise((res) => setTimeout(res, 1000));
           }
 
-          // Only wipe auth if we created a temporary exhibitor session (pendingUserAuth).
-          // If a privileged user (STAFF/ADMIN) was already logged in, keep their session intact
-          // so they can return to their dashboard after booking.
-          const currentRole = useAuthStore.getState().user?.role;
-          const isPrivileged = currentRole === 'STAFF' || currentRole === 'ADMIN' || currentRole === 'SUPERADMIN';
-          if (!isPrivileged) {
-            useAuthStore.getState().logout();
-          }
+          // Preserve authenticated user session (CLIENT, STAFF, ADMIN, SUPERADMIN) after successful payment
           navigate(`/booking/success?bookingId=${booking.id}`);
         } catch (err: any) {
           setPaymentStatusState('FAILED');
@@ -584,6 +737,7 @@ export const BookingWizardPage: React.FC = () => {
       modal: {
         ondismiss: function () {
           console.log('Razorpay payment modal closed by user');
+          setIsPaymentModalDismissed(true);
         },
       },
     };
@@ -782,6 +936,13 @@ export const BookingWizardPage: React.FC = () => {
           onBack={handleInitiateBackToStep1}
           onCancel={handleInitiateLeave}
           onContinueWithSelectedCompany={() => setCurrentStep(3)}
+          onOpenLoginModal={(email) =>
+            setAccountExistsModal({
+              isOpen: true,
+              email: email || '',
+              pendingFormData: null,
+            })
+          }
         />
       )}
 
@@ -800,9 +961,20 @@ export const BookingWizardPage: React.FC = () => {
           setIsTermsAccepted={setIsTermsAccepted}
           onProceedToPayment={handleProceedToPayment}
           onBack={() => {
+            if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
+              const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+              bookingService.cancelBooking(createdBooking.id, {
+                token: tokenToUse,
+                reason: 'User went back to edit company/billing details',
+              }).catch((e) => console.warn('Cancel on back warning:', e));
+              setCreatedBooking(null);
+            }
+            setIsPaymentModalDismissed(false);
             setCurrentStep(2);
           }}
           onCancel={handleInitiateLeave}
+          isPaymentModalDismissed={isPaymentModalDismissed}
+          onCancelBookingAndRelease={handleCancelCurrentBooking}
         />
       )}
 
@@ -825,6 +997,21 @@ export const BookingWizardPage: React.FC = () => {
       <TimerExtensionModal
         isOpen={isExtensionModalOpen}
         onRestartBooking={handleRestartBookingFromExpired}
+      />
+
+      {/* Account Exists Inline Login Modal */}
+      <AccountExistsLoginModal
+        isOpen={accountExistsModal.isOpen}
+        initialEmail={accountExistsModal.email}
+        isHoldExpired={remainingSeconds <= 0}
+        onClose={() =>
+          setAccountExistsModal({
+            isOpen: false,
+            email: '',
+            pendingFormData: null,
+          })
+        }
+        onLoginSuccess={handleAccountExistsLoginSuccess}
       />
 
       {/* Confirmation Warning Modal for Leaving / Releasing Stalls */}

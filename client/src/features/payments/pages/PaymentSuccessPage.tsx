@@ -37,13 +37,7 @@ export const PaymentSuccessPage: React.FC = () => {
 
   useEffect(() => {
     useFloorPlanStore.getState().clearStallSelection();
-    // Only wipe auth for temporary guest/exhibitor sessions.
-    // Staff / Admin must remain logged in to return to their dashboard.
-    const role = useAuthStore.getState().user?.role;
-    const isPrivileged = role === 'STAFF' || role === 'ADMIN' || role === 'SUPERADMIN';
-    if (!isPrivileged) {
-      useAuthStore.getState().logout();
-    }
+    // Preserve authenticated session (CLIENT, STAFF, ADMIN, SUPERADMIN)
     if (bookingId) {
       bookingService
         .getPublicBookingSummary(bookingId)
@@ -417,7 +411,7 @@ export const PaymentSuccessPage: React.FC = () => {
             <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
               <li className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                <span>Check email inbox for login credentials.</span>
+                <span>Check email for booking confirmation and portal login details.</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />

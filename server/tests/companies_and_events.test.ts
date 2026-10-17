@@ -68,7 +68,7 @@ async function runSuite() {
     // 1. Authenticate as Admin
     const adminLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'admin@buoyantmedia.com', password: 'AdminPassword123!' },
+      body: { email: 'admin@buoyantmedia.com', password: 'Password123!' },
     });
     assert(adminLogin.status === 200, 'Admin can login successfully', JSON.stringify(adminLogin.data));
     const adminToken = adminLogin.data?.data?.tokens?.accessToken;
@@ -86,9 +86,9 @@ async function runSuite() {
         spcode: 'B001',
         venue: 'Pragati Maidan Hall 5',
         city: 'New Delhi',
-        startDate: '2026-09-22T00:00:00.000Z',
-        endDate: '2026-09-26T00:00:00.000Z',
-        bookingEndDate: '2026-09-25T00:00:00.000Z',
+        startDate: new Date(Date.now() + 10 * 86400000).toISOString(),
+        endDate: new Date(Date.now() + 15 * 86400000).toISOString(),
+        bookingEndDate: new Date(Date.now() + 14 * 86400000).toISOString(),
         totalStalls: 60,
         description: 'Premier automotive exhibition registered directly by platform Admin.',
         status: 'PUBLISHED',
