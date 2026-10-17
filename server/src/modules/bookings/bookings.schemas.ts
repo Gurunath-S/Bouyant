@@ -38,6 +38,21 @@ export const CreateBookingSchema = z.object({
 
   // Internal booking notes (admin use)
   notes: z.string().optional(),
+
+  // Optional booking representative contact snapshot (Phase 2.3)
+  contactPerson: z.string().trim().optional(),
+  contactEmail: z.string().email().trim().toLowerCase().optional(),
+  contactPhone: z.string().trim().optional(),
+
+  // Optional billing/legal snapshot override (Phase 2.3)
+  billingName: z.string().trim().optional(),
+  billingGst: z.string().trim().toUpperCase().optional(),
+  billingPan: z.string().trim().toUpperCase().optional(),
+  billingAddress: z.string().trim().optional(),
+  billingCity: z.string().trim().optional(),
+  billingState: z.string().trim().optional(),
+  billingPinCode: z.string().trim().optional(),
+  billingCountry: z.string().trim().optional(),
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;

@@ -84,4 +84,21 @@ export const bookingService = {
     const res: any = await apiClient.get('/bookings', { params });
     return res;
   },
+
+  cancelBooking: async (
+    bookingId: string,
+    options?: { token?: string; reason?: string }
+  ): Promise<any> => {
+    const config: any = {};
+    if (options?.token) {
+      config.headers = { Authorization: `Bearer ${options.token}` };
+    }
+    const res: any = await apiClient.post(
+      `/bookings/${bookingId}/cancel`,
+      { reason: options?.reason },
+      config
+    );
+    return res.data?.data || res.data || res;
+  },
 };
+

@@ -93,4 +93,18 @@ export class BookingsController {
       meta: result.meta,
     });
   };
+
+  static cancel = async (req: AuthenticatedRequest, res: Response) => {
+    const bookingId = req.params.id;
+    const user = req.user;
+    const reason = req.body?.reason;
+    const result = await BookingsService.cancelBooking(bookingId, user, reason);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message || 'Booking cancelled successfully.',
+      data: result.booking,
+    });
+  };
 }
+

@@ -22,15 +22,17 @@ export class StallsService {
       if (expiredStalls.length === 0) return 0;
       const expiredStallIds = expiredStalls.map((s) => s.id);
 
-      // 2. Mark associated unconfirmed bookings as EXPIRED
+      // 2. Mark associated unconfirmed bookings as CANCELLED
       await tx.booking.updateMany({
         where: {
           status: { in: ['INITIATED', 'PENDING_PAYMENT', 'HELD'] },
-          stalls: { some: { stallId: { in: expiredStallIds } } },
-          expiresAt: { lt: now },
+          OR: [
+            { stalls: { some: { stallId: { in: expiredStallIds } } } },
+            { expiresAt: { lt: now } },
+          ],
         },
         data: {
-          status: 'EXPIRED',
+          status: 'CANCELLED',
         },
       });
 
@@ -393,11 +395,21 @@ export class StallsService {
   /**
    * CANCEL ALL TEMPORARY HOLDS FOR A USER/SESSION
    */
-  static async cancelUserHolds(userId: string) {
+  static async cancelUserHolds(userId?: string, targetStallIds?: string[]) {
     return await prisma.$transaction(async (tx) => {
+      const orConditions: any[] = [];
+      if (userId) {
+        orConditions.push({ heldByUserId: userId });
+      }
+      if (targetStallIds && targetStallIds.length > 0) {
+        orConditions.push({ id: { in: targetStallIds } });
+      }
+
+      if (orConditions.length === 0) return { count: 0 };
+
       const userStalls = await tx.stall.findMany({
         where: {
-          heldByUserId: userId,
+          OR: orConditions,
           status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'] },
         },
         select: { id: true },

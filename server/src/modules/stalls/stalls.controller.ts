@@ -62,14 +62,15 @@ export class StallsController {
   };
 
   static cancelUserHolds = async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!.userId;
-    await StallsService.cancelUserHolds(userId);
+    const userId = req.user?.userId;
+    const stallIds = Array.isArray(req.body?.stallIds) ? req.body.stallIds : undefined;
+    const result = await StallsService.cancelUserHolds(userId, stallIds);
 
     return sendResponse({
       res,
       statusCode: 200,
       message: 'All temporary stall holds released.',
-      data: null,
+      data: result,
     });
   };
 

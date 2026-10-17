@@ -285,10 +285,68 @@ export interface UpdateUserPayload {
 }
 
 // Reports Types
+export interface ReportFilters {
+  exhibitionId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  paymentStatus?: string;
+}
+
+export interface DetailedReportParams extends ReportFilters {
+  type: 'bookings' | 'payments' | 'invoices';
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface DailyTrendItem {
+  date: string;
+  bookingsCount: number;
+  bookingValue: number;
+  paymentsCollected: number;
+}
+
+export interface PaymentStatusBreakdownItem {
+  count: number;
+  totalAmount: number;
+  paidAmount?: number;
+  balanceAmount?: number;
+}
+
+export interface FinancialSummaryData {
+  paymentStatusBreakdown: {
+    fullyPaid: PaymentStatusBreakdownItem;
+    partiallyPaid: PaymentStatusBreakdownItem;
+    unpaid: PaymentStatusBreakdownItem;
+    refunded: PaymentStatusBreakdownItem;
+  };
+  bookingStatusBreakdown: Record<string, { count: number; totalAmount: number }>;
+  paymentsMetrics: {
+    successfulCount: number;
+    successfulTotal: number;
+    failedCount: number;
+    failedTotal: number;
+    pendingCount: number;
+    pendingTotal: number;
+    paymentMethodsBreakdown: Record<string, { count: number; amount: number }>;
+  };
+  invoiceMetrics: {
+    invoicesCount: number;
+    grandTotal: number;
+    taxAmount: number;
+    baseAmount: number;
+  };
+}
+
 export interface ReportOverviewData {
   roleScope: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | string;
   eventScoped?: boolean;
   totalRevenue?: number;
+  actualPaymentsReceived?: number;
+  totalBookingValue?: number;
+  outstandingBalance?: number;
+  cancelledBookingValue?: number;
   totalBookings?: number;
   confirmedBookings?: number;
   totalExhibitions?: number;
@@ -297,9 +355,19 @@ export interface ReportOverviewData {
   activeStaff?: number;
   totalStalls?: number;
   occupiedStalls?: number;
+  availableStalls?: number;
+  heldStalls?: number;
+  blockedStalls?: number;
   occupancyRate?: number;
   totalExhibitors?: number;
+  participatingCompaniesCount?: number;
   recentBookings?: any[];
+  financialSummary?: FinancialSummaryData;
+  dailyTrends?: DailyTrendItem[];
+  operationalExceptions?: {
+    count: number;
+    bookings: any[];
+  };
   exhibition?: {
     id: string;
     title: string;
@@ -330,7 +398,25 @@ export interface OccupancyReportData {
   totalStalls: number;
   totalAvailable: number;
   totalBooked: number;
+  totalHeld?: number;
   totalBlocked: number;
-  categoryBreakdown: Record<string, { total: number; available: number; booked: number }>;
+  occupancyRate?: number;
+  categoryBreakdown: Record<
+    string,
+    { total: number; available: number; booked: number; held?: number; blocked?: number; revenue?: number }
+  >;
 }
+
+export interface DetailedRecordsResponse {
+  type: 'bookings' | 'payments' | 'invoices';
+  items: any[];
+  pagination: {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  summary: Record<string, number>;
+}
+
 

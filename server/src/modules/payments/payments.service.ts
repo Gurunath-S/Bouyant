@@ -731,12 +731,19 @@ export class PaymentsService {
           category: s.stall?.category || 'Standard',
         }));
 
-        const firstUser = booking.company.users?.[0];
+        const bookingOwnerUser = booking.company.users?.find((u) => u.id === (booking as any).userId) || booking.company.users?.[0];
+        const comp = booking.company as any;
+        const billingName = (booking.billingName && booking.billingName.trim()) || comp?.name || 'Exhibitor';
+        const contactPerson = (booking.contactPerson && booking.contactPerson.trim()) || comp?.contactPerson || comp?.name || 'Exhibitor';
+        const contactEmail = (booking.contactEmail && booking.contactEmail.trim()) || bookingOwnerUser?.email || comp?.email || '';
+        const contactPhone = (booking.contactPhone && booking.contactPhone.trim()) || comp?.mobile || comp?.phone || '';
+        const billingGst = (booking.billingGst && booking.billingGst.trim()) || comp?.gstNumber || undefined;
+        const displayUsername = bookingOwnerUser?.username || null;
 
         await EmailService.sendBookingConfirmationEmail({
-          toEmail: booking.company.email,
-          toName: booking.company.contactPerson || booking.company.name,
-          companyName: booking.company.name,
+          toEmail: contactEmail || comp?.email,
+          toName: contactPerson,
+          companyName: billingName,
           bookingReference: booking.bookingReference,
           exhibitionTitle: booking.exhibition.title,
           stalls,
@@ -746,7 +753,7 @@ export class PaymentsService {
           remainingBalance: finalBalance.toNumber(),
           paymentDate: payment.paidAt || new Date(),
           paymentReference: payment.paymentReference,
-          userName: firstUser?.username || booking.company.email,
+          userName: displayUsername,
           pdfBuffer,
         }).catch((err: any) => console.error('⚠️ [EMAIL SEND FAILED] Confirmation email error:', err?.message || err));
 
@@ -780,14 +787,13 @@ export class PaymentsService {
           const uniqueAdminEmails = Array.from(new Set(adminEmails));
 
           if (uniqueAdminEmails.length > 0) {
-            const comp = booking.company as any;
             await EmailService.sendPaymentAdminEmail({
               notificationEmails: uniqueAdminEmails,
-              companyName: comp?.name || 'Exhibitor',
-              contactPerson: comp?.contactPerson || comp?.name,
-              email: comp?.email,
-              phone: comp?.phone || comp?.contactPhone || comp?.mobile || comp?.telephone,
-              gstNumber: comp?.gstNumber || undefined,
+              companyName: billingName,
+              contactPerson: contactPerson,
+              email: contactEmail || comp?.email,
+              phone: contactPhone,
+              gstNumber: billingGst,
               bookingReference: booking.bookingReference,
               exhibitionTitle: booking.exhibition?.title || 'Exhibition Event',
               stalls: (booking.stalls || []).map((s: any) => ({

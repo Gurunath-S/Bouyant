@@ -17,15 +17,30 @@ export const stallService = {
     return res.data;
   },
 
-  cancelAllHolds: async () => {
-    const res: any = await apiClient.delete('/stalls/hold/cancel-all');
+  cancelAllHolds: async (options?: { token?: string; stallIds?: string[] }) => {
+    const config: any = {};
+    if (options?.token) {
+      config.headers = { Authorization: `Bearer ${options.token}` };
+    }
+    if (options?.stallIds) {
+      config.data = { stallIds: options.stallIds };
+    }
+    const res: any = await apiClient.delete('/stalls/hold/cancel-all', config);
     return res.data;
   },
 
-  cancelUserHolds: async () => {
-    const res: any = await apiClient.delete('/stalls/hold/cancel-all');
+  cancelUserHolds: async (options?: { token?: string; stallIds?: string[] }) => {
+    const config: any = {};
+    if (options?.token) {
+      config.headers = { Authorization: `Bearer ${options.token}` };
+    }
+    if (options?.stallIds) {
+      config.data = { stallIds: options.stallIds };
+    }
+    const res: any = await apiClient.delete('/stalls/hold/cancel-all', config);
     return res.data;
   },
+
 
   releaseHold: async (stallId: string) => {
     const res: any = await apiClient.delete(`/stalls/hold/${stallId}`);

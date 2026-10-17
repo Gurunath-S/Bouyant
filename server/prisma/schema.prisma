@@ -88,6 +88,7 @@ model User {
   company            Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   notifications      Notification[]
   createdExhibitions Exhibition[]   @relation("CreatedExhibitions")
+  bookings           Booking[]
 
   @@index([email])
   @@index([companyId])
@@ -98,16 +99,16 @@ model Company {
   companyCode    String      @unique
   name           String      
   contactPerson  String
-  mobile         String      @unique
-  email          String      @unique
+  mobile         String
+  email          String
   address        String
   city           String
   state          String
   pinCode        String     
   country        String      @default("Not Provided")
   gstNumber      String?     @unique
-  panNumber      String?     @unique
-  tanNumber      String?     @unique
+  panNumber      String?
+  tanNumber      String?
   industry       String      
   website        String?     
   remarks        String?     @default("Not Provided")
@@ -119,6 +120,10 @@ model Company {
   users          User[]
   bookings       Booking[]
   invoices       Invoice[]
+
+  @@index([mobile])
+  @@index([email])
+  @@index([panNumber])
 }
 
 model Exhibition {
@@ -218,6 +223,24 @@ model Booking {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  // Representative/Contact Details Snapshot (Phase 2.3)
+  contactPerson    String?
+  contactEmail     String?
+  contactPhone     String?
+
+  // Billing/Legal Details Snapshot (Phase 2.3)
+  billingName      String?
+  billingGst       String?
+  billingPan       String?
+  billingAddress   String?
+  billingCity      String?
+  billingState     String?
+  billingPinCode   String?
+  billingCountry   String?       @default("India")
+
+  // Authenticated Booking User Owner
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   exhibition       Exhibition    @relation(fields: [exhibitionId], references: [id], onDelete: Restrict)
@@ -227,6 +250,7 @@ model Booking {
 
   @@index([bookingReference])
   @@index([companyId])
+  @@index([userId])
   @@index([status])
   @@index([paymentStatus])
   @@index([exhibitionId, status])

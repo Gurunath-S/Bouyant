@@ -858,6 +858,28 @@ static async createBooking(
   );
 
   // ==================================================
+  // 6b. Resolve Booking Snapshots (Phase 2.3)
+  //
+  // Captures the point-in-time representative contact details
+  // and legal billing entity details without modifying Company.
+  // User ID is strictly derived from the authenticated identity.
+  // ==================================================
+  const snapshotContactPerson = input.contactPerson?.trim() || company.contactPerson;
+  const snapshotContactEmail = input.contactEmail?.trim().toLowerCase() || user?.email?.toLowerCase() || company.email;
+  const snapshotContactPhone = input.contactPhone?.trim() || company.mobile;
+
+  const snapshotBillingName = input.billingName?.trim() || company.name;
+  const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
+  const snapshotBillingPan = input.billingPan?.trim().toUpperCase() || company.panNumber || null;
+  const snapshotBillingAddress = input.billingAddress?.trim() || company.address;
+  const snapshotBillingCity = input.billingCity?.trim() || company.city;
+  const snapshotBillingState = input.billingState?.trim() || company.state;
+  const snapshotBillingPinCode = input.billingPinCode?.trim() || company.pinCode;
+  const snapshotBillingCountry = input.billingCountry?.trim() || company.country || 'India';
+
+  const bookingUserId = user?.userId || null;
+
+  // ==================================================
   // 7a. ADMIN DIRECT CONFIRM — bypass Razorpay entirely
   // ==================================================
 
@@ -891,12 +913,24 @@ static async createBooking(
           data: { status: BookingStatus.CANCELLED },
         });
 
-        // 3. Create confirmed booking
+        // 3. Create confirmed booking with point-in-time snapshots
         const booking = await tx.booking.create({
           data: {
             bookingReference: adminBookingRef,
             companyId: input.companyId,
             exhibitionId: exhibition.id,
+            userId: bookingUserId,
+            contactPerson: snapshotContactPerson,
+            contactEmail: snapshotContactEmail,
+            contactPhone: snapshotContactPhone,
+            billingName: snapshotBillingName,
+            billingGst: snapshotBillingGst,
+            billingPan: snapshotBillingPan,
+            billingAddress: snapshotBillingAddress,
+            billingCity: snapshotBillingCity,
+            billingState: snapshotBillingState,
+            billingPinCode: snapshotBillingPinCode,
+            billingCountry: snapshotBillingCountry,
             status: BookingStatus.CONFIRMED,
             paymentStatus: BookingPaymentStatus.PAID_FULL,
             totalAmount: result.basePrice,
@@ -917,6 +951,9 @@ static async createBooking(
             stalls: { include: { stall: true } },
             exhibition: true,
             company: true,
+            user: {
+              select: { id: true, name: true, email: true, role: true },
+            },
           },
         });
 
@@ -1134,49 +1171,39 @@ static async createBooking(
           await tx.booking.create({
             data: {
               bookingReference: bookingRef,
+              companyId: input.companyId,
+              exhibitionId: exhibition.id,
+              userId: bookingUserId,
 
-              companyId:
-                input.companyId,
+              // Representative/Contact Details Snapshot (Phase 2.3)
+              contactPerson: snapshotContactPerson,
+              contactEmail: snapshotContactEmail,
+              contactPhone: snapshotContactPhone,
 
-              exhibitionId:
-                exhibition.id,
+              // Billing/Legal Details Snapshot (Phase 2.3)
+              billingName: snapshotBillingName,
+              billingGst: snapshotBillingGst,
+              billingPan: snapshotBillingPan,
+              billingAddress: snapshotBillingAddress,
+              billingCity: snapshotBillingCity,
+              billingState: snapshotBillingState,
+              billingPinCode: snapshotBillingPinCode,
+              billingCountry: snapshotBillingCountry,
 
-              status:
-                BookingStatus.PENDING_PAYMENT,
-
-              totalAmount:
-                result.basePrice,
-
-              taxAmount:
-                result.bookingTaxAmount,
-
-              grandTotal:
-                result.grandTotal,
-
-              balanceAmount:
-                result.grandTotal,
-
-              discountAmount:
-                result.discountAmount,
-
-              discountType:
-                input.discountType,
-
-              expiresAt:
-                holdUntil,
+              status: BookingStatus.PENDING_PAYMENT,
+              totalAmount: result.basePrice,
+              taxAmount: result.bookingTaxAmount,
+              grandTotal: result.grandTotal,
+              balanceAmount: result.grandTotal,
+              discountAmount: result.discountAmount,
+              discountType: input.discountType,
+              expiresAt: holdUntil,
 
               stalls: {
-                create:
-                  currentStalls.map(
-                    (stall) => ({
-                      stallId: stall.id,
-
-                      price:
-                        new Prisma.Decimal(
-                          stall.price.toString()
-                        ),
-                    })
-                  ),
+                create: currentStalls.map((stall) => ({
+                  stallId: stall.id,
+                  price: new Prisma.Decimal(stall.price.toString()),
+                })),
               },
             },
 
@@ -1186,10 +1213,11 @@ static async createBooking(
                   stall: true,
                 },
               },
-
               exhibition: true,
-
               company: true,
+              user: {
+                select: { id: true, name: true, email: true, role: true },
+              },
             },
           });
 
@@ -1451,7 +1479,6 @@ static async createBooking(
         },
         invoices: {
           select: {
-            id: true,
             invoiceNumber: true,
             status: true,
           },
@@ -1614,4 +1641,165 @@ static async createBooking(
       },
     };
   }
+
+  /**
+   * CANCEL A BOOKING & RELEASE ASSOCIATED STALLS
+   * Called when checkout is abandoned/dropped, user clicks exit/back, or cancels voluntarily.
+   */
+  static async cancelBooking(
+    bookingId: string,
+    user?: AuthenticatedRequest['user'],
+    _reason?: string
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        stalls: { include: { stall: true } },
+        payments: true,
+      },
+    });
+
+    if (!booking) {
+      throw ApiError.notFound('Booking not found.');
+    }
+
+    // If already cancelled, return success idempotently
+    if (booking.status === BookingStatus.CANCELLED) {
+      return {
+        booking,
+        releasedStallCount: 0,
+        message: 'Booking is already cancelled.',
+      };
+    }
+
+    // Only allow cancellation of unconfirmed bookings, OR if user is ADMIN / SUPERADMIN / STAFF
+    const isPrivileged =
+      user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
+
+    if (booking.status === BookingStatus.CONFIRMED && !isPrivileged) {
+      throw ApiError.badRequest(
+        'Confirmed bookings cannot be cancelled via checkout. Please contact the exhibition administrator.'
+      );
+    }
+
+    // If client/exhibitor is logged in, ensure they own the booking
+    if (user && !isPrivileged && user.companyId && booking.companyId !== user.companyId) {
+      throw ApiError.forbidden('You do not have permission to cancel this booking.');
+    }
+
+    const stallIds = booking.stalls.map((s) => s.stallId);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // 1. Mark booking as CANCELLED
+      const updatedBooking = await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+
+      // 2. Release stalls back to AVAILABLE (only if not already booked confirmed)
+      if (stallIds.length > 0) {
+        await tx.stall.updateMany({
+          where: {
+            id: { in: stallIds },
+            status: {
+              in: [
+                StallStatus.PAYMENT_PENDING,
+                StallStatus.TEMPORARILY_HELD,
+                StallStatus.BOOKING_IN_PROGRESS,
+              ],
+            },
+          },
+          data: {
+            status: StallStatus.AVAILABLE,
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+      }
+
+      // 3. Mark any PENDING payment records as FAILED
+      await tx.payment.updateMany({
+        where: {
+          bookingId: booking.id,
+          status: PaymentStatus.PENDING,
+        },
+        data: {
+          status: PaymentStatus.FAILED,
+        },
+      });
+
+      return updatedBooking;
+    });
+
+    return {
+      booking: updated,
+      releasedStallCount: stallIds.length,
+      message: 'Booking cancelled and stalls released successfully.',
+    };
+  }
+
+  /**
+   * Idempotent backfill for historical bookings missing snapshot data.
+   * Uses current master company profile and associated primary user as best-effort fallback.
+   * Only updates bookings where billingName or contactEmail is currently NULL.
+   * Preserves existing booking, invoice, and payment records without data mutation.
+   */
+  static async backfillHistoricalSnapshots(): Promise<{ totalProcessed: number; updated: number }> {
+    const unbackfilled = await prisma.booking.findMany({
+      where: {
+        OR: [
+          { billingName: null },
+          { contactEmail: null },
+        ],
+      },
+      include: {
+        company: {
+          include: {
+            users: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    let updated = 0;
+
+    for (const b of unbackfilled) {
+      if (!b.company) continue;
+
+      const comp = b.company;
+      const primaryUser = comp.users.length === 1
+        ? comp.users[0]
+        : (comp.users.find((u) => u.email.toLowerCase() === comp.email.toLowerCase()) || comp.users[0]);
+
+      await prisma.booking.update({
+        where: { id: b.id },
+        data: {
+          contactPerson: b.contactPerson ?? primaryUser?.name ?? comp.contactPerson,
+          contactEmail: b.contactEmail ?? primaryUser?.email ?? comp.email,
+          contactPhone: b.contactPhone ?? primaryUser?.phone ?? comp.mobile,
+
+          billingName: b.billingName ?? comp.name,
+          billingGst: b.billingGst ?? comp.gstNumber,
+          billingPan: b.billingPan ?? comp.panNumber,
+          billingAddress: b.billingAddress ?? comp.address,
+          billingCity: b.billingCity ?? comp.city,
+          billingState: b.billingState ?? comp.state,
+          billingPinCode: b.billingPinCode ?? comp.pinCode,
+          billingCountry: b.billingCountry ?? comp.country ?? 'India',
+
+          userId: b.userId ?? primaryUser?.id ?? null,
+        },
+      });
+
+      updated++;
+    }
+
+    return { totalProcessed: unbackfilled.length, updated };
+  }
 }
+
