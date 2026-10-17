@@ -125,6 +125,7 @@ export const DEFAULT_ROLE_PAGE_ACCESS: Record<UserRole, string[]> = {
     'companies',
     'bookings',
     'payments',
+    'reports',
   ],
   STAFF: [
     'dashboard',
@@ -132,6 +133,7 @@ export const DEFAULT_ROLE_PAGE_ACCESS: Record<UserRole, string[]> = {
     'companies',
     'bookings',
     'payments',
+    'reports',
   ],
   CLIENT: [
     'dashboard',

@@ -39,4 +39,24 @@ router.get(
   asyncHandler(ReportsController.getStallOccupancy)
 );
 
+router.get(
+  '/details',
+  requirePermission(
+    Permissions.REPORT_VIEW_PLATFORM,
+    Permissions.REPORT_VIEW_EVENT,
+    Permissions.REPORT_VIEW_OPERATIONAL
+  ),
+  asyncHandler(ReportsController.getDetails)
+);
+
+router.get(
+  '/export',
+  requirePermission(
+    Permissions.REPORT_VIEW_PLATFORM,
+    Permissions.REPORT_VIEW_EVENT,
+    Permissions.REPORT_VIEW_OPERATIONAL
+  ),
+  asyncHandler(ReportsController.exportCsv)
+);
+
 export const reportRoutes = router;
