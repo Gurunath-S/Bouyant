@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Save,
@@ -3662,9 +3663,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       />
 
       {/* Background Blueprint Image Modal */}
-      {isBgModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+      {isBgModalOpen && (() => {
+        const bgModal = (
+          <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+            <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={() => setIsBgModalOpen(false)} aria-hidden="true" />
+            <div className="relative z-10 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center">
@@ -3821,7 +3824,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             </div>
           </div>
         </div>
-      )}
+      );
+      return typeof document !== 'undefined' ? createPortal(bgModal, document.body) : bgModal;
+    })()}
     </div>
   );
 };

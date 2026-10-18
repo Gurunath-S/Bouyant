@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, LayoutGrid, Check, ArrowRight, ArrowDown } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
@@ -233,9 +234,12 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
     };
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={onClose} aria-hidden="true" />
+      <div className="relative z-10 bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-teal-700 text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
@@ -607,4 +611,9 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

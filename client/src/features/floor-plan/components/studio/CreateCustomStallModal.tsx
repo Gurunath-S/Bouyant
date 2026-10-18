@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Square, Check, Sliders, ArrowRight } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
@@ -116,9 +117,10 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
 
   const theme = getCategoryTheme(category);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+  const modalContent = (
+    <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={onClose} aria-hidden="true" />
+      <div className="relative z-10 bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/60 via-slate-50 to-white">
           <div className="flex items-center gap-2.5">
@@ -373,4 +375,9 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

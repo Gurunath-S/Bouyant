@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDialogStore, DialogType } from '../../stores/dialogStore';
 
@@ -78,15 +79,15 @@ export const GlobalDialog: React.FC = () => {
 
   const defaultConfirmText = isAlert ? 'Got It' : 'Confirm';
 
-  return (
-    <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+  const dialogNode = (
+    <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="fixed inset-0"
+        className="fixed inset-0 w-screen h-screen"
         onClick={() => closeDialog(false)}
         aria-hidden="true"
       />
 
-      <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 z-10">
+      <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 z-10 my-auto">
         <button
           type="button"
           onClick={() => closeDialog(false)}
@@ -133,4 +134,9 @@ export const GlobalDialog: React.FC = () => {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(dialogNode, document.body)
+    : dialogNode;
 };
+

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Home, AlertCircle, LayoutDashboard, ArrowRight, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -48,16 +49,17 @@ export const ConfirmLeaveToHomeModal: React.FC<ConfirmLeaveToHomeModalProps> = (
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      {/* Backdrop */}
+  const modalNode = (
+    <div className="fixed inset-0 w-screen h-screen z-[120] flex items-center justify-center p-4 overflow-y-auto">
+      {/* Backdrop covering 100% of the screen */}
       <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+        className="fixed inset-0 w-screen h-screen bg-slate-950/70 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150 p-6 space-y-5">
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150 p-6 space-y-5 my-auto">
         {/* Close icon */}
         <button
           onClick={onClose}
@@ -125,4 +127,8 @@ export const ConfirmLeaveToHomeModal: React.FC<ConfirmLeaveToHomeModalProps> = (
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalNode, document.body)
+    : modalNode;
 };

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { RotateCcw, Clock } from 'lucide-react';
 import { Button } from './Button';
 
@@ -17,9 +18,9 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 relative overflow-hidden transform transition-all scale-100">
+  const modalNode = (
+    <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 relative overflow-hidden transform transition-all scale-100 my-auto">
         
         {/* Visual Top Decorative Gradient */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600" />
@@ -110,4 +111,8 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalNode, document.body)
+    : modalNode;
 };

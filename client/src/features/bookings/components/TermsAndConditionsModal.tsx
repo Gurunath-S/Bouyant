@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldAlert, CheckCircle2, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface TermsAndConditionsModalProps {
@@ -22,9 +23,9 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
     setOpenSection(openSection === idx ? null : idx);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans">
+  const modalNode = (
+    <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans my-auto">
         {/* Header */}
         <div className="p-6 bg-[#012970] dark:bg-slate-800 text-white flex justify-between items-center shrink-0 border-b border-blue-900 dark:border-slate-700">
           <div>
@@ -186,4 +187,8 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalNode, document.body)
+    : modalNode;
 };
