@@ -34,6 +34,7 @@ import { StallCategory, StallStatus } from '../../../../types';
 import {
   DraftStallItem,
   HallZone,
+  HallNamePosition,
   FacilityObject,
   AnnotationObject,
   SelectedItemReference,
@@ -58,6 +59,8 @@ interface CanvasPropertyInspectorProps {
   onDistributeStalls: (direction: 'horizontal' | 'vertical') => void;
   canvasWidth: number;
   canvasHeight: number;
+  canReduceCanvas?: boolean;
+  onReduceCanvas?: () => void;
   readOnly?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -82,6 +85,8 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
   onDistributeStalls,
   canvasWidth,
   canvasHeight,
+  canReduceCanvas = false,
+  onReduceCanvas,
   readOnly = false,
   isCollapsed = false,
   onToggleCollapse,
@@ -206,24 +211,16 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </div>
           {/* Quick Duplicate */}
           {!readOnly && (
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Bulk Duplication
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => onDuplicateSelected(1)}
-                  className="py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" /> Duplicate
-                </button>
-                <button
-                  onClick={() => onDuplicateSelected(10)}
-                  className="py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" /> Duplicate ×10
-                </button>
-              </div>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => onDuplicateSelected(1)}
+                className="w-full py-2 px-3 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                title="Duplicate selected items"
+              >
+                <Copy className="w-3.5 h-3.5 text-slate-600" />
+                <span>Duplicate Selected</span>
+              </button>
             </div>
           )}
 
@@ -286,9 +283,10 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 </span>
               </div>
 
-              {/* No-gap / Flush Toggle & Instant Pack Button */}
-              <div className="space-y-1.5 pb-2 border-b border-slate-200/80">
-                <div className="flex items-center justify-between p-2 bg-blue-50/70 border border-blue-200/80 rounded-lg">
+              {/* Simplified Snap & Resize Controls */}
+              <div className="space-y-2.5">
+                {/* Snap Together Row */}
+                <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200/80">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -296,103 +294,49 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                       onChange={(e) => setBulkKeepFlush(e.target.checked)}
                       className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
                     />
-                    <span className="text-[11px] font-bold text-blue-900">
+                    <span className="text-[11px] font-bold text-slate-800">
                       Snap together without gaps
                     </span>
                   </label>
+                  {onPackFlushStalls && (
+                    <button
+                      type="button"
+                      onClick={() => onPackFlushStalls()}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
+                      title="Snap stalls together tightly edge-to-edge"
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Snap Now</span>
+                    </button>
+                  )}
                 </div>
 
-                {onPackFlushStalls && (
-                  <button
-                    type="button"
-                    onClick={() => onPackFlushStalls()}
-                    className="w-full py-1.5 px-2 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Remove all gaps and pack selected stalls tightly edge-to-edge"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Snap Stalls Together (No Gaps)</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Scaling / Reduction Buttons */}
-              <div className="space-y-1.5">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Quick Scale & Reduction
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onBulkResizeStalls({ scaleMultiplier: 0.85, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-2 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Reduce dimensions of all selected stalls by 15%"
-                  >
-                    <Minimize2 className="w-3 h-3 text-rose-600" />
-                    <span>Reduce -15%</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onBulkResizeStalls({ scaleMultiplier: 1.15, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-2 bg-white hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Enlarge dimensions of all selected stalls by 15%"
-                  >
-                    <Maximize2 className="w-3 h-3 text-emerald-600" />
-                    <span>Enlarge +15%</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                {/* Quick Nudges with clean symbols */}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => onBulkResizeStalls({ deltaPx: -10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Shrink width and depth by 0.5m (-10px)"
+                    className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Shrink by 0.5m (−10px)"
                   >
-                    <span>−0.5m (-10px)</span>
+                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>−0.5m</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => onBulkResizeStalls({ deltaPx: 10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Expand width and depth by 0.5m (+10px)"
+                    className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Expand by 0.5m (+10px)"
                   >
-                    <span>+0.5m (+10px)</span>
+                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>+0.5m</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Preset Standard Sizes */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-200/80">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Preset Dimensions for All
-                </span>
-                <div className="grid grid-cols-4 gap-1">
-                  {[
-                    { label: '2×2m', w: 40, h: 40 },
-                    { label: '3×3m', w: 60, h: 60 },
-                    { label: '4×3m', w: 80, h: 60 },
-                    { label: '6×3m', w: 120, h: 60 },
-                  ].map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => onBulkResizeStalls({ width: p.w, height: p.h, keepFlush: bulkKeepFlush })}
-                      className="py-1 px-1 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 font-bold rounded-md text-[10px] transition-colors cursor-pointer text-center"
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Exact Dimension Numeric Inputs */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-200/80">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Set Exact Width & Depth
-                </span>
-                <div className="grid grid-cols-2 gap-2">
+                {/* Exact Dimension Numeric Inputs */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   <div>
-                    <span className="text-[10px] text-slate-500 block mb-0.5 font-medium">Width (m)</span>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Width (m)</span>
                     <input
                       type="number"
                       step="0.5"
@@ -406,11 +350,11 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                           onBulkResizeStalls({ width: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
                         }
                       }}
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block mb-0.5 font-medium">Depth (m)</span>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Depth (m)</span>
                     <input
                       type="number"
                       step="0.5"
@@ -424,7 +368,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                           onBulkResizeStalls({ height: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
                         }
                       }}
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -796,47 +740,6 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </label>
             </div>
 
-            {/* Quick Dimension Presets */}
-            <div className="space-y-1">
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Standard Size Presets
-              </span>
-              <div className="grid grid-cols-4 gap-1">
-                {[
-                  { label: '3×3m', w: 3, d: 3 },
-                  { label: '4×3m', w: 4, d: 3 },
-                  { label: '6×3m', w: 6, d: 3 },
-                  { label: '6×6m', w: 6, d: 6 },
-                ].map((p) => {
-                  const isActive = widthMeters === p.w && depthMeters === p.d;
-                  return (
-                    <button
-                      key={p.label}
-                      type="button"
-                      disabled={readOnly}
-                      onClick={() => {
-                        const newW = p.w * pxPerMeter;
-                        const newH = p.d * pxPerMeter;
-                        const newAreaSqFt = Math.round(p.w * p.d * 10.764);
-                        onUpdateStall(
-                          stall.id,
-                          { width: newW, height: newH, areaSqFt: newAreaSqFt, name: p.label },
-                          { pushNeighbors: singlePushNeighbors }
-                        );
-                      }}
-                      className={`py-1 text-[10px] font-mono font-bold rounded border transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                          : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Custom Dimension Label / Mark */}
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -857,7 +760,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <input
                 type="text"
                 disabled={readOnly}
-                value={stall.name || `${widthMeters}×${depthMeters}`}
+                value={stall.name || ''}
                 onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
                 placeholder="e.g. 3×3, 6×3, VIP Suite"
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white"
@@ -913,12 +816,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </div>
             </div>
 
-            {/* Quick Row Expand & Shrink (Push / Pull Row) */}
-            <div className="space-y-1 pt-1 border-t border-slate-200/80">
+            {/* Quick Row Width Nudge with clean symbols */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-200/80">
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Quick Row Width Nudge
               </span>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   disabled={readOnly || widthMeters <= 1}
@@ -932,11 +835,11 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                       { pushNeighbors: singlePushNeighbors }
                     );
                   }}
-                  className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                  title="Shrink stall width by 0.5m and pull row neighbors closer (0 gap)"
+                  className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Shrink stall width by 0.5m (−10px) and pull row neighbors closer"
                 >
-                  <Minimize2 className="w-3 h-3 text-rose-600" />
-                  <span>−0.5m (Pull Row)</span>
+                  <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>−0.5m</span>
                 </button>
                 <button
                   type="button"
@@ -951,21 +854,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                       { pushNeighbors: singlePushNeighbors }
                     );
                   }}
-                  className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                  title="Expand stall width by 0.5m and push row neighbors right (0 gap)"
+                  className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Expand stall width by 0.5m (+10px) and push row neighbors right"
                 >
-                  <Maximize2 className="w-3 h-3 text-emerald-600" />
-                  <span>+0.5m (Push Row)</span>
+                  <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>+0.5m</span>
                 </button>
               </div>
-            </div>
-
-            {/* Area derivation pill */}
-            <div className="p-2 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-xs mt-1">
-              <span className="text-slate-500 font-medium">Calculated Area</span>
-              <span className="font-mono font-bold text-slate-800">
-                {areaSqMeters} Sq.m ({stall.areaSqFt} Sq.ft)
-              </span>
             </div>
           </div>
 
@@ -1111,9 +1006,53 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
               Title Banner Customization
             </span>
+            {/* Inside vs Outside Mode Switch */}
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Name Position / Alignment
+                Banner Placement Mode
+              </label>
+              <div className="grid grid-cols-2 gap-1 mb-2">
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => {
+                    const currentPos = hall.namePosition || 'top-left';
+                    const newPos = currentPos.replace('outside-', '') as HallNamePosition;
+                    onUpdateHall(hall.id, { namePosition: newPos });
+                  }}
+                  className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
+                    !(hall.namePosition || 'top-left').startsWith('outside')
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Inside Hall
+                </button>
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => {
+                    const currentPos = hall.namePosition || 'top-left';
+                    let newPos: HallNamePosition = 'outside-top-left';
+                    if (currentPos.includes('center')) newPos = 'outside-top-center';
+                    else if (currentPos.includes('right')) newPos = 'outside-top-right';
+                    else if (currentPos.includes('bottom')) newPos = 'outside-bottom-left';
+                    onUpdateHall(hall.id, { namePosition: newPos });
+                  }}
+                  className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
+                    (hall.namePosition || 'top-left').startsWith('outside')
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Outside Hall (Tab)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Exact Position / Alignment
               </label>
               <select
                 disabled={readOnly}
@@ -1121,13 +1060,23 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 onChange={(e) => onUpdateHall(hall.id, { namePosition: e.target.value as any })}
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
               >
-                <option value="top-left">Top-Left Banner</option>
-                <option value="top-center">Top-Center Banner</option>
-                <option value="top-right">Top-Right Banner</option>
-                <option value="center">Center Banner</option>
-                <option value="bottom-left">Bottom-Left Banner</option>
-                <option value="bottom-center">Bottom-Center Banner</option>
-                <option value="bottom-right">Bottom-Right Banner</option>
+                <optgroup label="Outside Hall (Header Tabs)">
+                  <option value="outside-top-left">Outside Top-Left (Floating Header Tab)</option>
+                  <option value="outside-top-center">Outside Top-Center (Centered Marquee)</option>
+                  <option value="outside-top-right">Outside Top-Right</option>
+                  <option value="outside-bottom-left">Outside Bottom-Left</option>
+                  <option value="outside-bottom-center">Outside Bottom-Center</option>
+                  <option value="outside-bottom-right">Outside Bottom-Right</option>
+                </optgroup>
+                <optgroup label="Inside Hall Interior">
+                  <option value="top-left">Inside Top-Left Banner</option>
+                  <option value="top-center">Inside Top-Center Banner</option>
+                  <option value="top-right">Inside Top-Right Banner</option>
+                  <option value="center">Inside Center Banner</option>
+                  <option value="bottom-left">Inside Bottom-Left Banner</option>
+                  <option value="bottom-center">Inside Bottom-Center Banner</option>
+                  <option value="bottom-right">Inside Bottom-Right Banner</option>
+                </optgroup>
               </select>
             </div>
 
@@ -1205,13 +1154,6 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </div>
             </div>
           </details>
-
-          <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
-            <span className="text-[10px] font-bold text-blue-900 uppercase">Usable Hall Surface Area</span>
-            <p className="text-base font-extrabold text-blue-700 font-mono">
-              {totalAreaSqMeters.toLocaleString()} Sq.m ({Math.round(totalAreaSqMeters * 10.764).toLocaleString()} Sq.ft)
-            </p>
-          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1512,97 +1454,6 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </div>
           </div>
 
-          {/* Quick Size Presets */}
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Quick Size Presets
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { label: '3×2m', w: 3, h: 2 },
-                { label: '4×3m', w: 4, h: 3 },
-                { label: '6×4m', w: 6, h: 4 },
-                { label: '8×4m', w: 8, h: 4 },
-                { label: '10×6m', w: 10, h: 6 },
-                { label: '12×8m', w: 12, h: 8 },
-              ].map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() =>
-                    onUpdateFacility(fac.id, {
-                      width: p.w * pxPerMeter,
-                      height: p.h * pxPerMeter,
-                    })
-                  }
-                  className="py-1 px-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded transition-colors text-center cursor-pointer"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Resize Nudges */}
-          <div className="space-y-1 pt-1 border-t border-slate-100">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Quick Size Nudge
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                disabled={readOnly || fac.width <= pxPerMeter}
-                onClick={() =>
-                  onUpdateFacility(fac.id, {
-                    width: Math.max(pxPerMeter, fac.width - pxPerMeter),
-                  })
-                }
-                className="py-1 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold rounded text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>−1m Width</span>
-              </button>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() =>
-                  onUpdateFacility(fac.id, {
-                    width: fac.width + pxPerMeter,
-                  })
-                }
-                className="py-1 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold rounded text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>+1m Width</span>
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
-              <button
-                type="button"
-                disabled={readOnly || fac.height <= pxPerMeter}
-                onClick={() =>
-                  onUpdateFacility(fac.id, {
-                    height: Math.max(pxPerMeter, fac.height - pxPerMeter),
-                  })
-                }
-                className="py-1 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold rounded text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>−1m Depth</span>
-              </button>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() =>
-                  onUpdateFacility(fac.id, {
-                    height: fac.height + pxPerMeter,
-                  })
-                }
-                className="py-1 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold rounded text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <span>+1m Depth</span>
-              </button>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Rotation
@@ -1738,11 +1589,29 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   type="number"
                   disabled={readOnly}
                   min="8"
-                  max="48"
+                  max="72"
                   value={ann.fontSize || 12}
                   onChange={(e) => onUpdateAnnotation(ann.id, { fontSize: Number(e.target.value) })}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
                 />
+                <div className="flex gap-1 mt-1">
+                  <button
+                    type="button"
+                    disabled={readOnly || (ann.fontSize || 12) <= 8}
+                    onClick={() => onUpdateAnnotation(ann.id, { fontSize: Math.max(8, (ann.fontSize || 12) - 2) })}
+                    className="flex-1 py-0.5 text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    −2px
+                  </button>
+                  <button
+                    type="button"
+                    disabled={readOnly || (ann.fontSize || 12) >= 72}
+                    onClick={() => onUpdateAnnotation(ann.id, { fontSize: Math.min(72, (ann.fontSize || 12) + 2) })}
+                    className="flex-1 py-0.5 text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    +2px
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -1833,26 +1702,38 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Floor Plan Overview
           </span>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-slate-500 block text-[10px] font-medium">Halls / Pavilions</span>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
+              <span className="text-slate-500 block text-[10px] font-medium truncate">Halls</span>
               <span className="text-base font-bold text-slate-800 font-mono">{halls.length}</span>
             </div>
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-slate-500 block text-[10px] font-medium">Total Stalls</span>
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
+              <span className="text-slate-500 block text-[10px] font-medium truncate">Stalls</span>
               <span className="text-base font-bold text-slate-800 font-mono">{stalls.length}</span>
             </div>
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-slate-500 block text-[10px] font-medium">Facilities & Gates</span>
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
+              <span className="text-slate-500 block text-[10px] font-medium truncate">Facilities</span>
               <span className="text-base font-bold text-slate-800 font-mono">{facilities.length}</span>
             </div>
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-slate-500 block text-[10px] font-medium">Canvas Dimension</span>
-              <span className="text-xs font-bold text-slate-800 font-mono">
-                {Math.round(canvasWidth / pxPerMeter)}m × {Math.round(canvasHeight / pxPerMeter)}m
-              </span>
-            </div>
           </div>
+          {canReduceCanvas && onReduceCanvas && (
+            <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="text-[11px] font-bold text-amber-900 block">Canvas Size Expanded</span>
+                <span className="text-[10px] text-amber-700 block font-mono">
+                  Current: {canvasWidth}×{canvasHeight}px
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onReduceCanvas}
+                className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-xs"
+                title="Reduce canvas dimensions back towards default"
+              >
+                − Reduce Canvas
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stall Status Distribution */}

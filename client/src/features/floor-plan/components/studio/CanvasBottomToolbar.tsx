@@ -9,6 +9,7 @@ import {
   Undo2,
   Redo2,
   Expand,
+  Shrink,
   Layers,
   Eye,
   CheckSquare,
@@ -33,6 +34,8 @@ interface CanvasBottomToolbarProps {
   canvasWidth?: number;
   canvasHeight?: number;
   onExpandCanvas?: () => void;
+  canReduceCanvas?: boolean;
+  onReduceCanvas?: () => void;
   hasBlueprint?: boolean;
   showBlueprint?: boolean;
   onToggleBlueprint?: () => void;
@@ -61,6 +64,8 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
   canvasWidth,
   canvasHeight,
   onExpandCanvas,
+  canReduceCanvas = false,
+  onReduceCanvas,
   hasBlueprint,
   showBlueprint = true,
   onToggleBlueprint,
@@ -199,15 +204,28 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
         {onExpandCanvas && canvasWidth && canvasHeight && (
           <>
             <span>•</span>
-            <button
-              onClick={onExpandCanvas}
-              type="button"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 transition-colors cursor-pointer text-[11px]"
-              title="Expand Canvas Area (+600px width, +400px height for boundless layout)"
-            >
-              <Expand className="w-3 h-3" />
-              <span>Canvas: {canvasWidth}×{canvasHeight}px (+ Expand)</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onExpandCanvas}
+                type="button"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 transition-colors cursor-pointer text-[11px]"
+                title="Expand Canvas Area (+600px width, +400px height for boundless layout)"
+              >
+                <Expand className="w-3 h-3" />
+                <span>Canvas: {canvasWidth}×{canvasHeight}px (+ Expand)</span>
+              </button>
+              {canReduceCanvas && onReduceCanvas && (
+                <button
+                  onClick={onReduceCanvas}
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold border border-amber-200 transition-colors cursor-pointer text-[11px]"
+                  title="Reduce Canvas Area (-600px width, -400px height)"
+                >
+                  <Shrink className="w-3 h-3" />
+                  <span>− Reduce</span>
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>

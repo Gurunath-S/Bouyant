@@ -15,8 +15,6 @@ import {
   Bath,
   Sliders,
   Type,
-  LayoutTemplate,
-  ChevronDown,
   Building,
   ChevronLeft,
   ChevronRight,
@@ -25,8 +23,6 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { StudioTool, FacilityType } from '../../../../types/floorPlanStudio';
-import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
-import { showConfirm } from '../../../../stores/dialogStore';
 
 interface CanvasToolboxProps {
   activeTool: StudioTool;
@@ -38,7 +34,7 @@ interface CanvasToolboxProps {
   onAddFacility: (type: FacilityType) => void;
   onAddZone: () => void;
   onAddText: () => void;
-  onApplyTemplate: (templateId: string) => void;
+  onApplyTemplate?: (templateId: string) => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
@@ -59,7 +55,6 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   onAddFacility,
   onAddZone,
   onAddText,
-  onApplyTemplate,
   onZoomIn,
   onZoomOut,
   onResetZoom: _onResetZoom,
@@ -69,7 +64,6 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   isMultiSelectMode = false,
   onToggleMultiSelectMode,
 }) => {
-  const [showTemplatesMenu, setShowTemplatesMenu] = useState(false);
   const [showFacilitiesMenu, setShowFacilitiesMenu] = useState(false);
 
   // Compact / Collapsed Icon-Only Strip Mode (w-14)
@@ -281,49 +275,6 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         </span>
 
         <div className="flex items-center gap-1">
-          <div className="relative">
-            <button
-              onClick={() => setShowTemplatesMenu(!showTemplatesMenu)}
-              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
-            >
-              <LayoutTemplate className="w-3 h-3 text-blue-600" /> Templates <ChevronDown className="w-3 h-3" />
-            </button>
-
-            {showTemplatesMenu && (
-              <div className="absolute top-8 left-0 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 animate-in fade-in">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 border-b border-slate-100 mb-1">
-                  Apply Starter Layout
-                </div>
-                {STARTER_TEMPLATES.map((tmpl) => (
-                  <button
-                    key={tmpl.id}
-                    onClick={async () => {
-                      const confirmed = await showConfirm({
-                        title: `Apply "${tmpl.name}"?`,
-                        message: `Applying this template will replace your current unsaved studio objects. Are you sure you want to proceed?`,
-                        type: 'warning',
-                        confirmText: 'Apply Template',
-                        cancelText: 'Cancel',
-                      });
-                      if (confirmed) {
-                        onApplyTemplate(tmpl.id);
-                        setShowTemplatesMenu(false);
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-blue-50/80 transition-colors group"
-                  >
-                    <div className="text-xs font-bold text-slate-800 group-hover:text-blue-600">
-                      {tmpl.name}
-                    </div>
-                    <div className="text-[10px] text-slate-500 line-clamp-1">
-                      {tmpl.description}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
