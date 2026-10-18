@@ -8,7 +8,14 @@ import { Input } from '../../../../components/ui/Input';
 import { Textarea } from '../../../../components/ui/Textarea';
 import { Button } from '../../../../components/ui/Button';
 import { SearchableCombobox } from '../../../../components/ui/SearchableCombobox';
-import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity, normalizeCountryName } from '../../../../data/indianStatesCities';
+import {
+  ALL_COUNTRIES,
+  getStatesForCountry,
+  getCitiesForLocation,
+  getStateForCity,
+  normalizeCountryName,
+  extractCleanCityAndAddress,
+} from '../../../../data/indianStatesCities';
 import {
   Building2,
   ShieldCheck,
@@ -476,9 +483,18 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           const comp = res.existingCompany;
           setValue('name', comp.name, { shouldValidate: true, shouldDirty: true });
           if (comp.panNumber) setValue('panNumber', comp.panNumber, { shouldValidate: true, shouldDirty: true });
-          if (comp.address) setValue('address', comp.address, { shouldValidate: true, shouldDirty: true });
-          if (comp.city) setValue('city', comp.city, { shouldValidate: true, shouldDirty: true });
           if (comp.state) setValue('state', comp.state, { shouldValidate: true, shouldDirty: true });
+
+          const currentAddr = comp.address || getValues('address') || '';
+          const { cleanCity, updatedAddress } = extractCleanCityAndAddress(
+            comp.city,
+            comp.state,
+            currentAddr,
+            comp.country || 'India'
+          );
+
+          if (updatedAddress) setValue('address', updatedAddress, { shouldValidate: true, shouldDirty: true });
+          if (cleanCity) setValue('city', cleanCity, { shouldValidate: true, shouldDirty: true });
           if (comp.pinCode) setValue('pinCode', comp.pinCode, { shouldValidate: true, shouldDirty: true });
           if (comp.country) setValue('country', normalizeCountryName(comp.country || 'India'), { shouldValidate: true, shouldDirty: true });
           // Only fill contact details if user has NOT already entered them in the form
@@ -493,9 +509,18 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           const officialName = res.gstDetails.legalName || res.gstDetails.tradeName;
           if (officialName) setValue('name', officialName, { shouldValidate: true, shouldDirty: true });
           if (res.gstDetails.pan) setValue('panNumber', res.gstDetails.pan, { shouldValidate: true, shouldDirty: true });
-          if (res.gstDetails.address) setValue('address', res.gstDetails.address, { shouldValidate: true, shouldDirty: true });
-          if (res.gstDetails.city) setValue('city', res.gstDetails.city, { shouldValidate: true, shouldDirty: true });
           if (res.gstDetails.state) setValue('state', res.gstDetails.state, { shouldValidate: true, shouldDirty: true });
+
+          const currentAddr = res.gstDetails.address || getValues('address') || '';
+          const { cleanCity, updatedAddress } = extractCleanCityAndAddress(
+            res.gstDetails.city,
+            res.gstDetails.state,
+            currentAddr,
+            'India'
+          );
+
+          if (updatedAddress) setValue('address', updatedAddress, { shouldValidate: true, shouldDirty: true });
+          if (cleanCity) setValue('city', cleanCity, { shouldValidate: true, shouldDirty: true });
           if (res.gstDetails.pincode) setValue('pinCode', res.gstDetails.pincode, { shouldValidate: true, shouldDirty: true });
           setValue('country', 'India', { shouldValidate: true, shouldDirty: true });
           setGstNotice('');

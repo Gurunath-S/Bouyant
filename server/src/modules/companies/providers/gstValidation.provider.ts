@@ -1,7 +1,7 @@
 import { env } from '../../../config/env.js';
 import { GstVerificationResponse } from '../types/gstTypes.js';
 import { ApiError } from '../../../utils/apiError.js';
-import { GST_STATE_CODES } from '../utils/gstUtils.js';
+import { GST_STATE_CODES, sanitizeGstCity } from '../utils/gstUtils.js';
 
 export class GstValidationProvider {
   static async verify(gstNumber: string): Promise<GstVerificationResponse> {
@@ -24,6 +24,11 @@ export class GstValidationProvider {
           const stateCode = cleanGst.substring(0, 2);
           const stateName = rawData.data.address_details?.state || GST_STATE_CODES[stateCode] || 'India';
           const pan = cleanGst.length === 15 ? cleanGst.substring(2, 12) : '';
+          const cleanCity = sanitizeGstCity(
+            rawData.data.address_details?.city || rawData.data.city,
+            rawData.data.address_details?.district,
+            stateName
+          );
 
           const normalized: GstVerificationResponse = {
             success: true,
@@ -35,7 +40,7 @@ export class GstValidationProvider {
               status: rawData.data.status || 'Active',
               pincode: rawData.data.pincode || rawData.data.address_details?.pincode || '400001',
               block_status: rawData.data.block_status || 'Unblocked',
-              city: rawData.data.address_details?.city || rawData.data.city || 'Commercial District',
+              city: cleanCity,
               state: stateName,
               state_code: stateCode,
               address: rawData.data.address || rawData.data.address_details?.locality || 'Commercial Office',

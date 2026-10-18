@@ -325,3 +325,150 @@ export const ALL_INDIAN_CITIES: string[] = getCitiesForLocation('India');
 export function getCitiesForState(stateName: string): string[] {
   return getCitiesForLocation('India', stateName);
 }
+
+/**
+ * Title cases a given string (e.g. "MUMBAI" -> "Mumbai", "NEW DELHI" -> "New Delhi")
+ */
+function toProperTitleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .trim();
+}
+
+/**
+ * Intelligently separates and extracts a clean, genuine City name from messy GSTIN address data
+ * (which frequently bundles locality, sub-district, pincode, and state into the city field)
+ * and safely appends any leftover locality information to the address field so no details are lost.
+ */
+export function extractCleanCityAndAddress(
+  rawCity?: string,
+  rawState?: string,
+  rawAddress?: string,
+  rawCountry?: string
+): { cleanCity: string; updatedAddress: string } {
+  let address = (rawAddress || '').trim();
+  if (!rawCity || !rawCity.trim()) {
+    return { cleanCity: '', updatedAddress: address };
+  }
+
+  const normCountry = normalizeCountryName(rawCountry || 'India');
+  const isIndia = normCountry.toLowerCase() === 'india';
+  const cleanState = (rawState || '').trim();
+
+  // 1. Strip 6-digit Indian PIN codes, hyphens before pin, and "India" from rawCity
+  let workingCity = rawCity
+    .replace(/\b\d{6}\b/g, '')
+    .replace(/-\s*\d{6}/g, '')
+    .replace(/\bIndia\b/gi, '')
+    .trim();
+
+  // 2. If state name is included inside rawCity (e.g. "Mumbai, Maharashtra"), remove state name
+  if (cleanState) {
+    const escapedState = cleanState.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    workingCity = workingCity.replace(new RegExp(`\\b${escapedState}\\b`, 'gi'), '').trim();
+  }
+
+  // 3. Clean trailing or leading commas, hyphens, and slashes
+  workingCity = workingCity.replace(/^[\s,;/-]+|[\s,;/-]+$/g, '').trim();
+
+  // 4. Split rawCity by common delimiters (comma, semicolon, slash)
+  const segments = workingCity
+    .split(/[,;/]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (segments.length === 0) {
+    return { cleanCity: '', updatedAddress: address };
+  }
+
+  // 5. Gather known candidate cities from current state and national hubs
+  const stateCities = isIndia && cleanState ? getCitiesForLocation('India', cleanState) : [];
+  const majorHubs =
+    isIndia && cleanState && MAJOR_HUBS_BY_STATE[cleanState]
+      ? MAJOR_HUBS_BY_STATE[cleanState]
+      : TOP_NATIONAL_HUBS;
+
+  // Function to remove administrative suffixes like Urban, Suburban, Rural, District, Corporation, City
+  const stripAdminSuffix = (token: string): string => {
+    return token
+      .replace(/\b(Urban|Suburban|Rural|District|Dist\.?|City|Corporation|Taluk|Taluka|Mandal)\b/gi, '')
+      .replace(/[()]/g, '')
+      .trim();
+  };
+
+  let matchedCity: string | null = null;
+  const leftoverSegments: string[] = [];
+
+  // 6. Check segments in reverse order (Indian addresses almost always place the City at the end)
+  // e.g. ["Andheri West", "Mumbai"] -> segments[1] is "Mumbai"
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const segment = segments[i];
+    const stripped = stripAdminSuffix(segment);
+
+    if (!matchedCity) {
+      // Check exact match in major hubs first
+      const hubMatch = majorHubs.find(
+        (h) => h.toLowerCase() === stripped.toLowerCase() || h.toLowerCase() === segment.toLowerCase()
+      );
+      if (hubMatch) {
+        matchedCity = hubMatch;
+        continue;
+      }
+
+      // Check match in state cities
+      const stateCityMatch = stateCities.find(
+        (c) => c.toLowerCase() === stripped.toLowerCase() || c.toLowerCase() === segment.toLowerCase()
+      );
+      if (stateCityMatch) {
+        matchedCity = stateCityMatch;
+        continue;
+      }
+
+      // Check if any major hub is contained as a word within the segment
+      const wordMatch = majorHubs.find((h) =>
+        new RegExp(`\\b${h}\\b`, 'i').test(segment)
+      );
+      if (wordMatch) {
+        matchedCity = wordMatch;
+        continue;
+      }
+    }
+
+    // If not chosen as the city, keep as leftover locality
+    leftoverSegments.unshift(segment);
+  }
+
+  // 7. If still not matched, check if the full working string contains any major hub
+  if (!matchedCity) {
+    const fullHubMatch = majorHubs.find((h) => new RegExp(`\\b${h}\\b`, 'i').test(workingCity));
+    if (fullHubMatch) {
+      matchedCity = fullHubMatch;
+    }
+  }
+
+  // 8. If still no match against database, take the cleanest last token or stripped token
+  if (!matchedCity && segments.length > 0) {
+    const lastSeg = segments[segments.length - 1];
+    matchedCity = toProperTitleCase(stripAdminSuffix(lastSeg) || lastSeg);
+    leftoverSegments.pop(); // Remove the segment that was used as city
+  }
+
+  // 9. Append any leftover locality/sub-district details to the corporate address if not already present
+  if (leftoverSegments.length > 0) {
+    for (const extra of leftoverSegments) {
+      const cleanExtra = toProperTitleCase(extra);
+      if (cleanExtra && !address.toLowerCase().includes(cleanExtra.toLowerCase())) {
+        address = address ? `${address}, ${cleanExtra}` : cleanExtra;
+      }
+    }
+  }
+
+  return {
+    cleanCity: matchedCity || '',
+    updatedAddress: address,
+  };
+}
+

@@ -352,3 +352,43 @@ export function generateRealisticGstDetails(gstin: string) {
     taxpayerType: 'Regular',
   };
 }
+
+/**
+ * Sanitizes and extracts clean City name from raw GST registry address data
+ */
+export function sanitizeGstCity(rawCity?: string, district?: string, stateName?: string): string {
+  const districtCandidate = (district || '').trim();
+  const rawCandidate = (rawCity || '').trim();
+
+  // If a clean district is provided and doesn't match the state name, it's often the most accurate city name
+  if (
+    districtCandidate &&
+    !districtCandidate.includes(',') &&
+    (!stateName || districtCandidate.toLowerCase() !== stateName.toLowerCase())
+  ) {
+    const stripped = districtCandidate.replace(/\b(District|Dist\.?|Urban|Suburban|Rural)\b/gi, '').trim();
+    if (stripped.length >= 2) return stripped;
+  }
+
+  let cleaned = rawCandidate
+    .replace(/\b\d{6}\b/g, '')
+    .replace(/-\s*\d{6}/g, '')
+    .replace(/\bIndia\b/gi, '')
+    .trim();
+
+  if (stateName) {
+    cleaned = cleaned.replace(new RegExp(`\\b${stateName}\\b`, 'gi'), '').trim();
+  }
+
+  cleaned = cleaned.replace(/^[\s,;/-]+|[\s,;/-]+$/g, '').trim();
+
+  if (cleaned.includes(',')) {
+    const parts = cleaned.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      cleaned = parts[parts.length - 1]; // In Indian GST addresses, city is typically the last token before state/pincode
+    }
+  }
+
+  return cleaned || districtCandidate || rawCandidate || 'Commercial District';
+}
+
