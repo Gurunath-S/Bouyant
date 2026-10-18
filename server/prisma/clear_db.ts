@@ -33,72 +33,161 @@ async function main() {
   });
   await prisma.company.deleteMany({});
 
-  // 2. Delete non-admin client accounts
-  await prisma.user.deleteMany({
-    where: {
-      role: UserRole.CLIENT,
-    },
-  });
+  // 2. Delete all leftover and test user accounts
+  console.log('🗑️ Purging all leftover and test accounts...');
+  await prisma.user.deleteMany({});
 
-  // 3. Seed clean system users (SuperAdmin, Admin, Staff)
-  console.log('🌱 Creating Clean System Admin Accounts...');
-  const superAdminPasswordHash = await bcrypt.hash('SuperAdminPassword123!', 10);
-  const adminPasswordHash = await bcrypt.hash('AdminPassword123!', 10);
-  const staffPasswordHash = await bcrypt.hash('StaffPassword123!', 10);
+  // 3. Seed clean system users (SuperAdmin, Admin, Staff, Demo Client)
+  console.log('🌱 Creating Clean System Admin & Staff Accounts...');
+  const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
 
+  // Super Admin
   await prisma.user.upsert({
     where: { email: 'superadmin@buoyantmedia.com' },
     update: {
-      passwordHash: superAdminPasswordHash,
+      passwordHash: defaultPasswordHash,
       role: UserRole.SUPERADMIN,
       isActive: true,
+      spcode: 'SA01',
     },
     create: {
       email: 'superadmin@buoyantmedia.com',
-      passwordHash: superAdminPasswordHash,
+      passwordHash: defaultPasswordHash,
       username: 'superadmin',
       name: 'Platform Super Admin',
       phone: '+919876500001',
       role: UserRole.SUPERADMIN,
       spcode: 'SA01',
+      pageAccess: [],
       isActive: true,
     },
   });
 
+  // Admin User (guru / guru_bhai / adminops)
   await prisma.user.upsert({
     where: { email: 'admin@buoyantmedia.com' },
     update: {
-      passwordHash: adminPasswordHash,
+      passwordHash: defaultPasswordHash,
       role: UserRole.ADMIN,
       isActive: true,
+      spcode: 'AD01',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'events_floorplans',
+        'companies',
+        'bookings',
+        'payments',
+        'reports',
+      ],
     },
     create: {
       email: 'admin@buoyantmedia.com',
-      passwordHash: adminPasswordHash,
-      username: 'adminops',
-      name: 'Event Operations Admin',
-      phone: '+919876500002',
+      passwordHash: defaultPasswordHash,
+      username: 'guru_bhai',
+      name: 'guru',
+      phone: '8838669315',
       role: UserRole.ADMIN,
       spcode: 'AD01',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'events_floorplans',
+        'companies',
+        'bookings',
+        'payments',
+        'reports',
+      ],
       isActive: true,
     },
   });
 
+  // Staff User 1 (guruthedev20@gmail.com)
+  await prisma.user.upsert({
+    where: { email: 'guruthedev20@gmail.com' },
+    update: {
+      passwordHash: defaultPasswordHash,
+      role: UserRole.STAFF,
+      isActive: true,
+      spcode: 'ST00',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'companies',
+        'bookings',
+        'payments',
+      ],
+    },
+    create: {
+      email: 'guruthedev20@gmail.com',
+      passwordHash: defaultPasswordHash,
+      username: 'gurunath',
+      name: 'gurunath',
+      phone: '8838669315',
+      role: UserRole.STAFF,
+      spcode: 'ST00',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'companies',
+        'bookings',
+        'payments',
+      ],
+      isActive: true,
+    },
+  });
+
+  // Staff User 2 (staff@buoyantmedia.com)
   await prisma.user.upsert({
     where: { email: 'staff@buoyantmedia.com' },
     update: {
-      passwordHash: staffPasswordHash,
+      passwordHash: defaultPasswordHash,
       role: UserRole.STAFF,
       isActive: true,
+      spcode: 'ST01',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'companies',
+        'bookings',
+        'payments',
+      ],
     },
     create: {
       email: 'staff@buoyantmedia.com',
-      passwordHash: staffPasswordHash,
+      passwordHash: defaultPasswordHash,
       username: 'staffops',
       name: 'Operations Staff',
       phone: '+919876500003',
       role: UserRole.STAFF,
       spcode: 'ST01',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'companies',
+        'bookings',
+        'payments',
+      ],
+      isActive: true,
+    },
+  });
+
+  // Demo Exhibitor Client (demo@buoyantmedia.com)
+  await prisma.user.upsert({
+    where: { email: 'demo@buoyantmedia.com' },
+    update: {
+      passwordHash: defaultPasswordHash,
+      role: UserRole.CLIENT,
+      isActive: true,
+    },
+    create: {
+      email: 'demo@buoyantmedia.com',
+      passwordHash: defaultPasswordHash,
+      username: 'demo_user',
+      name: 'Demo Exhibitor',
+      phone: '+919876543210',
+      role: UserRole.CLIENT,
+      pageAccess: [],
       isActive: true,
     },
   });
@@ -234,9 +323,12 @@ async function main() {
   console.log('====================================================');
   console.log('🎉 4 Exhibition Events & Database Reset Successfully!');
   console.log('====================================================');
-  console.log('Super Admin : superadmin@buoyantmedia.com / SuperAdminPassword123!');
-  console.log('Admin User  : admin@buoyantmedia.com      / AdminPassword123!');
-  console.log('Staff User  : staff@buoyantmedia.com      / StaffPassword123!');
+  console.log('Credentials (Password: Password123! for all accounts):');
+  console.log('Super Admin : superadmin@buoyantmedia.com  / Password123! (SA01)');
+  console.log('Admin User  : admin@buoyantmedia.com       / Password123! (guru / AD01)');
+  console.log('Staff User  : guruthedev20@gmail.com       / Password123! (gurunath / ST00)');
+  console.log('Staff User  : staff@buoyantmedia.com       / Password123! (staffops / ST01)');
+  console.log('Demo Client : demo@buoyantmedia.com        / Password123!');
   console.log('====================================================');
 }
 
