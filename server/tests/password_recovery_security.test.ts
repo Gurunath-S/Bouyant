@@ -1,6 +1,6 @@
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/config/db.js';
-import { AuthService, resetForgotPasswordCooldownForTesting } from '../src/modules/auth/auth.service.js';
+import { AuthService, resetForgotPasswordCooldownForTesting, getForgotPasswordCooldownSizeForTesting } from '../src/modules/auth/auth.service.js';
 import { EmailService, setEmailTransporterForTesting, resetEmailTransporterForTesting } from '../src/services/email.service.js';
 import { escapeHtml } from '../src/utils/htmlEscape.js';
 import { resolveClientOrigin } from '../src/utils/urlHelper.js';
@@ -181,6 +181,61 @@ async function runPasswordRecoverySecuritySuite() {
     }
     assert(prodThrew, '2.5 Rejects localhost origin in production environment');
 
+    // 2.6 Rejects other loopback and unspecified addresses in production
+    let loopback0Threw = false;
+    try {
+      resolveClientOrigin('http://0.0.0.0:5173', true);
+    } catch {
+      loopback0Threw = true;
+    }
+    assert(loopback0Threw, '2.6a Rejects 0.0.0.0 origin in production');
+
+    let ipv6LoopbackThrew = false;
+    try {
+      resolveClientOrigin('http://[::1]:5173', true);
+    } catch {
+      ipv6LoopbackThrew = true;
+    }
+    assert(ipv6LoopbackThrew, '2.6b Rejects [::1] IPv6 loopback in production');
+
+    let loopback127Threw = false;
+    try {
+      resolveClientOrigin('http://127.0.0.99:5173', true);
+    } catch {
+      loopback127Threw = true;
+    }
+    assert(loopback127Threw, '2.6c Rejects 127.0.0.99 loopback in production');
+
+    // 2.7 Rejects invalid schemes in production
+    let ftpThrew = false;
+    try {
+      resolveClientOrigin('ftp://portal.buoyantmedia.com', true);
+    } catch {
+      ftpThrew = true;
+    }
+    assert(ftpThrew, '2.7a Rejects non-HTTP(S) ftp:// scheme in production');
+
+    let jsThrew = false;
+    try {
+      resolveClientOrigin('javascript:alert(1)', true);
+    } catch {
+      jsThrew = true;
+    }
+    assert(jsThrew, '2.7b Rejects javascript: scheme in production');
+
+    // 2.8 Empty or all-comma config throws in production
+    let emptyThrew = false;
+    try {
+      resolveClientOrigin('   ,   ,   ', true);
+    } catch {
+      emptyThrew = true;
+    }
+    assert(emptyThrew, '2.8 Rejects empty comma-only origin configuration in production');
+
+    // 2.9 Valid production HTTPS origin with trailing slash resolves cleanly
+    const prodValidOrigin = resolveClientOrigin('   https://portal.buoyantmedia.com/   ', true);
+    assert(prodValidOrigin === 'https://portal.buoyantmedia.com', '2.9 Strips trailing slash from valid production HTTPS origin');
+
     // =========================================================================
     // SECTION 3: Account Enumeration Prevention & Per-Account Cooldown
     // =========================================================================
@@ -188,19 +243,40 @@ async function runPasswordRecoverySecuritySuite() {
 
     resetForgotPasswordCooldownForTesting();
 
-    // 3.1 Existing user request
-    const resExisting = await request('/auth/forgot-password', {
-      method: 'POST',
-      body: { email: testEmail },
-    });
-    assert(resExisting.status === 200, '3.1 Existing account returns 200 OK');
-
-    // 3.2 Non-existent user request
+    // 3.1 Non-existent user request
     const resNonExistent = await request('/auth/forgot-password', {
       method: 'POST',
       body: { email: 'nonexistent.user.999@example.com' },
     });
-    assert(resNonExistent.status === 200, '3.2 Nonexistent account returns 200 OK');
+    assert(resNonExistent.status === 200, '3.1 Nonexistent account returns 200 OK');
+
+    // 3.1b Cooldown map bounds: Non-existent emails do not pollute cooldown map
+    assert(
+      getForgotPasswordCooldownSizeForTesting() === 0,
+      '3.1b Non-existent email queries do not populate or bloat cooldown timestamps map'
+    );
+
+    // 3.2 Existing user request
+    const resExisting = await request('/auth/forgot-password', {
+      method: 'POST',
+      body: { email: testEmail },
+    });
+    assert(resExisting.status === 200, '3.2 Existing account returns 200 OK');
+    assert(
+      getForgotPasswordCooldownSizeForTesting() === 1,
+      '3.2b Existing email query correctly tracks cooldown timestamp'
+    );
+
+    // 3.2c Another non-existent user request does not increment map size
+    await request('/auth/forgot-password', {
+      method: 'POST',
+      body: { email: 'another.nonexistent@example.com' },
+    });
+    assert(
+      getForgotPasswordCooldownSizeForTesting() === 1,
+      '3.2c Subsequent non-existent email does not increment cooldown map size'
+    );
+
     assert(
       resExisting.data.message === resNonExistent.data.message,
       '3.3 Response messages are identical for existing and non-existing accounts (enumeration protection)',
@@ -318,6 +394,14 @@ async function runPasswordRecoverySecuritySuite() {
     });
     assert(resLoginWithNew.status === 200, '4.8 Exhibitor can successfully log in with new password');
 
+    // Verify login with OLD password fails after reset
+    const resLoginWithOld = await request('/auth/login', {
+      method: 'POST',
+      body: { email: testEmail, password: initialPassword },
+      headers: { 'x-forwarded-for': '203.0.113.15' },
+    });
+    assert(resLoginWithOld.status !== 200, '4.8b Exhibitor cannot log in with previous password after password reset');
+
     // 4.9 Replay attack: previously used token is now invalid because passwordHash changed
     const resReusedToken = await request('/auth/reset-password', {
       method: 'POST',
@@ -357,7 +441,35 @@ async function runPasswordRecoverySecuritySuite() {
     }
 
     assert(hit429, '5.1 forgot-password rate limiter triggers HTTP 429 after 5 requests from same IP');
-    assert(retryAfterHeader, '5.2 Rate limit response includes Retry-After or RateLimit headers');
+    assert(retryAfterHeader, '5.2 forgot-password response includes Retry-After or RateLimit headers');
+
+    // 5.3 Rate limiting on POST /auth/reset-password endpoint (max 5 requests per window)
+    const testIpReset = '198.51.100.56';
+    let hit429Reset = false;
+    let retryAfterHeaderReset = false;
+    let resetLimiterMessageMatch = false;
+
+    for (let i = 1; i <= 7; i++) {
+      const res = await request('/auth/reset-password', {
+        method: 'POST',
+        body: { token: `invalid_token_sample_${i}_${testSuffix}`, password: 'ValidPassword123!' },
+        headers: { 'x-forwarded-for': testIpReset },
+      });
+      if (res.status === 429) {
+        hit429Reset = true;
+        if (res.headers.get('retry-after') || res.headers.get('ratelimit-reset')) {
+          retryAfterHeaderReset = true;
+        }
+        if (res.data?.message && res.data.message.toLowerCase().includes('too many password reset attempts')) {
+          resetLimiterMessageMatch = true;
+        }
+        break;
+      }
+    }
+
+    assert(hit429Reset, '5.3 reset-password rate limiter triggers HTTP 429 after 5 requests from same IP');
+    assert(retryAfterHeaderReset, '5.4 reset-password 429 response includes Retry-After or RateLimit headers');
+    assert(resetLimiterMessageMatch, '5.5 reset-password 429 response includes configured rate limiter message');
 
     // Cleanup test user
     await prisma.user.deleteMany({

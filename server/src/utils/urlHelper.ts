@@ -45,7 +45,15 @@ export function resolveClientOrigin(rawConfig?: string, isProduction?: boolean):
       throw new Error('Missing hostname');
     }
 
-    if (isProd && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
+    const isLoopbackOrLocal =
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '0.0.0.0' ||
+      parsed.hostname === '::1' ||
+      parsed.hostname === '[::1]' ||
+      parsed.hostname.startsWith('127.');
+
+    if (isProd && isLoopbackOrLocal) {
       throw new Error('Localhost origin is forbidden in production environment.');
     }
 

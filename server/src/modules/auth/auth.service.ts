@@ -17,6 +17,10 @@ export function resetForgotPasswordCooldownForTesting() {
   forgotPasswordEmailTimestamps.clear();
 }
 
+export function getForgotPasswordCooldownSizeForTesting(): number {
+  return forgotPasswordEmailTimestamps.size;
+}
+
 export class AuthService {
   static async register(input: RegisterInput) {
     const existingUser = await prisma.user.findUnique({
