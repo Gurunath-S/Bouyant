@@ -983,7 +983,7 @@ static async createBooking(
             totalAmount: result.basePrice,
             taxAmount: result.bookingTaxAmount,
             grandTotal: result.grandTotal,
-            status: 'ISSUED',
+            status: 'PAID',
             issueDate: new Date(),
           },
         });

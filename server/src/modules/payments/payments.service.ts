@@ -706,7 +706,7 @@ export class PaymentsService {
                 totalAmount: new Prisma.Decimal(total),
                 taxAmount: new Prisma.Decimal(tax),
                 grandTotal: new Prisma.Decimal(grand),
-                status: 'ISSUED',
+                status: 'PAID',
                 issueDate: new Date(),
               },
             });

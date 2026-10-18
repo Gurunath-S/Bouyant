@@ -164,8 +164,9 @@ export const MyInvoicesPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
                 {invoices.map((inv, idx) => {
+                  const displayStatus = (inv as any).status === 'ISSUED' ? 'PAID' : ((inv as any).status || 'PAID');
                   const statusStyle =
-                    STATUS_STYLES[(inv as any).status] || STATUS_STYLES['ISSUED'];
+                    STATUS_STYLES[displayStatus] || STATUS_STYLES['PAID'];
                   const stallNumbers =
                     (inv as any).booking?.stalls
                       ?.map((s: any) => s.stall?.stallNumber || s.stallId)
@@ -212,7 +213,7 @@ export const MyInvoicesPage: React.FC = () => {
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusStyle}`}
                         >
-                          {(inv as any).status || 'ISSUED'}
+                          {displayStatus}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
