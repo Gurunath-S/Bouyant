@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
@@ -38,7 +38,6 @@ import { CanvasPropertyInspector } from './CanvasPropertyInspector';
 import { CanvasBottomToolbar } from './CanvasBottomToolbar';
 import { CreateStallRowModal } from './CreateStallRowModal';
 import { CreateCustomStallModal } from './CreateCustomStallModal';
-import { STARTER_TEMPLATES } from '../../../../data/floorPlanTemplates';
 import { uploadService } from '../../../../services/upload/uploadService';
 import { showConfirm, showAlert } from '../../../../stores/dialogStore';
 import { getFacilityIconKey, renderFacilitySvgIcon } from '../../utils/facilityIconRenderer';
@@ -68,6 +67,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const pxPerMeter = 20;
 
   // Canvas View Dimensions (Default expansive size: 3200x2000 for spacious "no-end" CAD workspace)
+  const baseCanvasWidth = useMemo(() => {
+    return initialLayoutData?.canvasWidth && initialLayoutData.canvasWidth >= 2000
+      ? Math.min(3200, initialLayoutData.canvasWidth)
+      : 3200;
+  }, [initialLayoutData?.canvasWidth]);
+
+  const baseCanvasHeight = useMemo(() => {
+    return initialLayoutData?.canvasHeight && initialLayoutData.canvasHeight >= 1400
+      ? Math.min(2000, initialLayoutData.canvasHeight)
+      : 2000;
+  }, [initialLayoutData?.canvasHeight]);
+
   const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({
     width: initialLayoutData?.canvasWidth && initialLayoutData.canvasWidth >= 2000 ? initialLayoutData.canvasWidth : 3200,
     height: initialLayoutData?.canvasHeight && initialLayoutData.canvasHeight >= 1400 ? initialLayoutData.canvasHeight : 2000,
@@ -95,6 +106,23 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRowModalOpen, setIsRowModalOpen] = useState<boolean>(false);
   const [isCustomStallModalOpen, setIsCustomStallModalOpen] = useState<boolean>(false);
+
+  // In-page fullscreen focus mode: covers full browser viewport cleanly without hijacking native browser window
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev);
+  }, []);
+
+  // Lock body scroll when in fullscreen mode
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isFullscreen]);
 
   // Collapsible panels state for full-width expansive workspace
   const [isLeftCollapsed, setIsLeftCollapsed] = useState<boolean>(false);
@@ -132,6 +160,58 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       color: s.color || colorsMap[s.stallNumber] || colorsMap[s.id] || undefined,
     }));
   });
+
+  // Canvas Size Reduction (Only available when canvas has been increased beyond base dimensions)
+  const canReduceCanvas = useMemo(() => {
+    if (canvasWidth <= baseCanvasWidth && canvasHeight <= baseCanvasHeight) {
+      return false;
+    }
+    let maxContentX = 0;
+    let maxContentY = 0;
+    for (const s of stalls) {
+      maxContentX = Math.max(maxContentX, (s.xPosition || 0) + (s.width || 0));
+      maxContentY = Math.max(maxContentY, (s.yPosition || 0) + (s.height || 0));
+    }
+    for (const h of halls) {
+      maxContentX = Math.max(maxContentX, (h.x || 0) + (h.width || 0));
+      maxContentY = Math.max(maxContentY, (h.y || 0) + (h.height || 0));
+    }
+    for (const f of facilities) {
+      maxContentX = Math.max(maxContentX, (f.x || 0) + (f.width || 0));
+      maxContentY = Math.max(maxContentY, (f.y || 0) + (f.height || 0));
+    }
+    const minBoundX = Math.max(baseCanvasWidth, maxContentX + 40);
+    const minBoundY = Math.max(baseCanvasHeight, maxContentY + 40);
+
+    return canvasWidth > minBoundX || canvasHeight > minBoundY;
+  }, [canvasWidth, canvasHeight, baseCanvasWidth, baseCanvasHeight, stalls, halls, facilities]);
+
+  const handleReduceCanvas = useCallback(() => {
+    if (!canReduceCanvas) return;
+
+    let maxContentX = 0;
+    let maxContentY = 0;
+    for (const s of stalls) {
+      maxContentX = Math.max(maxContentX, (s.xPosition || 0) + (s.width || 0));
+      maxContentY = Math.max(maxContentY, (s.yPosition || 0) + (s.height || 0));
+    }
+    for (const h of halls) {
+      maxContentX = Math.max(maxContentX, (h.x || 0) + (h.width || 0));
+      maxContentY = Math.max(maxContentY, (h.y || 0) + (h.height || 0));
+    }
+    for (const f of facilities) {
+      maxContentX = Math.max(maxContentX, (f.x || 0) + (f.width || 0));
+      maxContentY = Math.max(maxContentY, (f.y || 0) + (f.height || 0));
+    }
+
+    const minBoundX = Math.max(baseCanvasWidth, maxContentX + 40);
+    const minBoundY = Math.max(baseCanvasHeight, maxContentY + 40);
+
+    setCanvasDimensions((prev) => ({
+      width: Math.max(minBoundX, prev.width - 600),
+      height: Math.max(minBoundY, prev.height - 400),
+    }));
+  }, [canReduceCanvas, baseCanvasWidth, baseCanvasHeight, stalls, halls, facilities]);
 
   // Full Background Image / Blueprint
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | undefined>(
@@ -222,6 +302,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     y: number;
     width: number;
     height: number;
+    initialFontSize?: number;
   } | null>(null);
   const [resizeNeighbors, setResizeNeighbors] = useState<Array<{ id: string; origX: number; origY: number }>>([]);
 
@@ -440,9 +521,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     []
   );
 
-  // Bounded pan calculation: smart, controlled bounds preventing canvas from disappearing into extreme void
-  // Strict viewport containment: keeps canvas firmly locked inside the screen container
-  // Prevents canvas from ever being pushed off screen or drifting out of sight
+  // Bounded pan calculation: smart bounds allowing free panning across the entire canvas and contents
   const clampPan = useCallback(
     (newX: number, newY: number, currentZoom: number = zoomLevel) => {
       if (!containerRef.current) return { x: newX, y: newY };
@@ -452,9 +531,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       const scaledW = canvasWidth * scale;
       const scaledH = canvasHeight * scale;
 
-      // Strict bounds: max offset is half the difference between scaled canvas & container, plus 100px max margin
-      const maxLimitX = Math.max(80, Math.abs(scaledW - containerW) / 2 + 100);
-      const maxLimitY = Math.max(80, Math.abs(scaledH - containerH) / 2 + 100);
+      // Allow panning around the canvas freely
+      const maxLimitX = Math.max(containerW * 0.8, scaledW / 2 + containerW * 0.5);
+      const maxLimitY = Math.max(containerH * 0.8, scaledH / 2 + containerH * 0.5);
 
       return {
         x: Math.round(Math.max(-maxLimitX, Math.min(maxLimitX, newX))),
@@ -464,67 +543,60 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     [canvasWidth, canvasHeight, zoomLevel]
   );
 
-  // Content-aware Fit to Screen: centers on stalls/halls with comfortable extra side margins
+  // Content-aware Fit to Screen: fits the entire floor canvas into the workspace, centered with panOffset at (0, 0)
   const handleFitToScreen = useCallback(() => {
     if (!containerRef.current) return;
-    const containerW = containerRef.current.clientWidth - 80;
-    const containerH = containerRef.current.clientHeight - 80;
+    const containerW = containerRef.current.clientWidth || 1200;
+    const containerH = containerRef.current.clientHeight || 800;
 
-    // Calculate bounding box of stalls, halls, and facilities
-    if (stalls.length > 0 || halls.length > 0 || facilities.length > 0) {
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
+    // Available workspace with comfortable side margins
+    const availW = Math.max(200, containerW - 60);
+    const availH = Math.max(200, containerH - 60);
 
-      stalls.forEach((s) => {
-        minX = Math.min(minX, s.xPosition);
-        minY = Math.min(minY, s.yPosition);
-        maxX = Math.max(maxX, s.xPosition + s.width);
-        maxY = Math.max(maxY, s.yPosition + s.height);
-      });
-      halls.forEach((h) => {
-        minX = Math.min(minX, h.x);
-        minY = Math.min(minY, h.y);
-        maxX = Math.max(maxX, h.x + h.width);
-        maxY = Math.max(maxY, h.y + h.height);
-      });
-      facilities.forEach((f) => {
-        minX = Math.min(minX, f.x);
-        minY = Math.min(minY, f.y);
-        maxX = Math.max(maxX, f.x + f.width);
-        maxY = Math.max(maxY, f.y + f.height);
-      });
-
-      if (minX < maxX && minY < maxY && isFinite(minX)) {
-        // Provide comfortable extra side margins (140px on sides) for editing and row reflow
-        const margin = 140;
-        const contentW = (maxX - minX) + margin * 2;
-        const contentH = (maxY - minY) + margin * 2;
-        const contentCenterX = (minX + maxX) / 2;
-        const contentCenterY = (minY + maxY) / 2;
-
-        const scaleX = containerW / contentW;
-        const scaleY = containerH / contentH;
-        const optimalScale = Math.min(scaleX, scaleY);
-        const targetZoom = Math.max(35, Math.min(150, Math.round(optimalScale * 100)));
-
-        const offsetX = Math.round(((canvasWidth / 2) - contentCenterX) * (targetZoom / 100));
-        const offsetY = Math.round(((canvasHeight / 2) - contentCenterY) * (targetZoom / 100));
-
-        setZoomLevel(targetZoom);
-        setPanOffset(clampPan(offsetX, offsetY, targetZoom));
-        return;
-      }
-    }
-
-    const scaleX = containerW / canvasWidth;
-    const scaleY = containerH / canvasHeight;
+    const scaleX = availW / canvasWidth;
+    const scaleY = availH / canvasHeight;
     const optimalScale = Math.min(scaleX, scaleY);
-    const targetZoom = Math.max(25, Math.min(150, Math.round(optimalScale * 100)));
+    const targetZoom = Math.max(15, Math.min(100, Math.round(optimalScale * 100)));
+
     setZoomLevel(targetZoom);
     setPanOffset({ x: 0, y: 0 });
-  }, [canvasWidth, canvasHeight, stalls, halls, facilities, clampPan]);
+  }, [canvasWidth, canvasHeight]);
+
+  // Auto-fit to screen whenever fullscreen toggles or layout reflows so the floor plan is 100% visible
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleFitToScreen();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, handleFitToScreen]);
+
+  // Initial auto-fit on load once layout content is available
+  const hasInitialFitted = useRef(false);
+  useEffect(() => {
+    if (!hasInitialFitted.current && (stalls.length > 0 || halls.length > 0)) {
+      hasInitialFitted.current = true;
+      const timer = setTimeout(() => {
+        handleFitToScreen();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [stalls.length, halls.length, handleFitToScreen]);
+
+  // Resize listener to adapt canvas view smoothly when window or workspace geometry changes
+  useEffect(() => {
+    let resizeTimer: any;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        handleFitToScreen();
+      }, 200);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimer);
+    };
+  }, [handleFitToScreen]);
 
   // Keyboard Shortcuts Listener
   useEffect(() => {
@@ -570,7 +642,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           handleDuplicateSelected(1);
         }
       } else if (e.key === 'Escape') {
-        setSelectedRefs([]);
+        if (selectedRefs.length > 0) {
+          setSelectedRefs([]);
+        } else if (isFullscreen) {
+          setIsFullscreen(false);
+        }
       } else if (e.key === '[') {
         e.preventDefault();
         setIsLeftCollapsed((prev) => !prev);
@@ -753,7 +829,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const newStall: DraftStallItem = {
       id: `stall-${Date.now()}`,
       stallNumber: `S-${numStr}`,
-      name: `Stall S-${numStr}`,
+      name: '3×3',
       category: 'STANDARD',
       price: 50000,
       areaSqFt: 100,
@@ -866,19 +942,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     setStalls(nextStalls);
     setSelectedRefs(generatedStalls.map((s) => ({ type: 'stall', id: s.id })));
     pushHistory(halls, facilities, annotations, nextStalls);
-  };
-
-  // Apply Starter Template
-  const handleApplyTemplate = (templateId: string) => {
-    const tmpl = STARTER_TEMPLATES.find((t) => t.id === templateId);
-    if (!tmpl) return;
-
-    setHalls(tmpl.layoutData.halls);
-    setFacilities(tmpl.layoutData.facilities);
-    setAnnotations(tmpl.layoutData.annotations);
-    setStalls(tmpl.stalls);
-    setSelectedRefs([]);
-    pushHistory(tmpl.layoutData.halls, tmpl.layoutData.facilities, tmpl.layoutData.annotations, tmpl.stalls);
   };
 
   // Property Update Handlers (with Single Stall Push / Pull Adjacent Row Neighbors)
@@ -1525,7 +1588,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
+    initialFontSize?: number
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -1533,7 +1597,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
     setIsResizing(true);
     setResizeHandle(handle);
-    setResizeInitial({ id, type, x, y, width, height });
+    setResizeInitial({ id, type, x, y, width, height, initialFontSize });
     const pt = getSVGCoordinates(e);
     setDragStartPos({ x: pt.x, y: pt.y });
 
@@ -1612,26 +1676,30 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       const fixedRight = resizeInitial.x + resizeInitial.width;
       const fixedBottom = resizeInitial.y + resizeInitial.height;
 
+      const isAnnotation = resizeInitial.type === 'annotation';
+
       if (resizeHandle.includes('e')) {
-        const rawW = Math.max(30, resizeInitial.width + dx);
-        newW = snapToGrid ? snapCoord(rawW) : Math.round(rawW);
+        const rawW = Math.max(isAnnotation ? 20 : 30, resizeInitial.width + dx);
+        newW = snapToGrid && !isAnnotation ? snapCoord(rawW) : Math.round(rawW);
       }
       if (resizeHandle.includes('s')) {
-        const rawH = Math.max(30, resizeInitial.height + dy);
-        newH = snapToGrid ? snapCoord(rawH) : Math.round(rawH);
+        const rawH = Math.max(isAnnotation ? 16 : 30, resizeInitial.height + dy);
+        newH = snapToGrid && !isAnnotation ? snapCoord(rawH) : Math.round(rawH);
       }
       if (resizeHandle.includes('w')) {
         const rawX = resizeInitial.x + dx;
-        const candidateX = snapToGrid ? snapCoord(rawX) : Math.round(rawX);
-        if (fixedRight - candidateX >= 30) {
+        const candidateX = snapToGrid && !isAnnotation ? snapCoord(rawX) : Math.round(rawX);
+        const minW = isAnnotation ? 20 : 30;
+        if (fixedRight - candidateX >= minW) {
           newX = candidateX;
           newW = fixedRight - candidateX;
         }
       }
       if (resizeHandle.includes('n')) {
         const rawY = resizeInitial.y + dy;
-        const candidateY = snapToGrid ? snapCoord(rawY) : Math.round(rawY);
-        if (fixedBottom - candidateY >= 30) {
+        const candidateY = snapToGrid && !isAnnotation ? snapCoord(rawY) : Math.round(rawY);
+        const minH = isAnnotation ? 16 : 30;
+        if (fixedBottom - candidateY >= minH) {
           newY = candidateY;
           newH = fixedBottom - candidateY;
         }
@@ -1667,6 +1735,28 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         setFacilities((prev) =>
           prev.map((f) =>
             f.id === resizeInitial.id ? { ...f, x: newX, y: newY, width: newW, height: newH } : f
+          )
+        );
+      } else if (resizeInitial.type === 'annotation') {
+        const baseFontSize = resizeInitial.initialFontSize || 12;
+        let scale = 1;
+        if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
+          scale = newW / Math.max(20, resizeInitial.width);
+        }
+        if (resizeHandle.includes('s') || resizeHandle.includes('n')) {
+          const hRatio = newH / Math.max(16, resizeInitial.height);
+          scale = resizeHandle.includes('e') || resizeHandle.includes('w') ? (scale + hRatio) / 2 : hRatio;
+        }
+        const computedFontSize = Math.max(8, Math.min(72, Math.round(baseFontSize * scale)));
+        setAnnotations((prev) =>
+          prev.map((a) =>
+            a.id === resizeInitial.id
+              ? {
+                  ...a,
+                  fontSize: computedFontSize,
+                  iconSize: a.iconSize ? Math.max(12, Math.min(84, Math.round(a.iconSize * scale))) : undefined,
+                }
+              : a
           )
         );
       }
@@ -1971,8 +2061,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
   return (
     <div
-      className={`relative flex flex-col bg-slate-100 text-slate-900 select-none overflow-hidden ${
-        isFullscreen ? 'fixed inset-0 z-50' : 'h-[calc(100vh-4.5rem)] rounded-2xl border border-slate-200'
+      className={`flex flex-col bg-slate-100 text-slate-900 select-none overflow-hidden ${
+        isFullscreen
+          ? 'fixed inset-0 z-[99999] w-screen h-screen rounded-none border-0'
+          : 'relative h-[calc(100vh-4.5rem)] rounded-2xl border border-slate-200'
       }`}
     >
       {/* Studio Top Control Header */}
@@ -1980,8 +2072,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         <div className="flex items-center gap-3">
           {onBack && (
             <button
-              onClick={onBack}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold"
+              onClick={() => {
+                if (isFullscreen) {
+                  setIsFullscreen(false);
+                }
+                onBack();
+              }}
+              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
@@ -1992,13 +2089,21 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-extrabold text-slate-900">{exhibitionTitle}</h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
-                Floor Plan Designer
+              <span
+                className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${
+                  isFullscreen
+                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                }`}
+              >
+                {isFullscreen ? 'Full Screen Studio' : 'Floor Plan Designer'}
               </span>
             </div>
-            <p className="text-[10px] text-slate-500">
-              Drag and place stalls, halls, and amenities to design your event layout
-            </p>
+            {!isFullscreen && (
+              <p className="text-[10px] text-slate-500">
+                Drag and place stalls, halls, and amenities to design your event layout
+              </p>
+            )}
           </div>
         </div>
 
@@ -2082,10 +2187,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             {isReadOnly ? 'Switch to Edit' : 'Preview Floor Plan'}
           </button>
 
-          {/* Fullscreen Toggle */}
+          {/* Fullscreen Toggle (Clean symbol with tooltip, covers full screen) */}
           <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            type="button"
+            onClick={toggleFullscreen}
+            className={`p-2 rounded-lg transition-all cursor-pointer border ${
+              isFullscreen
+                ? 'bg-blue-600 text-white border-blue-700 shadow-xs hover:bg-blue-700'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200'
+            }`}
+            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Cover Full Screen — Focus Mode (F)'}
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
@@ -2145,7 +2256,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           onAddFacility={handleAddFacility}
           onAddZone={handleAddZone}
           onAddText={handleAddText}
-          onApplyTemplate={handleApplyTemplate}
           onZoomIn={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
           onZoomOut={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
           onResetZoom={() => setZoomLevel(100)}
@@ -2441,32 +2551,40 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
                   return (
                     <g key={hall.id}>
-                      {/* Hall boundary rectangle - dragging inside draws marquee selection for inside items; moving hall is done by dragging header banner or border outline */}
+                      {/* Hall boundary rectangle - dragging inside draws marquee box to select multiple stalls */}
                       <rect
                         x={hall.x}
                         y={hall.y}
                         width={hall.width}
                         height={hall.height}
                         rx="14"
-                        fill={backgroundImageUrl ? 'rgba(255, 255, 255, 0.08)' : '#fafafa'}
+                        fill={backgroundImageUrl ? 'rgba(255, 255, 255, 0.08)' : (isSelected ? 'rgba(59, 130, 246, 0.04)' : '#fafafa')}
                         stroke={strokeColor}
                         strokeWidth={isSelected ? 3.5 : 2}
                         strokeDasharray={isSelected ? 'none' : '8 6'}
                         className="transition-all cursor-crosshair"
                         onMouseDown={(e) => {
-                          if (e.button !== 0) return;
-                          if (activeTool === 'pan' || isSpacePressed) {
+                          if (e.button === 1 || e.button === 2 || activeTool === 'pan' || isSpacePressed) {
+                            e.preventDefault();
                             setIsPanning(true);
                             setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
                             return;
                           }
-                          // Marquee drag-select items inside the hall interior automatically
+                          if (e.button !== 0) return;
+
+                          // Dragging on the hall floor draws a marquee box to select multiple stalls
                           const pt = getSVGCoordinates(e);
                           lastCanvasClickPos.current = { x: pt.x, y: pt.y };
                           if (!e.shiftKey && !isMultiSelectMode) {
                             setSelectedRefs([]);
                           }
-                          setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y, startInsideHallId: hall.id });
+                          setMarqueeBox({
+                            startX: pt.x,
+                            startY: pt.y,
+                            currX: pt.x,
+                            currY: pt.y,
+                            startInsideHallId: hall.id,
+                          });
                           e.stopPropagation();
                         }}
                       />
@@ -2517,11 +2635,31 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         } else if (pos === 'bottom-right') {
                           bx = hall.x + hall.width - bannerWidth - 16;
                           by = hall.y + hall.height - bannerHeight - 12;
+                        } else if (pos === 'outside-top-left') {
+                          bx = hall.x + 16;
+                          by = hall.y - bannerHeight - 8;
+                        } else if (pos === 'outside-top-center') {
+                          bx = hall.x + (hall.width - bannerWidth) / 2;
+                          by = hall.y - bannerHeight - 8;
+                        } else if (pos === 'outside-top-right') {
+                          bx = hall.x + hall.width - bannerWidth - 16;
+                          by = hall.y - bannerHeight - 8;
+                        } else if (pos === 'outside-bottom-left') {
+                          bx = hall.x + 16;
+                          by = hall.y + hall.height + 8;
+                        } else if (pos === 'outside-bottom-center') {
+                          bx = hall.x + (hall.width - bannerWidth) / 2;
+                          by = hall.y + hall.height + 8;
+                        } else if (pos === 'outside-bottom-right') {
+                          bx = hall.x + hall.width - bannerWidth - 16;
+                          by = hall.y + hall.height + 8;
                         }
 
-                        // Clamp inside hall bounds
-                        bx = Math.max(hall.x + 8, Math.min(hall.x + hall.width - bannerWidth - 8, bx));
-                        by = Math.max(hall.y + 8, Math.min(hall.y + hall.height - bannerHeight - 8, by));
+                        // Only clamp inside hall bounds if placed inside
+                        if (!pos.startsWith('outside')) {
+                          bx = Math.max(hall.x + 8, Math.min(hall.x + hall.width - bannerWidth - 8, bx));
+                          by = Math.max(hall.y + 8, Math.min(hall.y + hall.height - bannerHeight - 8, by));
+                        }
 
                         return (
                           <g className="group select-none">
@@ -2538,8 +2676,17 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                               className="cursor-move"
                               onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
                             />
+
+                            {/* Move Grip Dots */}
+                            <g className="cursor-move pointer-events-none" opacity={0.65}>
+                              <circle cx={bx + 10} cy={by + bannerHeight / 2 - 3} r="1.3" fill={strokeColor} />
+                              <circle cx={bx + 10} cy={by + bannerHeight / 2 + 3} r="1.3" fill={strokeColor} />
+                              <circle cx={bx + 14} cy={by + bannerHeight / 2 - 3} r="1.3" fill={strokeColor} />
+                              <circle cx={bx + 14} cy={by + bannerHeight / 2 + 3} r="1.3" fill={strokeColor} />
+                            </g>
+
                             <text
-                              x={bx + 14}
+                              x={bx + 23}
                               y={by + bannerHeight / 2 + 1}
                               dominantBaseline="central"
                               fill={strokeColor}
@@ -3185,12 +3332,60 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   const mode = ann.displayMode || 'text-only';
                   const iconSize = ann.iconSize || fontSize + 4;
 
+                  const textLines = (ann.text || '').split('\n');
+                  const maxChars = Math.max(...textLines.map((l) => l.length), 1);
+                  const textWidth = Math.max(32, Math.round(maxChars * fontSize * 0.62));
+                  const textHeight = Math.max(fontSize, textLines.length * (fontSize * 1.25));
+
+                  // Calculate Bounding Box Dimensions
+                  let boxX = ann.x - 8;
+                  let boxY = ann.y - fontSize - 6;
+                  let boxWidth = textWidth + 16;
+                  let boxHeight = textHeight + 12;
+
+                  if (mode === 'icon-only') {
+                    boxX = ann.x - 4;
+                    boxY = ann.y - fontSize / 2 - iconSize / 2 - 4;
+                    boxWidth = iconSize + 8;
+                    boxHeight = iconSize + 8;
+                  } else if (mode === 'both') {
+                    boxX = ann.x - 18;
+                    boxY = ann.y - fontSize - 6;
+                    boxWidth = 26 + textWidth + 14;
+                    boxHeight = Math.max(iconSize, textHeight) + 12;
+                  }
+
+                  const transformAttr = ann.rotation
+                    ? `rotate(${ann.rotation} ${boxX + boxWidth / 2} ${boxY + boxHeight / 2})`
+                    : undefined;
+
                   return (
                     <g
                       key={ann.id}
+                      transform={transformAttr}
                       onMouseDown={(e) => handleItemMouseDown(e, 'annotation', ann.id)}
-                      className="cursor-move"
+                      className="cursor-move group"
                     >
+                      {/* Full Interactive Hit-Surface & Bounding Box */}
+                      <rect
+                        x={boxX}
+                        y={boxY}
+                        width={boxWidth}
+                        height={boxHeight}
+                        rx="5"
+                        fill={isSelected ? '#3b82f6' : '#ffffff'}
+                        fillOpacity={isSelected ? 0.08 : 0.001}
+                        stroke={isSelected ? '#2563eb' : '#94a3b8'}
+                        strokeWidth={isSelected ? 1.5 : 1}
+                        strokeDasharray={isSelected ? '4 3' : '3 3'}
+                        className={`transition-all ${
+                          isSelected
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-70'
+                        }`}
+                      />
+
+                      {/* Text / Icon Content */}
                       {mode === 'text-only' && (
                         <text
                           x={ann.x}
@@ -3206,9 +3401,21 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                               ? '600'
                               : '400'
                           }
-                          className="select-none"
+                          className="select-none pointer-events-none"
                         >
-                          {ann.text}
+                          {textLines.length === 1 ? (
+                            ann.text
+                          ) : (
+                            textLines.map((line, idx) => (
+                              <tspan
+                                key={idx}
+                                x={ann.x}
+                                dy={idx === 0 ? 0 : fontSize * 1.25}
+                              >
+                                {line}
+                              </tspan>
+                            ))
+                          )}
                         </text>
                       )}
 
@@ -3222,7 +3429,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         )}
 
                       {mode === 'both' && (
-                        <g>
+                        <g className="pointer-events-none">
                           {renderFacilitySvgIcon(
                             ann.iconName || 'info',
                             ann.x - 10,
@@ -3246,9 +3453,181 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                             }
                             className="select-none"
                           >
-                            {ann.text}
+                            {textLines.length === 1 ? (
+                              ann.text
+                            ) : (
+                              textLines.map((line, idx) => (
+                                <tspan
+                                  key={idx}
+                                  x={ann.x + 8}
+                                  dy={idx === 0 ? 0 : fontSize * 1.25}
+                                >
+                                  {line}
+                                </tspan>
+                              ))
+                            )}
                           </text>
                         </g>
+                      )}
+
+                      {/* Selection Bounding Box Decorators & Resize Handles (Only when single annotation is selected) */}
+                      {isSelected && selectedRefs.length === 1 && !isReadOnly && (
+                        <>
+                          {/* Font Size Indicator Pill above the text box */}
+                          <g transform={`translate(${boxX}, ${boxY - 18})`} className="pointer-events-none">
+                            <rect
+                              x="0"
+                              y="0"
+                              width={fontSize >= 100 ? 42 : 36}
+                              height="16"
+                              rx="4"
+                              fill="#2563eb"
+                              className="shadow-xs"
+                            />
+                            <text
+                              x={(fontSize >= 100 ? 42 : 36) / 2}
+                              y="11.5"
+                              textAnchor="middle"
+                              fill="#ffffff"
+                              fontSize="9"
+                              fontWeight="800"
+                              className="select-none font-mono"
+                            >
+                              {fontSize}px
+                            </text>
+                          </g>
+
+                          {/* Corner & Edge Resize Handles */}
+                          {/* SE (Bottom-Right) Handle */}
+                          <rect
+                            x={boxX + boxWidth - 5}
+                            y={boxY + boxHeight - 5}
+                            width="10"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-se-resize shadow-xs"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'se',
+                                'annotation',
+                                ann.id,
+                                boxX,
+                                boxY,
+                                boxWidth,
+                                boxHeight,
+                                fontSize
+                              )
+                            }
+                          />
+
+                          {/* SW (Bottom-Left) Handle */}
+                          <rect
+                            x={boxX - 5}
+                            y={boxY + boxHeight - 5}
+                            width="10"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-sw-resize shadow-xs"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'sw',
+                                'annotation',
+                                ann.id,
+                                boxX,
+                                boxY,
+                                boxWidth,
+                                boxHeight,
+                                fontSize
+                              )
+                            }
+                          />
+
+                          {/* NE (Top-Right) Handle */}
+                          <rect
+                            x={boxX + boxWidth - 5}
+                            y={boxY - 5}
+                            width="10"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-ne-resize shadow-xs"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'ne',
+                                'annotation',
+                                ann.id,
+                                boxX,
+                                boxY,
+                                boxWidth,
+                                boxHeight,
+                                fontSize
+                              )
+                            }
+                          />
+
+                          {/* NW (Top-Left) Handle */}
+                          <rect
+                            x={boxX - 5}
+                            y={boxY - 5}
+                            width="10"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-nw-resize shadow-xs"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'nw',
+                                'annotation',
+                                ann.id,
+                                boxX,
+                                boxY,
+                                boxWidth,
+                                boxHeight,
+                                fontSize
+                              )
+                            }
+                          />
+
+                          {/* E (Right Edge) Handle */}
+                          <rect
+                            x={boxX + boxWidth - 4}
+                            y={boxY + boxHeight / 2 - 5}
+                            width="8"
+                            height="10"
+                            rx="2"
+                            fill="#ffffff"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="cursor-e-resize shadow-xs"
+                            onMouseDown={(e) =>
+                              handleResizeHandleMouseDown(
+                                e,
+                                'e',
+                                'annotation',
+                                ann.id,
+                                boxX,
+                                boxY,
+                                boxWidth,
+                                boxHeight,
+                                fontSize
+                              )
+                            }
+                          />
+                        </>
                       )}
                     </g>
                   );
@@ -3306,12 +3685,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     accentCol = '#94a3b8';
                   }
 
-                  const widthMeters = Number((stall.width / pxPerMeter).toFixed(1)).toString().replace('.0', '');
-                  const depthMeters = Number((stall.height / pxPerMeter).toFixed(1)).toString().replace('.0', '');
                   const dimMarkText = stall.name && stall.name !== `Stall ${stall.stallNumber}`
                     ? stall.name
-                    : `${widthMeters}×${depthMeters}m`;
-                  const hasDimMark = stall.width >= 36 && stall.height >= 40;
+                    : '';
+                  const hasDimMark = Boolean(dimMarkText) && stall.width >= 36 && stall.height >= 40;
 
                   const transformAttr = stall.rotation
                     ? `rotate(${stall.rotation} ${stall.xPosition + stall.width / 2} ${stall.yPosition + stall.height / 2})`
@@ -3603,6 +3980,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             onDistributeStalls={handleDistributeStalls}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
+            canReduceCanvas={canReduceCanvas}
+            onReduceCanvas={handleReduceCanvas}
             readOnly={isReadOnly}
             isCollapsed={isRightCollapsed}
             onToggleCollapse={() => setIsRightCollapsed(!isRightCollapsed)}
@@ -3630,6 +4009,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
         onExpandCanvas={handleExpandCanvas}
+        canReduceCanvas={canReduceCanvas}
+        onReduceCanvas={handleReduceCanvas}
         hasBlueprint={Boolean(backgroundImageUrl)}
         showBlueprint={showBlueprint}
         onToggleBlueprint={() => setShowBlueprint((prev) => !prev)}
