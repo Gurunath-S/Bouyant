@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
 import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2 } from 'lucide-react';
-import { PaymentStatusBadge } from '../../../components/ui/Badge';
+import { PaymentStatusBadge, InvoiceStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
@@ -265,10 +265,9 @@ export const AdminPaymentsPage: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
                 >
                   <option value="ALL">All Payment Statuses</option>
-                  <option value="SUCCESS">SUCCESS</option>
-                  <option value="PENDING">PENDING</option>
-                  <option value="FAILED">FAILED</option>
-                  <option value="REFUNDED">REFUNDED</option>
+                  <option value="SUCCESS">Success</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="FAILED">Failed</option>
                 </select>
                 <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -476,6 +475,7 @@ export const AdminPaymentsPage: React.FC = () => {
                         <th className="py-3.5 px-4 text-right">Base Amount</th>
                         <th className="py-3.5 px-4 text-right">GST (18%)</th>
                         <th className="py-3.5 px-4 text-right">Grand Total</th>
+                        <th className="py-3.5 px-4 text-center">Status</th>
                         <th className="py-3.5 px-4 text-center">Action</th>
                       </tr>
                     </thead>
@@ -506,6 +506,9 @@ export const AdminPaymentsPage: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
                             ₹{Number(inv.grandTotal).toLocaleString('en-IN')} INR
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <InvoiceStatusBadge status={inv.status} />
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <div className="inline-flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>

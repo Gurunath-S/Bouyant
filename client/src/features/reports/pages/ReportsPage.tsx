@@ -9,6 +9,7 @@ import {
 } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { formatDisplayDate } from '../../../utils/date';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import {
   BarChart3,
   TrendingUp,
@@ -352,9 +353,7 @@ export const ReportsPage: React.FC = () => {
                 <option value="ALL">All Booking Statuses</option>
                 <option value="CONFIRMED">Confirmed</option>
                 <option value="PENDING_PAYMENT">Pending Payment</option>
-                <option value="HELD">Temporarily Held</option>
                 <option value="CANCELLED">Cancelled</option>
-                <option value="EXPIRED">Expired</option>
               </select>
             </div>
           )}
@@ -374,10 +373,9 @@ export const ReportsPage: React.FC = () => {
                 className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
               >
                 <option value="ALL">All Payment Statuses</option>
-                <option value="PAID_FULL">Fully Paid (Settled)</option>
-                <option value="PARTIALLY_PAID">Partially Paid (Due Pending)</option>
-                <option value="UNPAID">Unpaid (Zero Paid)</option>
-                <option value="REFUNDED">Refunded</option>
+                <option value="PAID_FULL">Fully Paid</option>
+                <option value="PARTIALLY_PAID">Partially Paid</option>
+                <option value="UNPAID">Unpaid</option>
               </select>
             </div>
           )}
@@ -797,17 +795,7 @@ export const ReportsPage: React.FC = () => {
                             {fmt(b.balanceAmount)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                b.status === 'CONFIRMED'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                  : b.status === 'PENDING_PAYMENT'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-300'
-                                  : 'bg-slate-100 text-slate-600 border-slate-300'
-                              }`}
-                            >
-                              {b.status}
-                            </span>
+                            <BookingStatusBadge status={b.status} />
                           </td>
                         </tr>
                       ))}

@@ -5,6 +5,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { Company, Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDate } from '../../../utils/date';
@@ -112,33 +113,7 @@ export const AdminCompaniesPage: React.FC = () => {
   const notPaidCount = summary.notPaidCount;
 
   const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'CONFIRMED':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Confirmed
-          </span>
-        );
-      case 'PENDING_PAYMENT':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            <Clock className="w-3 h-3 text-amber-600" /> Pending Payment
-          </span>
-        );
-      case 'INITIATED':
-      case 'HELD':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-            <Clock className="w-3 h-3 text-blue-600" /> Hold / Initiated
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
-            {status || 'Active'}
-          </span>
-        );
-    }
+    return <BookingStatusBadge status={status || 'CONFIRMED'} />;
   };
 
   const getBookingPaymentBadge = (
@@ -148,36 +123,13 @@ export const AdminCompaniesPage: React.FC = () => {
   ) => {
     const paid = Number(paidAmount || 0);
     const total = Number(grandTotal || 0);
-
-    if (paymentStatus === 'PAID_FULL' || (total > 0 && paid >= total)) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Paid Full
-        </span>
-      );
+    let effectiveStatus = paymentStatus;
+    if (!effectiveStatus) {
+      if (total > 0 && paid >= total) effectiveStatus = 'PAID_FULL';
+      else if (paid > 0) effectiveStatus = 'PARTIALLY_PAID';
+      else effectiveStatus = 'UNPAID';
     }
-
-    if (paymentStatus === 'PARTIALLY_PAID' || paid > 0) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-          <Clock className="w-3 h-3 text-blue-600" /> Partially Paid
-        </span>
-      );
-    }
-
-    if (paymentStatus === 'REFUNDED') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-          Refunded
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-        <AlertCircle className="w-3 h-3 text-amber-600" /> Unpaid
-      </span>
-    );
+    return <PaymentStatusBadge status={effectiveStatus} />;
   };
 
   const getCustomerStatusBadge = (companyBookings?: any[]) => {

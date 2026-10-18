@@ -1,5 +1,5 @@
 import React from 'react';
-import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus } from '../../types';
+import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus, InvoiceStatus } from '../../types';
 
 export interface BadgeProps {
   children: React.ReactNode;
@@ -48,36 +48,53 @@ export const StallStatusBadge: React.FC<{ status: StallStatus }> = ({ status }) 
   }
 };
 
-export const BookingStatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
+export const BookingStatusBadge: React.FC<{ status: BookingStatus | string }> = ({ status }) => {
   switch (status) {
     case 'CONFIRMED':
       return <Badge variant="success">Confirmed</Badge>;
     case 'PENDING_PAYMENT':
     case 'INITIATED':
       return <Badge variant="warning">Pending Payment</Badge>;
-    case 'EXPIRED':
     case 'CANCELLED':
-      return <Badge variant="danger">{status}</Badge>;
+      return <Badge variant="danger">Cancelled</Badge>;
+    case 'EXPIRED':
+      return <Badge variant="danger">Expired</Badge>;
     default:
-      return <Badge variant="info">{status}</Badge>;
+      return <Badge variant="neutral">{status}</Badge>;
   }
 };
 
 export const PaymentStatusBadge: React.FC<{ status: PaymentStatus | BookingPaymentStatus | string }> = ({ status }) => {
   switch (status) {
     case 'SUCCESS':
+      return <Badge variant="success">Success</Badge>;
     case 'PAID':
     case 'PAID_FULL':
-      return <Badge variant="success">Paid & Verified</Badge>;
+      return <Badge variant="success">Fully Paid</Badge>;
     case 'PARTIALLY_PAID':
     case 'PARTIAL':
       return <Badge variant="info">Partially Paid</Badge>;
     case 'PENDING':
+      return <Badge variant="warning">Pending</Badge>;
     case 'UNPAID':
-      return <Badge variant="warning">{status === 'UNPAID' ? 'Unpaid' : 'Pending'}</Badge>;
+      return <Badge variant="warning">Unpaid</Badge>;
     case 'FAILED':
-    case 'CANCELLED':
       return <Badge variant="danger">Failed</Badge>;
+    case 'CANCELLED':
+      return <Badge variant="danger">Cancelled</Badge>;
+    default:
+      return <Badge variant="neutral">{status}</Badge>;
+  }
+};
+
+export const InvoiceStatusBadge: React.FC<{ status: InvoiceStatus | string }> = ({ status }) => {
+  switch (status) {
+    case 'PAID':
+    case 'ISSUED':
+      return <Badge variant="success">Paid</Badge>;
+    case 'VOID':
+    case 'CANCELLED':
+      return <Badge variant="danger">Void</Badge>;
     default:
       return <Badge variant="neutral">{status}</Badge>;
   }

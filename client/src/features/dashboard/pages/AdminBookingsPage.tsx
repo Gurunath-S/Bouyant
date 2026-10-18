@@ -30,6 +30,7 @@ export const AdminBookingsPage: React.FC = () => {
   // Filters state initialized from URL search params if present
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState(searchParams.get('paymentStatus') || 'ALL');
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState(
     searchParams.get('registrar') || (isStaff ? 'STAFF' : 'ALL')
@@ -52,6 +53,7 @@ export const AdminBookingsPage: React.FC = () => {
         limit: pageSize,
         search: searchQuery.trim() || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        paymentStatus: paymentStatusFilter !== 'ALL' ? paymentStatusFilter : undefined,
         exhibitionId: exhibitionFilter !== 'ALL' ? exhibitionFilter : undefined,
         registeredByRole: registrarFilter !== 'ALL' ? registrarFilter : undefined,
         hasBalanceOnly: balanceOnlyFilter || undefined,
@@ -74,7 +76,7 @@ export const AdminBookingsPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [currentPage, pageSize, searchQuery, statusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+  }, [currentPage, pageSize, searchQuery, statusFilter, paymentStatusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   useEffect(() => {
     fetchBookings();
@@ -82,7 +84,7 @@ export const AdminBookingsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+  }, [searchQuery, statusFilter, paymentStatusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   return (
     <div className="space-y-6">
@@ -144,18 +146,28 @@ export const AdminBookingsPage: React.FC = () => {
               </select>
             </div>
 
+            {/* Booking Status Filter (Active statuses only) */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
             >
               <option value="ALL">All Booking Statuses</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-              <option value="INITIATED">INITIATED</option>
-              <option value="HELD">HELD</option>
-              <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
-              <option value="CANCELLED">CANCELLED</option>
-              <option value="EXPIRED">EXPIRED</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="PENDING_PAYMENT">Pending Payment</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+
+            {/* Payment Status Filter (Active statuses only) */}
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
+            >
+              <option value="ALL">All Payment Statuses</option>
+              <option value="PAID_FULL">Fully Paid</option>
+              <option value="PARTIALLY_PAID">Partially Paid</option>
+              <option value="UNPAID">Unpaid</option>
             </select>
 
             <select

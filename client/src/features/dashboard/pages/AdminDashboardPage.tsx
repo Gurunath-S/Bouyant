@@ -23,6 +23,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { formatDisplayDate } from '../../../utils/date';
@@ -217,8 +218,7 @@ export const AdminDashboardPage: React.FC = () => {
       const matchesStatus =
         statusFilter === 'ALL' ||
         (statusFilter === 'CONFIRMED' && b.status === 'CONFIRMED') ||
-        (statusFilter === 'PENDING' && (b.status === 'PENDING_PAYMENT' || b.paymentStatus !== 'PAID_FULL')) ||
-        (statusFilter === 'HELD' && (b.status === 'HELD' || b.status === 'INITIATED'));
+        (statusFilter === 'PENDING' && (b.status === 'PENDING_PAYMENT' || b.paymentStatus === 'PARTIALLY_PAID' || b.paymentStatus === 'UNPAID'));
 
       return matchesSearch && matchesStatus;
     });
@@ -684,20 +684,8 @@ export const AdminDashboardPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <span
-                            className={`px-2 py-0.5 font-bold text-[10px] rounded-full border ${
-                              b.status === 'CONFIRMED'
-                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
-                                : b.status === 'PENDING_PAYMENT'
-                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                            }`}
-                          >
-                            {b.status}
-                          </span>
-                          <span className="text-[9px] font-mono text-slate-400 uppercase">
-                            {b.paymentStatus || 'UNPAID'}
-                          </span>
+                          <BookingStatusBadge status={b.status} />
+                          <PaymentStatusBadge status={b.paymentStatus || (b.status === 'CONFIRMED' ? 'PAID_FULL' : 'UNPAID')} />
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">

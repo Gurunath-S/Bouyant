@@ -5,7 +5,7 @@ import { bookingService } from '../../../services/bookings/bookingService';
 import { ReportOverviewData, Booking } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
-import { BookingStatusBadge } from '../../../components/ui/Badge';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -245,9 +245,7 @@ export const StaffDashboardPage: React.FC = () => {
                       {b.company?.name || 'Exhibitor'}
                     </span>
                     <BookingStatusBadge status={b.status} />
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      {b.paymentStatus || 'UNPAID'}
-                    </span>
+                    <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-slate-500 text-[11px] mt-1">
                     <span className="font-medium text-slate-700 dark:text-slate-300">

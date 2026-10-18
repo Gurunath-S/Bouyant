@@ -5,6 +5,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { AdminStaffUser, CreateAdminStaffPayload, CreateUserPayload, UpdateUserPayload, Exhibition } from '../../../types';
 import { PAGE_ACCESS_ITEMS, DEFAULT_ROLE_PAGE_ACCESS, getUserEffectivePageAccess } from '../../../config/pageAccess';
 import { Button } from '../../../components/ui/Button';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
@@ -1261,15 +1262,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                                 ₹{Number(bk.grandTotal || 0).toLocaleString()}
                               </td>
                               <td className="px-3 py-2">
-                                <span
-                                  className={`px-1.5 py-0.5 font-bold rounded text-[10px] ${
-                                    bk.paymentStatus === 'PAID_FULL' || bk.paymentStatus === 'PAID'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}
-                                >
-                                  {bk.paymentStatus}
-                                </span>
+                                <PaymentStatusBadge status={bk.paymentStatus} />
                               </td>
                             </tr>
                           ))}
@@ -1311,9 +1304,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                                 ₹{Number(cb.grandTotal || 0).toLocaleString()}
                               </td>
                               <td className="px-3 py-2">
-                                <span className="px-1.5 py-0.5 font-bold rounded text-[10px] bg-slate-100 dark:bg-slate-800">
-                                  {cb.status}
-                                </span>
+                                <BookingStatusBadge status={cb.status} />
                               </td>
                             </tr>
                           ))}

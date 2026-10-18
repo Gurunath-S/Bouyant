@@ -734,7 +734,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Creates an <strong>INITIATED</strong> reservation with 15-minute provisional lock for payment link delivery to exhibitor.
+                  Creates a <strong>Pending Payment</strong> reservation with 15-minute provisional lock for payment link delivery to exhibitor.
                 </p>
               </div>
             </div>

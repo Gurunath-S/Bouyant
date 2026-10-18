@@ -6,7 +6,7 @@ import { Exhibition, Booking } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
-import { BookingStatusBadge } from '../../../components/ui/Badge';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibitorModal';
@@ -785,10 +785,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <BookingStatusBadge status={b.status} />
-                          <span className="text-[10px] text-slate-400 block mt-1 font-semibold">
-                            {b.paymentStatus || 'UNPAID'}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <BookingStatusBadge status={b.status} />
+                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                          </div>
                         </td>
 
                         <td className="py-3.5 px-4 text-right">

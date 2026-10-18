@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { Booking } from '../../../types';
-import { BookingStatusBadge } from '../../../components/ui/Badge';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
@@ -199,9 +199,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col justify-center items-center">
                   <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Payment Status</p>
-                  <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
-                    {booking.paymentStatus || 'UNPAID'}
-                  </span>
+                  <PaymentStatusBadge status={booking.paymentStatus || 'UNPAID'} />
                 </div>
               </div>
             );

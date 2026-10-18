@@ -5,6 +5,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { ReportOverviewData, Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { formatDisplayDate } from '../../../utils/date';
+import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import {
   ShieldAlert,
   Users,
@@ -533,10 +534,11 @@ export const SuperAdminDashboardPage: React.FC = () => {
                 className="bg-transparent text-slate-700 dark:text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
               >
                 <option value="ALL">All Status</option>
-                <option value="CONFIRMED">CONFIRMED</option>
-                <option value="PAID_FULL">PAID FULL</option>
-                <option value="INITIATED">INITIATED</option>
-                <option value="HELD">HELD</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PAID_FULL">Fully Paid</option>
+                <option value="PARTIALLY_PAID">Partially Paid</option>
+                <option value="PENDING_PAYMENT">Pending Payment</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
 
@@ -567,19 +569,14 @@ export const SuperAdminDashboardPage: React.FC = () => {
                     {b.createdAt && ` • ${formatDisplayDate(b.createdAt)}`}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="flex flex-col gap-1 items-end">
                   <p className="font-bold font-mono text-slate-900 dark:text-slate-100">
                     ₹{Number(b.grandTotal || 0).toLocaleString()} INR
                   </p>
-                  <span
-                    className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                      b.status === 'CONFIRMED' || b.paymentStatus === 'PAID_FULL'
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                    }`}
-                  >
-                    {b.status || b.paymentStatus}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <BookingStatusBadge status={b.status} />
+                    <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                  </div>
                 </div>
               </div>
             ))}

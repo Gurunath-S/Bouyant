@@ -47,7 +47,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
 
   // Filters & Search for bookings
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING_PAYMENT' | 'INITIATED' | 'CANCELLED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING_PAYMENT' | 'CANCELLED'>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'PAID_FULL' | 'PARTIALLY_PAID' | 'UNPAID'>('ALL');
   const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'VALUE_HIGH'>('NEWEST');
 
@@ -122,9 +122,8 @@ export const AdminCompanyDetailPage: React.FC = () => {
   const statusFilterCounts = useMemo(() => {
     const confirmed = allBookings.filter((b) => b.status === 'CONFIRMED').length;
     const pending = allBookings.filter((b) => b.status === 'PENDING_PAYMENT').length;
-    const initiated = allBookings.filter((b) => b.status === 'INITIATED').length;
     const cancelled = allBookings.filter((b) => b.status === 'CANCELLED').length;
-    return { confirmed, pending, initiated, cancelled, total: allBookings.length };
+    return { confirmed, pending, cancelled, total: allBookings.length };
   }, [allBookings]);
 
   // Live Counts for Payment Tabs
@@ -288,13 +287,6 @@ export const AdminCompanyDetailPage: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
             <Clock className="w-3 h-3 text-amber-600" /> Pending Payment
-          </span>
-        );
-      case 'INITIATED':
-      case 'HELD':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-            <Clock className="w-3 h-3 text-blue-600" /> Hold / Initiated
           </span>
         );
       case 'CANCELLED':
@@ -1023,7 +1015,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                                   : 'bg-rose-50 text-rose-700 border border-rose-200'
                                               }`}
                                             >
-                                              {p.status}
+                                              {p.status === 'SUCCESS' ? 'Success' : p.status === 'PENDING' ? 'Pending' : p.status === 'FAILED' ? 'Failed' : p.status}
                                             </span>
                                           </div>
                                           <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
@@ -1271,7 +1263,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
                           {inv.invoiceNumber}
                         </span>
                         <span className="text-[10px] text-slate-400">
-                          Date: {formatDisplayDate(inv.issueDate || inv.createdAt)} • Status: {inv.status}
+                          Date: {formatDisplayDate(inv.issueDate || inv.createdAt)} • Status: {inv.status === 'ISSUED' ? 'PAID' : (inv.status || 'PAID')}
                         </span>
                       </div>
                       <div className="text-right">

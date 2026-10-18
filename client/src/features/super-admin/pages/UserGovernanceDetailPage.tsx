@@ -4,6 +4,7 @@ import { userService } from '../../../services/users/userService';
 import { AdminStaffUser } from '../../../types';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Button } from '../../../components/ui/Button';
+import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { showConfirm } from '../../../stores/dialogStore';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -578,17 +579,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                           <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
                             {bk.bookingReference}
                           </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                              bk.paymentStatus === 'PAID_FULL' || bk.paymentStatus === 'PAID'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : bk.paymentStatus === 'PARTIALLY_PAID'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}
-                          >
-                            {bk.paymentStatus}
-                          </span>
+                          <PaymentStatusBadge status={bk.paymentStatus} />
                         </div>
                         <h5 className="font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">
                           {bk.company?.name || 'Client Exhibitor'}
@@ -762,17 +753,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                         ₹{Number(bk.grandTotal || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            bk.paymentStatus === 'PAID_FULL' || bk.paymentStatus === 'PAID'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : bk.paymentStatus === 'PARTIALLY_PAID'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          }`}
-                        >
-                          {bk.paymentStatus}
-                        </span>
+                        <PaymentStatusBadge status={bk.paymentStatus} />
                       </td>
                       <td className="px-4 py-3.5 text-slate-400">
                         {formatDisplayDate(bk.createdAt)}
