@@ -79,6 +79,7 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [editUserPages, setEditUserPages] = useState<string[]>([]);
   const [statusTargetUser, setStatusTargetUser] = useState<AdminStaffUser | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<AdminStaffUser | null>(null);
+  const [sendNotificationEmail, setSendNotificationEmail] = useState<boolean>(true);
 
   // Complete User Details State
   const [viewDetailsUserId, setViewDetailsUserId] = useState<string | null>(null);
@@ -333,13 +334,14 @@ export const SuperAdminUsersPage: React.FC = () => {
     if (!resetTargetUser || !newPassword) return;
     try {
       setActionLoading(true);
-      const res = await userService.resetPassword(resetTargetUser.id, newPassword);
+      const res = await userService.resetPassword(resetTargetUser.id, newPassword, sendNotificationEmail);
       setFeedbackMsg({
         type: 'success',
         text: res.message || 'Password reset successfully.',
       });
       setResetTargetUser(null);
       setNewPassword('');
+      setSendNotificationEmail(true);
     } catch (err: any) {
       setFeedbackMsg({
         type: 'error',
@@ -1763,7 +1765,11 @@ export const SuperAdminUsersPage: React.FC = () => {
       {/* 8. RESET PASSWORD MODAL */}
       <Modal
         isOpen={!!resetTargetUser}
-        onClose={() => setResetTargetUser(null)}
+        onClose={() => {
+          setResetTargetUser(null);
+          setNewPassword('');
+          setSendNotificationEmail(true);
+        }}
         title={`Reset Password: ${resetTargetUser?.name}`}
       >
         <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs">
@@ -1785,12 +1791,37 @@ export const SuperAdminUsersPage: React.FC = () => {
             />
           </div>
 
+          <div className="pt-1">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <input
+                type="checkbox"
+                checked={sendNotificationEmail}
+                onChange={(e) => setSendNotificationEmail(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <div className="flex-1">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
+                  Send notification email to user
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  {sendNotificationEmail
+                    ? `An email notification with login credentials will be sent to ${resetTargetUser?.email}`
+                    : 'No email will be sent. The user password will be silently updated in the system.'}
+                </span>
+              </div>
+            </label>
+          </div>
+
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setResetTargetUser(null)}
+              onClick={() => {
+                setResetTargetUser(null);
+                setNewPassword('');
+                setSendNotificationEmail(true);
+              }}
             >
               Cancel
             </Button>

@@ -61,8 +61,15 @@ export const userService = {
     return res.data;
   },
 
-  resetPassword: async (id: string, newPassword: string): Promise<{ message: string }> => {
-    const res: any = await apiClient.post(`/users/${id}/reset-password`, { newPassword });
+  resetPassword: async (
+    id: string,
+    newPassword: string,
+    sendEmailNotification: boolean = true
+  ): Promise<{ message: string; emailSent?: boolean }> => {
+    const res: any = await apiClient.post(`/users/${id}/reset-password`, {
+      newPassword,
+      sendEmailNotification,
+    });
     return res.data;
   },
 };

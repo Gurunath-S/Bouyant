@@ -44,6 +44,7 @@ export const ToggleUserStatusSchema = z.object({
 
 export const ResetPasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters long'),
+  sendEmailNotification: z.boolean().optional().default(true),
 });
 
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;

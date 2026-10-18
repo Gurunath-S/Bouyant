@@ -11,6 +11,7 @@ import {
 } from './users.schemas.js';
 import { normalizePagination } from '../../utils/pagination.js';
 import { TokenPayload } from '../../utils/jwt.js';
+import { EmailService } from '../../services/email.service.js';
 
 export interface ListUsersParams {
   role?: string;
@@ -548,7 +549,7 @@ export class UsersService {
     return updated;
   }
 
-  static async resetPassword(id: string, newPassword: string) {
+  static async resetPassword(id: string, newPassword: string, sendEmailNotification: boolean = true) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw ApiError.notFound('User not found.');
@@ -565,6 +566,29 @@ export class UsersService {
       data: { passwordHash },
     });
 
-    return { message: `Password for ${user.name} (${user.email}) has been reset successfully.` };
+    let emailSent = false;
+    if (sendEmailNotification) {
+      try {
+        const emailResult = await EmailService.sendAdminPasswordResetNotificationEmail({
+          toEmail: user.email,
+          toName: user.name,
+          newPassword,
+        });
+        emailSent = emailResult.status === 'ACCEPTED';
+      } catch (emailErr) {
+        console.warn(`Failed to dispatch password reset notification email to ${user.email}:`, emailErr);
+      }
+    }
+
+    const message = emailSent
+      ? `Password for ${user.name} (${user.email}) has been reset and email notification was sent.`
+      : sendEmailNotification
+      ? `Password for ${user.name} (${user.email}) has been reset successfully.`
+      : `Password for ${user.name} (${user.email}) has been reset successfully (notification skipped).`;
+
+    return {
+      message,
+      emailSent,
+    };
   }
 }

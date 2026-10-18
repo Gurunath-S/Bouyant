@@ -4,6 +4,8 @@ import { userService } from '../../../services/users/userService';
 import { AdminStaffUser } from '../../../types';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
+import { Input } from '../../../components/ui/Input';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { showConfirm } from '../../../stores/dialogStore';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
@@ -32,6 +34,7 @@ import {
   Clock,
   Printer,
   ChevronRight,
+  KeyRound,
 } from 'lucide-react';
 
 const PAGE_ACCESS_ITEMS = [
@@ -55,6 +58,35 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'exhibitions' | 'bookings' | 'permissions' | 'organization'>('overview');
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Reset Password State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [sendNotificationEmail, setSendNotificationEmail] = useState(true);
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newPassword) return;
+    try {
+      setResettingPassword(true);
+      const res = await userService.resetPassword(user.id, newPassword, sendNotificationEmail);
+      setActionNotice({
+        type: 'success',
+        message: res.message || 'Password reset successfully.',
+      });
+      setIsResetModalOpen(false);
+      setNewPassword('');
+      setSendNotificationEmail(true);
+    } catch (err: any) {
+      setActionNotice({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to reset password.',
+      });
+    } finally {
+      setResettingPassword(false);
+    }
+  };
 
   const fetchUserData = async () => {
     if (!id) return;
@@ -292,6 +324,19 @@ export const UserGovernanceDetailPage: React.FC = () => {
                   {user.spcode}
                 </span>
               </div>
+            )}
+
+            {user.role !== 'SUPERADMIN' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => setIsResetModalOpen(true)}
+                leftIcon={<KeyRound className="w-4 h-4 text-amber-500" />}
+                className="font-bold text-xs rounded-xl shadow-xs border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/50"
+              >
+                Reset Password
+              </Button>
             )}
 
             <Button
@@ -921,6 +966,82 @@ export const UserGovernanceDetailPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Reset Password Modal */}
+      <Modal
+        isOpen={isResetModalOpen}
+        onClose={() => {
+          setIsResetModalOpen(false);
+          setNewPassword('');
+          setSendNotificationEmail(true);
+        }}
+        title={`Reset Password: ${user.name}`}
+      >
+        <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
+          <p className="text-slate-600 dark:text-slate-300">
+            Set a new temporary or permanent password for <strong>{user.email}</strong>.
+          </p>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              New Password * (min 8 characters)
+            </label>
+            <Input
+              type="password"
+              required
+              minLength={8}
+              placeholder="Enter new password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="pt-1">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <input
+                type="checkbox"
+                checked={sendNotificationEmail}
+                onChange={(e) => setSendNotificationEmail(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <div className="flex-1">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
+                  Send notification email to user
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  {sendNotificationEmail
+                    ? `An email notification with login credentials will be sent to ${user.email}`
+                    : 'No email will be sent. The user password will be silently updated in the system.'}
+                </span>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsResetModalOpen(false);
+                setNewPassword('');
+                setSendNotificationEmail(true);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              isLoading={resettingPassword}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
+            >
+              Set New Password
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

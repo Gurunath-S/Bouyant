@@ -168,6 +168,12 @@ export interface PasswordResetEmailPayload {
   resetUrl: string;
 }
 
+export interface AdminPasswordResetNotificationPayload {
+  toEmail: string;
+  toName: string;
+  newPassword?: string;
+}
+
 export interface EmailDeliveryResult {
   status: 'ACCEPTED' | 'FAILED' | 'SKIPPED';
   messageId?: string;
@@ -756,6 +762,128 @@ export class EmailService {
       } catch (err: any) {
         lastError = err;
         console.error(`⚠️ [EMAIL SERVICE] Attempt ${attempt}/${maxAttempts} failed to deliver password reset to ${payload.toEmail}:`, err?.message || err);
+        if (attempt < maxAttempts) {
+          await new Promise((res) => setTimeout(res, 200));
+        }
+      }
+    }
+
+    return {
+      status: 'FAILED',
+      attempts: maxAttempts,
+      error: lastError?.message || 'SMTP_DELIVERY_FAILED',
+    };
+  }
+
+  static async sendAdminPasswordResetNotificationEmail(
+    payload: AdminPasswordResetNotificationPayload
+  ): Promise<EmailDeliveryResult> {
+    console.log(`✉️ [EMAIL SERVICE] Dispatching admin password update notification email to: ${payload.toEmail}`);
+
+    const safeToName = escapeHtml(payload.toName);
+    const safeToEmail = escapeHtml(payload.toEmail);
+    const safePassword = payload.newPassword ? escapeHtml(payload.newPassword) : '';
+    const loginUrl = `${resolveClientOrigin()}/login`;
+    const safeLoginUrl = escapeHtml(loginUrl);
+
+    const user = getSmtpUser();
+    if (!user) {
+      const isProd = env.NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
+      if (isProd) {
+        console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in production. Password update email delivery failed for: ${payload.toEmail}`);
+        return { status: 'FAILED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+      }
+      console.warn(`⚠️ [EMAIL SERVICE] SMTP_USER is not configured in environment. Password update email skipped for: ${payload.toEmail}`);
+      return { status: 'SKIPPED', error: 'SMTP_NOT_CONFIGURED', attempts: 0 };
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <style>
+            @media only screen and (max-width: 480px) {
+              .mobile-padding { padding: 20px 16px !important; }
+              .mobile-header { padding: 20px 16px !important; }
+              .mobile-table td { display: block !important; width: 100% !important; padding: 4px 0 !important; }
+            }
+          </style>
+        </head>
+        <body style="margin:0; padding:0; background:#f4f6f9; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
+          <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+            <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
+              <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px;">Account Password Updated 🔑</h1>
+              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">Buoyant Media Portal Notification</p>
+            </div>
+
+            <div class="mobile-padding" style="padding:28px 32px;">
+              <p style="font-size:15px; color:#1e293b; margin:0 0 16px; line-height:1.6;">
+                Dear <strong>${safeToName}</strong>,
+              </p>
+              <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">
+                Your account password has been updated by the administration team. You can use your updated credentials to log in to the portal.
+              </p>
+
+              <!-- CREDENTIALS BOX -->
+              <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:20px; margin-bottom:24px;">
+                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">UPDATED CREDENTIALS</h3>
+
+                <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; margin-bottom:12px; border-collapse:collapse;">
+                  <tr>
+                    <td style="color:#475569; font-weight:500; width:40%;">Account Email:</td>
+                    <td style="color:#0f172a; font-weight:700;">${safeToEmail}</td>
+                  </tr>
+                  ${safePassword ? `
+                  <tr>
+                    <td style="color:#475569; font-weight:500;">New Password:</td>
+                    <td style="color:#1d4ed8; font-weight:800; font-family:monospace; font-size:15px;">${safePassword}</td>
+                  </tr>
+                  ` : ''}
+                </table>
+
+                <div style="text-align:center; margin-top:20px;">
+                  <a href="${safeLoginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                    Log In to Portal
+                  </a>
+                </div>
+              </div>
+
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; font-size:12px; color:#64748b; line-height:1.5;">
+                🔒 <strong>Security Notice:</strong> If you did not request or expect this change, please contact the administration team immediately.
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; padding:18px 32px; text-align:center; color:#94a3b8; font-size:12px; border-top:1px solid #f1f5f9;">
+              This is an automated administrative notification from Buoyant Media Exhibition Platform.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const maxAttempts = 3;
+    let lastError: any = null;
+    const currentTransporter = getEmailTransporter();
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const info = await currentTransporter.sendMail({
+          from: `"Buoyant Media Security" <${user}>`,
+          to: payload.toEmail,
+          subject: 'Your Buoyant Media Account Password Has Been Updated',
+          html,
+        });
+
+        console.log(`✅ [EMAIL SERVICE] Password update notification email accepted by SMTP server for: ${payload.toEmail} (MessageId: ${info.messageId})`);
+        return {
+          status: 'ACCEPTED',
+          messageId: info.messageId,
+          attempts: attempt,
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.error(`⚠️ [EMAIL SERVICE] Attempt ${attempt}/${maxAttempts} failed to deliver password update to ${payload.toEmail}:`, err?.message || err);
         if (attempt < maxAttempts) {
           await new Promise((res) => setTimeout(res, 200));
         }
