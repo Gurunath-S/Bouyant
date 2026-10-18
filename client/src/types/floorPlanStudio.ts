@@ -7,7 +7,13 @@ export type HallNamePosition =
   | 'center'
   | 'bottom-left'
   | 'bottom-center'
-  | 'bottom-right';
+  | 'bottom-right'
+  | 'outside-top-left'
+  | 'outside-top-center'
+  | 'outside-top-right'
+  | 'outside-bottom-left'
+  | 'outside-bottom-center'
+  | 'outside-bottom-right';
 
 export interface HallZone {
   id: string;

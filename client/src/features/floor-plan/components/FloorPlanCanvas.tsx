@@ -534,26 +534,85 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     strokeDasharray="6 6"
                   />
                   {/* Hall Name Header */}
-                  <rect
-                    x={hall.x + 16}
-                    y={hall.y + 12}
-                    width={Math.min(360, hall.width - 32)}
-                    height={26}
-                    rx="6"
-                    fill={strokeColor}
-                    fillOpacity={isDark ? '0.2' : '0.1'}
-                  />
-                  <text
-                    x={hall.x + 28}
-                    y={hall.y + 29}
-                    fill={strokeColor}
-                    fontSize="12"
-                    fontWeight="900"
-                    letterSpacing="1"
-                    className="uppercase select-none font-sans"
-                  >
-                    {hall.name}
-                  </text>
+                  {(() => {
+                    const pos = hall.namePosition || 'top-left';
+                    const fontSize = hall.fontSize || 12;
+                    const bannerHeight = Math.max(26, fontSize + 14);
+                    const bannerWidth = Math.min(
+                      Math.max(120, hall.name.length * (fontSize * 0.65) + 36),
+                      hall.width - 24
+                    );
+
+                    let bx = hall.x + 16;
+                    let by = hall.y + 12;
+
+                    if (pos === 'top-center') {
+                      bx = hall.x + (hall.width - bannerWidth) / 2;
+                      by = hall.y + 12;
+                    } else if (pos === 'top-right') {
+                      bx = hall.x + hall.width - bannerWidth - 16;
+                      by = hall.y + 12;
+                    } else if (pos === 'center') {
+                      bx = hall.x + (hall.width - bannerWidth) / 2;
+                      by = hall.y + (hall.height - bannerHeight) / 2;
+                    } else if (pos === 'bottom-left') {
+                      bx = hall.x + 16;
+                      by = hall.y + hall.height - bannerHeight - 12;
+                    } else if (pos === 'bottom-center') {
+                      bx = hall.x + (hall.width - bannerWidth) / 2;
+                      by = hall.y + hall.height - bannerHeight - 12;
+                    } else if (pos === 'bottom-right') {
+                      bx = hall.x + hall.width - bannerWidth - 16;
+                      by = hall.y + hall.height - bannerHeight - 12;
+                    } else if (pos === 'outside-top-left') {
+                      bx = hall.x + 16;
+                      by = hall.y - bannerHeight - 6;
+                    } else if (pos === 'outside-top-center') {
+                      bx = hall.x + (hall.width - bannerWidth) / 2;
+                      by = hall.y - bannerHeight - 6;
+                    } else if (pos === 'outside-top-right') {
+                      bx = hall.x + hall.width - bannerWidth - 16;
+                      by = hall.y - bannerHeight - 6;
+                    } else if (pos === 'outside-bottom-left') {
+                      bx = hall.x + 16;
+                      by = hall.y + hall.height + 6;
+                    } else if (pos === 'outside-bottom-center') {
+                      bx = hall.x + (hall.width - bannerWidth) / 2;
+                      by = hall.y + hall.height + 6;
+                    } else if (pos === 'outside-bottom-right') {
+                      bx = hall.x + hall.width - bannerWidth - 16;
+                      by = hall.y + hall.height + 6;
+                    }
+
+                    return (
+                      <g>
+                        <rect
+                          x={bx}
+                          y={by}
+                          width={bannerWidth}
+                          height={bannerHeight}
+                          rx="6"
+                          fill={strokeColor}
+                          fillOpacity={isDark ? '0.2' : '0.1'}
+                          stroke={strokeColor}
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={bx + bannerWidth / 2}
+                          y={by + bannerHeight / 2 + 1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={strokeColor}
+                          fontSize={fontSize}
+                          fontWeight="800"
+                          letterSpacing="0.05em"
+                          className="uppercase select-none font-sans"
+                        >
+                          {hall.name}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </g>
               );
             })}

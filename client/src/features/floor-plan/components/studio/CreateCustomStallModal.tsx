@@ -237,13 +237,6 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                 />
               </div>
             </div>
-
-            <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 font-semibold text-slate-600">
-              <span>Total Area:</span>
-              <span className="font-mono font-bold text-blue-700">
-                {areaSqMeters} sq.m / {areaSqFt} sq.ft
-              </span>
-            </div>
           </div>
 
           {/* Stall Identification & Custom Label */}

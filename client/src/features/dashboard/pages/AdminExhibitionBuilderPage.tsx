@@ -45,6 +45,7 @@ import {
 export interface DraftStall {
   id: string;
   stallNumber: string;
+  name?: string;
   xPosition: number;
   yPosition: number;
   width: number;
@@ -525,6 +526,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             stalls: stalls.map((s) => ({
               id: s.id,
               stallNumber: s.stallNumber,
+              name: s.name,
               xPosition: s.xPosition,
               yPosition: s.yPosition,
               width: s.width,
@@ -1615,6 +1617,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         layoutData: savedLayout,
                         stalls: savedStalls.map((s) => ({
                           stallNumber: s.stallNumber,
+                          name: s.name,
                           xPosition: s.xPosition,
                           yPosition: s.yPosition,
                           width: s.width,
