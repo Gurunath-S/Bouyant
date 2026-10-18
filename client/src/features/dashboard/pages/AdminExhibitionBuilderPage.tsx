@@ -34,6 +34,12 @@ import {
   Bell,
   AtSign,
   UserCheck,
+  Compass,
+  Sparkles,
+  CheckCircle2,
+  DollarSign,
+  ExternalLink,
+  LayoutGrid,
 } from 'lucide-react';
 
 export interface DraftStall {
@@ -1662,85 +1668,449 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       )}
 
       {/* STEP 3: PREVIEW & PUBLISH */}
-      {currentStep === 3 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Step 3: Review & Publish Exhibition
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Review event details and stall layout before publishing.</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentStep(2)}>
-              Back to Floor Plan Designer
-            </Button>
-          </div>
+      {currentStep === 3 && (() => {
+        const availableStallsCount = stalls.filter((s) => s.status === 'AVAILABLE').length;
+        const blockedStallsCount = stalls.filter((s) => s.status === 'BLOCKED').length;
+        const totalValuation = stalls.reduce((sum, s) => sum + s.price, 0);
+        const standardStalls = stalls.filter((s) => s.category === 'STANDARD');
+        const premiumStalls = stalls.filter((s) => s.category === 'PREMIUM');
+        const cornerStalls = stalls.filter((s) => s.category === 'CORNER');
+        const islandStalls = stalls.filter((s) => s.category === 'ISLAND');
+        const clientRegPreview = `${basicInfo.edition || '10'}/${
+          basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'
+        }/${basicInfo.eventCode || 'GT-01'}/01`;
+        const mapsUrl = `https://www.google.com/maps?q=${basicInfo.latitude},${basicInfo.longitude}`;
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2 text-xs text-slate-800 dark:text-slate-200">
-                <h4 className="font-bold text-sm uppercase text-purple-700 dark:text-purple-400">Event Overview</h4>
-                {basicInfo.bannerUrl && (
-                  <div className="h-28 w-full rounded-lg overflow-hidden mb-2 border border-slate-200 dark:border-slate-700">
-                    <img src={basicInfo.bannerUrl} alt="Event Banner" className="w-full h-full object-cover" />
+        return (
+          <div className="space-y-6 sm:space-y-8 animate-fadeIn">
+            {/* Header Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    Pre-flight Review
+                  </span>
+                  <span className="text-xs text-slate-300">•</span>
+                  <span className="text-xs text-slate-500 font-medium">Final Verification Gate</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                  <Eye className="w-6 h-6 text-purple-600" />
+                  Step 3: Review &amp; Publish Exhibition
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
+                  Review event details, venue logistics, stall architectural scale, and commercial inventory valuation before launching.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentStep(2)}
+                  leftIcon={<ArrowLeft className="w-4 h-4" />}
+                  className="hover:border-purple-300 text-slate-700 hover:text-purple-700 text-xs sm:text-sm"
+                >
+                  Back to Floor Plan Designer
+                </Button>
+              </div>
+            </div>
+
+            {/* Hero Event Showcase Banner (Pure Light Theme) */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              {/* Visual Banner Media */}
+              <div className="relative h-48 sm:h-64 w-full bg-gradient-to-r from-purple-100 via-indigo-50 to-pink-50 overflow-hidden border-b border-slate-200">
+                {basicInfo.bannerUrl ? (
+                  <img
+                    src={basicInfo.bannerUrl}
+                    alt={basicInfo.title || 'Event Banner'}
+                    className="w-full h-full object-cover object-center"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <ImageIcon className="w-10 h-10 text-purple-300" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Event Banner Preview
+                    </span>
                   </div>
                 )}
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Title:</span> {basicInfo.title}</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Category:</span> {basicInfo.category}</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Venue:</span> {basicInfo.venue}, {basicInfo.city}</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Pin Coordinates:</span> {basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">SP Code (Admin/Staff):</span> <span className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded text-[11px]">{basicInfo.spcode || 'B001'}</span></p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Edition & Event Code:</span> <span className="font-mono font-bold text-indigo-700 dark:text-indigo-400">{basicInfo.edition || '10'}</span> / <span className="font-mono font-bold text-indigo-700 dark:text-indigo-400">{basicInfo.eventCode || 'IIAE'}</span></p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Client Reg No Preview:</span> <code className="font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded text-[11px]">{basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'IIAE'}/01</code></p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Gallery Media:</span> {basicInfo.images.length} Image(s) Attached</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Dates & Timings:</span> {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)} ({formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)})</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Stall Booking Cut-Off:</span> <span className="font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded text-[11px]">{formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}</span></p>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2 text-xs text-slate-800 dark:text-slate-200">
-                <h4 className="font-bold text-sm uppercase text-purple-700 dark:text-purple-400">Hall Layout</h4>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Primary Hall:</span> {hallConfig.hallName}</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Halls / Pavilions:</span> {layoutData?.halls?.length || 1} Configured (Dynamic Canvas Scale)</p>
-                <p><span className="font-semibold text-slate-500 dark:text-slate-400">Total Configured Stalls:</span> {stalls.length} Stalls</p>
-              </div>
-            </div>
-
-            {/* Inventory Valuation Card */}
-            <div className="p-6 bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white rounded-xl space-y-4 shadow-md flex flex-col justify-between">
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold border-b border-slate-800 pb-2 uppercase text-purple-400">Inventory Valuation</h4>
-                <div className="space-y-2 text-xs text-slate-300">
-                  <div className="flex justify-between">
-                    <span>Available Stalls:</span>
-                    <span className="font-bold text-white">{stalls.filter((s) => s.status === 'AVAILABLE').length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Blocked Stalls:</span>
-                    <span className="font-bold text-white">{stalls.filter((s) => s.status === 'BLOCKED').length}</span>
-                  </div>
-                  <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-base font-extrabold text-white">
-                    <span>Total Potential Value:</span>
-                    <span className="font-mono text-purple-400 text-lg">
-                      ₹{stalls.reduce((sum, s) => sum + s.price, 0).toLocaleString()} INR
+                {/* Floating Top Status Tags */}
+                <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-white/95 backdrop-blur-md border border-slate-200 text-purple-700 rounded-full text-xs font-bold tracking-wide uppercase shadow-xs pointer-events-auto">
+                      {basicInfo.category || 'General Exhibition'}
                     </span>
+                    <span className="px-3 py-1 bg-emerald-50/95 backdrop-blur-md border border-emerald-200 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1 shadow-xs pointer-events-auto">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Ready to Publish
+                    </span>
+                  </div>
+                  <div className="px-3.5 py-1 bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 font-mono text-xs font-bold rounded-full flex items-center gap-2 shadow-xs pointer-events-auto">
+                    <span>Edition: <strong className="text-purple-700">{basicInfo.edition || '10'}</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span>Code: <strong className="text-indigo-700">{basicInfo.eventCode || 'GT-01'}</strong></span>
                   </div>
                 </div>
               </div>
 
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full font-bold shadow-md bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={handlePublishExhibition}
-                isLoading={isSubmitting}
-                rightIcon={<Check className="w-4 h-4" />}
-              >
-                {id ? 'Save & Update Exhibition Changes' : 'Publish Exhibition & Save Layout'}
-              </Button>
+              {/* Banner Showcase Details Bar */}
+              <div className="p-5 sm:p-7 space-y-3 bg-white">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {basicInfo.title || 'Untitled Exhibition Event'}
+                </h1>
+                <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-xs sm:text-sm text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span className="font-semibold text-slate-800">{basicInfo.venue || 'Venue Pending'}, {basicInfo.city || 'City'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>
+                      {formatDisplayDate(basicInfo.startDate)} to {formatDisplayDate(basicInfo.endDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>
+                      {formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid: Specs (2 cols) & Valuation Hub (1 col) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+              {/* Left 2 Columns: Structured Event Specifications */}
+              <div className="lg:col-span-2 space-y-6">
+
+                {/* Event Core Identity & Administrative Codes */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-purple-700 flex items-center gap-2">
+                      <Tag className="w-4 h-4" />
+                      Event Identity &amp; Administrative Codes
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono tracking-widest bg-slate-100 px-2 py-0.5 rounded font-semibold">
+                      STEP 1 VERIFIED
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Title & Category */}
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Event Title &amp; Category</span>
+                      <p className="text-sm font-bold text-slate-900 leading-snug">{basicInfo.title}</p>
+                      <p className="text-xs text-purple-700 font-semibold">{basicInfo.category}</p>
+                    </div>
+
+                    {/* SP Allocation Code */}
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SP Code (Admin/Staff Allocation)</span>
+                      <div>
+                        <span className="font-mono font-bold bg-amber-50 border border-amber-300 text-amber-900 px-2.5 py-1 rounded-lg text-xs tracking-wider inline-block">
+                          {basicInfo.spcode || 'B001'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Staff routing and commercial sales allocation identifier</p>
+                    </div>
+
+                    {/* Edition & Event Code */}
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Edition &amp; Short Code</span>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md">
+                          Edition: {basicInfo.edition || '10'}
+                        </span>
+                        <span className="text-slate-400">/</span>
+                        <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md">
+                          Code: {basicInfo.eventCode || 'GT-01'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Client Reg No Preview */}
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Client Reg No Preview</span>
+                      <div>
+                        <code className="font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs tracking-wider inline-block">
+                          {clientRegPreview}
+                        </code>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Standard serial stamped on verified exhibitor registrations</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dates & Schedule */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-purple-700 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Dates, Visiting Hours &amp; Booking Cut-Off
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Exhibition Dates</span>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">
+                        {formatDisplayDate(basicInfo.startDate)}
+                      </p>
+                      <p className="text-[11px] text-slate-500">to {formatDisplayDate(basicInfo.endDate)}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Visiting Hours</span>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">
+                        {formatTimeDisplay(basicInfo.startTime)} – {formatTimeDisplay(basicInfo.endTime)}
+                      </p>
+                      <p className="text-[11px] text-slate-500">Standard exhibition visiting window</p>
+                    </div>
+
+                    <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Stall Booking Cut-Off</span>
+                      <p className="text-xs sm:text-sm font-bold text-purple-900">
+                        {formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}
+                      </p>
+                      <p className="text-[11px] text-purple-600 font-medium">Automatic portal hold cut-off</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Venue & Geographic Coordinates */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-purple-700 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Venue &amp; Geographic Coordinates
+                    </h3>
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1 font-semibold"
+                    >
+                      <span>View in Google Maps</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Venue Location</span>
+                      <p className="text-sm font-bold text-slate-900">{basicInfo.venue || 'Venue Pending'}</p>
+                      <p className="text-xs text-slate-600">{basicInfo.city || 'City'}, {basicInfo.state || 'State'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pin Map Coordinates</span>
+                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-800">
+                        <Compass className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span>{basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Calibrated interactive map location</p>
+                    </div>
+                  </div>
+
+                  {/* Gallery Media Thumbnail Strip */}
+                  {basicInfo.images && basicInfo.images.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-600">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
+                          Gallery Media ({basicInfo.images.length} Image{basicInfo.images.length > 1 ? 's' : ''} Attached)
+                        </span>
+                      </div>
+                      <div className="flex gap-2.5 overflow-x-auto pb-2">
+                        {basicInfo.images.map((imgUrl, idx) => (
+                          <div
+                            key={idx}
+                            className="h-16 w-24 shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-slate-100"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Gallery ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hall Layout & Architecture */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-purple-700 flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4" />
+                      Hall Layout Architecture &amp; Stall Inventory
+                    </h3>
+                    <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200">
+                      {stalls.length} Total Configured Stalls
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Hall</span>
+                      <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">{hallConfig.hallName || 'Main Hall'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Halls / Pavilions</span>
+                      <p className="text-sm font-bold text-slate-800 mt-0.5">{layoutData?.halls?.length || 1} Configured</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Canvas Scale</span>
+                      <p className="text-sm font-bold text-slate-800 mt-0.5 font-mono">{hallConfig.widthFt} ft × {hallConfig.heightFt} ft</p>
+                    </div>
+                  </div>
+
+                  {/* Category Breakdown Chips */}
+                  <div className="space-y-2.5">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Stall Category Distribution</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/70 space-y-1">
+                        <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Standard</div>
+                        <div className="text-xl font-extrabold text-emerald-700 font-mono">{standardStalls.length}</div>
+                        <div className="text-[11px] text-emerald-600 font-mono">
+                          {standardStalls.length > 0 ? `₹${standardStalls[0].price.toLocaleString()}/ea` : '—'}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/70 space-y-1">
+                        <div className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Premium</div>
+                        <div className="text-xl font-extrabold text-blue-700 font-mono">{premiumStalls.length}</div>
+                        <div className="text-[11px] text-blue-600 font-mono">
+                          {premiumStalls.length > 0 ? `₹${premiumStalls[0].price.toLocaleString()}/ea` : '—'}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/70 space-y-1">
+                        <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Corner</div>
+                        <div className="text-xl font-extrabold text-purple-700 font-mono">{cornerStalls.length}</div>
+                        <div className="text-[11px] text-purple-600 font-mono">
+                          {cornerStalls.length > 0 ? `₹${cornerStalls[0].price.toLocaleString()}/ea` : '—'}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/70 space-y-1">
+                        <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">VIP Island</div>
+                        <div className="text-xl font-extrabold text-amber-700 font-mono">{islandStalls.length}</div>
+                        <div className="text-[11px] text-amber-600 font-mono">
+                          {islandStalls.length > 0 ? `₹${islandStalls[0].price.toLocaleString()}/ea` : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Commercial Valuation Hub & Publishing Action (Pure Light Theme) */}
+              <div className="space-y-6">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 sticky top-6">
+                  {/* Valuation Header */}
+                  <div className="border-b border-slate-100 pb-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0">
+                          <DollarSign className="w-3.5 h-3.5" />
+                        </div>
+                        <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900 truncate">
+                          Overview
+                        </h4>
+                      </div>
+                      <span className="shrink-0 text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live Ready
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 ml-9">
+                      Live stall commercial pricing
+                    </p>
+                  </div>
+
+                  {/* Inventory Metrics */}
+                  <div className="space-y-2.5 text-xs text-slate-600">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                      <span className="text-slate-500 font-medium">Available Stalls:</span>
+                      <span className="font-bold text-emerald-600 text-sm font-mono">{availableStallsCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                      <span className="text-slate-500 font-medium">Blocked Stalls:</span>
+                      <span className="font-bold text-amber-600 text-sm font-mono">{blockedStallsCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                      <span className="text-slate-500 font-medium">Total Configured Units:</span>
+                      <span className="font-bold text-slate-900 text-sm font-mono">{stalls.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Total Potential Value Highlight (Crisp Light Gradient) */}
+                  <div className="bg-gradient-to-br from-purple-50 via-indigo-50/40 to-white border border-purple-200 rounded-xl p-5 space-y-1.5 shadow-xs">
+                    <span className="text-[10px] font-bold tracking-widest text-purple-700 uppercase">
+                      TOTAL POTENTIAL VALUE
+                    </span>
+                    <div className="text-2xl sm:text-3xl font-black text-purple-950 font-mono tracking-tight">
+                      ₹{totalValuation.toLocaleString()} <span className="text-xs font-semibold text-purple-600 font-sans">INR</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Commercial inventory across {stalls.length} published units.
+                    </p>
+                  </div>
+
+                  {/* Pre-flight Checklist */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-100 text-xs text-slate-700">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pre-flight Checklist</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Venue logistics &amp; timings confirmed</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{stalls.length} stalls mapped to interactive canvas</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Reg format: {clientRegPreview}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Cut-off: {formatDisplayDate(basicInfo.bookingEndDate) || '15 Days Prior'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Publishing Action CTA */}
+                  <div className="space-y-3 pt-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full font-bold shadow-sm bg-purple-600 hover:bg-purple-700 text-white border-0 py-3 text-sm flex items-center justify-center gap-2"
+                      onClick={handlePublishExhibition}
+                      isLoading={isSubmitting}
+                      rightIcon={<Check className="w-4 h-4" />}
+                    >
+                      {id ? 'Save & Update Exhibition Changes' : 'Publish Exhibition & Launch Stalls'}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-slate-600 hover:text-slate-900 border-slate-200 bg-white hover:bg-slate-50 text-xs"
+                      onClick={() => setCurrentStep(2)}
+                    >
+                      Adjust Floor Plan in Step 2
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
     </div>
   );
 };
