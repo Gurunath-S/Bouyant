@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { BookingsService } from './bookings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { sendResponse } from '../../utils/response.js';
+import { ApiError } from '../../utils/apiError.js';
 
 export class BookingsController {
  static create = async (req: AuthenticatedRequest, res: Response) => {
@@ -29,7 +30,7 @@ export class BookingsController {
   };
 
   static myBookings = async (req: AuthenticatedRequest, res: Response) => {
-    const bookings = await BookingsService.getUserBookings(req.user!.companyId);
+    const bookings = await BookingsService.getUserBookings(req.user);
     return sendResponse({
       res,
       statusCode: 200,
@@ -39,10 +40,9 @@ export class BookingsController {
   };
 
   static getById = async (req: AuthenticatedRequest, res: Response) => {
-    const isClient = req.user!.role === 'CLIENT';
     const booking = await BookingsService.getBookingById(
       req.params.id,
-      isClient ? req.user!.companyId : undefined
+      req.user
     );
 
     return sendResponse({
@@ -98,6 +98,9 @@ export class BookingsController {
     const bookingId = req.params.id;
     const user = req.user;
     const reason = req.body?.reason;
+    if (!user) {
+      throw ApiError.forbidden('You do not have permission to cancel this booking.');
+    }
     const result = await BookingsService.cancelBooking(bookingId, user, reason);
     return sendResponse({
       res,

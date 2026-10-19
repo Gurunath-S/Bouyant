@@ -41,7 +41,7 @@ export const CreateBookingSchema = z.object({
 
   // Optional booking representative contact snapshot (Phase 2.3)
   contactPerson: z.string().trim().optional(),
-  contactEmail: z.string().email().trim().toLowerCase().optional(),
+  contactEmail: z.union([z.string().email().trim().toLowerCase(), z.literal('')]).optional(),
   contactPhone: z.string().trim().optional(),
 
   // Optional billing/legal snapshot override (Phase 2.3)

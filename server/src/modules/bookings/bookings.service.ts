@@ -864,9 +864,23 @@ static async createBooking(
   // and legal billing entity details without modifying Company.
   // User ID is strictly derived from the authenticated identity.
   // ==================================================
-  const snapshotContactPerson = input.contactPerson?.trim() || company.contactPerson;
-  const snapshotContactEmail = input.contactEmail?.trim().toLowerCase() || user?.email?.toLowerCase() || company.email;
-  const snapshotContactPhone = input.contactPhone?.trim() || company.mobile;
+  let dbUser: { name: string; phone: string | null; email: string } | null = null;
+  if (user?.userId && (!input.contactPerson?.trim() || !input.contactPhone?.trim())) {
+    dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { name: true, phone: true, email: true },
+    });
+  }
+
+  const snapshotContactPerson =
+    input.contactPerson?.trim() || dbUser?.name || company.contactPerson;
+  const snapshotContactEmail =
+    input.contactEmail?.trim().toLowerCase() ||
+    user?.email?.toLowerCase() ||
+    dbUser?.email?.toLowerCase() ||
+    company.email;
+  const snapshotContactPhone =
+    input.contactPhone?.trim() || dbUser?.phone || company.mobile;
 
   const snapshotBillingName = input.billingName?.trim() || company.name;
   const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
@@ -1377,13 +1391,64 @@ static async createBooking(
 }
 
 
-  static async getUserBookings(companyId?: string | null) {
-    if (!companyId) {
+  static async getUserBookings(userOrCompanyId?: AuthenticatedRequest['user'] | string | null) {
+    if (!userOrCompanyId) {
       return [];
     }
 
+    if (typeof userOrCompanyId === 'string') {
+      return await prisma.booking.findMany({
+        where: { companyId: userOrCompanyId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          stalls: { include: { stall: true } },
+          exhibition: true,
+          company: true,
+          payments: true,
+          invoices: true,
+        },
+      });
+    }
+
+    const user = userOrCompanyId;
+    if (user.role === 'CLIENT') {
+      if (!user.companyId) {
+        return [];
+      }
+      const userEmail = user.email?.trim().toLowerCase();
+      return await prisma.booking.findMany({
+        where: {
+          companyId: user.companyId,
+          OR: [
+            { userId: user.userId },
+            ...(userEmail
+              ? [
+                  {
+                    userId: null,
+                    contactEmail: { equals: userEmail, mode: 'insensitive' as const },
+                  },
+                ]
+              : []),
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          stalls: { include: { stall: true } },
+          exhibition: true,
+          company: true,
+          payments: true,
+          invoices: true,
+        },
+      });
+    }
+
+    // For ADMIN / STAFF / SUPERADMIN or other roles
+    const whereClause: Prisma.BookingWhereInput = user.companyId
+      ? { companyId: user.companyId }
+      : { userId: user.userId };
+
     return await prisma.booking.findMany({
-      where: { companyId},
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         stalls: { include: { stall: true } },
@@ -1395,7 +1460,10 @@ static async createBooking(
     });
   }
 
-  static async getBookingById(bookingId: string, companyId?: string | null) {
+  static async getBookingById(
+    bookingId: string,
+    userOrCompanyId?: AuthenticatedRequest['user'] | string | null
+  ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -1408,8 +1476,33 @@ static async createBooking(
     });
 
     if (!booking) throw ApiError.notFound('Booking record not found.');
-    if (companyId && booking.companyId !== companyId) {
-      throw ApiError.forbidden('Not authorized to access this booking record.');
+
+    if (userOrCompanyId) {
+      if (typeof userOrCompanyId === 'string') {
+        if (booking.companyId !== userOrCompanyId) {
+          throw ApiError.forbidden('Not authorized to access this booking record.');
+        }
+      } else {
+        const user = userOrCompanyId;
+        const isPrivileged =
+          user.role === 'ADMIN' || user.role === 'SUPERADMIN' || user.role === 'STAFF';
+
+        if (!isPrivileged) {
+          const isCompanyMatch = Boolean(user.companyId && booking.companyId === user.companyId);
+          const userEmail = user.email?.trim().toLowerCase();
+          const bookingEmail = booking.contactEmail?.trim().toLowerCase();
+          const isOwner =
+            booking.userId === user.userId ||
+            (!booking.userId &&
+              Boolean(bookingEmail) &&
+              Boolean(userEmail) &&
+              bookingEmail === userEmail);
+
+          if (!isCompanyMatch || !isOwner) {
+            throw ApiError.forbidden('Not authorized to access this booking record.');
+          }
+        }
+      }
     }
 
     return booking;
@@ -1676,15 +1769,27 @@ static async createBooking(
     const isPrivileged =
       user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
 
+    // Check ownership before status checks so unauthorized users get 403 Forbidden instead of 400 Bad Request
+    if (user && !isPrivileged) {
+      const isCompanyMatch = Boolean(user.companyId && booking.companyId === user.companyId);
+      const userEmail = user.email?.trim().toLowerCase();
+      const bookingEmail = booking.contactEmail?.trim().toLowerCase();
+      const isOwner =
+        booking.userId === user.userId ||
+        (!booking.userId &&
+          Boolean(bookingEmail) &&
+          Boolean(userEmail) &&
+          bookingEmail === userEmail);
+
+      if (!isCompanyMatch || !isOwner) {
+        throw ApiError.forbidden('You do not have permission to cancel this booking.');
+      }
+    }
+
     if (booking.status === BookingStatus.CONFIRMED && !isPrivileged) {
       throw ApiError.badRequest(
         'Confirmed bookings cannot be cancelled via checkout. Please contact the exhibition administrator.'
       );
-    }
-
-    // If client/exhibitor is logged in, ensure they own the booking
-    if (user && !isPrivileged && user.companyId && booking.companyId !== user.companyId) {
-      throw ApiError.forbidden('You do not have permission to cancel this booking.');
     }
 
     const stallIds = booking.stalls.map((s) => s.stallId);
