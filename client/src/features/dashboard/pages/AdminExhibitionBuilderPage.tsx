@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { floorPlanService } from '../../../services/floor-plans/floorPlanService';
@@ -6,11 +6,13 @@ import { GenericVisualStudio } from '../../floor-plan/components/studio/GenericV
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
+import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { formatDisplayDate } from '../../../utils/date';
+import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
 import { useAuthStore } from '../../../stores/authStore';
 import { showConfirm, showAlert } from '../../../stores/dialogStore';
 import {
@@ -262,6 +264,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     longitude: 72.8553,
     status: 'DRAFT',
   });
+
+  // Dynamic city list based on selected state, auto-detecting states from city selection
+  const availableCities = useMemo(() => {
+    return getCitiesForLocation('India', basicInfo.state);
+  }, [basicInfo.state]);
 
   const [isEventCodeCustom, setIsEventCodeCustom] = useState<boolean>(false);
   const [isEditionCustom, setIsEditionCustom] = useState<boolean>(false);
@@ -1323,16 +1330,24 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 placeholder="e.g. Bombay Exhibition Centre (BEC)"
                 required
               />
-              <Input
-                label="City *"
+              <SearchableCombobox
+                label="City"
+                required
                 value={basicInfo.city}
                 disabled={isViewMode}
-                onChange={(e) => {
+                onChange={(val) => {
                   if (isViewMode) return;
-                  setBasicInfo({ ...basicInfo, city: e.target.value });
+                  setBasicInfo((prev) => {
+                    const next = { ...prev, city: val };
+                    if (!prev.state && val) {
+                      const detected = getStateForCity(val, 'India');
+                      if (detected) next.state = detected;
+                    }
+                    return next;
+                  });
                 }}
-                placeholder="e.g. Mumbai"
-                required
+                options={availableCities}
+                placeholder="Select or type City..."
               />
             </div>
 
@@ -1347,15 +1362,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 }}
                 placeholder="e.g. NSE Nesco Complex, Off Western Express Hwy, Goregaon East"
               />
-              <Input
+              <SearchableCombobox
                 label="State / Region"
                 value={basicInfo.state}
                 disabled={isViewMode}
-                onChange={(e) => {
+                onChange={(val) => {
                   if (isViewMode) return;
-                  setBasicInfo({ ...basicInfo, state: e.target.value });
+                  setBasicInfo((prev) => ({ ...prev, state: val }));
                 }}
-                placeholder="e.g. Maharashtra"
+                options={ALL_INDIAN_STATES}
+                placeholder="Select or type State..."
               />
             </div>
 

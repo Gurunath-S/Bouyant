@@ -13,6 +13,7 @@ import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibito
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
 import {
   CalendarPlus,
   Calendar,
@@ -30,6 +31,7 @@ import {
   Users,
   CreditCard,
   Download,
+  Layers,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
@@ -48,10 +50,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
   // Filters for Events Tab
   const [eventSearch, setEventSearch] = useState('');
   const [eventStatusFilter, setEventStatusFilter] = useState('PUBLISHED');
+  const [eventCityFilter, setEventCityFilter] = useState('ALL');
 
   // Filters for Registered Data Tab
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
+  const [bookingCityFilter, setBookingCityFilter] = useState('ALL');
   const [registrarFilter, setRegistrarFilter] = useState<string>(isStaff ? 'STAFF' : 'ADMIN');
   const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
   const [bookingPage, setBookingPage] = useState(1);
@@ -153,6 +157,25 @@ export const AdminEventRegistrationPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
+  // Distinct unique cities for filtering exhibitions
+  const availableEventCities = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of exhibitions) {
+      if (e.city && e.city.trim()) set.add(e.city.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [exhibitions]);
+
+  // Distinct unique cities for filtering registered bookings
+  const availableBookingCities = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of adminBookings) {
+      if (b.exhibition?.city && b.exhibition.city.trim()) set.add(b.exhibition.city.trim());
+      else if (b.company?.city && b.company.city.trim()) set.add(b.company.city.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [adminBookings]);
+
   // Filtered Events
   const filteredExhibitions = useMemo(() => {
     return exhibitions.filter((e) => {
@@ -167,9 +190,13 @@ export const AdminEventRegistrationPage: React.FC = () => {
       const matchesStatus =
         eventStatusFilter === 'ALL' || e.status === eventStatusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesCity =
+        eventCityFilter === 'ALL' ||
+        (e.city && e.city.trim().toLowerCase() === eventCityFilter.trim().toLowerCase());
+
+      return matchesSearch && matchesStatus && matchesCity;
     });
-  }, [exhibitions, eventSearch, eventStatusFilter]);
+  }, [exhibitions, eventSearch, eventStatusFilter, eventCityFilter]);
 
   // Filtered Admin Bookings
   const filteredAdminBookings = useMemo(() => {
@@ -186,9 +213,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
       const matchesExhibition =
         bookingExhibitionFilter === 'ALL' || b.exhibitionId === bookingExhibitionFilter;
 
-      return matchesSearch && matchesExhibition;
+      const matchesCity =
+        bookingCityFilter === 'ALL' ||
+        (b.exhibition?.city && b.exhibition.city.trim().toLowerCase() === bookingCityFilter.trim().toLowerCase()) ||
+        (b.company?.city && b.company.city.trim().toLowerCase() === bookingCityFilter.trim().toLowerCase());
+
+      return matchesSearch && matchesExhibition && matchesCity;
     });
-  }, [adminBookings, bookingSearch, bookingExhibitionFilter]);
+  }, [adminBookings, bookingSearch, bookingExhibitionFilter, bookingCityFilter]);
 
   useEffect(() => {
     setBookingPage(1);
@@ -386,19 +418,31 @@ export const AdminEventRegistrationPage: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-xs font-bold text-slate-500 shrink-0">Status:</label>
-              <select
-                value={eventStatusFilter}
-                onChange={(e) => setEventStatusFilter(e.target.value)}
-                className="w-full sm:w-auto text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="PUBLISHED">Published (Ready for Booking)</option>
-                <option value="DRAFT">Draft Mode</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              {/* City / Location Dropdown Filter */}
+              <CityFilterDropdown
+                label="City"
+                value={eventCityFilter}
+                onChange={setEventCityFilter}
+                cities={availableEventCities}
+                placeholder="All Cities"
+              />
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-500 shrink-0">Status:</label>
+                <select
+                  value={eventStatusFilter}
+                  onChange={(e) => setEventStatusFilter(e.target.value)}
+                  className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200 cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PUBLISHED">Published (Ready for Booking)</option>
+                  <option value="DRAFT">Draft Mode</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -578,25 +622,36 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </Link>
                         ) : (
                           // When not full: show regular registration button
-                          <Link
-                            to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
-                            className="flex-1"
-                          >
+                          <>
                             <Button
                               type="button"
                               variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
                               size="md"
                               disabled={e.status !== 'PUBLISHED'}
+                              onClick={() => setSelectedExhibitionForReg(e)}
                               leftIcon={<UserPlus className="w-4 h-4" />}
-                              className={`w-full font-black text-xs py-2.5 rounded-xl shadow-xs ${
+                              className={`flex-1 font-black text-xs py-2.5 rounded-xl shadow-xs cursor-pointer ${
                                 e.status === 'PUBLISHED'
                                   ? 'bg-purple-600 hover:bg-purple-700 text-white'
                                   : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
                               }`}
                             >
-                              {e.status === 'PUBLISHED' ? 'Register to Event' : `Status: ${e.status}`}
+                              {e.status === 'PUBLISHED' ? 'Register Exhibitor' : `Status: ${e.status}`}
                             </Button>
-                          </Link>
+
+                            <Link
+                              to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
+                              title="Open Interactive Floor Plan Booking Wizard"
+                              className={`h-[42px] px-2.5 flex items-center justify-center gap-1 rounded-xl font-bold text-xs transition-all active:scale-[0.95] shrink-0 border ${
+                                e.status === 'PUBLISHED'
+                                  ? 'bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 cursor-pointer'
+                                  : 'opacity-40 pointer-events-none border-slate-200'
+                              }`}
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Wizard</span>
+                            </Link>
+                          </>
                         )}
 
                         <button
@@ -660,6 +715,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
                   </select>
                 </div>
               )}
+
+              <CityFilterDropdown
+                label="City"
+                value={bookingCityFilter}
+                onChange={setBookingCityFilter}
+                cities={availableBookingCities}
+                placeholder="All Cities"
+              />
 
               <div className="flex items-center gap-1.5">
                 <label className="text-xs font-bold text-slate-500 shrink-0">Exhibition:</label>

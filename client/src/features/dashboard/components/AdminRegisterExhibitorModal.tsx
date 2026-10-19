@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
-import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, normalizeCountryName } from '../../../data/indianStatesCities';
+import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity, normalizeCountryName } from '../../../data/indianStatesCities';
 import { Modal } from '../../../components/ui/Modal';
 import { formatDisplayDate } from '../../../utils/date';
 import {
@@ -562,7 +562,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                 </div>
                 <div>
                   <SearchableCombobox
-                    label="State / Province"
+                    label="State / Region"
                     value={newCompany.state ?? ''}
                     onChange={(val) => setNewCompany({ ...newCompany, state: val })}
                     options={getStatesForCountry(newCompany.country)}
@@ -573,7 +573,14 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   <SearchableCombobox
                     label="City"
                     value={newCompany.city ?? ''}
-                    onChange={(val) => setNewCompany({ ...newCompany, city: val })}
+                    onChange={(val) => {
+                      const detectedState = !newCompany.state ? getStateForCity(val, newCompany.country) : null;
+                      setNewCompany({
+                        ...newCompany,
+                        city: val,
+                        ...(detectedState ? { state: detectedState } : {}),
+                      });
+                    }}
                     options={getCitiesForLocation(newCompany.country, newCompany.state)}
                     placeholder="Select or type city..."
                   />

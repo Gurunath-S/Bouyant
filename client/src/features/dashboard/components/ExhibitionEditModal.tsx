@@ -4,9 +4,11 @@ import { Exhibition } from '../../../types';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
 import { DateInput } from '../../../components/ui/DateInput';
 import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
+import { ALL_INDIAN_CITIES } from '../../../data/indianStatesCities';
 import { AlertCircle, Loader2, Save, Calendar } from 'lucide-react';
 
 const calculateDefaultBookingEndDate = (startDateStr: string): string => {
@@ -178,14 +180,13 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1">
-              City *
-            </label>
-            <Input
-              value={formData.city}
-              onChange={(e) => handleChange('city', e.target.value)}
-              placeholder="e.g. New Delhi"
+            <SearchableCombobox
+              label="City"
               required
+              value={formData.city}
+              onChange={(val) => handleChange('city', val)}
+              options={ALL_INDIAN_CITIES}
+              placeholder="Select or type City..."
             />
           </div>
         </div>

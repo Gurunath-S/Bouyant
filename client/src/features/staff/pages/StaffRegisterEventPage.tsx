@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Input } from '../../../components/ui/Input';
 import { DateInput } from '../../../components/ui/DateInput';
+import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
+import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
 import {
   CalendarPlus,
   ArrowLeft,
@@ -51,12 +53,17 @@ export const StaffRegisterEventPage: React.FC = () => {
     description: '',
     venue: '',
     city: 'Mumbai',
+    state: 'Maharashtra',
     startDate: '',
     endDate: '',
     bookingEndDate: '',
     totalStalls: 50,
     bannerUrl: '',
   });
+
+  const availableCities = useMemo(() => {
+    return getCitiesForLocation('India', formData.state);
+  }, [formData.state]);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -371,10 +378,10 @@ export const StaffRegisterEventPage: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-500" /> 3. Venue & Logistics
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Exhibition Venue / Convention Center *
+                Exhibition Venue *
               </label>
               <Input
                 type="text"
@@ -386,15 +393,32 @@ export const StaffRegisterEventPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Host City *
-              </label>
-              <Input
-                type="text"
+              <SearchableCombobox
+                label="Host City"
                 required
-                placeholder="e.g. Coimbatore, Mumbai, Chennai"
                 value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                onChange={(val) => {
+                  setFormData((prev) => {
+                    const next = { ...prev, city: val };
+                    if (!prev.state && val) {
+                      const detected = getStateForCity(val, 'India');
+                      if (detected) next.state = detected;
+                    }
+                    return next;
+                  });
+                }}
+                options={availableCities}
+                placeholder="Select or type City..."
+              />
+            </div>
+
+            <div>
+              <SearchableCombobox
+                label="State / Region"
+                value={formData.state}
+                onChange={(val) => setFormData((prev) => ({ ...prev, state: val }))}
+                options={ALL_INDIAN_STATES}
+                placeholder="Select or type State..."
               />
             </div>
           </div>
