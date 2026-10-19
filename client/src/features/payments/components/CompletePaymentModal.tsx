@@ -11,8 +11,8 @@ import {
   X,
   AlertCircle,
   Loader2,
-  ShieldCheck,
   Calendar,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface CompletePaymentModalProps {
@@ -41,6 +41,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const [paymentOption, setPaymentOption] = useState<'full' | 'half' | 'custom'>('full');
   const [customAmount, setCustomAmount] = useState<string>('');
   const [nextDueDate, setNextDueDate] = useState<string>('');
+
+
 
   const handleClose = () => {
     setError(null);
@@ -176,6 +178,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       setError(`Payment amount cannot exceed the remaining balance of ₹${balanceDue.toLocaleString('en-IN')}.`);
       return;
     }
+
+
 
     if (isPartialPayment && !nextDueDate) {
       setError('Please select a promise due date for the remaining balance.');
@@ -433,6 +437,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     </p>
                   </div>
                 )}
+
+
               </div>
             </div>
           </div>

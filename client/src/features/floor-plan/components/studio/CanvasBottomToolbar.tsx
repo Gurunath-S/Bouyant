@@ -3,7 +3,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Maximize,
+  Focus,
   Grid,
   Magnet,
   Undo2,
@@ -261,10 +261,10 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
 
         <button
           onClick={onFitToScreen}
-          className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors"
-          title="Fit Floor Plan to Screen"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+          title="Fit Floor Plan to Screen (F)"
         >
-          <Maximize className="w-3.5 h-3.5" /> Fit
+          <Focus className="w-3.5 h-3.5 text-slate-600" /> Fit
         </button>
       </div>
     </footer>

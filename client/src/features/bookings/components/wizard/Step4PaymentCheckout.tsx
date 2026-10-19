@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
-import { ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ArrowLeft, ArrowRight, CreditCard, Smartphone } from 'lucide-react';
 
 interface Step4PaymentCheckoutProps {
   booking: Booking;
@@ -53,22 +53,24 @@ export const Step4PaymentCheckout: React.FC<Step4PaymentCheckoutProps> = ({
         )}
       </div>
 
+      {/* Payment Gateway Supported Instruments */}
       <div className="space-y-3">
-        <div className="p-3.5 border-2 border-[#09539b] dark:border-blue-500 bg-[#f6f9ff] dark:bg-blue-950/30 rounded-xl flex items-center justify-between cursor-pointer">
-          <div className="flex items-center gap-3">
-            <input type="radio" checked readOnly className="text-[#09539b]" />
-            <span className="text-xs font-bold text-[#012970] dark:text-slate-100">Razorpay UPI / QR / NetBanking</span>
+        <div className="p-4 border border-blue-200 dark:border-blue-800/60 bg-[#f6f9ff]/70 dark:bg-blue-950/20 rounded-2xl space-y-2 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <CreditCard className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+              <span className="text-xs font-bold text-[#012970] dark:text-slate-100">
+                All Payment Methods Supported via Razorpay
+              </span>
+            </div>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-black px-2 py-0.5 rounded">
+              Secured
+            </span>
           </div>
-          <span className="text-[10px] bg-[#9cc542] text-[#012970] font-black px-2 py-0.5 rounded">
-            Fastest
-          </span>
-        </div>
-
-        <div className="p-3.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <input type="radio" disabled className="text-slate-400" />
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Corporate Credit / Debit Card (Visa, MasterCard, RuPay)</span>
-          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Pay via UPI (GPay, PhonePe, Paytm, QR), Corporate Cards (Visa, MasterCard, RuPay), or NetBanking inside the official Razorpay checkout window.
+          </p>
         </div>
       </div>
 
@@ -81,25 +83,25 @@ export const Step4PaymentCheckout: React.FC<Step4PaymentCheckoutProps> = ({
         <Button
           variant="primary"
           size="lg"
-          className="w-full bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] font-black text-sm shadow-md"
+          className="w-full bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] font-black text-sm shadow-md cursor-pointer"
           onClick={() => onExecutePayment(false)}
           rightIcon={<ArrowRight className="w-4 h-4" />}
         >
-          Pay ₹{payableToday.toLocaleString()} & Complete Booking
+          Pay ₹{payableToday.toLocaleString()} &amp; Complete Booking
         </Button>
 
         <div className="flex justify-between items-center pt-2">
           <button
             type="button"
             onClick={onBack}
-            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Tax Audit
           </button>
           <button
             type="button"
             onClick={() => onExecutePayment(true)}
-            className="text-xs text-rose-500 hover:underline"
+            className="text-xs text-rose-500 hover:underline cursor-pointer"
           >
             Simulate Payment Decline (Test)
           </button>

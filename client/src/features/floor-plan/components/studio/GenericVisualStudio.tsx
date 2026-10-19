@@ -7,7 +7,7 @@ import {
   Pencil,
   Maximize,
   Minimize,
-  Maximize2,
+  Focus,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -2196,7 +2196,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 ? 'bg-blue-600 text-white border-blue-700 shadow-xs hover:bg-blue-700'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200'
             }`}
-            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Cover Full Screen — Focus Mode (F)'}
+            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Cover Full Screen'}
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
@@ -3906,7 +3906,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
               title="Fit Floor Plan to Screen (F)"
             >
-              <Maximize2 className="w-4 h-4" />
+              <Focus className="w-4 h-4" />
             </button>
 
             <button
