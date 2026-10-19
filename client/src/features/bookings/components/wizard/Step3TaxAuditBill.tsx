@@ -58,7 +58,6 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   isPaymentModalDismissed,
   onCancelBookingAndRelease,
 }) => {
-
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [termsError, setTermsError] = useState(false);
   const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
@@ -110,10 +109,25 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
     if (selectedStalls.length === 0 || !selectedCompany) return;
 
+    const contactPerson = user?.name || selectedCompany.contactPerson;
+    const contactEmail = user?.email || selectedCompany.email;
+    const contactPhone = user?.phone || selectedCompany.mobile;
+
     const payload: CreateBookingPayload = {
       companyId: selectedCompany.id,
       stallIds: selectedStalls.map((s) => s.id),
       exhibitionId: exhibition?.id,
+      contactPerson,
+      contactEmail,
+      contactPhone,
+      billingName: selectedCompany.name,
+      billingGst: selectedCompany.gstNumber || null,
+      billingPan: selectedCompany.panNumber || null,
+      billingAddress: selectedCompany.address,
+      billingCity: selectedCompany.city,
+      billingState: selectedCompany.state,
+      billingPinCode: selectedCompany.pinCode,
+      billingCountry: selectedCompany.country || 'India',
       ...(user &&
         isAdmin &&
         discountValue > 0 && {
@@ -436,6 +450,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               </div>
             )}
           </div>
+
 
 
         </div>

@@ -698,7 +698,7 @@ export const BookingWizardPage: React.FC = () => {
     }
 
     const options: any = {
-	      key: orderInfo.razorpayKeyId,
+      key: orderInfo.razorpayKeyId,
       amount: orderInfo.amount,
       currency: orderInfo.currency || 'INR',
       name: 'Buoyant Media',
@@ -949,7 +949,7 @@ export const BookingWizardPage: React.FC = () => {
       {/* STEP 3: REVIEW & PAY */}
       {currentStep === 3 && (
         <Step3TaxAuditBill
-          user={user}
+          user={user || pendingUserAuth?.user || null}
           exhibition={exhibition}
           selectedStalls={selectedStallsObj}
           selectedCompany={selectedCompany}

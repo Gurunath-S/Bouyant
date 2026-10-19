@@ -109,7 +109,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   onContinueWithSelectedCompany,
   onOpenLoginModal,
 }) => {
-  const [isAddingNewCompany, setIsAddingNewCompany] = useState(true);
+  const [isAddingNewCompany, setIsAddingNewCompany] = useState(companies.length === 0);
   const [isVerifyingGst, setIsVerifyingGst] = useState(false);
   const [gstVerificationSuccess, setGstVerificationSuccess] = useState(false);
   const [gstVerifiedDetails, setGstVerifiedDetails] = useState<any>(null);
@@ -215,9 +215,22 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       if (isClientUser && user?.username) {
         setValue('username', user.username);
       }
-      setValue('contactPerson', selectedCompany.contactPerson || user?.name || '');
-      setValue('mobile', selectedCompany.mobile || user?.phone || '');
-      setValue('email', selectedCompany.email || user?.email || '');
+
+      // Preserve current user's or manually entered guest contact details!
+      // Do NOT overwrite current employee's contact person, mobile, or email with company master data
+      if (user && user.role === 'CLIENT') {
+        setValue('contactPerson', user.name || getValues('contactPerson') || selectedCompany.contactPerson || '');
+        setValue('mobile', user.phone || getValues('mobile') || selectedCompany.mobile || '');
+        setValue('email', user.email || getValues('email') || selectedCompany.email || '');
+      } else {
+        const currentContactPerson = getValues('contactPerson');
+        const currentMobile = getValues('mobile');
+        const currentEmail = getValues('email');
+        setValue('contactPerson', currentContactPerson || selectedCompany.contactPerson || '');
+        setValue('mobile', currentMobile || selectedCompany.mobile || '');
+        setValue('email', currentEmail || selectedCompany.email || '');
+      }
+
       setValue('pinCode', selectedCompany.pinCode || '');
       setValue('address', selectedCompany.address || '');
       setValue('city', selectedCompany.city || '');
@@ -251,7 +264,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('tanNumber', '');
       setValue('website', '');
     }
-  }, [user, selectedCompany, setValue, isClientUser]);
+  }, [user, selectedCompany, setValue, getValues, isClientUser]);
 
   // Ensure authenticated client exhibitor uses their verified username and does not trigger taken check
   React.useEffect(() => {
@@ -497,10 +510,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           if (cleanCity) setValue('city', cleanCity, { shouldValidate: true, shouldDirty: true });
           if (comp.pinCode) setValue('pinCode', comp.pinCode, { shouldValidate: true, shouldDirty: true });
           if (comp.country) setValue('country', normalizeCountryName(comp.country || 'India'), { shouldValidate: true, shouldDirty: true });
-          // Only fill contact details if user has NOT already entered them in the form
-          if (!getValues('contactPerson') && comp.contactPerson) setValue('contactPerson', comp.contactPerson, { shouldValidate: true, shouldDirty: true });
-          if (!getValues('mobile') && comp.mobile) setValue('mobile', comp.mobile, { shouldValidate: true, shouldDirty: true });
-          if (!getValues('email') && comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
+          // Only fill contact details if user has NOT already entered them in the form and not logged in as CLIENT
+          if (user && user.role === 'CLIENT') {
+            if (user.name) setValue('contactPerson', user.name, { shouldValidate: true, shouldDirty: true });
+            if (user.phone) setValue('mobile', user.phone, { shouldValidate: true, shouldDirty: true });
+            if (user.email) setValue('email', user.email, { shouldValidate: true, shouldDirty: true });
+          } else {
+            if (!getValues('contactPerson') && comp.contactPerson) setValue('contactPerson', comp.contactPerson, { shouldValidate: true, shouldDirty: true });
+            if (!getValues('mobile') && comp.mobile) setValue('mobile', comp.mobile, { shouldValidate: true, shouldDirty: true });
+            if (!getValues('email') && comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
+          }
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
 
           onSelectCompany(comp);

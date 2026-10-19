@@ -13,6 +13,17 @@ export interface CreateBookingPayload {
   exhibitionId?: string;
   stallIds: string[];
   companyId: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  billingName?: string;
+  billingGst?: string | null;
+  billingPan?: string | null;
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingPinCode?: string;
+  billingCountry?: string;
   discountAmount?: number;
   discountType?: 'PERCENT' | 'AMOUNT';
   paymentType: 'Partial' | 'FullPayment';
