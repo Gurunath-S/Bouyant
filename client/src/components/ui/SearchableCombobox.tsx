@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
-import { ChevronDown, Check, X, Search } from 'lucide-react';
+import React, { useState, useRef, useEffect, useId, useMemo, useCallback } from 'react';
+import { ChevronDown, Check, X, Search, MapPin, Sparkles } from 'lucide-react';
 
 export interface SearchableComboboxProps {
   label?: string;
@@ -14,15 +14,43 @@ export interface SearchableComboboxProps {
   className?: string;
 }
 
-// Module-level coordinator to ensure strictly ONE dropdown is open at a time across the entire app
+// Global coordinator to ensure strictly one combobox dropdown is open at a time
 let activeDropdownCloser: (() => void) | null = null;
+
+/**
+ * Highlights matching query substring within option text with purple emphasis
+ */
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  if (!query || !query.trim()) {
+    return <span className="truncate">{text}</span>;
+  }
+  const q = query.trim().toLowerCase();
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) {
+    return <span className="truncate">{text}</span>;
+  }
+
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + q.length);
+  const after = text.slice(idx + q.length);
+
+  return (
+    <span className="truncate">
+      {before}
+      <mark className="bg-purple-100 dark:bg-purple-900/70 text-purple-900 dark:text-purple-100 font-extrabold rounded-xs px-0.5 not-italic">
+        {match}
+      </mark>
+      {after}
+    </span>
+  );
+}
 
 export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   label,
   value,
   onChange,
-  options,
-  placeholder = 'Select or type...',
+  options = [],
+  placeholder = 'Select or type location...',
   error,
   helperText,
   disabled = false,
@@ -30,33 +58,49 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(value ?? '');
-  const [isUserTyping, setIsUserTyping] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(value ?? '');
+  const [isSearching, setIsSearching] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [openUpward, setOpenUpward] = useState(false);
-  const [maxListHeight, setMaxListHeight] = useState(220);
+  const [maxListHeight, setMaxListHeight] = useState(260);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const componentId = useId();
 
-  const closeDropdown = React.useCallback(() => {
+  // Keep a ref to the latest state to avoid stale closures in event listeners
+  const stateRef = useRef({ searchQuery, isSearching, value, options, onChange });
+  useEffect(() => {
+    stateRef.current = { searchQuery, isSearching, value, options, onChange };
+  });
+
+  // Close dropdown helper
+  const closeDropdown = useCallback(() => {
     setIsOpen(false);
-    setIsUserTyping(false);
+    setIsSearching(false);
     setHighlightedIndex(-1);
     if (activeDropdownCloser === closeDropdown) {
       activeDropdownCloser = null;
     }
   }, []);
 
-  const openDropdown = React.useCallback(() => {
-    if (activeDropdownCloser && activeDropdownCloser !== closeDropdown) {
-      activeDropdownCloser();
-    }
-    activeDropdownCloser = closeDropdown;
-    setIsOpen(true);
-    setIsUserTyping(false);
-  }, [closeDropdown]);
+  // Open dropdown helper (keeps active search if typing)
+  const openDropdown = useCallback(
+    (keepSearch = false) => {
+      if (disabled) return;
+      if (activeDropdownCloser && activeDropdownCloser !== closeDropdown) {
+        activeDropdownCloser();
+      }
+      activeDropdownCloser = closeDropdown;
+      setIsOpen(true);
+      if (!keepSearch) {
+        setIsSearching(false);
+        setSearchQuery(value ?? '');
+      }
+    },
+    [disabled, closeDropdown, value]
+  );
 
   // Clean up global closer on unmount
   useEffect(() => {
@@ -67,7 +111,14 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     };
   }, [closeDropdown]);
 
-  // Viewport collision detection: preferentially open downward so inputs above are not obscured
+  // Sync internal display with incoming value prop ONLY when user is not actively typing
+  useEffect(() => {
+    if (!isSearching) {
+      setSearchQuery(value ?? '');
+    }
+  }, [value, isSearching]);
+
+  // Viewport collision detection: smart flip up/down with adaptive max height
   useEffect(() => {
     if (!isOpen) return;
 
@@ -78,12 +129,12 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
       const spaceBelow = viewportHeight - rect.bottom;
       const spaceAbove = rect.top;
 
-      // Only flip upward if space below is critically tight (< 130px) AND space above is significantly larger (> 200px)
-      const shouldFlipUp = spaceBelow < 130 && spaceAbove > 200;
+      // Flip upward if space below is tight (< 180px) and above has more space
+      const shouldFlipUp = spaceBelow < 180 && spaceAbove > spaceBelow;
       setOpenUpward(shouldFlipUp);
 
       const availableSpace = shouldFlipUp ? spaceAbove : spaceBelow;
-      const computedMax = Math.max(120, Math.min(220, availableSpace - 16));
+      const computedMax = Math.max(160, Math.min(280, availableSpace - 24));
       setMaxListHeight(computedMax);
     };
 
@@ -96,81 +147,130 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     };
   }, [isOpen]);
 
-  // Keep internal input text in sync when external value changes (e.g. GST autofill or reset)
-  useEffect(() => {
-    setSearchTerm(value ?? '');
-    setIsUserTyping(false);
-  }, [value]);
-
-  // Filter options based on user input
-  const filteredOptions = React.useMemo(() => {
-    if (!isUserTyping) {
-      return options;
+  // Filter options with two-tier ranking (starts-with first, then contains)
+  const filteredOptions = useMemo(() => {
+    const safeOptions = Array.isArray(options) ? options.filter(Boolean) : [];
+    if (!isSearching || !searchQuery.trim()) {
+      return safeOptions;
     }
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((opt) => opt.toLowerCase().includes(q));
-  }, [options, searchTerm, isUserTyping]);
 
-  // Display up to 120 items for fast 60fps scrolling with large datasets
-  const displayedOptions = React.useMemo(() => {
-    return filteredOptions.slice(0, 120);
+    const q = searchQuery.trim().toLowerCase();
+    const exactMatches: string[] = [];
+    const startsWith: string[] = [];
+    const contains: string[] = [];
+
+    for (const opt of safeOptions) {
+      const lower = String(opt).toLowerCase();
+      if (lower === q) {
+        exactMatches.push(opt);
+      } else if (lower.startsWith(q)) {
+        startsWith.push(opt);
+      } else if (lower.includes(q)) {
+        contains.push(opt);
+      }
+    }
+
+    return Array.from(new Set([...exactMatches, ...startsWith, ...contains]));
+  }, [options, searchQuery, isSearching]);
+
+  // Show top 150 items for fast 60fps rendering
+  const displayedOptions = useMemo(() => {
+    return filteredOptions.slice(0, 150);
   }, [filteredOptions]);
 
-  // When dropdown opens with a selected value and user is not typing, highlight selected item
+  // When dropdown opens with a selected value and user is not searching, highlight selected item
   useEffect(() => {
-    if (isOpen && value && !isUserTyping) {
-      const idx = displayedOptions.findIndex((opt) => opt.toLowerCase() === value.toLowerCase());
+    if (isOpen && value && !isSearching) {
+      const idx = displayedOptions.findIndex(
+        (opt) => String(opt).toLowerCase() === String(value).toLowerCase()
+      );
       if (idx >= 0) {
         setHighlightedIndex(idx);
       }
     }
-  }, [isOpen, value, isUserTyping, displayedOptions]);
+  }, [isOpen, value, isSearching, displayedOptions]);
 
-  // Close dropdown on outside click
+  // Commit text or option
+  const commitSelection = useCallback(
+    (textToCommit: string) => {
+      const trimmed = textToCommit.trim();
+      if (!trimmed) {
+        onChange('');
+        setSearchQuery('');
+        setIsSearching(false);
+        return;
+      }
+
+      // Check if there is an exact case-insensitive match in options
+      const canonicalMatch = options.find(
+        (opt) => String(opt).toLowerCase() === trimmed.toLowerCase()
+      );
+      const finalVal = canonicalMatch || trimmed;
+
+      onChange(finalVal);
+      setSearchQuery(finalVal);
+      setIsSearching(false);
+    },
+    [options, onChange]
+  );
+
+  const handleSelectOption = useCallback(
+    (option: string) => {
+      commitSelection(option);
+      closeDropdown();
+      inputRef.current?.blur();
+    },
+    [commitSelection, closeDropdown]
+  );
+
+  // Close dropdown on outside click with graceful commit of typed text
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const { searchQuery: currentQuery, isSearching: currentlySearching, value: currentValue } = stateRef.current;
+        if (currentlySearching && currentQuery.trim() && currentQuery.trim() !== currentValue) {
+          commitSelection(currentQuery);
+        } else {
+          setSearchQuery(currentValue ?? '');
+          setIsSearching(false);
+        }
         closeDropdown();
-        setSearchTerm(value ?? '');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [value, closeDropdown]);
+  }, [commitSelection, closeDropdown]);
 
-  // Close dropdown when focus completely leaves the combobox container (e.g. tabbing away)
+  // Handle focus leaving container completely
   const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     const nextTarget = e.relatedTarget as Node | null;
     if (!containerRef.current?.contains(nextTarget)) {
+      if (isSearching && searchQuery.trim() && searchQuery.trim() !== value) {
+        commitSelection(searchQuery);
+      } else {
+        setSearchQuery(value ?? '');
+        setIsSearching(false);
+      }
       closeDropdown();
-      setSearchTerm(value ?? '');
     }
-  };
-
-  const handleSelectOption = (option: string) => {
-    setSearchTerm(option);
-    setIsUserTyping(false);
-    onChange(option);
-    closeDropdown();
-    inputRef.current?.blur();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setSearchTerm(val);
-    setIsUserTyping(true);
-    onChange(val);
-    if (!isOpen) openDropdown();
+    setSearchQuery(val);
+    setIsSearching(true);
+    if (!isOpen) {
+      openDropdown(true);
+    }
     setHighlightedIndex(0);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSearchTerm('');
-    setIsUserTyping(false);
+    setSearchQuery('');
+    setIsSearching(false);
     onChange('');
-    openDropdown();
+    openDropdown(false);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
   };
@@ -181,7 +281,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
-        openDropdown();
+        openDropdown(false);
         setHighlightedIndex(0);
       }
       return;
@@ -202,6 +302,9 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
           handleSelectOption(displayedOptions[highlightedIndex]);
         } else if (displayedOptions.length === 1) {
           handleSelectOption(displayedOptions[0]);
+        } else if (searchQuery.trim()) {
+          commitSelection(searchQuery);
+          closeDropdown();
         } else {
           closeDropdown();
         }
@@ -209,16 +312,19 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
       case 'Escape':
         e.preventDefault();
         closeDropdown();
-        setSearchTerm(value ?? '');
+        setSearchQuery(value ?? '');
         setHighlightedIndex(-1);
         break;
       case 'Tab':
+        if (isSearching && searchQuery.trim() && searchQuery.trim() !== value) {
+          commitSelection(searchQuery);
+        }
         closeDropdown();
         break;
     }
   };
 
-  // Scroll highlighted item into view
+  // Automatically scroll highlighted option into view
   useEffect(() => {
     if (isOpen && highlightedIndex >= 0 && listboxRef.current) {
       const items = listboxRef.current.querySelectorAll('li[role="option"]');
@@ -232,27 +338,32 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
     <div
       ref={containerRef}
       onBlur={handleContainerBlur}
-      className={`w-full space-y-1.5 relative z-10 ${className}`}
+      className={`w-full space-y-1.5 relative ${className}`}
     >
       {label && (
         <label
           htmlFor={componentId}
-          className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+          className="block text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-tight"
         >
           {label} {required && <span className="text-rose-500">*</span>}
         </label>
       )}
 
-      <div className="relative rounded-lg shadow-xs">
+      <div className="relative rounded-xl shadow-xs group">
+        {/* Left Search / Map Icon */}
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-purple-600 dark:group-focus-within:text-purple-400 transition-colors">
+          <Search className="w-3.5 h-3.5" />
+        </div>
+
         <input
           id={componentId}
           ref={inputRef}
           type="text"
-          value={searchTerm}
+          value={searchQuery}
           onChange={handleInputChange}
           onClick={() => {
             if (!disabled && !isOpen) {
-              openDropdown();
+              openDropdown(isSearching);
             }
           }}
           onFocus={(e) => {
@@ -264,20 +375,20 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
-          className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-500 focus:border-blue-600 transition-colors pl-3.5 pr-16 py-2 ${
+          className={`w-full bg-white dark:bg-slate-900 border rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-600/30 focus:border-purple-600 transition-all pl-9 pr-16 py-2.5 ${
             error
-              ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
-              : 'border-slate-300 dark:border-slate-700'
+              ? 'border-rose-500 focus:ring-rose-500/30 focus:border-rose-500'
+              : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
           } ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-50 dark:bg-slate-800' : ''}`}
         />
 
         {/* Action icons right */}
-        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center gap-1">
-          {searchTerm && !disabled && (
+        <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+          {searchQuery && !disabled && (
             <button
               type="button"
               onClick={handleClear}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               title="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
@@ -292,68 +403,104 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
                 if (isOpen) {
                   closeDropdown();
                 } else {
-                  openDropdown();
+                  openDropdown(false);
                   inputRef.current?.focus();
                   inputRef.current?.select();
                 }
               }
             }}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                isOpen ? 'rotate-180 text-purple-600' : ''
+              }`}
+            />
           </button>
         </div>
       </div>
 
-      {/* Floating Dropdown Listbox with Smart Flip Up/Down & Adaptive Max Height */}
+      {/* Floating Dropdown Listbox with Smart Flip Up/Down, Prevented-Blur & Search Match Count */}
       {isOpen && !disabled && (
-        <ul
-          ref={listboxRef}
-          role="listbox"
+        <div
           style={{ maxHeight: `${maxListHeight}px` }}
-          className={`absolute z-50 w-full overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800/60 ${
+          className={`absolute z-[9999] w-full overflow-hidden flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          }`}
+          } animate-in fade-in zoom-in-95 duration-150`}
         >
-          {displayedOptions.length === 0 ? (
-            <li className="px-3.5 py-2.5 text-slate-400 dark:text-slate-500 italic flex items-center justify-between">
-              <span>No direct match found</span>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold not-italic">
-                Typing custom value
+          {/* Header count badge */}
+          <div className="px-3.5 py-1.5 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between shrink-0">
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+              {isSearching && searchQuery.trim()
+                ? `${filteredOptions.length} matching result${filteredOptions.length === 1 ? '' : 's'}`
+                : `${options.length} available locations`}
+            </span>
+            {isSearching && searchQuery.trim() && (
+              <span className="text-purple-600 dark:text-purple-400 font-semibold truncate max-w-[130px]">
+                "{searchQuery.trim()}"
               </span>
-            </li>
-          ) : (
-            displayedOptions.map((opt, idx) => {
-              const isSelected = opt.toLowerCase() === value?.toLowerCase();
-              const isHighlighted = idx === highlightedIndex;
+            )}
+          </div>
 
-              return (
-                <li
-                  key={`${opt}-${idx}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelectOption(opt)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`px-3.5 py-2 cursor-pointer flex items-center justify-between transition-colors ${
-                    isHighlighted
-                      ? 'bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 font-semibold'
-                      : isSelected
-                      ? 'bg-blue-50/50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 font-bold'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <span className="truncate">{opt}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
-                </li>
-              );
-            })
-          )}
-          {filteredOptions.length > displayedOptions.length && (
-            <li className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/80 text-[10px] text-slate-500 dark:text-slate-400 italic text-center sticky bottom-0 border-t border-slate-100 dark:border-slate-700">
-              Showing top {displayedOptions.length} of {filteredOptions.length} matches — keep typing to filter...
-            </li>
-          )}
-        </ul>
+          {/* List items container */}
+          <ul
+            ref={listboxRef}
+            role="listbox"
+            className="overflow-y-auto flex-1 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700"
+          >
+            {displayedOptions.length === 0 ? (
+              <li className="p-4 text-center space-y-2">
+                <p className="text-xs text-slate-400 italic">No matching locations found in directory</p>
+                {searchQuery.trim() && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectOption(searchQuery.trim())}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    Use custom location: "{searchQuery.trim()}"
+                  </button>
+                )}
+              </li>
+            ) : (
+              displayedOptions.map((opt, idx) => {
+                const isSelected = String(opt).toLowerCase() === String(value || '').toLowerCase();
+                const isHighlighted = idx === highlightedIndex;
+
+                return (
+                  <li
+                    key={`${opt}-${idx}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectOption(opt)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    className={`mx-1.5 my-0.5 px-3 py-2 rounded-xl cursor-pointer flex items-center justify-between transition-all select-none ${
+                      isSelected
+                        ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-900 dark:text-purple-200 font-bold border border-purple-200/60 dark:border-purple-800/60'
+                        : isHighlighted
+                        ? 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 font-medium'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <HighlightMatch text={opt} query={isSearching ? searchQuery : ''} />
+                    {isSelected && (
+                      <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 ml-2" />
+                    )}
+                  </li>
+                );
+              })
+            )}
+
+            {filteredOptions.length > displayedOptions.length && (
+              <li className="px-3.5 py-1.5 bg-slate-50/80 dark:bg-slate-800/80 text-[10px] text-slate-400 italic text-center sticky bottom-0 border-t border-slate-100 dark:border-slate-800">
+                Showing top {displayedOptions.length} of {filteredOptions.length} — type more to narrow down
+              </li>
+            )}
+          </ul>
+        </div>
       )}
 
       {error && <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{error}</p>}

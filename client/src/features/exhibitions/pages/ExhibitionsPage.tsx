@@ -5,6 +5,7 @@ import { Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
+import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
 import { useAuthStore } from '../../../stores/authStore';
 import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
@@ -14,6 +15,7 @@ export const ExhibitionsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [cityFilter, setCityFilter] = useState('ALL');
 
   async function fetchExhibitions() {
     try {
@@ -42,6 +44,14 @@ export const ExhibitionsPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
+  const availableCities = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const e of exhibitions) {
+      if (e.city && e.city.trim()) set.add(e.city.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [exhibitions]);
+
   const now = new Date();
   const filtered = exhibitions.filter((e) => {
     // Hide DRAFT or CANCELLED exhibitions from public page
@@ -57,11 +67,16 @@ export const ExhibitionsPage: React.FC = () => {
     }
 
     const matchesSearch =
+      !search.trim() ||
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.city.toLowerCase().includes(search.toLowerCase()) ||
       e.venue.toLowerCase().includes(search.toLowerCase());
 
-    return matchesSearch;
+    const matchesCity =
+      cityFilter === 'ALL' ||
+      (e.city && e.city.trim().toLowerCase() === cityFilter.trim().toLowerCase());
+
+    return matchesSearch && matchesCity;
   });
 
   const getBackConfig = () => {
@@ -98,13 +113,23 @@ export const ExhibitionsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="max-w-xs w-full">
-          <Input
-            placeholder="Search by event, city, or venue..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            leftIcon={<Search className="w-4 h-4" />}
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <CityFilterDropdown
+            label="City"
+            value={cityFilter}
+            onChange={setCityFilter}
+            cities={availableCities}
+            placeholder="All Cities"
           />
+
+          <div className="max-w-xs w-full">
+            <Input
+              placeholder="Search by event, city, or venue..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
         </div>
       </div>
 

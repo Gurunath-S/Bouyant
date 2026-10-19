@@ -5,6 +5,7 @@ import { Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
 import { formatDisplayDate } from '../../../utils/date';
 import {
   Layers,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   Loader2,
   Search,
+  MapPin,
 } from 'lucide-react';
 
 const getStatusConfig = (status: Exhibition['status']) => {
@@ -69,6 +71,7 @@ export const AdminEventsPage: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [cityFilter, setCityFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -103,6 +106,14 @@ export const AdminEventsPage: React.FC = () => {
     };
   }, [exhibitions]);
 
+  const availableCities = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const e of exhibitions) {
+      if (e.city && e.city.trim()) set.add(e.city.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [exhibitions]);
+
   const filteredExhibitions = React.useMemo(() => {
     return exhibitions.filter((e) => {
       const q = searchQuery.toLowerCase().trim();
@@ -128,13 +139,17 @@ export const AdminEventsPage: React.FC = () => {
         matchesStatus = true;
       }
 
-      return matchesQuery && matchesStatus;
+      const matchesCity =
+        cityFilter === 'ALL' ||
+        (e.city && e.city.trim().toLowerCase() === cityFilter.trim().toLowerCase());
+
+      return matchesQuery && matchesStatus && matchesCity;
     });
-  }, [exhibitions, searchQuery, statusFilter]);
+  }, [exhibitions, searchQuery, statusFilter, cityFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, cityFilter]);
 
   const paginatedExhibitions = React.useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -346,7 +361,16 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
         {/* Action Tabs & Status Filter */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* City / Location Filter */}
+          <CityFilterDropdown
+            label="City"
+            value={cityFilter}
+            onChange={setCityFilter}
+            cities={availableCities}
+            placeholder="All Cities"
+          />
+
           <button
             onClick={() => setStatusFilter('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${

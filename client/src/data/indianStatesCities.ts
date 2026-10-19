@@ -236,7 +236,30 @@ export function getStatesForCountry(countryName?: string): string[] {
  * - If country + state provided: returns ALL cities in that state (with major hubs at top)
  * - If country provided without state: returns national hubs + all country cities
  */
-export function getCitiesForLocation(countryName?: string, stateName?: string): string[] {
+export function getCitiesForLocation(countryNameOrState?: string, stateNameOrCountry?: string): string[] {
+  let countryName = countryNameOrState;
+  let stateName = stateNameOrCountry;
+
+  // Smart detect argument swap: e.g. getCitiesForLocation('Maharashtra', 'India') or getCitiesForLocation('Maharashtra')
+  if (countryName && !stateName) {
+    // If only 1 argument passed and it matches an Indian state, treat it as state in India
+    const isState = ALL_INDIAN_STATES.some((s) => s.toLowerCase() === countryName?.trim().toLowerCase());
+    if (isState) {
+      stateName = countryName;
+      countryName = 'India';
+    }
+  } else if (countryName && stateName) {
+    const isFirstArgState = ALL_INDIAN_STATES.some((s) => s.toLowerCase() === countryName?.trim().toLowerCase());
+    const isSecondArgCountry = stateName.trim().toLowerCase() === 'india' || stateName.trim().toLowerCase() === 'in';
+    if (isFirstArgState && isSecondArgCountry) {
+      const temp = stateName;
+      stateName = countryName;
+      countryName = temp;
+    }
+  } else if (!countryName && stateName) {
+    countryName = 'India';
+  }
+
   const norm = normalizeCountryName(countryName);
   const isIndia = norm.toLowerCase() === 'india';
 
