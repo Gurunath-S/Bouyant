@@ -171,7 +171,7 @@ export interface PasswordResetEmailPayload {
 export interface AdminPasswordResetNotificationPayload {
   toEmail: string;
   toName: string;
-  newPassword?: string;
+  username?: string;
 }
 
 export interface EmailDeliveryResult {
@@ -782,7 +782,7 @@ export class EmailService {
 
     const safeToName = escapeHtml(payload.toName);
     const safeToEmail = escapeHtml(payload.toEmail);
-    const safePassword = payload.newPassword ? escapeHtml(payload.newPassword) : '';
+    const safeUsername = payload.username ? escapeHtml(payload.username) : safeToEmail;
     const loginUrl = `${resolveClientOrigin()}/login`;
     const safeLoginUrl = escapeHtml(loginUrl);
 
@@ -822,24 +822,22 @@ export class EmailService {
                 Dear <strong>${safeToName}</strong>,
               </p>
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">
-                Your account password has been updated by the administration team. You can use your updated credentials to log in to the portal.
+                Your account password has been updated by an administrator. Please log in to the portal using your unique username:
               </p>
 
               <!-- CREDENTIALS BOX -->
               <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:20px; margin-bottom:24px;">
-                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">UPDATED CREDENTIALS</h3>
+                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">ACCOUNT IDENTIFIER</h3>
 
                 <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; margin-bottom:12px; border-collapse:collapse;">
                   <tr>
-                    <td style="color:#475569; font-weight:500; width:40%;">Account Email:</td>
+                    <td style="color:#475569; font-weight:500; width:40%;">Account Username:</td>
+                    <td style="color:#0f172a; font-weight:700;">${safeUsername}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#475569; font-weight:500; width:40%;">Registered Email:</td>
                     <td style="color:#0f172a; font-weight:700;">${safeToEmail}</td>
                   </tr>
-                  ${safePassword ? `
-                  <tr>
-                    <td style="color:#475569; font-weight:500;">New Password:</td>
-                    <td style="color:#1d4ed8; font-weight:800; font-family:monospace; font-size:15px;">${safePassword}</td>
-                  </tr>
-                  ` : ''}
                 </table>
 
                 <div style="text-align:center; margin-top:20px;">

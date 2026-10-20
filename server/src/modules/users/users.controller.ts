@@ -108,7 +108,8 @@ export class UsersController {
 
   static resetPassword = async (req: Request, res: Response) => {
     const { newPassword, sendEmailNotification } = req.body;
-    const result = await UsersService.resetPassword(req.params.id, newPassword, sendEmailNotification);
+    const actingAdmin = (req as any).user;
+    const result = await UsersService.resetPassword(req.params.id, newPassword, sendEmailNotification, actingAdmin);
     return sendResponse({
       res,
       statusCode: 200,

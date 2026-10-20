@@ -42,6 +42,20 @@ export class AuthController {
     });
   };
 
+  static lookupAccount = async (req: Request, res: Response) => {
+    const email = req.query.email as string | undefined;
+    const phone = req.query.phone as string | undefined;
+    const gstNumber = req.query.gstNumber as string | undefined;
+    const companyName = req.query.companyName as string | undefined;
+    const result = await AuthService.lookupAccount({ email, phone, gstNumber, companyName });
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.exists ? 'Account found.' : 'No existing account found.',
+      data: result,
+    });
+  };
+
   static login = async (req: Request, res: Response) => {
     const { user, tokens } = await AuthService.login(req.body);
 

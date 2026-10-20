@@ -66,6 +66,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
   ]),
 
   ADMIN: new Set([
+    Permissions.USER_VIEW,
+    Permissions.USER_RESET_PASSWORD,
     Permissions.EVENT_CREATE,
     Permissions.EVENT_MANAGE,
     Permissions.EVENT_DELETE,

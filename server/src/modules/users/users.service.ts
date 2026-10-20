@@ -402,7 +402,7 @@ export class UsersService {
   static async createUser(input: CreateUserInput) {
     const email = input.email.toLowerCase().trim();
 
-    const existingEmail = await prisma.user.findUnique({
+    const existingEmail = await prisma.user.findFirst({
       where: { email },
     });
     if (existingEmail) {
@@ -549,7 +549,12 @@ export class UsersService {
     return updated;
   }
 
-  static async resetPassword(id: string, newPassword: string, sendEmailNotification: boolean = true) {
+  static async resetPassword(
+    id: string,
+    newPassword: string,
+    sendEmailNotification: boolean = true,
+    actingAdmin?: TokenPayload
+  ) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw ApiError.notFound('User not found.');
@@ -559,12 +564,34 @@ export class UsersService {
       throw ApiError.forbidden('Super Admin password cannot be reset via this interface.');
     }
 
+    // Role Hierarchy & Permission Enforcement:
+    // ADMIN can only reset passwords for CLIENT (exhibitor) and STAFF accounts, not other ADMINs
+    if (actingAdmin && actingAdmin.role === 'ADMIN' && user.role === 'ADMIN') {
+      throw ApiError.forbidden('Administrators can only reset passwords for Exhibitors and Staff accounts.');
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
+    // Update password hash (invalidates existing sessions and tokens based on password hash HMAC)
     await prisma.user.update({
       where: { id },
       data: { passwordHash },
     });
+
+    // Record Administrator Audit Log (Without logging passwords or tokens)
+    try {
+      const adminIdentifier = actingAdmin?.email || actingAdmin?.userId || 'ADMINISTRATOR';
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: 'Administrative Password Reset',
+          message: `Password was reset by administrator (${adminIdentifier}) for account username "${user.username || user.email}" at ${new Date().toISOString()}.`,
+          type: 'SECURITY_ALERT',
+        },
+      });
+    } catch (_auditErr) {
+      // Non-blocking audit notification
+    }
 
     let emailSent = false;
     if (sendEmailNotification) {
@@ -572,7 +599,7 @@ export class UsersService {
         const emailResult = await EmailService.sendAdminPasswordResetNotificationEmail({
           toEmail: user.email,
           toName: user.name,
-          newPassword,
+          username: user.username || undefined,
         });
         emailSent = emailResult.status === 'ACCEPTED';
       } catch (emailErr) {
@@ -581,10 +608,10 @@ export class UsersService {
     }
 
     const message = emailSent
-      ? `Password for ${user.name} (${user.email}) has been reset and email notification was sent.`
+      ? `Password for ${user.name} (${user.username || user.email}) has been reset and email notification was sent.`
       : sendEmailNotification
-      ? `Password for ${user.name} (${user.email}) has been reset successfully.`
-      : `Password for ${user.name} (${user.email}) has been reset successfully (notification skipped).`;
+      ? `Password for ${user.name} (${user.username || user.email}) has been reset successfully.`
+      : `Password for ${user.name} (${user.username || user.email}) has been reset successfully (notification skipped).`;
 
     return {
       message,

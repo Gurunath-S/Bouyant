@@ -23,7 +23,7 @@ export function getForgotPasswordCooldownSizeForTesting(): number {
 
 export class AuthService {
   static async register(input: RegisterInput) {
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.user.findFirst({
       where: { email: input.email.toLowerCase() },
     });
 
@@ -97,18 +97,150 @@ export class AuthService {
     };
   }
 
+  static async lookupAccount(query: {
+    email?: string;
+    phone?: string;
+    gstNumber?: string;
+    companyName?: string;
+  }) {
+    const cleanEmail = query.email?.trim().toLowerCase();
+    const cleanPhone = query.phone?.replace(/\D/g, '').slice(-10);
+    const cleanGst = query.gstNumber?.trim().toUpperCase();
+    const cleanCompanyName = query.companyName?.trim();
+
+    // 1. Look up legal company master if GSTIN or exact company fallback is provided
+    let matchedCompany: any = null;
+    if (cleanGst && cleanGst.length >= 10) {
+      matchedCompany = await prisma.company.findUnique({
+        where: { gstNumber: cleanGst },
+        select: {
+          id: true,
+          name: true,
+          gstNumber: true,
+          panNumber: true,
+          mobile: true,
+          email: true,
+          contactPerson: true,
+          address: true,
+          city: true,
+          state: true,
+          pinCode: true,
+          country: true,
+          industry: true,
+          website: true,
+        },
+      });
+    } else if (cleanCompanyName && cleanEmail && cleanPhone && cleanPhone.length === 10) {
+      // Fallback matching without GSTIN: exact company name + email + phone
+      const potential = await prisma.company.findMany({
+        where: {
+          gstNumber: null,
+          name: { equals: cleanCompanyName, mode: 'insensitive' },
+          email: cleanEmail,
+        },
+        select: {
+          id: true,
+          name: true,
+          gstNumber: true,
+          panNumber: true,
+          mobile: true,
+          email: true,
+          contactPerson: true,
+          address: true,
+          city: true,
+          state: true,
+          pinCode: true,
+          country: true,
+          industry: true,
+          website: true,
+        },
+      });
+      matchedCompany = potential.find(
+        (c) => c.mobile.replace(/\D/g, '').slice(-10) === cleanPhone
+      ) || null;
+    }
+
+    // 2. Check for exact existing exhibitor under matched company
+    // Only recognize existing exhibitor if BOTH normalized email AND phone match an account under that company
+    if (matchedCompany && cleanEmail && cleanPhone && cleanPhone.length === 10) {
+      const exactUser = await prisma.user.findFirst({
+        where: {
+          companyId: matchedCompany.id,
+          email: cleanEmail,
+          phone: { contains: cleanPhone },
+        },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+        },
+      });
+
+      if (exactUser) {
+        return {
+          exists: true,
+          exactMatch: true,
+          username: exactUser.username || null,
+          name: exactUser.name,
+          company: matchedCompany,
+        };
+      }
+    }
+
+    // 3. If company exists by GSTIN but user is new (different contact or phone):
+    if (matchedCompany) {
+      return {
+        exists: false,
+        exactMatch: false,
+        companyExists: true,
+        company: matchedCompany,
+      };
+    }
+
+    return { exists: false, exactMatch: false };
+  }
+
   static async login(input: LoginInput) {
     const identifier = input.email.trim();
-    const user = await prisma.user.findFirst({
+
+    // 1. First, search for account by unique username (the primary authenticator for exhibitors)
+    let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: { equals: identifier, mode: 'insensitive' } },
-          { username: { equals: identifier, mode: 'insensitive' } },
-          { spcode: { equals: identifier, mode: 'insensitive' } },
-        ],
+        username: { equals: identifier, mode: 'insensitive' },
       },
       include: { company: true },
     });
+
+    // 2. If not found by username, check if identifier is email or SP-code for privileged roles (SUPERADMIN, ADMIN, STAFF)
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          role: { in: ['SUPERADMIN', 'ADMIN', 'STAFF'] },
+          OR: [
+            { email: { equals: identifier, mode: 'insensitive' } },
+            { spcode: { equals: identifier, mode: 'insensitive' } },
+          ],
+        },
+        include: { company: true },
+      });
+    }
+
+    // 3. If still not found, check if identifier is an email belonging to exhibitor (CLIENT) accounts
+    if (!user) {
+      const clientAccounts = await prisma.user.findMany({
+        where: {
+          role: 'CLIENT',
+          email: { equals: identifier, mode: 'insensitive' },
+        },
+        select: { id: true, username: true },
+      });
+
+      if (clientAccounts.length > 0) {
+        throw ApiError.badRequest(
+          'Exhibitor accounts must log in with their unique username. Please enter your username instead of your email address.'
+        );
+      }
+    }
 
     if (!user) {
       throw ApiError.unauthorized('Invalid username/email or password.');
@@ -243,13 +375,21 @@ export class AuthService {
       return genericResponse;
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: { email: cleanEmail },
     });
 
     // Account enumeration defense: Return identical response whether user exists or not
     if (!user || user.isActive === false) {
       return genericResponse;
+    }
+
+    // Role-specific authorization: Exhibitors/clients MUST NOT have self-service password reset.
+    // Preserves administrator/staff password-management capabilities.
+    if (user.role === 'CLIENT') {
+      throw ApiError.forbidden(
+        'Exhibitor account passwords are administrator-controlled. Self-service password reset is disabled. Please contact an administrator.'
+      );
     }
 
     // Cryptographic single-use token: Secret is HMAC keyed with (JWT_SECRET + user.passwordHash)
@@ -322,6 +462,12 @@ export class AuthService {
 
     if (!user || user.isActive === false) {
       throw ApiError.badRequest('Invalid or expired password reset link.');
+    }
+
+    if (user.role === 'CLIENT') {
+      throw ApiError.forbidden(
+        'Exhibitor password reset is administrator-controlled. Self-service reset is not permitted.'
+      );
     }
 
     const secret = `${env.JWT_SECRET}:${user.passwordHash}`;

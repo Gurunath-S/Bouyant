@@ -33,3 +33,13 @@ export const resetPasswordLimiter = createRateLimiter({
     message: 'Too many password reset attempts from this IP, please try again after 15 minutes.',
   },
 });
+
+export const accountLookupLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: {
+    success: false,
+    message: 'Too many account lookup requests from this IP, please try again after 15 minutes.',
+  },
+});
+
