@@ -15,9 +15,11 @@ router.get('/public/summary/:id', asyncHandler(BookingsController.getPublicSumma
 // Allow cancelling an unconfirmed/pending booking on checkout drop, exit, or cancel
 router.post('/:id/cancel', optionalAuth, asyncHandler(BookingsController.cancel));
 
+// Allow guest bookings with optionalAuth (authenticated bookings enforce verified JWT identity)
+router.post('/', optionalAuth, validateRequest(CreateBookingSchema), asyncHandler(BookingsController.create));
+
 router.use(authenticateToken);
 
-router.post('/', validateRequest(CreateBookingSchema), asyncHandler(BookingsController.create));
 router.get('/my-bookings', asyncHandler(BookingsController.myBookings));
 router.get('/:id', asyncHandler(BookingsController.getById));
 router.get('/', requirePermission(Permissions.BOOKING_MANAGE), asyncHandler(BookingsController.listAll));

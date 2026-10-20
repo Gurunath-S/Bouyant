@@ -29,15 +29,29 @@ export class CompaniesService {
       where: {
         gstNumber: cleanGst,
       },
+      include: {
+        users: {
+          select: { id: true, email: true, username: true, name: true, phone: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
 
     if (existingCompany) {
       const stateCode = cleanGst.substring(0, 2);
+      const primaryUser =
+        existingCompany.users?.find((u) => u.email.toLowerCase() === existingCompany.email.toLowerCase()) ||
+        existingCompany.users?.[0];
+      const existingUsername = primaryUser?.username || null;
+
       return {
         gstVerified: true,
         companyExists: true,
         canCreate: false,
-        existingCompany,
+        existingCompany: {
+          ...existingCompany,
+          username: existingUsername,
+        },
         gstDetails: {
           gstin: existingCompany.gstNumber,
           legalName: existingCompany.name,
@@ -53,6 +67,7 @@ export class CompaniesService {
           spcode: existingCompany.spcode || spcode || 'B001',
           blockStatus: 'Unblocked',
           taxpayerType: 'Regular',
+          username: existingUsername,
         },
       };
     }
@@ -419,30 +434,97 @@ export class CompaniesService {
       }
     }
 
-    // Find user by EXACT email (Primary login identifier)
-    const existingUserByEmail = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      include: { company: true },
+    // Privileged Account Collision Check: SuperAdmin, Admin, and Staff emails are strictly unique
+    const privilegedUser = await prisma.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        role: { in: ['SUPERADMIN', 'ADMIN', 'STAFF'] },
+      },
     });
 
-    const isActingUser = Boolean(actingUser && actingUser.userId === existingUserByEmail?.id);
-
-    // SECURITY SAFEGUARD: Account Takeover Prevention (Phase 2.1)
-    // If an account already exists for this email, an unauthenticated guest MUST NOT receive tokens or alter the account.
-    // They must authenticate via the existing login endpoint.
-    if (existingUserByEmail && !isActingUser) {
+    if (privilegedUser && (!actingUser || actingUser.userId !== privilegedUser.id)) {
       throw ApiError.conflict(
-        'An account with this email address already exists. Please log in with your password to continue your booking.',
+        'An administrative or staff account with this email address already exists. Please log in with your administrative credentials.',
         [{ code: 'ACCOUNT_EXISTS', email: normalizedEmail }],
         'ACCOUNT_EXISTS'
       );
+    }
+
+    // Authenticated user context
+    let authenticatedUser: any = null;
+    if (actingUser?.userId) {
+      authenticatedUser = await prisma.user.findUnique({
+        where: { id: actingUser.userId },
+        include: { company: true },
+      });
+    }
+    const isActingUser = Boolean(authenticatedUser);
+
+    // Identity Resolution for Unauthenticated (Guest) or Authenticated Exhibitor:
+    let recognizedExistingUser: any = null;
+    let isSameExhibitorIdentity = false;
+
+    if (!isActingUser) {
+      if (existingCompany) {
+        // Under the same company (matched via GSTIN or strict no-GSTIN fallback):
+        // Check if an existing exhibitor has BOTH matching normalized email AND matching phone
+        const exactMatchUser = await prisma.user.findFirst({
+          where: {
+            companyId: existingCompany.id,
+            email: normalizedEmail,
+            phone: { contains: cleanPhoneDigits },
+          },
+          include: { company: true },
+        });
+
+        if (exactMatchUser) {
+          // Exact same exhibitor identity!
+          // "Same GSTIN + same normalized email + same normalized phone: recognize the existing exhibitor account. Show the existing username if appropriate, but do not create a duplicate account for the same identity. Do not block the guest booking."
+          // "An unauthenticated user must be allowed to complete the booking form as a guest. Never force the user to log in simply because an existing exhibitor account is detected."
+          recognizedExistingUser = exactMatchUser;
+          isSameExhibitorIdentity = true;
+        }
+      } else {
+        // No existing company matched (Brand new company registration).
+        // Check if normalized email is already used by an existing exhibitor in another company.
+        // "When the GSTIN differs: Treat it as a different company and resolve identity independently. Do not allow an existing exhibitor email belonging to another company to be silently reused to take over or modify that account."
+        const crossCompanyUser = await prisma.user.findFirst({
+          where: { email: normalizedEmail },
+          include: { company: true },
+        });
+
+        if (crossCompanyUser) {
+          throw ApiError.conflict(
+            'An account with this email address already exists for another registered company. Please log in with your existing account or contact support.',
+            [{ code: 'ACCOUNT_EXISTS', email: normalizedEmail }],
+            'ACCOUNT_EXISTS'
+          );
+        }
+      }
+    }
+
+    // Frictionless Guest Booking: If exact existing account identity is recognized, do not force login or create duplicate.
+    if (isSameExhibitorIdentity && existingCompany) {
+      return {
+        company: existingCompany,
+        user: null,
+        tokens: null,
+        temporaryPassword: null,
+        isExistingUser: false,
+        isGuestBooking: true,
+        recognizedAccount: {
+          username: recognizedExistingUser?.username || null,
+          name: recognizedExistingUser?.name || null,
+        },
+        emailDelivery: { status: 'SKIPPED', error: 'NOT_APPLICABLE' },
+      };
     }
 
     // PRODUCTION SMTP CHECK:
     // In production, missing SMTP configuration must not silently produce a successful registration
     // when initial credentials cannot be delivered.
     const isProduction = env.NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
-    if (isProduction && !isActingUser && !existingUserByEmail && !EmailService.isConfigured()) {
+    if (isProduction && !isActingUser && !EmailService.isConfigured()) {
       throw ApiError.serviceUnavailable(
         'Registration unavailable: Outbound email credential delivery is not configured in production environment.'
       );
@@ -450,26 +532,20 @@ export class CompaniesService {
 
     // Resolve or Generate Unique Username safely
     let requestedUsername = anyInput.username ? anyInput.username.trim().toLowerCase() : null;
-    if (requestedUsername) {
+    if (authenticatedUser?.username) {
+      requestedUsername = authenticatedUser.username;
+    } else if (requestedUsername) {
       const existingUserWithUsername = await prisma.user.findUnique({
         where: { username: requestedUsername },
       });
       if (existingUserWithUsername) {
         const isSameUser = isActingUser && existingUserWithUsername.id === actingUser?.userId;
         if (!isSameUser) {
-          if (isActingUser && existingUserByEmail?.username) {
-            requestedUsername = existingUserByEmail.username;
-          } else {
-            requestedUsername = await CompaniesService.generateUniqueUsername(requestedUsername);
-          }
+          requestedUsername = await CompaniesService.generateUniqueUsername(requestedUsername);
         }
       }
     } else {
-      if (isActingUser && existingUserByEmail?.username) {
-        requestedUsername = existingUserByEmail.username;
-      } else {
-        requestedUsername = await CompaniesService.generateUniqueUsername(input.contactPerson || input.name);
-      }
+      requestedUsername = await CompaniesService.generateUniqueUsername(input.contactPerson || input.name);
     }
 
     // Compliance Data: Never fabricate synthetic TAN. Respect optional TAN as provided.
@@ -521,7 +597,7 @@ export class CompaniesService {
           }
 
           // User handling:
-          let user = existingUserByEmail;
+          let user = authenticatedUser;
           let temporaryPassword: string | null = null;
 
           if (user) {
@@ -634,19 +710,22 @@ export class CompaniesService {
           }
         }
 
-        const tokens = generateTokens({
-          userId: result.user.id,
-          email: result.user.email,
-          role: result.user.role,
-          companyId: result.company.id || result.user.companyId || undefined,
-        });
+        const tokens = result.user
+          ? generateTokens({
+              userId: result.user.id,
+              email: result.user.email,
+              role: result.user.role,
+              companyId: result.company.id || result.user.companyId || undefined,
+            })
+          : null;
 
         return {
           company: result.company,
           user: result.user,
           tokens,
           temporaryPassword: result.temporaryPassword,
-          isExistingUser: Boolean(isActingUser && existingUserByEmail),
+          isExistingUser: Boolean(isActingUser && authenticatedUser),
+          isGuestBooking: !result.user,
           emailDelivery,
         };
       } catch (err: any) {
@@ -681,10 +760,25 @@ export class CompaniesService {
             continue;
           }
 
-          // If email collision occurred on user creation: another request created the user
-          if (target.includes('email')) {
+          // If compound company_email_phone collision occurred concurrently (another request registered this exact identity)
+          if (target.includes('company_email_phone') || target.includes('user_company_email_phone_key')) {
+            if (existingCompany) {
+              return {
+                company: existingCompany,
+                user: null,
+                tokens: null,
+                temporaryPassword: null,
+                isExistingUser: false,
+                isGuestBooking: true,
+                emailDelivery: { status: 'SKIPPED', error: 'NOT_APPLICABLE' },
+              };
+            }
+          }
+
+          // If privileged email or email collision occurred
+          if (target.includes('email') || target.includes('user_privileged_email_key')) {
             throw ApiError.conflict(
-              'An account with this email address already exists. Please log in with your password to continue your booking.',
+              'An account with this email address already exists. Please log in with your credentials to continue your booking.',
               [{ code: 'ACCOUNT_EXISTS', email: normalizedEmail }],
               'ACCOUNT_EXISTS'
             );
@@ -727,7 +821,7 @@ export class CompaniesService {
       where: { id: companyId },
       include: {
         users: {
-          select: { id: true, name: true, email: true, role: true, spcode: true, phone: true },
+          select: { id: true, name: true, email: true, username: true, role: true, spcode: true, phone: true },
         },
         bookings: {
           orderBy: { createdAt: 'desc' },

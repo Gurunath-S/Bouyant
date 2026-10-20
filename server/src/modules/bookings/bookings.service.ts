@@ -749,11 +749,7 @@ static async createBooking(
 	  // Admin/Staff/SuperAdmin can skip Razorpay and directly confirm with an offline payment record
 	  const isDirectConfirm = !!(input.confirmDirectly && isPrivilegedUser);
 
-	  if (!user) {
-	    throw ApiError.unauthorized('Please log in before creating a booking.');
-	  }
-
-	  if (!isPrivilegedUser && user.companyId !== input.companyId) {
+	  if (user && !isPrivilegedUser && user.companyId !== input.companyId) {
 	    throw ApiError.forbidden('You can only create bookings for your own company.');
 	  }
 
@@ -827,7 +823,7 @@ static async createBooking(
     const isAvailable = stall.status === StallStatus.AVAILABLE;
     const isHeldByUser =
       (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
-      stall.heldByUserId === user.userId;
+      Boolean(stall.heldByUserId && user?.userId && stall.heldByUserId === user.userId);
     const isExpiredHold =
       (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
       stall.heldUntil &&
@@ -1099,8 +1095,7 @@ static async createBooking(
           const isAvailable = stall.status === StallStatus.AVAILABLE;
           const isHeldByUserOrCompany =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
-            stall.heldByUserId &&
-            (stall.heldByUserId === user.userId || companyUserIds.includes(stall.heldByUserId));
+            Boolean(stall.heldByUserId && ((user?.userId && stall.heldByUserId === user.userId) || companyUserIds.includes(stall.heldByUserId)));
           const isExpiredHold =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
             stall.heldUntil &&
@@ -1132,7 +1127,7 @@ static async createBooking(
               { status: StallStatus.AVAILABLE },
               {
                 status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
-                heldByUserId: { in: [user.userId, ...companyUserIds] },
+                heldByUserId: { in: [...(user?.userId ? [user.userId] : []), ...companyUserIds] },
               },
               {
                 status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
@@ -1150,7 +1145,7 @@ static async createBooking(
           data: {
             status: StallStatus.PAYMENT_PENDING,
             heldUntil: holdUntil,
-            heldByUserId: user.userId,
+            heldByUserId: user?.userId || null,
           },
         });
 
