@@ -85,7 +85,7 @@ async function runPasswordRecoverySecuritySuite() {
         email: testEmail,
         username: `recov_${testSuffix}`,
         name: 'Jane Doe',
-        role: 'CLIENT',
+        role: 'STAFF',
         passwordHash,
         isActive: true,
       },

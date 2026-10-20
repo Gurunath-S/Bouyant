@@ -1,6 +1,13 @@
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/config/db.js';
+import { EmailService } from '../src/services/email.service.js';
 import bcrypt from 'bcryptjs';
+
+// Mock EmailService to prevent real SMTP calls and avoid delays
+EmailService.sendAccountCredentialsEmail = async () => ({ messageId: 'mock-cred-msg' } as any);
+EmailService.sendAdminAlert = async () => ({ messageId: 'mock-admin-alert' } as any);
+EmailService.sendAdminPasswordResetNotificationEmail = async () => ({ messageId: 'mock-reset-note' } as any);
+EmailService.sendPasswordResetEmail = async () => ({ messageId: 'mock-pwd-reset' } as any);
 
 let server: any;
 let baseUrl: string;
@@ -111,7 +118,7 @@ async function runPhase2_2Suite() {
 
     const loginRes = await request('/auth/login', {
       method: 'POST',
-      body: { email: baseEmail, password: 'DirectorPass123!' },
+      body: { email: masterUser.username, password: 'DirectorPass123!' },
     });
     const masterToken = loginRes.data?.data?.tokens?.accessToken;
 
@@ -393,7 +400,7 @@ async function runPhase2_2Suite() {
     // Login as artisan owner
     const u1Login = await request('/auth/login', {
       method: 'POST',
-      body: { email: unregEmail, password: u1Res.data?.data?.temporaryPassword },
+      body: { email: u1Res.data?.data?.user?.username, password: u1Res.data?.data?.temporaryPassword },
     });
     const u1Token = u1Login.data?.data?.tokens?.accessToken;
 

@@ -1,6 +1,7 @@
 import { prisma } from '../src/config/db.js';
 import { CompaniesService } from '../src/modules/companies/companies.service.js';
 import { AuthService } from '../src/modules/auth/auth.service.js';
+import { UsersService } from '../src/modules/users/users.service.js';
 import { EmailService, setEmailTransporterForTesting, resetEmailTransporterForTesting } from '../src/services/email.service.js';
 import { env } from '../src/config/env.js';
 import jwt, { Secret } from 'jsonwebtoken';
@@ -192,13 +193,31 @@ async function runRegistrationCredentialsLifecycleSuite() {
       '2.5 Persisted bcrypt hash strictly validates against initial temporary password'
     );
 
-    // 2.6 Repeat registration with same email strictly fails with ACCOUNT_EXISTS conflict
-    // and DOES NOT regenerate or overwrite the password
-    let accountExistsCaught = false;
+    // 2.6 Exact match registration recognizes account for frictionless guest booking
+    const guestRecognitionResult = await CompaniesService.createCompany({
+      name: `Exhibitor Corp ${testSuffix}`,
+      contactPerson: `Ravi Sharma ${testSuffix}`,
+      email: testEmail,
+      mobile: `98765${testSuffix.slice(0, 5)}`,
+      address: '100 Business Park Road',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pinCode: '400051',
+      country: 'India',
+      category: 'Standard Exhibitor',
+    });
+
+    assert(
+      guestRecognitionResult.isGuestBooking === true,
+      '2.6 Exact match registration recognizes account and enables frictionless guest booking'
+    );
+
+    // 2.6b Conflicting cross-company attempt throws 409
+    let crossCompanyConflict = false;
     try {
       await CompaniesService.createCompany({
-        name: `Exhibitor Corp ${testSuffix}`,
-        contactPerson: `Ravi Sharma ${testSuffix}`,
+        name: `Different Conflicting Corp ${testSuffix}`,
+        contactPerson: 'Intruder',
         email: testEmail,
         mobile: `98765${testSuffix.slice(0, 5)}`,
         address: '100 Business Park Road',
@@ -206,17 +225,15 @@ async function runRegistrationCredentialsLifecycleSuite() {
         state: 'Maharashtra',
         pinCode: '400051',
         country: 'India',
-        category: 'Standard Exhibitor',
       });
     } catch (err: any) {
-      if (err.statusCode === 409 && err.code === 'ACCOUNT_EXISTS') {
-        accountExistsCaught = true;
+      if (err.statusCode === 409) {
+        crossCompanyConflict = true;
       }
     }
-
     assert(
-      accountExistsCaught === true,
-      '2.6 Duplicate registration with same email throws 409 ACCOUNT_EXISTS'
+      crossCompanyConflict === true,
+      '2.6b Cross-company duplicate email registration is rejected with 409 Conflict'
     );
 
     const userAfterDuplicateAttempt = await prisma.user.findUnique({
@@ -278,15 +295,24 @@ async function runRegistrationCredentialsLifecycleSuite() {
       `Logged in user: ${loginWithUsername.user.username}`
     );
 
-    // 3.2 Login using email + initial password
-    const loginWithEmail = await AuthService.login({
-      email: testEmail,
-      password: regResult.temporaryPassword!,
-    });
+    // 3.2 Login using email is rejected for exhibitor (must use username)
+    let emailLoginRejected = false;
+    let emailLoginMessage = '';
+    try {
+      await AuthService.login({
+        email: testEmail,
+        password: regResult.temporaryPassword!,
+      });
+    } catch (err: any) {
+      if (err.statusCode === 400 && err.message.toLowerCase().includes('username')) {
+        emailLoginRejected = true;
+        emailLoginMessage = err.message;
+      }
+    }
     assert(
-      Boolean(loginWithEmail.tokens && loginWithEmail.user.id === createdUser!.id),
-      '3.2 Authentication using email and initial password succeeds',
-      `Logged in user: ${loginWithEmail.user.email}`
+      emailLoginRejected === true,
+      '3.2 Exhibitor login using email is rejected with instruction to use unique username instead',
+      `Message: ${emailLoginMessage}`
     );
 
     // 3.3 Incorrect password is rejected safely
@@ -505,29 +531,22 @@ async function runRegistrationCredentialsLifecycleSuite() {
     );
     resetEmailTransporterForTesting();
 
-    // 5.5 Retry without regenerating the password
-    let retryConflictCaught = false;
-    try {
-      await CompaniesService.createCompany({
-        name: `Delivery Fail Corp ${testSuffix}`,
-        contactPerson: `Fail Contact ${testSuffix}`,
-        email: failEmail,
-        mobile: `97777${testSuffix.slice(0, 5)}`,
-        address: '500 Server Failure Way',
-        city: 'Bengaluru',
-        state: 'Karnataka',
-        pinCode: '560001',
-        country: 'India',
-      });
-    } catch (err: any) {
-      if (err.statusCode === 409 && err.code === 'ACCOUNT_EXISTS') {
-        retryConflictCaught = true;
-      }
-    }
+    // 5.5 Registration retry with same details enables guest booking without regenerating password
+    const retryResult = await CompaniesService.createCompany({
+      name: `Delivery Fail Corp ${testSuffix}`,
+      contactPerson: `Fail Contact ${testSuffix}`,
+      email: failEmail,
+      mobile: `97777${testSuffix.slice(0, 5)}`,
+      address: '500 Server Failure Way',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pinCode: '560001',
+      country: 'India',
+    });
 
     assert(
-      retryConflictCaught === true,
-      '5.5 Registration retry with existing account fails with 409 ACCOUNT_EXISTS without regenerating password'
+      retryResult.isGuestBooking === true && retryResult.temporaryPassword === null,
+      '5.5 Registration retry with existing account recognizes identity without regenerating password'
     );
 
     // 5.6 Existing password hash remaining unchanged during delivery retry
@@ -540,8 +559,68 @@ async function runRegistrationCredentialsLifecycleSuite() {
       '5.6 Existing user password hash remains 100% identical and unchanged across retries'
     );
 
-    // 5.7 Recovery after a server restart, without access to the original plaintext password
-    // Simulate server restart: Plaintext password is forgotten, only database hash exists
+    // 5.7 Exhibitor self-service password recovery is blocked (403 Forbidden)
+    let exhibitorForgotBlocked = false;
+    let exhibitorForgotMsg = '';
+    try {
+      await AuthService.forgotPassword(failEmail);
+    } catch (err: any) {
+      if (err.statusCode === 403) {
+        exhibitorForgotBlocked = true;
+        exhibitorForgotMsg = err.message;
+      }
+    }
+    assert(
+      exhibitorForgotBlocked === true,
+      '5.7 Exhibitor self-service password recovery is blocked with 403 Forbidden',
+      `Message: ${exhibitorForgotMsg}`
+    );
+
+    // 5.8 Administrator-controlled password reset for exhibitor
+    const adminUser = await prisma.user.create({
+      data: {
+        email: `admin_${testSuffix}@example.com`,
+        username: `admin_${testSuffix}`,
+        name: 'System Admin',
+        role: 'SUPERADMIN',
+        passwordHash: 'dummy_hash',
+      },
+    });
+
+    const newChosenPassword = 'NewSecureExhibitorPassword!2026';
+    const resetRes = await UsersService.resetPassword(
+      failRegResult.user.id,
+      newChosenPassword,
+      true,
+      { userId: adminUser.id, role: adminUser.role, email: adminUser.email } as any
+    );
+    assert(
+      Boolean(resetRes.message),
+      '5.8 Administrator-controlled password reset for exhibitor succeeds'
+    );
+
+    // Verify exhibitor can now authenticate with unique username and new password
+    const loginResult = await AuthService.login({
+      email: failRegResult.user.username,
+      password: newChosenPassword,
+    });
+    assert(
+      Boolean(loginResult.user && loginResult.tokens),
+      '5.8b Exhibitor can immediately authenticate using unique username and administrator-reset password'
+    );
+
+    // 5.9 Staff password recovery token lifecycle (staff retaining recovery capability)
+    const staffEmail = `staff_${testSuffix}@example.com`;
+    const staffUser = await prisma.user.create({
+      data: {
+        email: staffEmail,
+        username: `staff_${testSuffix}`,
+        name: 'Staff Member',
+        role: 'STAFF',
+        passwordHash: await bcrypt.hash('StaffPass123!', 10),
+      },
+    });
+
     let capturedResetToken = '';
     setEmailTransporterForTesting({
       sendMail: async (options: any) => {
@@ -553,32 +632,16 @@ async function runRegistrationCredentialsLifecycleSuite() {
       },
     });
 
-    const forgotRes = await AuthService.forgotPassword(failEmail);
+    const forgotRes = await AuthService.forgotPassword(staffEmail);
     assert(
       Boolean(forgotRes.message && capturedResetToken),
-      '5.7 Password recovery generates a cryptographically signed recovery token without plaintext temporary password'
+      '5.9 Staff password recovery generates a cryptographically signed recovery token'
     );
 
-    // 5.8 Successful password setup/reset using a valid token
-    const newChosenPassword = 'NewSecureExhibitorPassword!2026';
-    const resetRes = await AuthService.resetPassword(capturedResetToken, newChosenPassword);
-    assert(
-      resetRes.message.includes('successfully'),
-      '5.8 Password reset succeeds when valid recovery token is provided'
-    );
+    // Reused token rejection (Single-use guarantee):
+    const staffNewPass = 'NewStaffPass123!2026';
+    await AuthService.resetPassword(capturedResetToken, staffNewPass);
 
-    // Verify user can now authenticate with new password
-    const loginResult = await AuthService.login({
-      email: failEmail,
-      password: newChosenPassword,
-    });
-    assert(
-      Boolean(loginResult.user && loginResult.tokens),
-      '5.8b User can immediately authenticate with the new recovered password'
-    );
-
-    // 5.9 Expired, reused, or tampered recovery tokens being rejected
-    // A) Reused token rejection (Single-use guarantee):
     let reuseRejected = false;
     try {
       await AuthService.resetPassword(capturedResetToken, 'AnotherPassword!2026');
@@ -590,7 +653,7 @@ async function runRegistrationCredentialsLifecycleSuite() {
       '5.9a Previously used reset token is strictly rejected (Single-use HMAC guarantee)'
     );
 
-    // B) Tampered token rejection:
+    // Tampered token rejection:
     let tamperedRejected = false;
     try {
       const tamperedToken = capturedResetToken.slice(0, -6) + 'xxxxxx';
@@ -603,11 +666,11 @@ async function runRegistrationCredentialsLifecycleSuite() {
       '5.9b Tampered reset token with modified signature is rejected with 400 Bad Request'
     );
 
-    // C) Expired token rejection:
-    const expiredUser = await prisma.user.findUnique({ where: { id: loginResult.user.id } });
-    const expiredSecret = `${env.JWT_SECRET}:${expiredUser?.passwordHash}`;
+    // Expired token rejection:
+    const updatedStaffUser = await prisma.user.findUnique({ where: { id: staffUser.id } });
+    const expiredSecret = `${env.JWT_SECRET}:${updatedStaffUser?.passwordHash}`;
     const expiredToken = jwt.sign(
-      { userId: loginResult.user.id, email: failEmail, type: 'password_reset' },
+      { userId: staffUser.id, email: staffEmail, type: 'password_reset' },
       expiredSecret as Secret,
       { expiresIn: '-1s' }
     );

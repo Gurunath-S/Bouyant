@@ -397,12 +397,19 @@ async function runPhase2_3Suite() {
       },
     });
 
-    assert(res6.status === 401, 'Scenario 6: Unauthenticated booking attempt rejected with 401 Unauthorized', `Got ${res6.status}`);
-    assert(res6.data?.success === false, 'Scenario 6: Proper unauthorized failure returned');
+    assert(res6.status === 201, 'Scenario 6: Unauthenticated guest booking succeeds with 201 Created', `Got ${res6.status}`);
+    assert(res6.data?.success === true, 'Scenario 6: Success true returned for guest booking');
+    const guestBookingId = res6.data?.data?.data?.bookingId || res6.data?.data?.id;
+    if (guestBookingId) createdBookingIds.push(guestBookingId);
 
-    // Verify stall was not held or reserved
+    // Verify stall was reserved and booking has no bound user account
     const stall5Check = await prisma.stall.findUnique({ where: { id: stall5.id } });
-    assert(stall5Check?.status === 'AVAILABLE', 'Scenario 6: Stall remains AVAILABLE');
+    assert(stall5Check?.status !== 'AVAILABLE', 'Scenario 6: Stall is reserved for the guest booking');
+
+    if (guestBookingId) {
+      const guestBkg = await prisma.booking.findUnique({ where: { id: guestBookingId } });
+      assert(guestBkg?.userId === null, 'Scenario 6: Guest booking has userId: null preserving tenant isolation');
+    }
 
     // -------------------------------------------------------------------------
     // Scenario 7: Existing bookings with nullable snapshot fields

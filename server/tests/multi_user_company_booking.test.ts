@@ -3,7 +3,14 @@ import { prisma } from '../src/config/db.js';
 import { BookingsService } from '../src/modules/bookings/bookings.service.js';
 import { generateTokens } from '../src/utils/jwt.js';
 import { razorpay } from '../src/config/razorpay.js';
+import { EmailService } from '../src/services/email.service.js';
 import bcrypt from 'bcryptjs';
+
+// Mock EmailService to prevent real SMTP calls and avoid delays
+EmailService.sendAccountCredentialsEmail = async () => ({ messageId: 'mock-cred-msg' } as any);
+EmailService.sendAdminAlert = async () => ({ messageId: 'mock-admin-alert' } as any);
+EmailService.sendAdminPasswordResetNotificationEmail = async () => ({ messageId: 'mock-reset-note' } as any);
+EmailService.sendPasswordResetEmail = async () => ({ messageId: 'mock-pwd-reset' } as any);
 
 let server: any;
 let baseUrl: string;
@@ -233,7 +240,7 @@ async function runMultiUserSuite() {
     const bobLoginRes = await request('/auth/login', {
       method: 'POST',
       body: {
-        email: bobEmail,
+        email: bobUser.username,
         password: bobTempPassword,
       },
     });
@@ -281,7 +288,7 @@ async function runMultiUserSuite() {
         state: 'Maharashtra',
         pinCode: '400001',
         country: 'India',
-        gstNumber: sharedGstin,
+        gstNumber: `27DIFF${suffix.slice(-4)}A1Z5`,
       },
     });
 

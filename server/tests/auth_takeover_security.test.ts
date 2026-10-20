@@ -195,7 +195,7 @@ async function runAuthSecuritySuite() {
     const loginRes = await request('/auth/login', {
       method: 'POST',
       body: {
-        email: victimEmail,
+        email: victimUser.username,
         password: 'VictimPass123!',
       },
     });
