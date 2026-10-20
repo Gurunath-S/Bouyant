@@ -41,7 +41,7 @@ async function main() {
   // 1. Super Admin Accounts
   console.log('👑 Seeding Super Admin accounts...');
   await prisma.user.upsert({
-    where: { email: 'superadmin@buoyantmedia.com' },
+    where: { username: 'superadmin' },
     update: {
       passwordHash: superAdminPasswordHash,
       role: UserRole.SUPERADMIN,
@@ -60,7 +60,7 @@ async function main() {
   });
 
   await prisma.user.upsert({
-    where: { email: 'governance@buoyantmedia.com' },
+    where: { username: 'governance_admin' },
     update: {
       passwordHash: superAdminPasswordHash,
       role: UserRole.SUPERADMIN,
@@ -89,7 +89,7 @@ async function main() {
 
   for (const adm of adminUsersData) {
     await prisma.user.upsert({
-      where: { email: adm.email },
+      where: { username: adm.username },
       update: { passwordHash: adminPasswordHash, role: UserRole.ADMIN, isActive: true },
       create: {
         email: adm.email,
@@ -117,7 +117,7 @@ async function main() {
 
   for (const st of staffUsersData) {
     await prisma.user.upsert({
-      where: { email: st.email },
+      where: { username: st.username },
       update: { passwordHash: staffPasswordHash, role: UserRole.STAFF, isActive: true },
       create: {
         email: st.email,
@@ -651,7 +651,7 @@ async function main() {
   console.log('👤 Seeding Client Users linked to companies...');
   // Demo primary client user
   await prisma.user.upsert({
-    where: { email: 'demo@buoyantmedia.com' },
+    where: { username: 'demo_user' },
     update: {
       passwordHash: clientPasswordHash,
       role: UserRole.CLIENT,
@@ -672,7 +672,7 @@ async function main() {
 
   // Default secondary client user
   await prisma.user.upsert({
-    where: { email: 'user@buoyantmedia.com' },
+    where: { username: 'clientuser' },
     update: {
       passwordHash: clientPasswordHash,
       role: UserRole.CLIENT,
@@ -697,7 +697,7 @@ async function main() {
     const clientEmail = `client.${comp.companyCode.toLowerCase()}@buoyantmedia.com`;
     const clientUsername = `user_${comp.companyCode.toLowerCase()}`;
     await prisma.user.upsert({
-      where: { email: clientEmail },
+      where: { username: clientUsername },
       update: {
         passwordHash: clientPasswordHash,
         role: UserRole.CLIENT,

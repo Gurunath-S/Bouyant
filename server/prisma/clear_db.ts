@@ -1,58 +1,61 @@
-import { PrismaClient, UserRole, ExhibitionStatus } from '@prisma/client';
+import 'dotenv/config';
+import {
+  PrismaClient,
+  UserRole,
+  ExhibitionStatus,
+  StallCategory,
+  StallStatus,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🧹 Clearing local database and seeding clean initial accounts & exhibitions...');
+  console.log('================================================================');
+  console.log('🧹 CLEARING DATABASE & SEEDING LOGIN PAGE CREDENTIALS & EVENTS');
+  console.log('================================================================');
 
-  // 1. Delete transactional & operational data in safe FK order
-  console.log('🗑️ Deleting notifications...');
+  // 1. Delete transactional & operational data in safe Foreign Key order
+  console.log('🗑️  Deleting notifications...');
   await prisma.notification.deleteMany({});
 
-  console.log('🗑️ Deleting invoices...');
+  console.log('🗑️  Deleting invoices...');
   await prisma.invoice.deleteMany({});
 
-  console.log('🗑️ Deleting payments...');
+  console.log('🗑️  Deleting payments...');
   await prisma.payment.deleteMany({});
 
-  console.log('🗑️ Deleting booking stalls & bookings...');
+  console.log('🗑️  Deleting booking stalls & bookings...');
   await prisma.bookingStall.deleteMany({});
   await prisma.booking.deleteMany({});
 
-  console.log('🗑️ Deleting stalls & floor plans...');
+  console.log('🗑️  Deleting stalls & floor plans...');
   await prisma.stall.deleteMany({});
   await prisma.floorPlan.deleteMany({});
 
-  console.log('🗑️ Deleting exhibitions...');
+  console.log('🗑️  Deleting exhibitions...');
   await prisma.exhibition.deleteMany({});
 
-  console.log('🗑️ Unlinking and clearing companies & client users...');
+  console.log('🗑️  Unlinking users from companies & deleting companies...');
   await prisma.user.updateMany({
     data: { companyId: null },
   });
   await prisma.company.deleteMany({});
 
-  // 2. Delete all leftover and test user accounts
-  console.log('🗑️ Purging all leftover and test accounts...');
+  // 2. Delete ALL users for a clean slate
+  console.log('🗑️  Purging all user accounts...');
   await prisma.user.deleteMany({});
 
-  // 3. Seed clean system users (SuperAdmin, Admin, Staff, Demo Client)
-  console.log('🌱 Creating Clean System Admin & Staff Accounts...');
-  const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
+  // 3. Prepare passwords exactly matching client/src/features/auth/pages/LoginPage.tsx
+  console.log('\n🔑 Seeding Only Exact Login Page Accounts...');
+  const adminStaffPasswordHash = await bcrypt.hash('Password123!', 10);
+  const clientPasswordHash = await bcrypt.hash('DemoUser123!', 10);
 
-  // Super Admin
-  await prisma.user.upsert({
-    where: { email: 'superadmin@buoyantmedia.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      role: UserRole.SUPERADMIN,
-      isActive: true,
-      spcode: 'SA01',
-    },
-    create: {
+  // 1. Super Admin (From Login Page DEMO_ACCOUNTS)
+  await prisma.user.create({
+    data: {
       email: 'superadmin@buoyantmedia.com',
-      passwordHash: defaultPasswordHash,
+      passwordHash: adminStaffPasswordHash,
       username: 'superadmin',
       name: 'Platform Super Admin',
       phone: '+919876500001',
@@ -63,27 +66,11 @@ async function main() {
     },
   });
 
-  // Admin User (guru / guru_bhai / adminops)
-  await prisma.user.upsert({
-    where: { email: 'admin@buoyantmedia.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      role: UserRole.ADMIN,
-      isActive: true,
-      spcode: 'AD01',
-      pageAccess: [
-        'dashboard',
-        'event_register',
-        'events_floorplans',
-        'companies',
-        'bookings',
-        'payments',
-        'reports',
-      ],
-    },
-    create: {
+  // 2. Exhibition Admin (From Login Page DEMO_ACCOUNTS)
+  const adminUser = await prisma.user.create({
+    data: {
       email: 'admin@buoyantmedia.com',
-      passwordHash: defaultPasswordHash,
+      passwordHash: adminStaffPasswordHash,
       username: 'guru_bhai',
       name: 'guru',
       phone: '8838669315',
@@ -102,60 +89,11 @@ async function main() {
     },
   });
 
-  // Staff User 1 (guruthedev20@gmail.com)
-  await prisma.user.upsert({
-    where: { email: 'guruthedev20@gmail.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      role: UserRole.STAFF,
-      isActive: true,
-      spcode: 'ST00',
-      pageAccess: [
-        'dashboard',
-        'event_register',
-        'companies',
-        'bookings',
-        'payments',
-      ],
-    },
-    create: {
-      email: 'guruthedev20@gmail.com',
-      passwordHash: defaultPasswordHash,
-      username: 'gurunath',
-      name: 'gurunath',
-      phone: '8838669315',
-      role: UserRole.STAFF,
-      spcode: 'ST00',
-      pageAccess: [
-        'dashboard',
-        'event_register',
-        'companies',
-        'bookings',
-        'payments',
-      ],
-      isActive: true,
-    },
-  });
-
-  // Staff User 2 (staff@buoyantmedia.com)
-  await prisma.user.upsert({
-    where: { email: 'staff@buoyantmedia.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      role: UserRole.STAFF,
-      isActive: true,
-      spcode: 'ST01',
-      pageAccess: [
-        'dashboard',
-        'event_register',
-        'companies',
-        'bookings',
-        'payments',
-      ],
-    },
-    create: {
+  // 3. Operations Staff (From Login Page DEMO_ACCOUNTS)
+  await prisma.user.create({
+    data: {
       email: 'staff@buoyantmedia.com',
-      passwordHash: defaultPasswordHash,
+      passwordHash: adminStaffPasswordHash,
       username: 'staffops',
       name: 'Operations Staff',
       phone: '+919876500003',
@@ -172,34 +110,70 @@ async function main() {
     },
   });
 
-  // Demo Exhibitor Client (demo@buoyantmedia.com)
-  await prisma.user.upsert({
-    where: { email: 'demo@buoyantmedia.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      role: UserRole.CLIENT,
+  // 4. Guru Staff Account
+  await prisma.user.create({
+    data: {
+      email: 'guruthedev20@gmail.com',
+      passwordHash: adminStaffPasswordHash,
+      username: 'gurunath',
+      name: 'gurunath',
+      phone: '8838669315',
+      role: UserRole.STAFF,
+      spcode: 'ST00',
+      pageAccess: [
+        'dashboard',
+        'event_register',
+        'companies',
+        'bookings',
+        'payments',
+      ],
       isActive: true,
     },
-    create: {
+  });
+
+  // 5. Demo Company for Exhibitor Client
+  const demoCompany = await prisma.company.create({
+    data: {
+      companyCode: 'CMP-DEMO',
+      name: 'Demo Innovations Pvt Ltd',
+      contactPerson: 'Demo Exhibitor',
+      mobile: '+919876543210',
       email: 'demo@buoyantmedia.com',
-      passwordHash: defaultPasswordHash,
+      address: 'Plot 101, Tech Park Phase 1',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pinCode: '560001',
+      country: 'India',
+      industry: 'Information Technology',
+      website: 'https://demo-innovations.in',
+      spcode: 'CMP01',
+      regNo: 'REG-2026-001',
+    },
+  });
+
+  // 6. Demo Exhibitor Client (From Login Page DEMO_ACCOUNTS - PW: DemoUser123!)
+  await prisma.user.create({
+    data: {
+      email: 'demo@buoyantmedia.com',
+      passwordHash: clientPasswordHash,
       username: 'demo_user',
       name: 'Demo Exhibitor',
       phone: '+919876543210',
       role: UserRole.CLIENT,
+      companyId: demoCompany.id,
       pageAccess: [],
       isActive: true,
     },
   });
 
-  // 4. Seed 4 Exhibition Events with Floor Plans and Stalls
-  console.log('🎪 Creating 4 Platform Exhibition Events & Floor Plans...');
+  // 7. Seed Official Platform Exhibition Events with Floor Plans & Stalls
+  console.log('🎪 Seeding Official Exhibition Events, Floor Plans & Stalls...');
 
   const eventsData = [
     {
       title: 'Global Tech Expo 2026',
       slug: 'global-tech-expo-2026',
-      description: 'The premier international technology and innovation trade show.',
+      description: 'The premier international technology, enterprise software, and innovation trade show.',
       venue: 'Metropolitan Convention Center',
       city: 'San Francisco, CA',
       startDate: new Date('2026-11-01T09:00:00Z'),
@@ -212,11 +186,12 @@ async function main() {
       eventCode: 'GT-01',
       spcode: 'ZE05',
       notificationEmails: 'admin@buoyantmedia.com',
+      createdByUserId: adminUser.id,
     },
     {
       title: 'Mediccon Expo 2026',
       slug: 'mediccon-expo-2026',
-      description: 'International Healthcare, Medical Devices & Surgical Equipment Trade Fair.',
+      description: 'International Healthcare, Medical Devices, Diagnostics & Surgical Equipment Trade Fair.',
       venue: 'Codissia Trade Centre (Hall - A & B)',
       city: 'Coimbatore, TN',
       startDate: new Date('2026-11-20T09:00:00Z'),
@@ -229,11 +204,12 @@ async function main() {
       eventCode: 'MC-04',
       spcode: 'MC04',
       notificationEmails: 'admin@buoyantmedia.com',
+      createdByUserId: adminUser.id,
     },
     {
       title: 'International Auto Expo 2026',
       slug: 'international-auto-expo-2026',
-      description: "Asia's largest automotive technology, electric vehicles, and mobility exhibition.",
+      description: "Asia's largest automotive technology, electric vehicles, and future mobility exhibition.",
       venue: 'BIEC Exhibition Centre',
       city: 'Bengaluru, KA',
       startDate: new Date('2026-12-10T09:00:00Z'),
@@ -246,11 +222,12 @@ async function main() {
       eventCode: 'AE-06',
       spcode: 'AE06',
       notificationEmails: 'admin@buoyantmedia.com',
+      createdByUserId: adminUser.id,
     },
     {
       title: 'Clean Energy & Sustainability Summit 2027',
       slug: 'clean-energy-summit-2027',
-      description: 'Global renewable energy, solar power, and green tech conference & expo.',
+      description: 'Global renewable energy, solar photovoltaics, battery storage, and green tech conference & expo.',
       venue: 'Pragati Maidan Hall 5',
       city: 'New Delhi, DL',
       startDate: new Date('2027-01-15T09:00:00Z'),
@@ -259,33 +236,54 @@ async function main() {
       status: ExhibitionStatus.PUBLISHED,
       bannerUrl: 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=1200',
       totalStalls: 14,
-      edition: '2',
+      edition: '02',
       eventCode: 'CE-02',
       spcode: 'CE02',
       notificationEmails: 'admin@buoyantmedia.com',
+      createdByUserId: adminUser.id,
+    },
+    {
+      title: 'National Defense & Aerospace Manufacturing Summit 2027',
+      slug: 'defense-aerospace-summit-2027',
+      description: 'Premier national summit and trade exhibition showcasing advanced aerospace engineering, defense manufacturing, and military tech.',
+      venue: 'Hitex Exhibition Centre (Trade Fair Hall 1)',
+      city: 'Hyderabad, TS',
+      startDate: new Date('2027-02-18T09:00:00Z'),
+      endDate: new Date('2027-02-21T18:00:00Z'),
+      bookingEndDate: new Date('2027-02-10T23:59:59Z'),
+      status: ExhibitionStatus.PUBLISHED,
+      bannerUrl: 'https://images.unsplash.com/photo-1517976487502-5f7946f10157?w=1200',
+      totalStalls: 14,
+      edition: '1',
+      eventCode: 'DA-01',
+      spcode: 'DA01',
+      notificationEmails: 'admin@buoyantmedia.com',
+      createdByUserId: adminUser.id,
     },
   ];
 
   const stallsTemplate = [
-    // Standard Stalls
-    { stallNumber: 'A-101', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 50, yPosition: 50 },
-    { stallNumber: 'A-102', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 180, yPosition: 50 },
-    { stallNumber: 'A-103', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 310, yPosition: 50 },
-    { stallNumber: 'A-104', category: 'STANDARD', price: 50000, areaSqFt: 100, xPosition: 440, yPosition: 50 },
-    // Premium Stalls
-    { stallNumber: 'B-201', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 50, yPosition: 220 },
-    { stallNumber: 'B-202', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 220, yPosition: 220 },
-    { stallNumber: 'B-203', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 390, yPosition: 220 },
-    { stallNumber: 'B-204', category: 'PREMIUM', price: 75000, areaSqFt: 150, xPosition: 560, yPosition: 220 },
-    // Corner Stalls
-    { stallNumber: 'C-301', category: 'CORNER', price: 90000, areaSqFt: 180, xPosition: 50, yPosition: 400 },
-    { stallNumber: 'C-302', category: 'CORNER', price: 90000, areaSqFt: 180, xPosition: 250, yPosition: 400 },
-    { stallNumber: 'C-303', category: 'CORNER', price: 90000, areaSqFt: 180, xPosition: 450, yPosition: 400 },
-    // Island Stalls
-    { stallNumber: 'VIP-01', category: 'ISLAND', price: 150000, areaSqFt: 300, xPosition: 750, yPosition: 50 },
-    { stallNumber: 'VIP-02', category: 'ISLAND', price: 150000, areaSqFt: 300, xPosition: 750, yPosition: 280 },
-    { stallNumber: 'VIP-03', category: 'ISLAND', price: 150000, areaSqFt: 300, xPosition: 750, yPosition: 510 },
+    // Standard Stalls (A-Row)
+    { stallNumber: 'A-101', category: StallCategory.STANDARD, price: 50000, areaSqFt: 100, width: 100, height: 100, xPosition: 50, yPosition: 50 },
+    { stallNumber: 'A-102', category: StallCategory.STANDARD, price: 50000, areaSqFt: 100, width: 100, height: 100, xPosition: 180, yPosition: 50 },
+    { stallNumber: 'A-103', category: StallCategory.STANDARD, price: 50000, areaSqFt: 100, width: 100, height: 100, xPosition: 310, yPosition: 50 },
+    { stallNumber: 'A-104', category: StallCategory.STANDARD, price: 50000, areaSqFt: 100, width: 100, height: 100, xPosition: 440, yPosition: 50 },
+    // Premium Stalls (B-Row)
+    { stallNumber: 'B-201', category: StallCategory.PREMIUM, price: 75000, areaSqFt: 150, width: 100, height: 100, xPosition: 50, yPosition: 220 },
+    { stallNumber: 'B-202', category: StallCategory.PREMIUM, price: 75000, areaSqFt: 150, width: 100, height: 100, xPosition: 220, yPosition: 220 },
+    { stallNumber: 'B-203', category: StallCategory.PREMIUM, price: 75000, areaSqFt: 150, width: 100, height: 100, xPosition: 390, yPosition: 220 },
+    { stallNumber: 'B-204', category: StallCategory.PREMIUM, price: 75000, areaSqFt: 150, width: 100, height: 100, xPosition: 560, yPosition: 220 },
+    // Corner Stalls (C-Row)
+    { stallNumber: 'C-301', category: StallCategory.CORNER, price: 90000, areaSqFt: 180, width: 100, height: 100, xPosition: 50, yPosition: 400 },
+    { stallNumber: 'C-302', category: StallCategory.CORNER, price: 90000, areaSqFt: 180, width: 100, height: 100, xPosition: 250, yPosition: 400 },
+    { stallNumber: 'C-303', category: StallCategory.CORNER, price: 90000, areaSqFt: 180, width: 100, height: 100, xPosition: 450, yPosition: 400 },
+    // VIP Island Stalls
+    { stallNumber: 'VIP-01', category: StallCategory.ISLAND, price: 150000, areaSqFt: 300, width: 100, height: 100, xPosition: 750, yPosition: 50 },
+    { stallNumber: 'VIP-02', category: StallCategory.ISLAND, price: 150000, areaSqFt: 300, width: 100, height: 100, xPosition: 750, yPosition: 280 },
+    { stallNumber: 'VIP-03', category: StallCategory.ISLAND, price: 150000, areaSqFt: 300, width: 100, height: 100, xPosition: 750, yPosition: 510 },
   ];
+
+  let totalStallsCreated = 0;
 
   for (const eventInfo of eventsData) {
     const exhibition = await prisma.exhibition.create({
@@ -309,32 +307,44 @@ async function main() {
         data: {
           floorPlanId: floorPlan.id,
           stallNumber: s.stallNumber,
-          category: s.category as any,
+          category: s.category,
           price: s.price,
           areaSqFt: s.areaSqFt,
+          width: s.width,
+          height: s.height,
           xPosition: s.xPosition,
           yPosition: s.yPosition,
-          status: 'AVAILABLE',
+          status: StallStatus.AVAILABLE,
+          heldByUserId: null,
+          heldUntil: null,
         },
       });
+      totalStallsCreated++;
     }
   }
 
-  console.log('====================================================');
-  console.log('🎉 4 Exhibition Events & Database Reset Successfully!');
-  console.log('====================================================');
-  console.log('Credentials (Password: Password123! for all accounts):');
-  console.log('Super Admin : superadmin@buoyantmedia.com  / Password123! (SA01)');
-  console.log('Admin User  : admin@buoyantmedia.com       / Password123! (guru / AD01)');
-  console.log('Staff User  : guruthedev20@gmail.com       / Password123! (gurunath / ST00)');
-  console.log('Staff User  : staff@buoyantmedia.com       / Password123! (staffops / ST01)');
-  console.log('Demo Client : demo@buoyantmedia.com        / Password123!');
-  console.log('====================================================');
+  console.log('\n================================================================');
+  console.log('🎉 DATABASE RESET & SEEDED WITH EXACT LOGIN PAGE ACCOUNTS!');
+  console.log('================================================================');
+  console.log('Summary:');
+  console.log(`• Exhibitions Seeded  : ${eventsData.length} Published Events`);
+  console.log(`• Floor Plans Seeded  : ${eventsData.length} Hall Layout Plans`);
+  console.log(`• Stalls Seeded       : ${totalStallsCreated} Stalls (All 100% AVAILABLE)`);
+  console.log('• Bookings / Invoices : 0 (Clean Slate)');
+  console.log('----------------------------------------------------------------');
+  console.log('🔑 EXACT LOGIN PAGE CREDENTIALS:');
+  console.log('----------------------------------------------------------------');
+  console.log('1. Demo Exhibitor (Client) : demo@buoyantmedia.com       | PW: DemoUser123!');
+  console.log('2. Exhibition Admin        : admin@buoyantmedia.com      | PW: Password123!');
+  console.log('3. Operations Staff        : staff@buoyantmedia.com      | PW: Password123!');
+  console.log('4. Super Admin             : superadmin@buoyantmedia.com | PW: Password123!');
+  console.log('5. Personal Staff Account  : guruthedev20@gmail.com      | PW: Password123!');
+  console.log('================================================================\n');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Clear DB error:', e);
+    console.error('❌ Clear DB Error:', e);
     process.exit(1);
   })
   .finally(async () => {

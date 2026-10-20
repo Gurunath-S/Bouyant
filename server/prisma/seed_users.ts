@@ -53,7 +53,7 @@ async function main() {
   // 2. Super Admin Account
   console.log('👑 Upserting Super Admin...');
   await prisma.user.upsert({
-    where: { email: 'superadmin@buoyantmedia.com' },
+    where: { username: 'superadmin' },
     update: {
       passwordHash: defaultPasswordHash,
       role: UserRole.SUPERADMIN,
@@ -76,7 +76,7 @@ async function main() {
   // 3. Exhibition Admin Account
   console.log('🛡️ Upserting Exhibition Admin...');
   await prisma.user.upsert({
-    where: { email: 'admin@buoyantmedia.com' },
+    where: { username: 'admin' },
     update: {
       passwordHash: defaultPasswordHash,
       role: UserRole.ADMIN,
@@ -116,7 +116,7 @@ async function main() {
   // 4. Operations Staff Account
   console.log('👷 Upserting Operations Staff...');
   await prisma.user.upsert({
-    where: { email: 'staff@buoyantmedia.com' },
+    where: { username: 'staffops' },
     update: {
       passwordHash: defaultPasswordHash,
       role: UserRole.STAFF,
@@ -152,7 +152,7 @@ async function main() {
   // 5. Demo Exhibitor (Client User)
   console.log('👤 Upserting Demo Exhibitor (Client)...');
   await prisma.user.upsert({
-    where: { email: 'demo@buoyantmedia.com' },
+    where: { username: 'demo_user' },
     update: {
       passwordHash: demoClientPasswordHash,
       role: UserRole.CLIENT,
@@ -174,7 +174,7 @@ async function main() {
 
   // Secondary demo account: user@buoyantmedia.com
   await prisma.user.upsert({
-    where: { email: 'user@buoyantmedia.com' },
+    where: { username: 'clientuser' },
     update: {
       passwordHash: demoClientPasswordHash,
       role: UserRole.CLIENT,
