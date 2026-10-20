@@ -22,6 +22,25 @@ export const authService = {
     return res.data;
   },
 
+  lookupAccount: async (params: {
+    email?: string;
+    phone?: string;
+    gstNumber?: string;
+    companyName?: string;
+  }): Promise<{
+    exists: boolean;
+    exactMatch?: boolean;
+    companyExists?: boolean;
+    username?: string | null;
+    name?: string;
+    email?: string;
+    phone?: string;
+    company?: any;
+  }> => {
+    const res: any = await apiClient.get('/auth/lookup-account', { params });
+    return res.data;
+  },
+
   logout: async () => {
     await apiClient.post('/auth/logout');
   },

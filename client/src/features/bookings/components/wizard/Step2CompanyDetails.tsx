@@ -203,6 +203,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   }, [watchedCountry, watchedState]);
 
   const verifiedGstRef = React.useRef<string>('');
+  const existingAccountUsernameRef = React.useRef<string | null>(null);
 
   // Determine if username belongs to an already registered/logged-in user account (Only lock for exhibitors logged into their own CLIENT account)
   const isClientUser = Boolean(user && user.role === 'CLIENT' && user.username);
@@ -214,6 +215,12 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('name', selectedCompany.name || '');
       if (isClientUser && user?.username) {
         setValue('username', user.username);
+      } else if ((selectedCompany as any).username) {
+        setValue('username', (selectedCompany as any).username, { shouldValidate: true });
+        existingAccountUsernameRef.current = (selectedCompany as any).username;
+        setIsUsernameManuallyEdited(true);
+        setUsernameStatus('available');
+        setUsernameMessage('Existing account username');
       }
 
       // Preserve current user's or manually entered guest contact details!
@@ -362,9 +369,52 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     return 'exhibitor';
   };
 
-  // Auto-fill username as user types contact person or company name if not manually edited and not logged in as a Client
+  // Auto-detect existing account when user enters their corporate email, mobile number, and company info
   React.useEffect(() => {
-    if (!isUsernameManuallyEdited && !isClientUser) {
+    const cleanEmail = watchedEmail?.trim().toLowerCase();
+    const cleanPhone = watchedMobile?.replace(/\D/g, '').slice(-10);
+    const cleanGst = watchedGstNumber?.trim().toUpperCase();
+    const cleanName = watchedName?.trim();
+
+    if ((!cleanEmail || !cleanEmail.includes('@')) && (!cleanPhone || cleanPhone.length !== 10) && !cleanGst) {
+      return;
+    }
+
+    if (isClientUser) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await authService.lookupAccount({
+          email: cleanEmail && cleanEmail.includes('@') ? cleanEmail : undefined,
+          phone: cleanPhone && cleanPhone.length === 10 ? cleanPhone : undefined,
+          gstNumber: cleanGst || undefined,
+          companyName: cleanName || undefined,
+        });
+
+        if (res.exactMatch && res.username) {
+          existingAccountUsernameRef.current = res.username;
+          setValue('username', res.username, { shouldValidate: true, shouldDirty: true });
+          setIsUsernameManuallyEdited(true);
+          setUsernameStatus('available');
+          setUsernameMessage(`Existing exhibitor account recognized (${res.username}). You can continue directly as a guest.`);
+
+          if (res.name && !getValues('contactPerson')) {
+            setValue('contactPerson', res.name, { shouldValidate: true });
+          }
+        }
+      } catch (_err) {
+        // Ignore lookup network failures
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [watchedEmail, watchedMobile, watchedGstNumber, watchedName, isClientUser, setValue, getValues]);
+
+  // Auto-fill username as user types contact person or company name if not manually edited and not already an existing account
+  React.useEffect(() => {
+    if (!isUsernameManuallyEdited && !isClientUser && !existingAccountUsernameRef.current) {
       if (watchedContactPerson || watchedName) {
         const suggested = generateSuggestedUsername(watchedContactPerson || '', watchedName || '');
         if (suggested && suggested.length >= 3) {
@@ -521,6 +571,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             if (!getValues('email') && comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
           }
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
+
+          // Sibling exhibitors under the same company have their own unique accounts.
+          // Do not overwrite the current employee's username with another exhibitor's username.
+          if (!isUsernameManuallyEdited && !isClientUser) {
+            const currentPerson = getValues('contactPerson');
+            const suggested = generateSuggestedUsername(currentPerson || '', comp.name || '');
+            if (suggested && suggested.length >= 3) {
+              setValue('username', suggested, { shouldValidate: true, shouldDirty: false });
+            }
+          }
 
           onSelectCompany(comp);
           setGstNotice('GST details verified successfully.');

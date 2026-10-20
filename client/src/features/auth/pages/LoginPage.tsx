@@ -113,7 +113,7 @@ export const LoginPage: React.FC = () => {
       role: 'Demo Exhibitor',
       badge: 'Client',
       badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-      email: 'demo@buoyantmedia.com',
+      email: 'demo.client',
       password: 'DemoUser123!',
     },
     {
@@ -390,9 +390,9 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Input
-                  label="Email, Username or Staff SP Code"
+                  label="Exhibitor Username, Staff SP Code, or Admin Email"
                   type="text"
-                  placeholder="name@company.com, username, or B001"
+                  placeholder="username, SP Code (e.g. SP1001), or admin email"
                   leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
                   error={errors.email?.message}
                   {...register('email')}
@@ -479,8 +479,11 @@ export const LoginPage: React.FC = () => {
       >
         <div className="p-6 space-y-4">
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            Enter your registered corporate email address. We will dispatch a secure, single-use password reset link.
+            Staff and Administrators may enter their registered email address to receive a secure password recovery link.
           </p>
+          <div className="p-2.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl text-[11px] text-blue-800 dark:text-blue-300">
+            <strong>Exhibitor Notice:</strong> Exhibitor account passwords are administrator-controlled. Please contact your exhibition coordinator if you need your password reset.
+          </div>
 
           {forgotError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300">

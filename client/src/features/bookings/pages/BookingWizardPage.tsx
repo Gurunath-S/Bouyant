@@ -518,36 +518,13 @@ export const BookingWizardPage: React.FC = () => {
       setCurrentStep(3);
     } catch (err: any) {
       console.error('Backend company creation error:', err);
-      const statusCode = err.statusCode || err.response?.status || err.originalError?.response?.status;
-      const errorCode =
-        err.code ||
-        err.errors?.[0]?.code ||
-        err.response?.data?.code ||
-        err.response?.data?.errors?.[0]?.code ||
-        err.originalError?.response?.data?.code ||
-        err.originalError?.response?.data?.errors?.[0]?.code;
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to register company details. Please try again.';
 
-      const isAccountExists =
-        statusCode === 409 &&
-        (errorCode === 'ACCOUNT_EXISTS' || (err.message && err.message.includes('ACCOUNT_EXISTS')));
-
-      if (isAccountExists) {
-        const conflictEmail =
-          err.errors?.[0]?.email ||
-          err.response?.data?.errors?.[0]?.email ||
-          data.email;
-
-        setAccountExistsModal({
-          isOpen: true,
-          email: conflictEmail || data.email,
-          pendingFormData: data,
-        });
-        return;
-      }
-
-      const errMsg = err.response?.data?.message || err.message || 'Failed to register company details. Please try again.';
       await showAlert({
-        title: 'Registration Error',
+        title: 'Registration Notice',
         message: errMsg,
         type: 'danger',
       });
