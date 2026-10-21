@@ -580,13 +580,13 @@ export const BookingWizardPage: React.FC = () => {
       setLoading(true);
       setIsPaymentModalDismissed(false);
 
-      const tokenToUse = pendingUserAuth?.tokens?.accessToken;
+      const tokenToUse = pendingUserAuth?.tokens?.accessToken || (user ? undefined : null);
 
       // Cancel any previous unfulfilled booking before creating an updated one
       if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {
         try {
           await bookingService.cancelBooking(createdBooking.id, {
-            token: tokenToUse,
+            token: tokenToUse || undefined,
             reason: 'Replaced by updated payment order',
           });
         } catch (prevErr) {
@@ -596,7 +596,7 @@ export const BookingWizardPage: React.FC = () => {
 
       const response = await bookingService.createBooking(
         payload,
-        tokenToUse ? { token: tokenToUse } : undefined
+        { token: tokenToUse }
       );
       if (!response || !response.razorpayOrderId) {
         throw new Error('Failed to generate Razorpay payment order from backend.');

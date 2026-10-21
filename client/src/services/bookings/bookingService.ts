@@ -49,11 +49,13 @@ export interface CreateBookingApiResponse {
 export const bookingService = {
   createBooking: async (
     payload: CreateBookingPayload | AdminBookingPayload,
-    options?: { token?: string }
+    options?: { token?: string | null }
   ): Promise<any> => {
     const config: any = {};
     if (options?.token) {
       config.headers = { Authorization: `Bearer ${options.token}` };
+    } else if (options?.token === null) {
+      config.headers = { Authorization: '' };
     }
     const response = await apiClient.post<any>(
       '/bookings',

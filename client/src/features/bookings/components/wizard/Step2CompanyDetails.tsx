@@ -33,6 +33,34 @@ import {
 } from 'lucide-react';
 import { authService } from '../../../../services/auth/authService';
 
+export interface RecognizedExhibitorAccount {
+  username: string;
+  email: string;
+  phone: string;
+  gstNumber: string;
+  name?: string;
+}
+
+export const generateSuggestedUsername = (person: string, companyName: string): string => {
+  const raw = (person || companyName || '').trim().toLowerCase();
+  const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const filteredTokens =
+    tokens.length > 2 && ['dr', 'mr', 'ms', 'mrs', 'prof'].includes(tokens[0])
+      ? tokens.slice(1)
+      : tokens;
+
+  if (filteredTokens.length >= 2) {
+    const first = filteredTokens[0].slice(0, 14);
+    const last = filteredTokens[filteredTokens.length - 1].slice(0, 14);
+    return `${first}.${last}`.slice(0, 25);
+  }
+  if (filteredTokens.length === 1) {
+    const single = filteredTokens[0].slice(0, 25);
+    return single.length >= 3 ? single : `${single}.user`;
+  }
+  return 'exhibitor';
+};
+
 export const companySchema = z.object({
   name: z.string().min(2, 'Company Name is required'),
   username: z
@@ -205,9 +233,34 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   const verifiedGstRef = React.useRef<string>('');
   const existingAccountUsernameRef = React.useRef<string | null>(null);
 
-  // Determine if username belongs to an already registered/logged-in user account (Only lock for exhibitors logged into their own CLIENT account)
+  // Recognized existing exhibitor account state and tracking refs
+  const [recognizedAccount, setRecognizedAccount] = useState<RecognizedExhibitorAccount | null>(null);
+  const recognizedAccountRef = React.useRef<RecognizedExhibitorAccount | null>(null);
+  const lookupSeqRef = React.useRef<number>(0);
+  const previousGstRef = React.useRef<string>('');
+  const wasRecognizedRef = React.useRef<boolean>(false);
+
+  // Determine if username belongs to an already registered/logged-in user account
   const isClientUser = Boolean(user && user.role === 'CLIENT' && user.username);
-  const isUsernameLocked = isClientUser;
+
+  const cleanWatchedEmail = (watchedEmail || '').trim().toLowerCase();
+  const cleanWatchedPhone = (watchedMobile || '').replace(/\D/g, '').slice(-10);
+  const cleanWatchedGst = (watchedGstNumber || '').trim().toUpperCase();
+
+  // Evaluates whether current contact inputs match the recognized exhibitor account under the verified company
+  const isExistingExhibitorMatch = Boolean(
+    recognizedAccount &&
+    cleanWatchedGst &&
+    recognizedAccount.gstNumber === cleanWatchedGst &&
+    cleanWatchedEmail &&
+    cleanWatchedEmail.includes('@') &&
+    recognizedAccount.email === cleanWatchedEmail &&
+    cleanWatchedPhone &&
+    cleanWatchedPhone.length === 10 &&
+    recognizedAccount.phone === cleanWatchedPhone
+  );
+
+  const isUsernameLocked = isClientUser || isExistingExhibitorMatch;
 
   // Update form fields dynamically whenever `user` state changes or resets
   React.useEffect(() => {
@@ -216,11 +269,41 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       if (isClientUser && user?.username) {
         setValue('username', user.username);
       } else if ((selectedCompany as any).username) {
-        setValue('username', (selectedCompany as any).username, { shouldValidate: true });
-        existingAccountUsernameRef.current = (selectedCompany as any).username;
-        setIsUsernameManuallyEdited(true);
-        setUsernameStatus('available');
-        setUsernameMessage('Existing account username');
+        const compUser = (selectedCompany as any).username;
+        const compEmail = (selectedCompany.email || '').trim().toLowerCase();
+        const compPhone = (selectedCompany.mobile || '').replace(/\D/g, '').slice(-10);
+        const compGst = (selectedCompany.gstNumber || '').trim().toUpperCase();
+
+        if (compUser && compEmail && compPhone) {
+          const rec: RecognizedExhibitorAccount = {
+            username: compUser,
+            email: compEmail,
+            phone: compPhone,
+            gstNumber: compGst,
+            name: selectedCompany.contactPerson,
+          };
+          setRecognizedAccount(rec);
+          recognizedAccountRef.current = rec;
+          existingAccountUsernameRef.current = compUser;
+        }
+
+        const currentContactPerson = getValues('contactPerson');
+        const currentMobile = getValues('mobile');
+        const currentEmail = getValues('email');
+        const normEmail = (currentEmail || selectedCompany.email || '').trim().toLowerCase();
+        const normPhone = (currentMobile || selectedCompany.mobile || '').replace(/\D/g, '').slice(-10);
+
+        if (normEmail === compEmail && normPhone === compPhone) {
+          setValue('username', compUser, { shouldValidate: true });
+          setUsernameStatus('available');
+          setUsernameMessage(`Existing exhibitor account recognized (${compUser}). You can continue directly as a guest.`);
+          wasRecognizedRef.current = true;
+        } else {
+          const suggested = generateSuggestedUsername(currentContactPerson || '', selectedCompany.name || '');
+          if (suggested && suggested.length >= 3) {
+            setValue('username', suggested, { shouldValidate: true });
+          }
+        }
       }
 
       // Preserve current user's or manually entered guest contact details!
@@ -253,6 +336,12 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       if (user.phone) setValue('mobile', user.phone);
       if (user.email) setValue('email', user.email);
     } else if (!selectedCompany) {
+      if (!isClientUser) {
+        setRecognizedAccount(null);
+        recognizedAccountRef.current = null;
+        existingAccountUsernameRef.current = null;
+        wasRecognizedRef.current = false;
+      }
       // Clean slate with no stale data from any previous user session
       setValue('name', '');
       setValue('category', '');
@@ -282,7 +371,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     }
   }, [isClientUser, user?.username, setValue]);
 
-  // Automatically reset GST verified status if user modifies the GST number input
+  // Automatically reset GST verified status and invalidate previous company recognition if user modifies GST
   React.useEffect(() => {
     const currentGst = (watchedGstNumber || '').trim().toUpperCase();
     if (gstVerificationSuccess && verifiedGstRef.current && currentGst !== verifiedGstRef.current) {
@@ -291,7 +380,53 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setGstNotice('');
       setGstError('');
     }
-  }, [watchedGstNumber, gstVerificationSuccess]);
+
+    if (previousGstRef.current && currentGst !== previousGstRef.current) {
+      // GSTIN changed to different company or cleared
+      if (recognizedAccountRef.current && recognizedAccountRef.current.gstNumber !== currentGst) {
+        setRecognizedAccount(null);
+        recognizedAccountRef.current = null;
+        existingAccountUsernameRef.current = null;
+        wasRecognizedRef.current = false;
+
+        if (!isClientUser) {
+          const currentPerson = getValues('contactPerson');
+          const currentName = getValues('name');
+          const suggested = generateSuggestedUsername(currentPerson || '', currentName || '');
+          setValue('username', suggested, { shouldValidate: true, shouldDirty: false });
+          setIsUsernameManuallyEdited(false);
+          setUsernameStatus('idle');
+          setUsernameMessage('');
+        }
+      }
+    }
+    previousGstRef.current = currentGst;
+  }, [watchedGstNumber, gstVerificationSuccess, isClientUser, getValues, setValue]);
+
+  // React to toggling between exact recognized exhibitor and sibling exhibitor
+  React.useEffect(() => {
+    if (isClientUser) return;
+
+    if (isExistingExhibitorMatch && recognizedAccount) {
+      // Switched into exact recognized exhibitor mode (e.g. user restored email/phone back)
+      if (getValues('username') !== recognizedAccount.username) {
+        setValue('username', recognizedAccount.username, { shouldValidate: true, shouldDirty: false });
+      }
+      setUsernameStatus('available');
+      setUsernameMessage(`Existing exhibitor account recognized (${recognizedAccount.username}). You can continue directly as a guest.`);
+      wasRecognizedRef.current = true;
+    } else if (wasRecognizedRef.current && !isExistingExhibitorMatch) {
+      // Switched from recognized existing account into potential sibling exhibitor mode
+      wasRecognizedRef.current = false;
+      const currentPerson = getValues('contactPerson');
+      const currentName = getValues('name');
+      const suggested = generateSuggestedUsername(currentPerson || '', currentName || '');
+      setValue('username', suggested, { shouldValidate: true, shouldDirty: true });
+      setIsUsernameManuallyEdited(false);
+      setUsernameStatus('idle');
+      setUsernameMessage('');
+    }
+  }, [isExistingExhibitorMatch, recognizedAccount, isClientUser, setValue, getValues]);
 
   // Debounced check for username availability
   React.useEffect(() => {
@@ -348,27 +483,6 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     return () => clearTimeout(timer);
   }, [watchedUsername, isUsernameLocked, isClientUser, user?.username, setValue, isUsernameManuallyEdited]);
 
-  // Helper to generate a clean, readable username suggestion derived from name
-  const generateSuggestedUsername = (person: string, companyName: string) => {
-    const raw = (person || companyName || '').trim().toLowerCase();
-    const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
-    const filteredTokens =
-      tokens.length > 2 && ['dr', 'mr', 'ms', 'mrs', 'prof'].includes(tokens[0])
-        ? tokens.slice(1)
-        : tokens;
-
-    if (filteredTokens.length >= 2) {
-      const first = filteredTokens[0].slice(0, 14);
-      const last = filteredTokens[filteredTokens.length - 1].slice(0, 14);
-      return `${first}.${last}`.slice(0, 25);
-    }
-    if (filteredTokens.length === 1) {
-      const single = filteredTokens[0].slice(0, 25);
-      return single.length >= 3 ? single : `${single}.user`;
-    }
-    return 'exhibitor';
-  };
-
   // Auto-detect existing account when user enters their corporate email, mobile number, and company info
   React.useEffect(() => {
     const cleanEmail = watchedEmail?.trim().toLowerCase();
@@ -384,6 +498,8 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       return;
     }
 
+    const seq = ++lookupSeqRef.current;
+
     const timer = setTimeout(async () => {
       try {
         const res = await authService.lookupAccount({
@@ -393,28 +509,52 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           companyName: cleanName || undefined,
         });
 
+        // Guard against race conditions and out-of-order responses:
+        if (seq !== lookupSeqRef.current) {
+          return;
+        }
+
+        // Verify that current form values still match what was queried
+        const currentEmail = (getValues('email') || '').trim().toLowerCase();
+        const currentPhone = (getValues('mobile') || '').replace(/\D/g, '').slice(-10);
+        const currentGst = (getValues('gstNumber') || '').trim().toUpperCase();
+
+        if (cleanEmail !== currentEmail || cleanPhone !== currentPhone || (cleanGst && cleanGst !== currentGst)) {
+          return;
+        }
+
         if (res.exactMatch && res.username) {
+          const rec: RecognizedExhibitorAccount = {
+            username: res.username,
+            email: cleanEmail,
+            phone: cleanPhone,
+            gstNumber: cleanGst || res.company?.gstNumber || '',
+            name: res.name,
+          };
+          setRecognizedAccount(rec);
+          recognizedAccountRef.current = rec;
           existingAccountUsernameRef.current = res.username;
-          setValue('username', res.username, { shouldValidate: true, shouldDirty: true });
-          setIsUsernameManuallyEdited(true);
+
+          setValue('username', res.username, { shouldValidate: true, shouldDirty: false });
           setUsernameStatus('available');
           setUsernameMessage(`Existing exhibitor account recognized (${res.username}). You can continue directly as a guest.`);
+          wasRecognizedRef.current = true;
 
           if (res.name && !getValues('contactPerson')) {
             setValue('contactPerson', res.name, { shouldValidate: true });
           }
         }
       } catch (_err) {
-        // Ignore lookup network failures
+        // Network or server error: do not claim recognition, preserve guest booking
       }
     }, 350);
 
     return () => clearTimeout(timer);
   }, [watchedEmail, watchedMobile, watchedGstNumber, watchedName, isClientUser, setValue, getValues]);
 
-  // Auto-fill username as user types contact person or company name if not manually edited and not already an existing account
+  // Auto-fill username as user types contact person or company name if not manually edited and not locked to existing account
   React.useEffect(() => {
-    if (!isUsernameManuallyEdited && !isClientUser && !existingAccountUsernameRef.current) {
+    if (!isUsernameManuallyEdited && !isClientUser && !isExistingExhibitorMatch) {
       if (watchedContactPerson || watchedName) {
         const suggested = generateSuggestedUsername(watchedContactPerson || '', watchedName || '');
         if (suggested && suggested.length >= 3) {
@@ -422,7 +562,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
         }
       }
     }
-  }, [watchedContactPerson, watchedName, isUsernameManuallyEdited, isClientUser, setValue]);
+  }, [watchedContactPerson, watchedName, isUsernameManuallyEdited, isClientUser, isExistingExhibitorMatch, setValue]);
 
   const handleRegenerateUsername = () => {
     const raw = (watchedContactPerson || watchedName || 'exhibitor').trim().toLowerCase();
@@ -572,9 +712,34 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           }
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
 
-          // Sibling exhibitors under the same company have their own unique accounts.
-          // Do not overwrite the current employee's username with another exhibitor's username.
-          if (!isUsernameManuallyEdited && !isClientUser) {
+          if (comp.username && comp.email && comp.mobile) {
+            const rec: RecognizedExhibitorAccount = {
+              username: comp.username,
+              email: comp.email.trim().toLowerCase(),
+              phone: comp.mobile.replace(/\D/g, '').slice(-10),
+              gstNumber: cleanGst,
+              name: comp.contactPerson,
+            };
+            setRecognizedAccount(rec);
+            recognizedAccountRef.current = rec;
+            existingAccountUsernameRef.current = comp.username;
+
+            const currentEmail = (getValues('email') || '').trim().toLowerCase();
+            const currentPhone = (getValues('mobile') || '').replace(/\D/g, '').slice(-10);
+
+            if (currentEmail === rec.email && currentPhone === rec.phone) {
+              setValue('username', comp.username, { shouldValidate: true, shouldDirty: false });
+              setUsernameStatus('available');
+              setUsernameMessage(`Existing exhibitor account recognized (${comp.username}). You can continue directly as a guest.`);
+              wasRecognizedRef.current = true;
+            } else if (!isClientUser) {
+              const currentPerson = getValues('contactPerson');
+              const suggested = generateSuggestedUsername(currentPerson || '', comp.name || '');
+              if (suggested && suggested.length >= 3) {
+                setValue('username', suggested, { shouldValidate: true, shouldDirty: false });
+              }
+            }
+          } else if (!isUsernameManuallyEdited && !isClientUser) {
             const currentPerson = getValues('contactPerson');
             const suggested = generateSuggestedUsername(currentPerson || '', comp.name || '');
             if (suggested && suggested.length >= 3) {
@@ -918,6 +1083,13 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   ) : null}
                 </div>
               </div>
+
+              {isExistingExhibitorMatch && (
+                <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium flex items-center gap-1 mt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  Recognized existing exhibitor account ({watchedUsername}). You can continue directly as a guest.
+                </p>
+              )}
 
               {!isUsernameLocked && errors.username ? (
                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{errors.username.message}</p>

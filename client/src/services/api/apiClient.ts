@@ -26,9 +26,15 @@ export const apiClient = axios.create({
 
 // Request interceptor to attach JWT token if stored in localStorage
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (config.headers.Authorization === '' || config.headers.authorization === '') {
+    // Explicit guest request: clear authorization header completely
+    delete config.headers.Authorization;
+    delete config.headers.authorization;
+  } else if (!config.headers.Authorization && !config.headers.authorization) {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });

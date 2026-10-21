@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/apiError.js';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt.js';
+import { prisma } from '../config/db.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
@@ -30,7 +31,7 @@ export const authenticateToken = (
   }
 };
 
-export const optionalAuth = (
+export const optionalAuth = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -47,13 +48,25 @@ export const optionalAuth = (
     return next();
   }
 
-  // 2. If a token WAS provided, it MUST be valid.
-  // If it's expired or fake, reject with 401 so the user knows to log in again!
+  // 2. If a token was provided, verify and check if the user actually exists in the database
   try {
     const decoded = verifyAccessToken(token);
+    const userRecord = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, role: true, companyId: true },
+    });
+
+    if (!userRecord) {
+      // User was deleted or belonged to a cleared test session: fall back to unauthenticated guest
+      req.user = undefined;
+      return next();
+    }
+
     req.user = decoded;
     next();
   } catch (_error) {
-    return next(ApiError.unauthorized('Your session has expired or token is invalid. Please log in again.'));
+    // If token is invalid or expired on an optionalAuth route, fall back to guest rather than blocking
+    req.user = undefined;
+    next();
   }
 };

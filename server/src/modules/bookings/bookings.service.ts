@@ -858,13 +858,14 @@ static async createBooking(
   //
   // Captures the point-in-time representative contact details
   // and legal billing entity details without modifying Company.
-  // User ID is strictly derived from the authenticated identity.
+  // User ID is strictly derived from verified database identity.
+  // Never pass an unverified or stale user ID that could violate Booking_userId_fkey.
   // ==================================================
-  let dbUser: { name: string; phone: string | null; email: string } | null = null;
-  if (user?.userId && (!input.contactPerson?.trim() || !input.contactPhone?.trim())) {
+  let dbUser: { id: string; name: string; phone: string | null; email: string } | null = null;
+  if (user?.userId) {
     dbUser = await prisma.user.findUnique({
       where: { id: user.userId },
-      select: { name: true, phone: true, email: true },
+      select: { id: true, name: true, phone: true, email: true },
     });
   }
 
@@ -887,7 +888,26 @@ static async createBooking(
   const snapshotBillingPinCode = input.billingPinCode?.trim() || company.pinCode;
   const snapshotBillingCountry = input.billingCountry?.trim() || company.country || 'India';
 
-  const bookingUserId = user?.userId || null;
+  let bookingUserId: string | null = dbUser ? dbUser.id : null;
+
+  // If no authenticated user matched, but this is a guest booking for an existing company,
+  // associate the booking with the company's exhibitor account matching the snapshot contact email/phone
+  if (!bookingUserId && snapshotContactEmail) {
+    const matchedCompanyUser = await prisma.user.findFirst({
+      where: {
+        companyId: company.id,
+        email: snapshotContactEmail.toLowerCase(),
+      },
+      select: { id: true, phone: true },
+    });
+    if (matchedCompanyUser) {
+      const cleanInputDigits = snapshotContactPhone?.replace(/\D/g, '').slice(-10);
+      const cleanUserDigits = matchedCompanyUser.phone?.replace(/\D/g, '').slice(-10);
+      if (!cleanInputDigits || !cleanUserDigits || cleanInputDigits === cleanUserDigits) {
+        bookingUserId = matchedCompanyUser.id;
+      }
+    }
+  }
 
   // ==================================================
   // 7a. ADMIN DIRECT CONFIRM — bypass Razorpay entirely
@@ -1095,7 +1115,7 @@ static async createBooking(
           const isAvailable = stall.status === StallStatus.AVAILABLE;
           const isHeldByUserOrCompany =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
-            Boolean(stall.heldByUserId && ((user?.userId && stall.heldByUserId === user.userId) || companyUserIds.includes(stall.heldByUserId)));
+            Boolean(stall.heldByUserId && ((user?.userId && stall.heldByUserId === user.userId) || (bookingUserId && stall.heldByUserId === bookingUserId) || companyUserIds.includes(stall.heldByUserId)));
           const isExpiredHold =
             (stall.status === StallStatus.TEMPORARILY_HELD || stall.status === StallStatus.PAYMENT_PENDING) &&
             stall.heldUntil &&
@@ -1127,7 +1147,7 @@ static async createBooking(
               { status: StallStatus.AVAILABLE },
               {
                 status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
-                heldByUserId: { in: [...(user?.userId ? [user.userId] : []), ...companyUserIds] },
+                heldByUserId: { in: [...(user?.userId ? [user.userId] : []), ...(bookingUserId ? [bookingUserId] : []), ...companyUserIds] },
               },
               {
                 status: { in: [StallStatus.TEMPORARILY_HELD, StallStatus.PAYMENT_PENDING] },
@@ -1145,7 +1165,7 @@ static async createBooking(
           data: {
             status: StallStatus.PAYMENT_PENDING,
             heldUntil: holdUntil,
-            heldByUserId: user?.userId || null,
+            heldByUserId: bookingUserId,
           },
         });
 
