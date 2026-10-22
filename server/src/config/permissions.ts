@@ -22,7 +22,9 @@ export const Permissions = {
   // Bookings & Billing Capabilities
   BOOKING_MANAGE: 'BOOKING_MANAGE',
   BOOKING_VIEW_ALL: 'BOOKING_VIEW_ALL',
+  BOOKING_DELETE: 'BOOKING_DELETE',
   PAYMENT_MANAGE: 'PAYMENT_MANAGE',
+  PAYMENT_DELETE: 'PAYMENT_DELETE',
   INVOICE_MANAGE: 'INVOICE_MANAGE',
   COMPANY_MANAGE: 'COMPANY_MANAGE',
 
@@ -56,7 +58,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
     Permissions.STALL_MANAGE,
     Permissions.BOOKING_MANAGE,
     Permissions.BOOKING_VIEW_ALL,
+    Permissions.BOOKING_DELETE,
     Permissions.PAYMENT_MANAGE,
+    Permissions.PAYMENT_DELETE,
     Permissions.INVOICE_MANAGE,
     Permissions.COMPANY_MANAGE,
     Permissions.REPORT_VIEW_PLATFORM,

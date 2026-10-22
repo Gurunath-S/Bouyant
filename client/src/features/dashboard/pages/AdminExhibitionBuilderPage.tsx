@@ -11,7 +11,7 @@ import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, displayInputDateToIso } from '../../../utils/date';
 import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
 import { useAuthStore } from '../../../stores/authStore';
 import { showConfirm, showAlert } from '../../../stores/dialogStore';
@@ -104,6 +104,31 @@ const getMonthNameByEdition = (editionStr: string): string => {
   }
   return '';
 };
+
+const getInitialBasicInfo = () => ({
+  title: '',
+  slug: '',
+  edition: getMonthEditionCode(''),
+  eventCode: '',
+  spcode: 'B003', // Internal admin allocation code
+  category: 'Industrial & Automation',
+  description: '',
+  startDate: '',
+  endDate: '',
+  bookingEndDate: '',
+  startTime: '10:00',
+  endTime: '18:00',
+  venue: '',
+  address: '',
+  city: '',
+  state: 'Maharashtra',
+  bannerUrl: '',
+  images: [] as string[],
+  notificationEmails: '',
+  latitude: 19.1551,
+  longitude: 72.8553,
+  status: 'DRAFT',
+});
 
 // Helper to generate event short code from title (e.g. "India Industrial & Automation Expo 2026" -> "IIAE", "Mediccon Expo" -> "ME")
 const generateEventShortCode = (title: string): string => {
@@ -210,6 +235,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEvent, setIsLoadingEvent] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [eventDbId, setEventDbId] = useState<string | null>(null);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [hallConfig, setHallConfig] = useState({
@@ -240,30 +266,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   }, []);
 
   // Step 1: Basic Event Information
-  const [basicInfo, setBasicInfo] = useState({
-    title: '',
-    slug: '',
-    edition: getMonthEditionCode(''),
-    eventCode: '',
-    spcode: 'B003', // Internal admin allocation code
-    category: 'Industrial & Automation',
-    description: '',
-    startDate: '',
-    endDate: '',
-    bookingEndDate: '',
-    startTime: '10:00',
-    endTime: '18:00',
-    venue: '',
-    address: '',
-    city: '',
-    state: 'Maharashtra',
-    bannerUrl: '',
-    images: [] as string[],
-    notificationEmails: '',
-    latitude: 19.1551,
-    longitude: 72.8553,
-    status: 'DRAFT',
-  });
+  const [basicInfo, setBasicInfo] = useState(getInitialBasicInfo());
+  const [studioKey, setStudioKey] = useState<number>(0);
 
   // Dynamic city list based on selected state, auto-detecting states from city selection
   const availableCities = useMemo(() => {
@@ -275,12 +279,161 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const [isBookingEndDateCustom, setIsBookingEndDateCustom] = useState<boolean>(false);
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
 
+  // Mandatory Field Validation State & Helpers
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const clearValidationError = useCallback((field: string) => {
+    setValidationErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const validateStep1 = useCallback((): boolean => {
+    const errors: Record<string, string> = {};
+
+    // 1. Exhibition Event Name
+    if (!basicInfo.title || !basicInfo.title.trim()) {
+      errors.title = 'Exhibition event name is required';
+    }
+
+    // 2. Event Short Code
+    if (!basicInfo.eventCode || !basicInfo.eventCode.trim()) {
+      errors.eventCode = 'Event short code is required';
+    } else {
+      const collision = existingEvents.find(
+        (e) =>
+          e.id !== id &&
+          (!e.slug || e.slug !== id) &&
+          e.eventCode &&
+          e.eventCode.toUpperCase().trim() === basicInfo.eventCode.toUpperCase().trim()
+      );
+      if (collision) {
+        errors.eventCode = `Event short code '${basicInfo.eventCode}' is already in use by '${collision.title}'`;
+      }
+    }
+
+    // 3. Edition Code
+    if (!basicInfo.edition || !basicInfo.edition.trim()) {
+      errors.edition = 'Edition code is required';
+    }
+
+    // Helper date parsing
+    const toDateObj = (d?: string) => {
+      if (!d || !d.trim()) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const dt = new Date(d);
+        return isNaN(dt.getTime()) ? null : dt;
+      }
+      const iso = displayInputDateToIso(d);
+      const dt = new Date(iso);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    // 4. Start Date
+    if (!basicInfo.startDate || !basicInfo.startDate.trim()) {
+      errors.startDate = 'Exhibition start date is required';
+    } else if (!toDateObj(basicInfo.startDate)) {
+      errors.startDate = 'Please enter a valid start date (DD/MM/YYYY)';
+    }
+
+    // 5. End Date
+    if (!basicInfo.endDate || !basicInfo.endDate.trim()) {
+      errors.endDate = 'Exhibition end date is required';
+    } else if (!toDateObj(basicInfo.endDate)) {
+      errors.endDate = 'Please enter a valid end date (DD/MM/YYYY)';
+    } else {
+      const startDt = toDateObj(basicInfo.startDate);
+      const endDt = toDateObj(basicInfo.endDate);
+      if (startDt && endDt && endDt < startDt) {
+        errors.endDate = 'End date cannot be earlier than start date';
+      }
+    }
+
+    // 6. Booking Closing Date
+    if (!basicInfo.bookingEndDate || !basicInfo.bookingEndDate.trim()) {
+      errors.bookingEndDate = 'Booking closing date is required';
+    } else if (!toDateObj(basicInfo.bookingEndDate)) {
+      errors.bookingEndDate = 'Please enter a valid booking closing date (DD/MM/YYYY)';
+    } else {
+      const startDt = toDateObj(basicInfo.startDate);
+      const bookingEndDt = toDateObj(basicInfo.bookingEndDate);
+      if (startDt && bookingEndDt && bookingEndDt > startDt) {
+        errors.bookingEndDate = 'Booking closing date cannot be after exhibition start date';
+      }
+    }
+
+    // 7. Industry / Sector Category
+    if (!basicInfo.category || !basicInfo.category.trim()) {
+      errors.category = 'Industry / sector category is required';
+    }
+
+    // 8. Venue Name
+    if (!basicInfo.venue || !basicInfo.venue.trim()) {
+      errors.venue = 'Venue / centre name is required';
+    }
+
+    // 9. City
+    if (!basicInfo.city || !basicInfo.city.trim()) {
+      errors.city = 'City is required';
+    }
+
+    setValidationErrors(errors);
+
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length > 0) {
+      const fieldOrder = [
+        'title',
+        'eventCode',
+        'edition',
+        'startDate',
+        'endDate',
+        'bookingEndDate',
+        'category',
+        'venue',
+        'city',
+      ];
+      const firstInvalidField = fieldOrder.find((f) => errors[f]);
+      if (firstInvalidField) {
+        setTimeout(() => {
+          const el = document.getElementById(`field-${firstInvalidField}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+              el.focus();
+            } else {
+              const inp = el.querySelector<HTMLInputElement | HTMLSelectElement>('input, select');
+              if (inp) inp.focus();
+            }
+          }
+        }, 50);
+      }
+      return false;
+    }
+
+    return true;
+  }, [basicInfo, existingEvents, id]);
+
+  const handleContinueToStep2 = useCallback(() => {
+    if (isViewMode) {
+      setCurrentStep(2);
+      return;
+    }
+    if (validateStep1()) {
+      setValidationErrors({});
+      setCurrentStep(2);
+    }
+  }, [isViewMode, validateStep1]);
+
   const loadEventData = useCallback(async (eventId: string) => {
     try {
       setIsLoadingEvent(true);
       setLoadError(null);
       const data = await exhibitionService.getExhibitionBySlug(eventId);
       if (data) {
+        setEventDbId(data.id);
         let loadedStartTime = '10:00';
         let loadedEndTime = '18:00';
         if (data.startDate) {
@@ -319,14 +472,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           startTime: (data as any).startTime || loadedStartTime,
           endTime: (data as any).endTime || loadedEndTime,
           venue: data.venue || '',
-          address: data.venue || '',
+          address: data.address || '',
           city: data.city || '',
-          state: 'Maharashtra',
+          state: data.state || 'Maharashtra',
           bannerUrl: data.bannerUrl || '',
           images: data.bannerUrl ? [data.bannerUrl] : [],
           notificationEmails: (data as any).notificationEmails || '',
-          latitude: (data as any).latitude || 19.1551,
-          longitude: (data as any).longitude || 72.8553,
+          latitude: data.latitude ? Number(data.latitude) : 19.1551,
+          longitude: data.longitude ? Number(data.longitude) : 72.8553,
           status: data.status || 'PUBLISHED',
         });
 
@@ -437,6 +590,19 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   useEffect(() => {
     if (isLoadingEvent) return;
 
+    // Do not auto-save an empty blank draft
+    const hasMeaningfulContent =
+      !!basicInfo.title.trim() ||
+      stalls.length > 0 ||
+      (layoutData?.halls && layoutData.halls.length > 0);
+
+    if (!hasMeaningfulContent) {
+      if (!id) {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+      return;
+    }
+
     const timer = setTimeout(() => {
       try {
         const draft = {
@@ -454,12 +620,18 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY, isLoadingEvent]);
+  }, [basicInfo, hallConfig, stalls, layoutData, currentStep, DRAFT_STORAGE_KEY, isLoadingEvent, id]);
 
   // Window beforeunload listener
   useEffect(() => {
     const handleBeforeUnload = () => {
       try {
+        const hasMeaningfulContent =
+          !!basicInfo.title.trim() ||
+          stalls.length > 0 ||
+          (layoutData?.halls && layoutData.halls.length > 0);
+        if (!hasMeaningfulContent) return;
+
         const draft = {
           basicInfo,
           hallConfig,
@@ -478,23 +650,60 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const handleDiscardDraft = async () => {
     const confirmed = await showConfirm({
       title: 'Discard Restored Draft?',
-      message: 'Discard the restored draft and start completely clean from scratch? All unsaved hall configurations will be reset.',
+      message: 'Discard the restored draft and start completely clean from scratch? All unsaved hall configurations and event details will be reset.',
       type: 'warning',
       confirmText: 'Discard Draft',
       cancelText: 'Keep Draft',
     });
     if (confirmed) {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-      localStorage.removeItem('buoyant_exhibition_draft_new');
-      setHasRestoredDraft(false);
+      // 1. Remove parent draft keys and all studio autosave keys from localStorage
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        localStorage.removeItem('buoyant_exhibition_draft_new');
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('buoyant_studio_autosave_') || key.startsWith('buoyant_exhibition_draft_'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch (_e) {}
+
+      // 2. Reset event information back to initial blank defaults
+      setBasicInfo(getInitialBasicInfo());
+      setIsEventCodeCustom(false);
+      setIsEditionCustom(false);
+      setIsBookingEndDateCustom(false);
+      setIsCustomCategory(false);
+      setHallConfig({
+        hallName: 'Hall A',
+        widthFt: 100,
+        heightFt: 80,
+      });
+
+      // 3. Clear stalls and layout
       setStalls([]);
       setLayoutData(null);
+      setHasRestoredDraft(false);
       setCurrentStep(1);
+
+      // 4. Force GenericVisualStudio to mount freshly without retained state
+      setStudioKey((prev) => prev + 1);
     }
   };
 
   // Submit & Publish / Update Exhibition
   const handlePublishExhibition = async () => {
+    if (!validateStep1()) {
+      setCurrentStep(1);
+      await showAlert({
+        title: 'Mandatory Fields Required',
+        message: 'Please complete all required fields marked with an asterisk (*) before publishing.',
+        type: 'danger',
+      });
+      return;
+    }
     try {
       setIsSubmitting(true);
       const computedBookingEndDate = basicInfo.bookingEndDate
@@ -503,16 +712,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         ? formatIsoWithTime(calculateDefaultBookingEndDate(basicInfo.startDate), '23:59', 23)
         : null;
 
-      if (id) {
+      if (id || eventDbId) {
         // Updating existing event
         const updatePayload = {
           title: basicInfo.title,
+          slug: basicInfo.slug || undefined,
           description: basicInfo.description,
           edition: basicInfo.edition,
           eventCode: basicInfo.eventCode,
           spcode: basicInfo.spcode,
+          category: basicInfo.category,
           venue: basicInfo.venue,
+          address: basicInfo.address,
           city: basicInfo.city,
+          state: basicInfo.state,
+          latitude: basicInfo.latitude,
+          longitude: basicInfo.longitude,
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
@@ -521,7 +736,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           status: basicInfo.status,
           totalStalls: stalls.length,
         };
-        await exhibitionService.updateExhibition(id, updatePayload);
+        const targetId = eventDbId || id;
+        await exhibitionService.updateExhibition(targetId!, updatePayload);
 
         // Synchronize floor plan spatial layout & stalls
         if (floorPlanId) {
@@ -553,8 +769,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           edition: basicInfo.edition,
           eventCode: basicInfo.eventCode,
           spcode: basicInfo.spcode,
+          category: basicInfo.category,
           venue: basicInfo.venue,
+          address: basicInfo.address,
           city: basicInfo.city,
+          state: basicInfo.state,
+          latitude: basicInfo.latitude,
+          longitude: basicInfo.longitude,
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
@@ -585,6 +806,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         await exhibitionService.createExhibition(payload as any);
       }
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('buoyant_studio_autosave_') || key.startsWith('buoyant_exhibition_draft_'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch (_e) {}
       navigate('/admin/events');
     } catch (err: any) {
       await showAlert({
@@ -763,7 +994,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setCurrentStep(2)}
+            onClick={() => {
+              if (currentStep === 1) {
+                handleContinueToStep2();
+              } else {
+                setCurrentStep(2);
+              }
+            }}
             className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
               currentStep === 2 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
             }`}
@@ -781,7 +1018,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setCurrentStep(3)}
+            onClick={() => {
+              if (currentStep === 1) {
+                if (validateStep1()) {
+                  setValidationErrors({});
+                  setCurrentStep(3);
+                }
+              } else {
+                setCurrentStep(3);
+              }
+            }}
             className={`flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 ${
               currentStep === 3 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
             }`}
@@ -818,12 +1064,52 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <Button
               variant="primary"
               size="md"
-              onClick={() => setCurrentStep(2)}
+              onClick={handleContinueToStep2}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               Continue to Floor Plan Designer
             </Button>
           </div>
+
+          {/* Validation Errors Notice Banner */}
+          {Object.keys(validationErrors).length > 0 && (
+            <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 text-rose-900 dark:text-rose-200 shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
+                  Mandatory Fields Required ({Object.keys(validationErrors).length} missing)
+                </h4>
+                <p className="text-xs text-rose-700 dark:text-rose-300">
+                  Please fill in all mandatory fields marked with an asterisk (<span className="font-bold text-rose-600">*</span>) before proceeding to the Floor Plan Designer.
+                </p>
+                <div className="flex flex-wrap gap-1.5 pt-1.5">
+                  {Object.entries(validationErrors).map(([key, err]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById(`field-${key}`);
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+                            el.focus();
+                          } else {
+                            const inp = el.querySelector<HTMLInputElement | HTMLSelectElement>('input, select');
+                            if (inp) inp.focus();
+                          }
+                        }
+                      }}
+                      className="text-[11px] font-semibold bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 px-2.5 py-0.5 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
+                    >
+                      • {err}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Card 1: Event Identity & Category */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
@@ -846,11 +1132,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               {/* Exhibition Event Name */}
               <div className="md:col-span-6">
                 <Input
-                  label="Exhibition Event Name *"
+                  id="field-title"
+                  label="Exhibition Event Name"
                   value={basicInfo.title}
                   disabled={isViewMode}
+                  error={validationErrors.title}
                   onChange={(e) => {
                     if (isViewMode) return;
+                    clearValidationError('title');
                     const title = e.target.value;
                     const autoSlug = title
                       .toLowerCase()
@@ -861,6 +1150,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     let newEventCode = basicInfo.eventCode;
                     if (!id && !isEventCodeCustom) {
                       newEventCode = title.trim() ? getUniqueEventShortCode(title, existingEvents, id) : '';
+                      if (newEventCode) clearValidationError('eventCode');
                     }
 
                     setBasicInfo((prev) => ({
@@ -891,8 +1181,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   {/* Event Short Code */}
                   <div className="col-span-7 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Event Short Code *
+                      <label htmlFor="field-eventCode" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Event Short Code <span className="text-rose-500">*</span>
                       </label>
                       {!isViewMode && (
                         <button
@@ -900,6 +1190,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                           onClick={() => {
                             const auto = basicInfo.title.trim() ? getUniqueEventShortCode(basicInfo.title, existingEvents, id) : '';
                             setIsEventCodeCustom(false);
+                            if (auto) clearValidationError('eventCode');
                             setBasicInfo((prev) => ({ ...prev, eventCode: auto }));
                           }}
                           title="Re-generate automatically from event title"
@@ -912,12 +1203,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     </div>
                     <div className="relative rounded-lg shadow-xs">
                       <input
+                        id="field-eventCode"
                         type="text"
                         value={basicInfo.eventCode}
                         disabled={isViewMode}
                         readOnly={isViewMode}
                         onChange={(e) => {
                           if (isViewMode) return;
+                          clearValidationError('eventCode');
                           setIsEventCodeCustom(true);
                           setBasicInfo((prev) => ({
                             ...prev,
@@ -926,9 +1219,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         }}
                         placeholder="Auto-generated on title typing"
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
+                          validationErrors.eventCode
+                            ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                            : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
+                        }`}
                       />
                     </div>
+                    {validationErrors.eventCode && (
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{validationErrors.eventCode}</p>
+                    )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                       {isViewMode
                         ? 'Unique event short code • registered in catalog'
@@ -943,8 +1243,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   {/* Edition Code */}
                   <div className="col-span-5 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Edition Code *
+                      <label htmlFor="field-edition" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Edition Code <span className="text-rose-500">*</span>
                       </label>
                       {!isViewMode && (
                         <button
@@ -952,6 +1252,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                           onClick={() => {
                             const autoEd = getMonthEditionCode(basicInfo.startDate);
                             setIsEditionCustom(false);
+                            if (autoEd) clearValidationError('edition');
                             setBasicInfo((prev) => ({ ...prev, edition: autoEd }));
                           }}
                           title="Sync edition code with start date month"
@@ -964,12 +1265,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     </div>
                     <div className="relative rounded-lg shadow-xs">
                       <input
+                        id="field-edition"
                         type="text"
                         value={basicInfo.edition}
                         disabled={isViewMode}
                         readOnly={isViewMode}
                         onChange={(e) => {
                           if (isViewMode) return;
+                          clearValidationError('edition');
                           setIsEditionCustom(true);
                           setBasicInfo((prev) => ({
                             ...prev,
@@ -979,9 +1282,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         placeholder="e.g. 10"
                         maxLength={4}
                         required
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
+                          validationErrors.edition
+                            ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                            : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
+                        }`}
                       />
                     </div>
+                    {validationErrors.edition && (
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{validationErrors.edition}</p>
+                    )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
                       {getMonthNameByEdition(basicInfo.edition)
                         ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition}) • ${isEditionCustom ? 'Custom' : 'Matches start date'}`
@@ -1036,14 +1346,19 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <DateInput
+                  id="field-startDate"
                   label="Exhibition Start Date"
                   value={basicInfo.startDate}
                   disabled={isViewMode}
+                  error={validationErrors.startDate}
                   onChange={(isoVal) => {
                     if (isViewMode) return;
+                    clearValidationError('startDate');
                     setBasicInfo((prev) => {
                       const newEdition = (!id && !isEditionCustom) ? getMonthEditionCode(isoVal) : prev.edition;
                       const newBookingEndDate = !isBookingEndDateCustom ? calculateDefaultBookingEndDate(isoVal) : prev.bookingEndDate;
+                      if (newEdition) clearValidationError('edition');
+                      if (newBookingEndDate) clearValidationError('bookingEndDate');
                       return {
                         ...prev,
                         startDate: isoVal,
@@ -1056,11 +1371,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   helperText="Format: DD/MM/YYYY"
                 />
                 <DateInput
+                  id="field-endDate"
                   label="Exhibition End Date"
                   value={basicInfo.endDate}
                   disabled={isViewMode}
+                  error={validationErrors.endDate}
                   onChange={(isoVal) => {
                     if (isViewMode) return;
+                    clearValidationError('endDate');
                     setBasicInfo({ ...basicInfo, endDate: isoVal });
                   }}
                   required
@@ -1180,11 +1498,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <DateInput
+                    id="field-bookingEndDate"
                     label="Booking Closing Date"
                     value={basicInfo.bookingEndDate}
                     disabled={isViewMode}
+                    error={validationErrors.bookingEndDate}
                     onChange={(isoVal) => {
                       if (isViewMode) return;
+                      clearValidationError('bookingEndDate');
                       setIsBookingEndDateCustom(true);
                       setBasicInfo((prev) => ({ ...prev, bookingEndDate: isoVal }));
                     }}
@@ -1235,15 +1556,17 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             {/* Category and Registration Format */}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
               <div className="md:col-span-8 space-y-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Industry / Sector Category *
+                <label htmlFor="field-category" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Industry / Sector Category <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                   <select
+                    id="field-category"
                     value={PRESET_CATEGORIES.includes(basicInfo.category) ? basicInfo.category : 'OTHER'}
                     disabled={isViewMode}
                     onChange={(e) => {
                       if (isViewMode) return;
+                      clearValidationError('category');
                       const val = e.target.value;
                       if (val === 'OTHER') {
                         setIsCustomCategory(true);
@@ -1255,7 +1578,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         setBasicInfo({ ...basicInfo, category: val });
                       }
                     }}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                    className={`w-full bg-white dark:bg-slate-900 border rounded-lg px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
+                      validationErrors.category
+                        ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                        : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
+                    }`}
                   >
                     {PRESET_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -1267,17 +1594,23 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
                   {(isCustomCategory || !PRESET_CATEGORIES.includes(basicInfo.category)) && (
                     <Input
+                      id="field-category-custom"
                       placeholder="Enter custom industry sector..."
                       value={basicInfo.category}
                       disabled={isViewMode}
+                      error={validationErrors.category}
                       onChange={(e) => {
                         if (isViewMode) return;
+                        clearValidationError('category');
                         setBasicInfo({ ...basicInfo, category: e.target.value });
                       }}
                       required
                     />
                   )}
                 </div>
+                {validationErrors.category && !isCustomCategory && PRESET_CATEGORIES.includes(basicInfo.category) && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{validationErrors.category}</p>
+                )}
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
                   Choose from industry sector presets or select "Other" to type your own custom sector.
                 </p>
@@ -1320,23 +1653,29 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Venue / Centre Name *"
+                id="field-venue"
+                label="Venue / Centre Name"
                 value={basicInfo.venue}
                 disabled={isViewMode}
+                error={validationErrors.venue}
                 onChange={(e) => {
                   if (isViewMode) return;
+                  clearValidationError('venue');
                   setBasicInfo({ ...basicInfo, venue: e.target.value });
                 }}
                 placeholder="e.g. Bombay Exhibition Centre (BEC)"
                 required
               />
               <SearchableCombobox
+                id="field-city"
                 label="City"
                 required
                 value={basicInfo.city}
                 disabled={isViewMode}
+                error={validationErrors.city}
                 onChange={(val) => {
                   if (isViewMode) return;
+                  clearValidationError('city');
                   setBasicInfo((prev) => {
                     const next = { ...prev, city: val };
                     if (!prev.state && val) {
@@ -1419,15 +1758,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </div>
 
             <MultiImagePicker
-              images={basicInfo.images}
-              coverImage={basicInfo.bannerUrl}
+              images={basicInfo.images || []}
+              coverImage={basicInfo.bannerUrl || ''}
               disabled={isViewMode}
               onChangeImages={(newImages, newCover) => {
                 if (isViewMode) return;
                 setBasicInfo((prev) => ({
                   ...prev,
                   images: newImages,
-                  bannerUrl: newCover,
+                  bannerUrl: newCover || newImages[0] || '',
                 }));
               }}
             />
@@ -1554,7 +1893,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             <Button
               variant="primary"
               size="lg"
-              onClick={() => setCurrentStep(2)}
+              onClick={handleContinueToStep2}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               Continue to Floor Plan Designer
@@ -1567,6 +1906,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       {currentStep === 2 && (
         <div className="space-y-4">
           <GenericVisualStudio
+            key={studioKey}
             exhibitionTitle={basicInfo.title || 'Untitled Exhibition'}
             initialLayoutData={layoutData}
             initialStalls={stalls as any}
@@ -1580,7 +1920,20 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               setLayoutData(savedLayout);
               setStalls(savedStalls as any);
               try {
-                if (id && floorPlanId) {
+                const existingId = eventDbId || id;
+                if (existingId && floorPlanId) {
+                  await exhibitionService.updateExhibition(existingId, {
+                    title: basicInfo.title,
+                    description: basicInfo.description,
+                    venue: basicInfo.venue,
+                    address: basicInfo.address,
+                    city: basicInfo.city,
+                    state: basicInfo.state,
+                    latitude: basicInfo.latitude,
+                    longitude: basicInfo.longitude,
+                    category: basicInfo.category,
+                    totalStalls: savedStalls.length,
+                  });
                   await floorPlanService.syncFloorPlan(floorPlanId, {
                     name: hallConfig.hallName,
                     width: savedLayout.canvasWidth,
@@ -1593,8 +1946,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     message: 'Floor plan layout saved successfully to database!',
                     type: 'success',
                   });
-                } else if (id && !floorPlanId) {
-                  const ev = await exhibitionService.getExhibitionBySlug(id);
+                } else if (existingId && !floorPlanId) {
+                  const ev = await exhibitionService.getExhibitionBySlug(existingId);
                   const fp = ev?.floorPlans?.[0];
                   if (fp) {
                     setFloorPlanId(fp.id);
@@ -1610,6 +1963,47 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       message: 'Floor plan layout saved successfully to database!',
                       type: 'success',
                     });
+                  } else {
+                    const updated = await exhibitionService.updateExhibition(ev?.id || existingId, {
+                      title: basicInfo.title,
+                      description: basicInfo.description,
+                      venue: basicInfo.venue,
+                      address: basicInfo.address,
+                      city: basicInfo.city,
+                      state: basicInfo.state,
+                      latitude: basicInfo.latitude,
+                      longitude: basicInfo.longitude,
+                      category: basicInfo.category,
+                      totalStalls: savedStalls.length,
+                      floorPlans: [
+                        {
+                          name: hallConfig.hallName || 'Hall A',
+                          width: savedLayout.canvasWidth || 1400,
+                          height: savedLayout.canvasHeight || 850,
+                          layoutData: savedLayout,
+                          stalls: savedStalls.map((s) => ({
+                            stallNumber: s.stallNumber,
+                            name: s.name,
+                            xPosition: s.xPosition,
+                            yPosition: s.yPosition,
+                            width: s.width,
+                            height: s.height,
+                            areaSqFt: s.areaSqFt,
+                            category: s.category,
+                            price: s.price,
+                            status: s.status,
+                          })),
+                        },
+                      ],
+                    });
+                    if (updated?.floorPlans?.[0]?.id) {
+                      setFloorPlanId(updated.floorPlans[0].id);
+                    }
+                    await showAlert({
+                      title: 'Floor Plan Saved',
+                      message: 'Floor plan layout created and saved successfully to database!',
+                      type: 'success',
+                    });
                   }
                 } else {
                   const payload = {
@@ -1618,8 +2012,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     edition: basicInfo.edition || undefined,
                     eventCode: basicInfo.eventCode || undefined,
                     spcode: basicInfo.spcode || undefined,
+                    category: basicInfo.category,
                     venue: basicInfo.venue || 'Exhibition Venue',
+                    address: basicInfo.address,
                     city: basicInfo.city || 'City',
+                    state: basicInfo.state,
+                    latitude: basicInfo.latitude,
+                    longitude: basicInfo.longitude,
                     startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
                     endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
                     bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
@@ -1649,6 +2048,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   const created = await exhibitionService.createExhibition(payload as any);
                   if (created?.floorPlans?.[0]?.id) {
                     setFloorPlanId(created.floorPlans[0].id);
+                  }
+                  if (created?.id) {
+                    setEventDbId(created.id);
                   }
                   if (created?.slug) {
                     navigate(`/admin/events/${created.slug}/edit`, { replace: true });

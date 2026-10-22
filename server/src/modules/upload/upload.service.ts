@@ -3,17 +3,32 @@ import { env } from '../../config/env.js';
 import { ApiError } from '../../utils/apiError.js';
 
 // Configure Cloudinary SDK if credentials exist
-if (env.CLOUDINARY_URL) {
+const cleanStr = (val?: string) => (val || '').replace(/['"]/g, '').trim();
+
+const cloudName = cleanStr(env.CLOUDINARY_CLOUD_NAME);
+const apiKey = cleanStr(env.CLOUDINARY_API_KEY);
+const apiSecret = cleanStr(env.CLOUDINARY_API_SECRET);
+const cloudinaryUrl = cleanStr(env.CLOUDINARY_URL);
+
+if (cloudName && apiKey && apiSecret) {
   cloudinary.config({
-    cloudinary_url: env.CLOUDINARY_URL,
-  });
-} else if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) {
-  cloudinary.config({
-    cloud_name: env.CLOUDINARY_CLOUD_NAME,
-    api_key: env.CLOUDINARY_API_KEY,
-    api_secret: env.CLOUDINARY_API_SECRET,
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
     secure: true,
   });
+} else if (cloudinaryUrl) {
+  const match = cloudinaryUrl.match(/^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/);
+  if (match) {
+    cloudinary.config({
+      api_key: match[1],
+      api_secret: match[2],
+      cloud_name: match[3],
+      secure: true,
+    });
+  } else {
+    process.env.CLOUDINARY_URL = cloudinaryUrl;
+  }
 }
 
 export class UploadService {
@@ -27,17 +42,12 @@ export class UploadService {
 
     // Check if Cloudinary is configured
     const isConfigured = Boolean(
-      env.CLOUDINARY_URL ||
-        (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET)
+      (cloudinary.config().cloud_name && cloudinary.config().api_key && cloudinary.config().api_secret) ||
+        (cloudName && apiKey && apiSecret)
     );
 
     if (!isConfigured) {
       console.warn('⚠️ Cloudinary credentials not fully configured in env. Returning raw image URL or fallback.');
-      // If it's already an HTTP(S) URL, return as-is
-      if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
-        return { url: imageData, public_id: '' };
-      }
-      // Return provided image data
       return { url: imageData, public_id: '' };
     }
 
@@ -55,6 +65,10 @@ export class UploadService {
       };
     } catch (err: any) {
       console.error('❌ Cloudinary upload error:', err);
+      // Fallback gracefully to data URL or image URL so the user flow is never blocked
+      if (imageData.startsWith('data:') || imageData.startsWith('http://') || imageData.startsWith('https://')) {
+        return { url: imageData, public_id: '' };
+      }
       throw ApiError.internal(err.message || 'Failed to upload image to Cloudinary.');
     }
   }

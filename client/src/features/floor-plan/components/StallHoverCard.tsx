@@ -4,7 +4,7 @@ import { StallStatusBadge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
-import { X, Lock, ArrowRight, Maximize2, Tag } from 'lucide-react';
+import { X, Lock, ArrowRight, Maximize2, Tag, Sliders } from 'lucide-react';
 
 interface StallHoverCardProps {
   stall: Stall;
@@ -63,6 +63,16 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
       {/* Specifications */}
       <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2 text-xs text-slate-700 dark:text-slate-300">
         <div className="flex justify-between items-center">
+          <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+            <Sliders className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Size & Dimensions:
+          </span>
+          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+            {stall.name && stall.name !== `Stall ${stall.stallNumber}`
+              ? stall.name
+              : `${(stall.width / 20).toFixed(1)}×${(stall.height / 20).toFixed(1)}m`}
+          </span>
+        </div>
+        <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
           <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
             <Maximize2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Physical Area:
           </span>

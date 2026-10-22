@@ -109,5 +109,17 @@ export class BookingsController {
       data: result.booking,
     });
   };
+
+  static delete = async (req: AuthenticatedRequest, res: Response) => {
+    const bookingId = req.params.id;
+    const result = await BookingsService.deleteBooking(bookingId);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
 }
+
 

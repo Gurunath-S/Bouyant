@@ -99,11 +99,15 @@ export const SuperAdminUsersPage: React.FC = () => {
 
   const [editForm, setEditForm] = useState<UpdateUserPayload>({
     name: '',
+    email: '',
+    username: '',
     phone: '',
     spcode: '',
   });
 
   const [newPassword, setNewPassword] = useState('');
+  const [resetUsername, setResetUsername] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -264,10 +268,30 @@ export const SuperAdminUsersPage: React.FC = () => {
     setEditUserPages(getUserEffectivePageAccess(user));
     setEditForm({
       name: user.name,
+      email: user.email,
+      username: user.username || '',
       phone: user.phone || '',
       spcode: user.spcode || '',
     });
     setFeedbackMsg(null);
+  };
+
+  const handleOpenReset = (user: AdminStaffUser) => {
+    setResetTargetUser(user);
+    setNewPassword('');
+    setResetUsername(user.username || '');
+    setShowResetPassword(false);
+    setSendNotificationEmail(true);
+  };
+
+  const generateRandomPassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+    let pwd = 'Buoy@';
+    for (let i = 0; i < 6; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(pwd);
+    setShowResetPassword(true);
   };
 
   const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') => {
@@ -334,14 +358,18 @@ export const SuperAdminUsersPage: React.FC = () => {
     if (!resetTargetUser || !newPassword) return;
     try {
       setActionLoading(true);
-      const res = await userService.resetPassword(resetTargetUser.id, newPassword, sendNotificationEmail);
+      const usernameArg = resetUsername.trim() !== (resetTargetUser.username || '') ? resetUsername.trim() : undefined;
+      const res = await userService.resetPassword(resetTargetUser.id, newPassword, sendNotificationEmail, usernameArg);
       setFeedbackMsg({
         type: 'success',
         text: res.message || 'Password reset successfully.',
       });
       setResetTargetUser(null);
       setNewPassword('');
+      setResetUsername('');
+      setShowResetPassword(false);
       setSendNotificationEmail(true);
+      await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
     } catch (err: any) {
       setFeedbackMsg({
         type: 'error',
@@ -678,10 +706,17 @@ export const SuperAdminUsersPage: React.FC = () => {
                           >
                             {user.name}
                           </Link>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Mail className="w-3 h-3 text-slate-400" />
-                            {user.email}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              {user.email}
+                            </p>
+                            {user.username && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-mono text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                                @{user.username}
+                              </span>
+                            )}
+                          </div>
                           {user.phone && (
                             <p className="text-[10px] text-slate-400 flex items-center gap-1">
                               <Phone className="w-2.5 h-2.5 text-slate-400" />
@@ -819,12 +854,9 @@ export const SuperAdminUsersPage: React.FC = () => {
                         </button>
 
                         <button
-                          onClick={() => {
-                            setResetTargetUser(user);
-                            setNewPassword('');
-                          }}
+                          onClick={() => handleOpenReset(user)}
                           className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
-                          title="Reset Password"
+                          title="Reset Password & Credentials"
                           aria-label={`Reset password for ${user.name}`}
                         >
                           <KeyRound className="w-3.5 h-3.5" />
@@ -1584,7 +1616,7 @@ export const SuperAdminUsersPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Full Name *
@@ -1595,6 +1627,33 @@ export const SuperAdminUsersPage: React.FC = () => {
                 value={editForm.name || ''}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Email Address *
+              </label>
+              <Input
+                type="email"
+                required
+                value={editForm.email || ''}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Portal Username
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. client_username"
+                value={editForm.username || ''}
+                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
             </div>
 
             <div>
@@ -1768,29 +1827,106 @@ export const SuperAdminUsersPage: React.FC = () => {
         onClose={() => {
           setResetTargetUser(null);
           setNewPassword('');
+          setResetUsername('');
+          setShowResetPassword(false);
           setSendNotificationEmail(true);
         }}
-        title={`Reset Password: ${resetTargetUser?.name}`}
+        title={`Reset Password & Credentials: ${resetTargetUser?.name}`}
+        maxWidth="lg"
       >
         <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs">
-          <p className="text-slate-600 dark:text-slate-300">
-            Set a new temporary or permanent password for <strong>{resetTargetUser?.email}</strong>.
-          </p>
+          {/* User & Company Summary Card */}
+          {resetTargetUser && (
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center text-xs">
+                    {resetTargetUser.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                      {resetTargetUser.name}
+                    </h4>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {resetTargetUser.email}
+                    </span>
+                  </div>
+                </div>
+                {getRoleBadge(resetTargetUser.role)}
+              </div>
 
+              {resetTargetUser.company && (
+                <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 flex items-center gap-1 font-medium">
+                    <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <strong>{resetTargetUser.company.name}</strong>
+                  </span>
+                  <span className="font-mono text-slate-400">
+                    Code: {resetTargetUser.company.companyCode}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Username Change / Inspection Field */}
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              New Password * (min 8 characters)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                Portal Username / Login Identifier
+              </label>
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+                Can be updated alongside password
+              </span>
+            </div>
             <Input
-              type="password"
-              required
-              minLength={8}
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              type="text"
+              placeholder="e.g. client_username"
+              value={resetUsername}
+              onChange={(e) => setResetUsername(e.target.value)}
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Users can sign in using either this username or their registered email address.
+            </p>
           </div>
 
+          {/* New Password Field */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                New Password * <span className="font-normal text-slate-400">(min 8 characters)</span>
+              </label>
+              <button
+                type="button"
+                onClick={generateRandomPassword}
+                className="text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Generate Secure Password
+              </button>
+            </div>
+            <div className="relative">
+              <Input
+                type={showResetPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                placeholder="Enter or generate temporary password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(!showResetPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                title={showResetPassword ? 'Hide password' : 'Show password'}
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Email Notification Option */}
           <div className="pt-1">
             <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <input
@@ -1801,16 +1937,25 @@ export const SuperAdminUsersPage: React.FC = () => {
               />
               <div className="flex-1">
                 <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
-                  Send notification email to user
+                  Email new login credentials to user ({resetTargetUser?.email})
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {sendNotificationEmail
-                    ? `An email notification with login credentials will be sent to ${resetTargetUser?.email}`
+                    ? `An automated secure notification containing their username, registered email, and this temporary password will be sent directly to ${resetTargetUser?.email}.`
                     : 'No email will be sent. The user password will be silently updated in the system.'}
                 </span>
               </div>
             </label>
           </div>
+
+          {sendNotificationEmail && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Safety Notice:</strong> The new password will be transmitted securely to the user's registered email address with instructions to change it upon first login.
+              </span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <Button
@@ -1820,6 +1965,8 @@ export const SuperAdminUsersPage: React.FC = () => {
               onClick={() => {
                 setResetTargetUser(null);
                 setNewPassword('');
+                setResetUsername('');
+                setShowResetPassword(false);
                 setSendNotificationEmail(true);
               }}
             >
@@ -1832,7 +1979,7 @@ export const SuperAdminUsersPage: React.FC = () => {
               isLoading={actionLoading}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
             >
-              Set New Password
+              Set New Password & Save
             </Button>
           </div>
         </form>

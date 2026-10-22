@@ -69,6 +69,7 @@ export class UsersService {
       where.OR = [
         { name: { contains: s, mode: 'insensitive' } },
         { email: { contains: s, mode: 'insensitive' } },
+        { username: { contains: s, mode: 'insensitive' } },
         { spcode: { contains: s, mode: 'insensitive' } },
         { phone: { contains: s, mode: 'insensitive' } },
         { company: { name: { contains: s, mode: 'insensitive' } } },
@@ -112,6 +113,7 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        username: true,
         phone: true,
         role: true,
         spcode: true,
@@ -246,6 +248,7 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        username: true,
         phone: true,
         role: true,
         spcode: true,
@@ -480,6 +483,45 @@ export class UsersService {
       throw ApiError.forbidden('Platform Super Admin details cannot be modified through this endpoint.');
     }
 
+    // Email uniqueness and update
+    let email = user.email;
+    if (input.email !== undefined) {
+      const cleanEmail = input.email.trim().toLowerCase();
+      if (!cleanEmail) {
+        throw ApiError.badRequest('Email address cannot be empty.');
+      }
+      if (cleanEmail !== user.email.toLowerCase()) {
+        const existingEmail = await prisma.user.findFirst({
+          where: {
+            email: { equals: cleanEmail, mode: 'insensitive' },
+            NOT: { id },
+          },
+        });
+        if (existingEmail) {
+          throw ApiError.conflict(`Email '${cleanEmail}' is already registered to another user.`);
+        }
+        email = cleanEmail;
+      }
+    }
+
+    // Username uniqueness and update
+    let username = user.username;
+    if (input.username !== undefined) {
+      const cleanUsername = input.username ? input.username.trim() : null;
+      if (cleanUsername && cleanUsername !== user.username) {
+        const existingUsername = await prisma.user.findFirst({
+          where: {
+            username: { equals: cleanUsername, mode: 'insensitive' },
+            NOT: { id },
+          },
+        });
+        if (existingUsername) {
+          throw ApiError.conflict(`Username '${cleanUsername}' is already taken by another user.`);
+        }
+      }
+      username = cleanUsername;
+    }
+
     let spcode = user.spcode;
     if (input.spcode !== undefined) {
       const cleanSp = input.spcode ? input.spcode.trim().toUpperCase() : null;
@@ -498,6 +540,8 @@ export class UsersService {
       where: { id },
       data: {
         name: input.name ? input.name.trim() : undefined,
+        email: input.email !== undefined ? email : undefined,
+        username: input.username !== undefined ? username : undefined,
         phone: input.phone !== undefined ? (input.phone ? input.phone.trim() : null) : undefined,
         spcode,
         role: input.role ? (input.role as UserRole) : undefined,
@@ -507,6 +551,7 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        username: true,
         phone: true,
         role: true,
         spcode: true,
@@ -553,7 +598,8 @@ export class UsersService {
     id: string,
     newPassword: string,
     sendEmailNotification: boolean = true,
-    actingAdmin?: TokenPayload
+    actingAdmin?: TokenPayload,
+    newUsername?: string
   ) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
@@ -568,6 +614,27 @@ export class UsersService {
     // ADMIN can only reset passwords for CLIENT (exhibitor) and STAFF accounts, not other ADMINs
     if (actingAdmin && actingAdmin.role === 'ADMIN' && user.role === 'ADMIN') {
       throw ApiError.forbidden('Administrators can only reset passwords for Exhibitors and Staff accounts.');
+    }
+
+    let finalUsername = user.username;
+    if (newUsername !== undefined && newUsername !== null) {
+      const cleanUsername = newUsername.trim();
+      if (cleanUsername && cleanUsername !== user.username) {
+        const existingUsername = await prisma.user.findFirst({
+          where: {
+            username: { equals: cleanUsername, mode: 'insensitive' },
+            NOT: { id: user.id },
+          },
+        });
+        if (existingUsername) {
+          throw ApiError.conflict(`Username '${cleanUsername}' is already taken by another user.`);
+        }
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { username: cleanUsername },
+        });
+        finalUsername = cleanUsername;
+      }
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -585,7 +652,7 @@ export class UsersService {
         data: {
           userId: user.id,
           title: 'Administrative Password Reset',
-          message: `Password was reset by administrator (${adminIdentifier}) for account username "${user.username || user.email}" at ${new Date().toISOString()}.`,
+          message: `Password was reset by administrator (${adminIdentifier}) for account username "${finalUsername || user.email}" at ${new Date().toISOString()}.`,
           type: 'SECURITY_ALERT',
         },
       });
@@ -599,7 +666,8 @@ export class UsersService {
         const emailResult = await EmailService.sendAdminPasswordResetNotificationEmail({
           toEmail: user.email,
           toName: user.name,
-          username: user.username || undefined,
+          username: finalUsername || undefined,
+          password: newPassword,
         });
         emailSent = emailResult.status === 'ACCEPTED';
       } catch (emailErr) {
@@ -608,14 +676,15 @@ export class UsersService {
     }
 
     const message = emailSent
-      ? `Password for ${user.name} (${user.username || user.email}) has been reset and email notification was sent.`
+      ? `Password for ${user.name} (${finalUsername || user.email}) has been reset and login credentials sent to ${user.email}.`
       : sendEmailNotification
-      ? `Password for ${user.name} (${user.username || user.email}) has been reset successfully.`
-      : `Password for ${user.name} (${user.username || user.email}) has been reset successfully (notification skipped).`;
+      ? `Password for ${user.name} (${finalUsername || user.email}) has been reset successfully.`
+      : `Password for ${user.name} (${finalUsername || user.email}) has been reset successfully (notification skipped).`;
 
     return {
       message,
       emailSent,
+      username: finalUsername,
     };
   }
 }

@@ -185,8 +185,9 @@ export const AdminCompaniesPage: React.FC = () => {
 
     // Navigate to the exhibition booking wizard with company context
     navigate(`/exhibitions/${targetExpo.slug}/book`, {
-      state: { from: '/admin/companies', fromLabel: 'Exhibitors Directory' },
+      state: { from: '/admin/companies', fromLabel: 'Exhibitors Directory', adminBooking: true },
     });
+
   };
 
   return (

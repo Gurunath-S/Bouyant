@@ -119,7 +119,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
       {/* Stalls Filter Bar */}
       <div className="shrink-0 flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <StallFilterBar stalls={stalls} showZoomControls={false} halls={layoutData?.halls} />
+          <StallFilterBar stalls={stalls} layoutData={layoutData} showZoomControls={false} halls={layoutData?.halls} />
         </div>
       </div>
 
@@ -201,8 +201,8 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
         </div>
       ) : (
         <div className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xs text-slate-500 rounded-xl text-center text-xs font-medium border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Click any available green stall to select your booth(s). Multiple stalls can be reserved together.
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+          Click any available stall on the floor plan to select your booth(s). Multiple stalls can be reserved together.
         </div>
       )}
     </div>

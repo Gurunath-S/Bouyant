@@ -454,15 +454,15 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Dimension Label</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Booth Display Tag</label>
               <input
                 type="text"
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
-                placeholder={`${effectiveWidthMeters}×${effectiveDepthMeters}`}
+                placeholder={`${effectiveWidthMeters}×${effectiveDepthMeters}m`}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
               />
-              <span className="text-[10px] text-slate-400">Rendered under ID</span>
+              <span className="text-[10px] text-slate-400">Printed on booth badge</span>
             </div>
           </div>
 
@@ -523,7 +523,8 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
                   min="0"
                   value={price}
                   onChange={(e) => setPrice(Math.max(0, Number(e.target.value)))}
-                  className="w-full pl-6 pr-2 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono font-bold text-slate-800"
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full pl-6 pr-2 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono font-bold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>

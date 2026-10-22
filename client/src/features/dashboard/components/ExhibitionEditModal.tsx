@@ -40,6 +40,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
     title: '',
     description: '',
     venue: '',
+    address: '',
     city: '',
     startDate: '',
     endDate: '',
@@ -76,6 +77,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           title: exhibition.title || '',
           description: exhibition.description || '',
           venue: exhibition.venue || '',
+          address: exhibition.address || '',
           city: exhibition.city || '',
           startDate: sIso,
           endDate: formatToDateInput(exhibition.endDate),
@@ -191,6 +193,17 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           </div>
         </div>
 
+        <div>
+          <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1">
+            Full Venue Address
+          </label>
+          <Input
+            value={formData.address}
+            onChange={(e) => handleChange('address', e.target.value)}
+            placeholder="e.g. NSE Nesco Complex, Off Western Express Hwy, Goregaon East"
+          />
+        </div>
+
         {/* Interactive Pin Map */}
         <div className="space-y-1">
           <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1">
@@ -201,10 +214,12 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
             longitude={coordinates.lng}
             venueName={formData.venue}
             cityName={formData.city}
+            address={formData.address}
             heightClass="h-56"
             onChangeCoordinates={(lat, lng) => setCoordinates({ lat, lng })}
             onSyncAddress={(addrData) => {
               if (addrData.city) handleChange('city', addrData.city);
+              if (addrData.address) handleChange('address', addrData.address);
             }}
             title="Interactive Venue Location Pin"
           />
@@ -283,11 +298,11 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
 
         {/* Multi-Option Media & Banner Picker (No Presets) */}
         <MultiImagePicker
-          images={images}
-          coverImage={formData.bannerUrl}
+          images={images || []}
+          coverImage={formData.bannerUrl || ''}
           onChangeImages={(newImages, newCover) => {
             setImages(newImages);
-            handleChange('bannerUrl', newCover);
+            handleChange('bannerUrl', newCover || newImages[0] || '');
           }}
           label="Exhibition Banners & Promotional Media"
         />

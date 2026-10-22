@@ -29,7 +29,7 @@ export interface InvoicePdfData {
     startDate?: Date;
     endDate?: Date;
   };
-
+  isTamilNadu: boolean;
   stalls: {
     stallNumber: string;
     category: string;
@@ -119,8 +119,8 @@ async function getSharedBrowser(): Promise<Browser> {
           '--disable-gpu',
           '--disable-extensions',
           '--no-first-run',
-          '--no-zygote',
-          '--single-process',
+          // '--no-zygote',
+          // '--single-process',
         ],
       });
       b.on('disconnected', () => {
@@ -284,7 +284,8 @@ export class InvoicePdfService {
     const contactPerson = (booking?.contactPerson && booking.contactPerson.trim()) || comp.contactPerson || '';
     const contactEmail = (booking?.contactEmail && booking.contactEmail.trim()) || comp.email || '';
     const contactPhone = (booking?.contactPhone && booking.contactPhone.trim()) || comp.mobile || '';
-
+    const buyerState = String(comp?.state || "").trim().toLowerCase();
+    const isTamilNadu = buyerState === "tamil nadu";
     return {
       invoiceNumber: invoice.invoiceNumber || '160',
       invoiceDate: invoice.createdAt ? new Date(invoice.createdAt) : new Date(),
@@ -309,6 +310,7 @@ export class InvoicePdfService {
         startDate: booking?.exhibition?.startDate ? new Date(booking.exhibition.startDate) : undefined,
         endDate: booking?.exhibition?.endDate ? new Date(booking.exhibition.endDate) : undefined,
       },
+      isTamilNadu,
       stalls,
       taxableAmount: baseAmt,
       cgstAmount: halfTax,
@@ -400,7 +402,7 @@ export class InvoicePdfService {
 
     const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
 
-    return `<!DOCTYPE html>
+       return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8" />
@@ -419,7 +421,7 @@ export class InvoicePdfService {
   }
   .invoice-container {
     width: 100%;
-    border: 1.5px solid #000;
+    border: 1px solid #000;
     box-sizing: border-box;
   }
   table {
@@ -439,7 +441,7 @@ export class InvoicePdfService {
 
   /* Header Box */
   .supplier-box {
-    border-right: 1.5px solid #000;
+    border-right: 1px solid #000;
     line-height: 1.35;
   }
   .supplier-name {
@@ -450,11 +452,11 @@ export class InvoicePdfService {
 
   /* Items Table */
   .items-table {
-    border-top: 1.5px solid #000;
-    border-bottom: 1.5px solid #000;
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
   }
   .items-table th {
-    border-bottom: 1.5px solid #000;
+    border-bottom: 1px solid #000;
     border-right: 1px solid #000;
     font-weight: normal;
     font-size: 10.5px;
@@ -486,8 +488,8 @@ export class InvoicePdfService {
 
   /* Tax Breakdown Table */
   .tax-table {
-    border-top: 1.5px solid #000;
-    border-bottom: 1.5px solid #000;
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
     text-align: center;
     font-size: 10px;
   }
@@ -496,16 +498,19 @@ export class InvoicePdfService {
     border-bottom: 1px solid #000;
     padding: 4px;
   }
-  .tax-table th:last-child, .tax-table td:last-child {
-    border-right: none;
-  }
+
+.tax-table th:last-child,
+.tax-table td:last-child {
+  border-right: 1px solid #000;
+}
+
   .tax-table tr:last-child td {
     border-bottom: none;
   }
 
   /* Bottom Details */
   .bottom-table {
-    border-top: 1.5px solid #000;
+    border-top: 1px solid #000;
   }
   .bottom-table td {
     padding: 6px;
@@ -516,55 +521,59 @@ export class InvoicePdfService {
 <body>
 
 <div class="invoice-container">
-  <!-- Top Supplier & Meta Header -->
-  <table>
-    <tr>
-      <!-- Top Left: Supplier Info -->
-      <td style="width: 50%;" class="supplier-box">
-        <div class="supplier-name">BUOYANT MEDIA</div>
-        <div>NO 57A, 2ND FLOOR,</div>
-        <div>RAMASAMY STREET, KK PUDUR,</div>
-        <div>NSR ROAD, CBE-641038</div>
-        <div>MOBILE : 9500288222</div>
-        <div>GSTIN : 33ACXPH4512M1ZA</div>
-        <div>State Name : Tamil Nadu, Code : 33</div>
-      </td>
+  <!-- Top Supplier & Buyer details -->
+<div style="display:flex; font-size:11px; line-height:1.35;">
 
-      <!-- Top Right: Invoice No & Dated -->
-      <td style="width: 50%; padding: 0;">
-        <table style="height: 100%;">
-          <tr>
-            <td style="width: 50%; border-right: 1px solid #000;">
-              <div>Invoice No.</div>
-              <div class="bold" style="font-size: 12px; text-decoration: underline; margin-top: 4px;">${data.invoiceNumber}</div>
-            </td>
-            <td style="width: 50%;">
-              <div>Dated</div>
-              <div class="bold" style="font-size: 12px; margin-top: 4px;">${formatDate(data.invoiceDate)}</div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+  <!-- LEFT COLUMN (50%): Supplier on top, Buyer below -->
+  <div style="width:50%; display:flex; flex-direction:column; border-right:1px solid #000;">
 
-  <!-- Buyer (Bill To) Box -->
-  <table style="border-top: 1.5px solid #000;">
-    <tr>
-      <td style="padding: 6px; line-height: 1.35;">
-        <div style="font-size: 10px;">Buyer (Bill To)</div>
-        <div class="bold" style="font-size: 13px; margin-top: 2px;">${(data.company.name || 'EXHIBITOR COMPANY').toUpperCase()}</div>
-        ${data.company.address ? `<div>${data.company.address.toUpperCase()}</div>` : ''}
-        <div>${[data.company.city, data.company.state, data.company.pinCode].filter(Boolean).join(', ').toUpperCase()}</div>
-        <div>GSTIN/UIN : ${data.company.gstin || 'URP'}</div>
-        ${data.company.pan ? `<div>PAN : ${data.company.pan.toUpperCase()}</div>` : ''}
-        ${data.company.contactPerson ? `<div>Contact Person : ${data.company.contactPerson}</div>` : ''}
-        ${data.company.mobile || data.company.email ? `<div>Contact : ${[data.company.mobile, data.company.email].filter(Boolean).join(' | ')}</div>` : ''}
-        <div>State Name : ${data.company.state || 'Tamil Nadu'}</div>
-      </td>
-    </tr>
-  </table>
+    <!-- Supplier -->
+    <div style="padding:6px; border-bottom:1px solid #000;">
+      <div style="font-weight:bold; font-size:13px;">BUOYANT MEDIA</div>
+      <div>NO 57A, 2ND FLOOR,</div>
+      <div>RAMASAMY STREET, KK PUDUR,</div>
+      <div>NSR ROAD, CBE-641038</div>
+      <div>MOBILE : 9500288222</div>
+      <div>GSTIN : 33ACXPH4512M1ZA</div>
+      <div>State Name : Tamil Nadu, Code : 33</div>
+    </div>
 
+    <!-- Buyer (takes remaining height) -->
+    <div style="padding:6px; flex:1;">
+      <div style="font-size:10px;">Buyer (Bill To)</div>
+      <div style="font-weight:bold; font-size:13px; margin-top:2px;">${(data.company.name || 'EXHIBITOR COMPANY').toUpperCase()}</div>
+      ${data.company.address ? `<div>${data.company.address.toUpperCase()}</div>` : ''}
+      <div>${[data.company.city, data.company.state, data.company.pinCode].filter(Boolean).join(', ').toUpperCase()}</div>
+      <div>GSTIN/UIN : ${data.company.gstin || 'URP'}</div>
+      ${data.company.pan ? `<div>PAN : ${data.company.pan.toUpperCase()}</div>` : ''}
+      ${data.company.contactPerson ? `<div>Contact Person : ${data.company.contactPerson}</div>` : ''}
+      ${data.company.mobile || data.company.email ? `<div>Contact : ${[data.company.mobile, data.company.email].filter(Boolean).join(' | ')}</div>` : ''}
+      <div>State Name : ${data.company.state || 'Tamil Nadu'}</div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN (50%): Invoice/Date on top (30%), empty below (70%) -->
+  <div style="width:50%; display:flex; flex-direction:column;">
+
+    <!-- Top 30%: Invoice No + Dated -->
+    <div style="flex:2; display:flex; border-bottom:1px solid #000;">
+      <div style="width:50%; padding:6px; border-right:1px solid #000;">
+        <div>Invoice No.</div>
+        <div style="font-weight:bold; font-size:12px; margin-top:4px;">${data.invoiceNumber}</div>
+      </div>
+      <div style="width:50%; padding:6px;">
+        <div>Dated</div>
+        <div style="font-weight:bold; font-size:12px; margin-top:4px;">${formatDate(data.invoiceDate)}</div>
+      </div>
+    </div>
+
+    <!-- Bottom 70%: empty space for extra details (consignee, PO no, etc.) -->
+    <div style="flex:8; padding:6px;">
+      <!-- add extra company / delivery details here later -->
+    </div>
+  </div>
+
+</div>
   <!-- Items Table -->
   <table class="items-table">
     <thead>
@@ -582,34 +591,32 @@ export class InvoicePdfService {
         <td class="text-right">1</td>
         <td>
           <div class="item-desc-title">STALL NO : ${primaryStall.stallNumber} (${primaryStall.category.toUpperCase()})</div>
-          <div class="bold">${primaryStall.areaSqFt || 100} SQFT</div>
+          <div class="bold">${primaryStall.areaSqFt || 100} SQM</div>
           <div class="bold" style="margin-top: 4px;">${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),</div>
           <div class="bold">DATE: ${formatExhibitionDateRange()},</div>
           <div class="bold">VENUE: ${data.exhibition.venue.toUpperCase()}</div>
           <div class="bold">${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.</div>
 
           <div class="output-tax-indent">
-            <div>OUTPUT CGST</div>
-            <div>OUTPUT SGST</div>
+            ${data.isTamilNadu ? `<div>OUTPUT CGST</div><div>OUTPUT SGST</div>` : `<div>OUTPUT IGST</div>`}
           </div>
         </td>
-        <td class="text-center">9983</td>
-        <td class="text-right bold">${totalQty} SQFT</td>
-        <td class="text-center">SQFT</td>
+        <td class="text-center"></td>
+        <td class="text-right bold">${totalQty} SQM</td>
+        <td class="text-center">SQM</td>
         <td style="padding: 0;">
           <div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
             <div style="padding: 5px; text-align: right; font-weight: bold;">${formatMoney(data.taxableAmount)}</div>
             <div style="border-top: 1px solid #000; padding: 5px; text-align: right; line-height: 1.6;">
               <div>${formatMoney(data.taxableAmount)}</div>
-              <div class="bold">${formatMoney(data.cgstAmount)}</div>
-              <div class="bold">${formatMoney(data.sgstAmount)}</div>
+              ${data.isTamilNadu ? `<div class="bold">${formatMoney(data.cgstAmount)}</div><div class="bold">${formatMoney(data.sgstAmount)}</div>` : `<div class="bold">${formatMoney(data.totalTax)}</div>`}
             </div>
           </div>
         </td>
       </tr>
 
       <!-- Total Row -->
-      <tr style="border-top: 1.5px solid #000; font-weight: bold;">
+      <tr style="border-top: 1px solid #000; font-weight: bold;">
         <td colspan="3" class="text-right" style="padding: 5px;">Total</td>
         <td class="text-right" style="padding: 5px;">${totalQty}</td>
         <td class="text-center" style="padding: 5px;">-</td>
@@ -619,7 +626,7 @@ export class InvoicePdfService {
   </table>
 
   <!-- Amount Chargeable in Words -->
-  <table style="border-bottom: 1.5px solid #000;">
+  <table style="border-bottom: 1px solid #000;">
     <tr>
       <td style="padding: 5px 6px;">
         <div style="font-size: 9.5px;">Amount Chargeable (in words)</div>
@@ -668,25 +675,33 @@ export class InvoicePdfService {
   </table>
 
   <!-- Tax Amount in Words -->
-  <div style="padding: 5px 6px; border-bottom: 1.5px solid #000; font-size: 10.5px;">
+  <div style="padding: 5px 6px; border-bottom: 1px solid #000; font-size: 10.5px;">
     Tax Amount (in words) : <span class="bold">${numberToIndianWords(data.totalTax)}</span>
   </div>
 
   <!-- Note & Bank Details Footer -->
-  <table class="bottom-table">
-    <tr>
-      <td style="width: 50%; border-right: 1.5px solid #000; vertical-align: top;">
-        <div class="bold">Note:</div>
-        <div style="font-size: 10px;">${data.note || 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media'}</div>
-      </td>
-      <td style="width: 50%; vertical-align: top;">
-        <div><span class="bold">BANK DETAILS</span> : <span class="bold">${data.bankDetails?.accountName || 'BUOYANT MEDIA'}</span></div>
-        <div>Bank Name : <span class="bold">${data.bankDetails?.bankName || 'THE FEDERAL BANK LTD'}</span></div>
-        <div>A/C No : <span class="bold">${data.bankDetails?.accountNumber || '18020200001046'}</span></div>
-        <div>Branch & IFSC Code : <span class="bold">${data.bankDetails?.branchAndIfsc || 'SAIBABA COLONY & FDRL0001802'}</span></div>
-      </td>
-    </tr>
-  </table>
+  <table class="bottom-table" style="width:100%; border-collapse:collapse; border:1px solid #000; border-top:none;">
+  <tr>
+    <!-- LEFT: Note (spans both rows) -->
+    <td rowspan="2" style="width:50%; border-right:1px solid #000; vertical-align:top; padding:6px;">
+      <div class="bold">Note:</div>
+      <div style="font-size:10px;">${data.note || 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media'}</div>
+    </td>
+
+    <!-- RIGHT ROW 1: Bank details -->
+    <td style="width:50%; vertical-align:top; padding:6px; border-bottom:1px solid #000;">
+      <div><span class="bold">BANK DETAILS</span> : <span class="bold">${data.bankDetails?.accountName || 'BUOYANT MEDIA'}</span></div>
+      <div>Bank Name : <span class="bold">${data.bankDetails?.bankName || 'THE FEDERAL BANK LTD'}</span></div>
+      <div>A/C No : <span class="bold">${data.bankDetails?.accountNumber || '18020200001046'}</span></div>
+      <div>Branch &amp; IFSC Code : <span class="bold">${data.bankDetails?.branchAndIfsc || 'SAIBABA COLONY & FDRL0001802'}</span></div>
+    </td>
+  </tr>
+
+  <!-- RIGHT ROW 2: Empty box for seal & signature -->
+  <tr>
+    <td style="height:70px; padding:6px;"></td>
+  </tr>
+</table>
 </div>
 
 </body>

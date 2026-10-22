@@ -24,8 +24,9 @@ export const exhibitionService = {
     return res.data;
   },
 
-  deleteExhibition: async (id: string): Promise<{ id: string; message: string }> => {
-    const res: any = await apiClient.delete(`/exhibitions/${id}`);
+  deleteExhibition: async (id: string, force = false): Promise<{ id: string; message: string }> => {
+    const query = force ? '?force=true' : '';
+    const res: any = await apiClient.delete(`/exhibitions/${id}${query}`);
     return res.data;
   },
 };

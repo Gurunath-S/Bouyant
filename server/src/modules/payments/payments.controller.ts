@@ -82,4 +82,16 @@ export class PaymentsController {
       },
     });
   };
+
+  static delete = async (req: AuthenticatedRequest, res: Response) => {
+    const paymentId = req.params.id;
+    const result = await PaymentsService.deletePayment(paymentId);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
 }
+

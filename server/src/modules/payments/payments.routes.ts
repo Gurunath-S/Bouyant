@@ -13,5 +13,7 @@ router.post('/balance/:bookingId', authenticateToken, asyncHandler(PaymentsContr
 router.use(authenticateToken);
 
 router.get('/', requirePermission(Permissions.PAYMENT_MANAGE), asyncHandler(PaymentsController.listAll));
+router.delete('/:id', requirePermission(Permissions.PAYMENT_DELETE), asyncHandler(PaymentsController.delete));
 
 export const paymentRoutes = router;
+

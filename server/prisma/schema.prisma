@@ -70,6 +70,13 @@ enum InvoiceStatus {
   VOID
 }
 
+enum ReminderStatus {
+  SENDING
+  PENDING
+  SENT
+  CANCELLED
+}
+
 model User {
   id                 String         @id @default(uuid())
   email              String
@@ -132,7 +139,12 @@ model Exhibition {
   slug            String           @unique
   description     String
   venue           String
+  address         String?
   city            String
+  state           String?
+  latitude        Float?
+  longitude       Float?
+  category        String?
   startDate       DateTime 
   endDate         DateTime
   bookingEndDate  DateTime?
@@ -247,6 +259,7 @@ model Booking {
   stalls           BookingStall[]
   payments         Payment[]
   invoices         Invoice[]
+  paymentReminders PaymentReminder[]
 
   @@index([bookingReference])
   @@index([companyId])
@@ -286,12 +299,14 @@ model Payment {
   installmentType   String?
   paymentMethod     String?
   failureReason     String?
+  nextPaymentDate   DateTime?
   paidAt            DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   booking          Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   invoice          Invoice?
+  paymentReminders PaymentReminder[]
 
   @@index([paymentReference])
   @@index([bookingId])
@@ -322,6 +337,23 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([bookingId])
   @@index([companyId])
+}
+
+model PaymentReminder {
+  id            String         @id @default(uuid())
+  bookingId     String
+  paymentId     String        
+  reminderDate  DateTime
+  status        ReminderStatus @default(PENDING)
+  sentAt        DateTime?
+  failureReason String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+ 
+  booking       Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payment       Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  @@index([reminderDate, status])
+  @@index([bookingId])
 }
 
 model Notification {

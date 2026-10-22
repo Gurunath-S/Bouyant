@@ -29,8 +29,10 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
 }) => {
   const [widthMeters, setWidthMeters] = useState<number>(3);
   const [depthMeters, setDepthMeters] = useState<number>(3);
+  const [widthFeet, setWidthFeet] = useState<number>(9.8);
+  const [depthFeet, setDepthFeet] = useState<number>(9.8);
   const [stallNumber, setStallNumber] = useState<string>(nextSuggestedNumber);
-  const [customLabel, setCustomLabel] = useState<string>('3×3');
+  const [customLabel, setCustomLabel] = useState<string>('3×3m');
   const [category, setCategory] = useState<StallCategory>('STANDARD');
   const [unit, setUnit] = useState<'m' | 'ft'>('m');
   const [price, setPrice] = useState<number>(50000);
@@ -42,8 +44,8 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   const pxPerMeter = 20;
 
   // Live calculations
-  const effectiveWidthMeters = unit === 'ft' ? Number((widthMeters * 0.3048).toFixed(2)) : widthMeters;
-  const effectiveDepthMeters = unit === 'ft' ? Number((depthMeters * 0.3048).toFixed(2)) : depthMeters;
+  const effectiveWidthMeters = unit === 'm' ? widthMeters : Number((widthFeet / 3.28084).toFixed(2));
+  const effectiveDepthMeters = unit === 'm' ? depthMeters : Number((depthFeet / 3.28084).toFixed(2));
   const areaSqMeters = Number((effectiveWidthMeters * effectiveDepthMeters).toFixed(1));
   const areaSqFt = Math.round(areaSqMeters * 10.764);
 
@@ -51,6 +53,8 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
     setUnit('m');
     setWidthMeters(preset.widthMeters);
     setDepthMeters(preset.depthMeters);
+    setWidthFeet(Number((preset.widthMeters * 3.28084).toFixed(1)));
+    setDepthFeet(Number((preset.depthMeters * 3.28084).toFixed(1)));
     setCategory(preset.category);
     if (autoNameDimension) {
       setCustomLabel(preset.label);
@@ -60,19 +64,63 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
     setPrice(basePrice);
   };
 
+  const handleUnitToggle = (newUnit: 'm' | 'ft') => {
+    if (newUnit === unit) return;
+    setUnit(newUnit);
+    if (newUnit === 'ft') {
+      const wFt = Number((widthMeters * 3.28084).toFixed(1));
+      const dFt = Number((depthMeters * 3.28084).toFixed(1));
+      setWidthFeet(wFt);
+      setDepthFeet(dFt);
+      if (autoNameDimension) {
+        setCustomLabel(`${wFt}×${dFt}ft`);
+      }
+    } else {
+      const wM = Number((widthFeet / 3.28084).toFixed(1));
+      const dM = Number((depthFeet / 3.28084).toFixed(1));
+      setWidthMeters(wM);
+      setDepthMeters(dM);
+      if (autoNameDimension) {
+        setCustomLabel(`${wM}×${dM}m`);
+      }
+    }
+  };
+
   const handleWidthChange = (val: number) => {
     const w = Math.max(0.5, val);
-    setWidthMeters(w);
-    if (autoNameDimension) {
-      setCustomLabel(`${w}×${depthMeters}`);
+    if (unit === 'm') {
+      setWidthMeters(w);
+      const wFt = Number((w * 3.28084).toFixed(1));
+      setWidthFeet(wFt);
+      if (autoNameDimension) {
+        setCustomLabel(`${w}×${depthMeters}m`);
+      }
+    } else {
+      setWidthFeet(w);
+      const wM = Number((w / 3.28084).toFixed(2));
+      setWidthMeters(wM);
+      if (autoNameDimension) {
+        setCustomLabel(`${w}×${depthFeet}ft`);
+      }
     }
   };
 
   const handleDepthChange = (val: number) => {
     const d = Math.max(0.5, val);
-    setDepthMeters(d);
-    if (autoNameDimension) {
-      setCustomLabel(`${widthMeters}×${d}`);
+    if (unit === 'm') {
+      setDepthMeters(d);
+      const dFt = Number((d * 3.28084).toFixed(1));
+      setDepthFeet(dFt);
+      if (autoNameDimension) {
+        setCustomLabel(`${widthMeters}×${d}m`);
+      }
+    } else {
+      setDepthFeet(d);
+      const dM = Number((d / 3.28084).toFixed(2));
+      setDepthMeters(dM);
+      if (autoNameDimension) {
+        setCustomLabel(`${widthFeet}×${d}ft`);
+      }
     }
   };
 
@@ -179,18 +227,25 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
             </div>
           </div>
 
-          {/* Custom Dimension Inputs & Units */}
+          {/* Section 1: Physical Footprint on Floor Plan */}
           <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-blue-600" /> Exact Dimensions
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-blue-600" />
+                  Physical Booth Dimensions (Canvas Footprint)
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Controls the real geometric width and depth drawn on the floor plan map.
+                </p>
+              </div>
+
               {/* Unit Toggle */}
-              <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 text-xs font-bold">
+              <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 text-xs font-bold shrink-0 self-start sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => setUnit('m')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  onClick={() => handleUnitToggle('m')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     unit === 'm' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -198,8 +253,8 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUnit('ft')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  onClick={() => handleUnitToggle('ft')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     unit === 'ft' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -210,36 +265,51 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Width ({unit})
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Frontage Width ({unit})
                 </label>
                 <input
                   type="number"
-                  step="0.5"
+                  step={unit === 'm' ? '0.5' : '1'}
                   min="0.5"
-                  value={widthMeters}
+                  value={unit === 'm' ? widthMeters : widthFeet}
                   onChange={(e) => handleWidthChange(Number(e.target.value))}
                   className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  {unit === 'm' ? `≈ ${(widthMeters * 3.28084).toFixed(1)} ft` : `≈ ${(widthFeet / 3.28084).toFixed(1)} m`}
+                </span>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Depth / Length ({unit})
                 </label>
                 <input
                   type="number"
-                  step="0.5"
+                  step={unit === 'm' ? '0.5' : '1'}
                   min="0.5"
-                  value={depthMeters}
+                  value={unit === 'm' ? depthMeters : depthFeet}
                   onChange={(e) => handleDepthChange(Number(e.target.value))}
                   className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  {unit === 'm' ? `≈ ${(depthMeters * 3.28084).toFixed(1)} ft` : `≈ ${(depthFeet / 3.28084).toFixed(1)} m`}
+                </span>
               </div>
+            </div>
+
+            {/* Calculated Footprint Summary */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-semibold text-slate-600 bg-white p-2 rounded-lg border border-slate-200">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Footprint: <strong className="text-slate-800">{effectiveWidthMeters}m × {effectiveDepthMeters}m</strong> ({areaSqMeters} sq.m / {areaSqFt} sq.ft)
+              </span>
+              <span className="text-slate-400 font-mono text-[10px]">Canvas: {Math.round(effectiveWidthMeters * pxPerMeter)}px × {Math.round(effectiveDepthMeters * pxPerMeter)}px</span>
             </div>
           </div>
 
-          {/* Stall Identification & Custom Label */}
+          {/* Section 2: Stall Identification & Display Badge */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -253,23 +323,33 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                 className="w-full px-3 py-2 text-xs font-mono font-bold uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
               />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Unique stall number on this floor plan
+              </span>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold text-slate-700">
-                  Custom Dimension Label / Name
+                  Booth Display Label (On Map)
                 </label>
                 <button
                   type="button"
                   onClick={() => {
                     const next = !autoNameDimension;
                     setAutoNameDimension(next);
-                    if (next) setCustomLabel(`${widthMeters}×${depthMeters}`);
+                    if (next) {
+                      setCustomLabel(unit === 'm' ? `${widthMeters}×${depthMeters}m` : `${widthFeet}×${depthFeet}ft`);
+                    }
                   }}
-                  className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                    autoNameDimension
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title={autoNameDimension ? 'Dimensions automatically format label' : 'Click to auto-sync with dimensions'}
                 >
-                  {autoNameDimension ? 'Manual Edit' : 'Auto 3×3'}
+                  {autoNameDimension ? '✓ Auto-Sync' : 'Custom'}
                 </button>
               </div>
               <input
@@ -279,9 +359,12 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                   setAutoNameDimension(false);
                   setCustomLabel(e.target.value);
                 }}
-                placeholder="e.g. 3×3, 6×3, VIP Suite"
+                placeholder="e.g. 3×3m, 10×10ft, VIP Pavilion"
                 className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Visual text printed on booth (doesn't alter physical canvas size)
+              </span>
             </div>
           </div>
 
@@ -315,7 +398,8 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                   min="0"
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
-                  className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>

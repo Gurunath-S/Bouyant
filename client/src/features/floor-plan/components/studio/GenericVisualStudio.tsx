@@ -22,6 +22,8 @@ import {
   CheckSquare,
   Ban,
   CheckCircle2,
+  Minimize2,
+  Maximize2,
 } from 'lucide-react';
 import {
   HallZone,
@@ -322,6 +324,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   useEffect(() => {
     if (isDraggingObj || isResizing) return;
 
+    const hasContent =
+      (halls && halls.length > 0) ||
+      (stalls && stalls.length > 0) ||
+      (facilities && facilities.length > 0) ||
+      (annotations && annotations.length > 0) ||
+      !!backgroundImageUrl;
+
+    if (!hasContent) {
+      localStorage.removeItem(autoSaveKey);
+      return;
+    }
+
     const timer = setTimeout(() => {
       try {
         const draft = {
@@ -360,6 +374,14 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   useEffect(() => {
     const handleBeforeUnload = () => {
       try {
+        const hasContent =
+          (halls && halls.length > 0) ||
+          (stalls && stalls.length > 0) ||
+          (facilities && facilities.length > 0) ||
+          (annotations && annotations.length > 0) ||
+          !!backgroundImageUrl;
+        if (!hasContent) return;
+
         const draft = {
           halls,
           facilities,
@@ -1068,12 +1090,20 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     height?: number;
     scaleMultiplier?: number;
     deltaPx?: number;
+    deltaW?: number;
+    deltaH?: number;
     keepFlush?: boolean;
   }) => {
     const selectedIds = new Set(selectedRefs.filter((r) => r.type === 'stall').map((r) => r.id));
     if (selectedIds.size === 0) return;
 
     const keepFlush = params.keepFlush !== false; // Default: maintain flush contact with no gaps
+
+    // Dimension snapping: dimensions must be preserved at 0.5m increments (10px) so nudges are never erased
+    const dimSnap = (val: number) => {
+      const step = snapToGrid ? Math.min(snapInterval * pxPerMeter, 10) : 1;
+      return Math.max(20, Math.round(val / step) * step);
+    };
 
     // 1. Calculate new dimensions for all selected stalls
     const newDims = new Map<string, { width: number; height: number; areaSqFt: number }>();
@@ -1087,17 +1117,25 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       if (params.height !== undefined) newH = params.height;
 
       if (params.scaleMultiplier !== undefined) {
-        newW = Math.max(30, Math.round(s.width * params.scaleMultiplier));
-        newH = Math.max(30, Math.round(s.height * params.scaleMultiplier));
+        newW = Math.max(20, Math.round(s.width * params.scaleMultiplier));
+        newH = Math.max(20, Math.round(s.height * params.scaleMultiplier));
       }
 
       if (params.deltaPx !== undefined) {
-        newW = Math.max(30, s.width + params.deltaPx);
-        newH = Math.max(30, s.height + params.deltaPx);
+        newW = Math.max(20, s.width + params.deltaPx);
+        newH = Math.max(20, s.height + params.deltaPx);
       }
 
-      newW = snapCoord(newW);
-      newH = snapCoord(newH);
+      if (params.deltaW !== undefined) {
+        newW = Math.max(20, s.width + params.deltaW);
+      }
+
+      if (params.deltaH !== undefined) {
+        newH = Math.max(20, s.height + params.deltaH);
+      }
+
+      newW = dimSnap(newW);
+      newH = dimSnap(newH);
       const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
       newDims.set(s.id, { width: newW, height: newH, areaSqFt });
     });
@@ -1183,8 +1221,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           }
 
           posUpdates.set(stall.id, {
-            x: snapCoord(Math.max(0, Math.min(canvasWidth - dims.width, newX))),
-            y: snapCoord(Math.max(0, Math.min(canvasHeight - dims.height, rowY))),
+            x: Math.max(0, Math.min(canvasWidth - dims.width, Math.round(newX))),
+            y: Math.max(0, Math.min(canvasHeight - dims.height, Math.round(rowY))),
           });
         });
 
@@ -1822,20 +1860,24 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
     if (isDraggingObj || isResizing) {
       if (clickedItemRef.current) {
-        if (clickedItemRef.current.isPickMode) {
+        const item = clickedItemRef.current;
+        clickedItemRef.current = null;
+
+        if (item.isPickMode) {
           // If clicked an already selected item in pick mode without dragging, toggle it off!
-          if (clickedItemRef.current.isRemovePick && !hasDraggedItemRef.current) {
+          if (item.isRemovePick && !hasDraggedItemRef.current) {
+            const targetType = item.type;
+            const targetId = item.id;
             setSelectedRefs((prev) =>
               prev.filter(
-                (r) => !(r.type === clickedItemRef.current!.type && r.id === clickedItemRef.current!.id)
+                (r) => !(r.type === targetType && r.id === targetId)
               )
             );
           }
-        } else if (clickedItemRef.current.isMulti && !hasDraggedItemRef.current) {
+        } else if (item.isMulti && !hasDraggedItemRef.current) {
           // Normal mode: single click inside multi-selection narrows to that item
-          setSelectedRefs([{ type: clickedItemRef.current.type, id: clickedItemRef.current.id }]);
+          setSelectedRefs([{ type: item.type, id: item.id }]);
         }
-        clickedItemRef.current = null;
       }
       const didMove = hasDraggedItemRef.current;
       hasDraggedItemRef.current = false;
@@ -2320,6 +2362,21 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     setStalls([]);
                     setBackgroundImageUrl(undefined);
                     setRestoredFromBackup(false);
+                    if (onChangeLayoutRef.current) {
+                      onChangeLayoutRef.current({
+                        layoutData: {
+                          canvasWidth,
+                          canvasHeight,
+                          gridSize: pxPerMeter,
+                          snapInterval,
+                          halls: [],
+                          facilities: [],
+                          annotations: [],
+                          stallColors: {},
+                        },
+                        stalls: [],
+                      });
+                    }
                   }
                 }}
                 className="ml-2 text-emerald-300 hover:text-white underline font-bold cursor-pointer"
@@ -2440,6 +2497,33 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>Make Available</span>
+                    </button>
+                    <div className="h-4 w-px bg-slate-700 shrink-0 mx-0.5" />
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBulkResizeStalls({ deltaPx: -10, keepFlush: true });
+                      }}
+                      className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-rose-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                      title="Quick Reduce: Shrink all selected stalls by 0.5m (−10px)"
+                    >
+                      <Minimize2 className="w-3.5 h-3.5 text-rose-400" />
+                      <span>−0.5m</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBulkResizeStalls({ deltaPx: 10, keepFlush: true });
+                      }}
+                      className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                      title="Quick Scale: Expand all selected stalls by 0.5m (+10px)"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>+0.5m</span>
                     </button>
                     <div className="h-4 w-px bg-slate-700 shrink-0 mx-0.5" />
                   </>

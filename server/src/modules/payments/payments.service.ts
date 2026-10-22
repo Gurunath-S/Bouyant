@@ -1,6 +1,6 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, PaymentStatus, Payment } from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
@@ -10,8 +10,39 @@ import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { generateReference } from '../../utils/reference.js';
 import { normalizePagination } from '../../utils/pagination.js';
-
+import { updateBookingPaymentReminder } from '../../services/paymentReminder.service.js'
+import { WhatsappService } from '../../services/whatsapp.service.js';
 export class PaymentsService {
+
+private static async createInvoice(
+  tx: Prisma.TransactionClient,
+  booking: any,
+  payment: Payment,
+  paymentAmount: Prisma.Decimal
+) {
+  const invoiceNumber = `INV-${Date.now()}`;
+ 
+  const totalAmount = paymentAmount
+    .div(new Prisma.Decimal(1.18))
+    .toDecimalPlaces(2);
+ 
+  const taxAmount = paymentAmount
+    .minus(totalAmount)
+    .toDecimalPlaces(2);
+ 
+  return await tx.invoice.create({
+    data: {
+      invoiceNumber,
+      bookingId: booking.id,
+      paymentId: payment.id,
+      companyId: booking.companyId,
+      totalAmount,
+      taxAmount,
+      grandTotal: paymentAmount,
+    },
+  });
+}
+
   /**
    * VERIFY PAYMENT SERVER-SIDE
    */
@@ -581,7 +612,7 @@ export class PaymentsService {
 
       const newPaidAmount = new Prisma.Decimal(booking.paidAmount?.toString() || '0').add(paymentAmount);
 
-      await tx.booking.update({
+      const updatedBooking = await tx.booking.update({
         where: {
           id: booking.id,
         },
@@ -627,7 +658,15 @@ export class PaymentsService {
           );
         }
       }
-
+    
+      const invoice = await this.createInvoice(tx,booking,currentPayment,paymentAmount);
+      await updateBookingPaymentReminder(
+          tx,
+          updatedBooking.id,
+          currentPayment.id,
+          bookingIsFullyPaid ? null : currentPayment.nextPaymentDate,
+          updatedBooking.balanceAmount
+        );
       // =====================================================
       // RESPONSE
       // =====================================================
@@ -674,6 +713,7 @@ export class PaymentsService {
           payment: currentPayment,
           paymentAmount,
           finalBalance,
+          invoice: invoice,
         },
       };
     },
@@ -684,36 +724,36 @@ export class PaymentsService {
 
   // OUT OF BAND SIDE-EFFECTS (AFTER DB TRANSACTION COMMITS)
   if (result.emailData) {
-    const { booking, payment, paymentAmount, finalBalance } = result.emailData;
+    const { booking, payment,invoice, paymentAmount, finalBalance } = result.emailData;
     setImmediate(async () => {
       try {
-        let invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
+        // let invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
 
         // Auto-create invoice if missing for this payment
-        if (!invoice) {
-          try {
-            const invoiceNum = generateReference('INV', 6);
-            const total = Number(booking.totalAmount || 0);
-            const tax = Number(booking.taxAmount || 0);
-            const grand = Number(booking.grandTotal || total + tax);
+        // if (!invoice) {
+        //   try {
+        //     const invoiceNum = generateReference('INV', 6);
+        //     const total = Number(booking.totalAmount || 0);
+        //     const tax = Number(booking.taxAmount || 0);
+        //     const grand = Number(booking.grandTotal || total + tax);
 
-            invoice = await prisma.invoice.create({
-              data: {
-                invoiceNumber: invoiceNum,
-                bookingId: booking.id,
-                paymentId: payment.id,
-                companyId: booking.companyId,
-                totalAmount: new Prisma.Decimal(total),
-                taxAmount: new Prisma.Decimal(tax),
-                grandTotal: new Prisma.Decimal(grand),
-                status: 'PAID',
-                issueDate: new Date(),
-              },
-            });
-          } catch (invErr: any) {
-            console.error('⚠️ [INVOICE CREATION FAILED]:', invErr?.message || invErr);
-          }
-        }
+        //     invoice = await prisma.invoice.create({
+        //       data: {
+        //         invoiceNumber: invoiceNum,
+        //         bookingId: booking.id,
+        //         paymentId: payment.id,
+        //         companyId: booking.companyId,
+        //         totalAmount: new Prisma.Decimal(total),
+        //         taxAmount: new Prisma.Decimal(tax),
+        //         grandTotal: new Prisma.Decimal(grand),
+        //         status: 'PAID',
+        //         issueDate: new Date(),
+        //       },
+        //     });
+        //   } catch (invErr: any) {
+        //     console.error('⚠️ [INVOICE CREATION FAILED]:', invErr?.message || invErr);
+        //   }
+        // }
 
         const invoiceNumber = invoice?.invoiceNumber || `INV-${booking.bookingReference}`;
 
@@ -816,12 +856,20 @@ export class PaymentsService {
           console.error('⚠️ [ADMIN PAYMENT EMAIL FAILED]:', adminEmailErr?.message || adminEmailErr);
         }
 
+         // Send WhatsApp Confirmation with Invoice attachment via AskEva
+          await WhatsappService.sendBookingConfirmation({
+            booking,
+            payment,
+            invoice,
+            paymentAmount: paymentAmount.toNumber(),
+          });
+
         // Dispatch notifications & admin alerts
-        NotificationsService.dispatchEvent({
-          event: 'PAYMENT_RECEIVED',
-          bookingId: booking.id,
-          paymentId: payment.id,
-        });
+        // NotificationsService.dispatchEvent({
+        //   event: 'PAYMENT_RECEIVED',
+        //   bookingId: booking.id,
+        //   paymentId: payment.id,
+        // });
       } catch (err: any) {
         console.error('⚠️ [AFTER-PAYMENT SIDE EFFECT FAILED]:', err?.message || err);
       }
@@ -1194,4 +1242,74 @@ static async createBalancePaymentOrder(
       skipSignatureCheck: true,
     });
   }
+
+  /**
+   * Delete an unpaid, failed, or cancelled payment attempt (Super Admin only).
+   */
+  static async deletePayment(paymentId: string) {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            paidAmount: true,
+            paymentStatus: true,
+          },
+        },
+        invoice: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw ApiError.notFound('Payment record not found.');
+    }
+
+    // Safeguard: Successful payments cannot be deleted
+    if (payment.status === PaymentStatus.SUCCESS) {
+      throw ApiError.badRequest(
+        `Cannot delete payment ${payment.paymentReference} because it is marked as SUCCESS. Verified revenue records cannot be deleted.`
+      );
+    }
+
+    // Only allow deletion of FAILED, CANCELLED, or PENDING payments
+    const eligibleStatuses: PaymentStatus[] = [
+      PaymentStatus.FAILED,
+      PaymentStatus.CANCELLED,
+      PaymentStatus.PENDING,
+    ];
+
+    if (!eligibleStatuses.includes(payment.status)) {
+      throw ApiError.badRequest(
+        `Cannot delete payment with status "${payment.status}". Only pending, failed, or cancelled payment attempts can be deleted.`
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. If an invoice was attached to this failed/pending attempt, unlink it
+      if (payment.invoice) {
+        await tx.invoice.update({
+          where: { id: payment.invoice.id },
+          data: { paymentId: null },
+        });
+      }
+
+      // 2. Delete payment record
+      await tx.payment.delete({
+        where: { id: paymentId },
+      });
+    });
+
+    return {
+      id: paymentId,
+      paymentReference: payment.paymentReference,
+      message: `Payment record ${payment.paymentReference} deleted successfully.`,
+    };
+  }
 }
+

@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { InvoicesService } from './invoices.service.js';
 import { sendResponse } from '../../utils/response.js';
 import { ApiError } from '../../utils/apiError.js';
+import { WhatsappService } from '../../services/whatsapp.service.js';
 
 export class InvoicesController {
   static getById = async (req: AuthenticatedRequest, res: Response) => {
@@ -63,11 +64,23 @@ export class InvoicesController {
   };
 
   static downloadPdf = async (req: AuthenticatedRequest, res: Response) => {
-    if (!req.user) {
-      throw ApiError.unauthorized('Authentication required to download invoice PDF.');
+      const {id}=req.params
+      const authUser = (req as AuthenticatedRequest).user;
+      const token = req.query.token as string | undefined;
+
+    if (!authUser) {
+    if (
+      !token ||
+      !WhatsappService.verifySignedToken(token,id)
+    ) {
+      throw ApiError.unauthorized(
+        'Invalid or expired invoice download link.'
+      );
     }
-    const pdfBuffer = await InvoicesService.generateInvoicePdf(req.params.id, req.user);
-    const cleanId = String(req.params.id || 'invoice').replace(/[^a-zA-Z0-9_-]/g, '');
+  }
+
+    const pdfBuffer = await InvoicesService.generateInvoicePdf(id, req.user);
+    const cleanId = String(id|| 'invoice').replace(/[^a-zA-Z0-9_-]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Invoice-${cleanId}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);

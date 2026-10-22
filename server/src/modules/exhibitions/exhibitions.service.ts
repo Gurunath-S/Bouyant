@@ -96,7 +96,7 @@ export class ExhibitionsService {
         if (s.status === 'BOOKED_CONFIRMED' || s.status === 'BLOCKED') return true;
         if (bookedStallIdsFromBookings.has(s.id)) return true;
         if (['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'].includes(s.status)) {
-          if (s.heldUntil && new Date(s.heldUntil) > now) return true;
+          if (!s.heldUntil || new Date(s.heldUntil) > now) return true;
         }
         return false;
       }).length;
@@ -123,6 +123,12 @@ export class ExhibitionsService {
   }
 
   static async getExhibitionBySlugOrId(identifier: string) {
+    try {
+      await StallsService.releaseExpiredHolds();
+    } catch (err) {
+      console.warn('Could not auto-release expired holds:', err);
+    }
+
     const exhibition = await prisma.exhibition.findFirst({
       where: {
         OR: [{ id: identifier }, { slug: identifier }],
@@ -132,6 +138,20 @@ export class ExhibitionsService {
           include: {
             stalls: {
               orderBy: { stallNumber: 'asc' },
+            },
+          },
+        },
+        bookings: {
+          where: {
+            status: { notIn: ['CANCELLED', 'EXPIRED'] },
+          },
+          select: {
+            id: true,
+            status: true,
+            stalls: {
+              select: {
+                stallId: true,
+              },
             },
           },
         },
@@ -151,7 +171,38 @@ export class ExhibitionsService {
       exhibition.status = 'COMPLETED';
     }
 
-    return exhibition;
+    const now = new Date();
+    const allStalls = (exhibition.floorPlans || []).flatMap((fp) => fp.stalls || []);
+    const totalStallsFromDb = allStalls.length > 0 ? allStalls.length : (exhibition.totalStalls || 0);
+
+    const bookedStallIdsFromBookings = new Set(
+      (exhibition.bookings || []).flatMap((b) => (b.stalls || []).map((s) => s.stallId))
+    );
+
+    let bookedStallsCount = allStalls.filter((s) => {
+      if (s.status === 'BOOKED_CONFIRMED' || s.status === 'BLOCKED') return true;
+      if (bookedStallIdsFromBookings.has(s.id)) return true;
+      if (['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'].includes(s.status)) {
+        if (!s.heldUntil || new Date(s.heldUntil) > now) return true;
+      }
+      return false;
+    }).length;
+
+    if (allStalls.length === 0 && bookedStallIdsFromBookings.size > 0) {
+      bookedStallsCount = bookedStallIdsFromBookings.size;
+    }
+
+    const totalStalls = totalStallsFromDb;
+    const availableStallsCount = Math.max(0, totalStalls - bookedStallsCount);
+    const isFull = totalStalls > 0 && (availableStallsCount === 0 || bookedStallsCount >= totalStalls);
+
+    return {
+      ...exhibition,
+      totalStalls,
+      bookedStallsCount,
+      availableStallsCount,
+      isFull,
+    };
   }
 
   static async createExhibition(input: CreateExhibitionInput, creatorId?: string) {
@@ -248,7 +299,12 @@ export class ExhibitionsService {
         spcode,
         createdByUserId: creatorId || null,
         venue: input.venue || 'Exhibition Center',
+        address: input.address || null,
         city: input.city || 'Mumbai',
+        state: input.state || null,
+        latitude: input.latitude !== undefined && input.latitude !== null ? Number(input.latitude) : null,
+        longitude: input.longitude !== undefined && input.longitude !== null ? Number(input.longitude) : null,
+        category: input.category || null,
         startDate: startDt,
         endDate: endDt,
         bookingEndDate: bookingEndDt,
@@ -327,17 +383,31 @@ export class ExhibitionsService {
     });
   }
 
-  static async updateExhibition(id: string, input: UpdateExhibitionInput) {
-    const exhibition = await prisma.exhibition.findUnique({ where: { id } });
+  static async updateExhibition(identifier: string, input: UpdateExhibitionInput) {
+    const exhibition = await prisma.exhibition.findFirst({
+      where: {
+        OR: [{ id: identifier }, { slug: identifier }],
+      },
+    });
     if (!exhibition) {
       throw ApiError.notFound('Exhibition not found.');
     }
+    const id = exhibition.id;
 
     const cleanUpdateData: any = {};
     if (input.title !== undefined) cleanUpdateData.title = input.title;
     if (input.description !== undefined) cleanUpdateData.description = input.description;
     if (input.venue !== undefined) cleanUpdateData.venue = input.venue;
+    if (input.address !== undefined) cleanUpdateData.address = input.address || null;
     if (input.city !== undefined) cleanUpdateData.city = input.city;
+    if (input.state !== undefined) cleanUpdateData.state = input.state || null;
+    if (input.latitude !== undefined) {
+      cleanUpdateData.latitude = input.latitude !== null && input.latitude !== undefined ? Number(input.latitude) : null;
+    }
+    if (input.longitude !== undefined) {
+      cleanUpdateData.longitude = input.longitude !== null && input.longitude !== undefined ? Number(input.longitude) : null;
+    }
+    if (input.category !== undefined) cleanUpdateData.category = input.category || null;
     if (input.startDate) cleanUpdateData.startDate = new Date(input.startDate);
     if (input.endDate) cleanUpdateData.endDate = new Date(input.endDate);
     if (input.bookingEndDate !== undefined) {
@@ -514,12 +584,18 @@ export class ExhibitionsService {
     });
   }
 
-  static async deleteExhibition(id: string) {
-    const exhibition = await prisma.exhibition.findUnique({
-      where: { id },
+  static async deleteExhibition(identifier: string, force = false) {
+    const exhibition = await prisma.exhibition.findFirst({
+      where: {
+        OR: [{ id: identifier }, { slug: identifier }],
+      },
       include: {
-        _count: {
-          select: { bookings: true },
+        bookings: {
+          select: {
+            id: true,
+            status: true,
+            paymentStatus: true,
+          },
         },
       },
     });
@@ -528,13 +604,33 @@ export class ExhibitionsService {
       throw ApiError.notFound('Exhibition not found.');
     }
 
-    if (exhibition._count.bookings > 0) {
+    const id = exhibition.id;
+
+    // Active bookings are confirmed or partially/fully paid bookings
+    const activeBookings = exhibition.bookings.filter(
+      (b) => b.status === 'CONFIRMED' || (b.status === 'PENDING_PAYMENT' && b.paymentStatus !== 'UNPAID')
+    );
+
+    if (activeBookings.length > 0 && !force) {
       throw ApiError.badRequest(
-        `Cannot delete exhibition because it has ${exhibition._count.bookings} active booking(s). Please change the event status to CANCELLED instead.`
+        `Cannot delete exhibition because it has ${activeBookings.length} active booking(s). Please change the event status to CANCELLED or use Force Delete to permanently remove the event with all its records.`
       );
     }
 
-    await prisma.exhibition.delete({ where: { id } });
-    return { id, message: 'Exhibition deleted successfully.' };
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all bookings associated with this exhibition
+      // PostgreSQL cascade deletes related BookingStall, Payment, and Invoice records
+      await tx.booking.deleteMany({
+        where: { exhibitionId: id },
+      });
+
+      // 2. Delete the exhibition
+      // PostgreSQL cascade deletes related FloorPlan and Stall records
+      await tx.exhibition.delete({
+        where: { id },
+      });
+    });
+
+    return { id, message: `Exhibition "${exhibition.title}" deleted successfully.` };
   }
 }

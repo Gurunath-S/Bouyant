@@ -53,7 +53,15 @@ interface CanvasPropertyInspectorProps {
   onDeleteSelected: () => void;
   onDuplicateSelected: (count?: number) => void;
   onBulkUpdateStalls: (updates: Partial<DraftStallItem>) => void;
-  onBulkResizeStalls?: (params: { width?: number; height?: number; scaleMultiplier?: number; deltaPx?: number; keepFlush?: boolean }) => void;
+  onBulkResizeStalls?: (params: {
+    width?: number;
+    height?: number;
+    scaleMultiplier?: number;
+    deltaPx?: number;
+    deltaW?: number;
+    deltaH?: number;
+    keepFlush?: boolean;
+  }) => void;
   onPackFlushStalls?: () => void;
   onAlignStalls: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
   onDistributeStalls: (direction: 'horizontal' | 'vertical') => void;
@@ -279,98 +287,199 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   <Maximize className="w-3.5 h-3.5 text-blue-600" />
-                  Resize All Selected ({selectedStallsList.length} Stalls)
+                  Quick Scale & Size Reduction ({selectedStallsList.length} Stalls)
                 </span>
               </div>
 
-              {/* Simplified Snap & Resize Controls */}
-              <div className="space-y-2.5">
-                {/* Snap Together Row */}
-                <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200/80">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={bulkKeepFlush}
-                      onChange={(e) => setBulkKeepFlush(e.target.checked)}
-                      className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
-                    />
-                    <span className="text-[11px] font-bold text-slate-800">
-                      Snap together without gaps
-                    </span>
-                  </label>
-                  {onPackFlushStalls && (
-                    <button
-                      type="button"
-                      onClick={() => onPackFlushStalls()}
-                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
-                      title="Snap stalls together tightly edge-to-edge"
-                    >
-                      <Layers className="w-3 h-3" />
-                      <span>Snap Now</span>
-                    </button>
-                  )}
-                </div>
+              {/* Snap Together / Keep Flush Option */}
+              <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200/80">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkKeepFlush}
+                    onChange={(e) => setBulkKeepFlush(e.target.checked)}
+                    className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                  />
+                  <span className="text-[11px] font-bold text-slate-800">
+                    Snap together without gaps
+                  </span>
+                </label>
+                {onPackFlushStalls && (
+                  <button
+                    type="button"
+                    onClick={() => onPackFlushStalls()}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
+                    title="Snap stalls together tightly edge-to-edge"
+                  >
+                    <Layers className="w-3 h-3" />
+                    <span>Snap Now</span>
+                  </button>
+                )}
+              </div>
 
-                {/* Quick Nudges with clean symbols */}
+              {/* 1. Proportional Overall Scale (Both Width & Depth) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Overall Scale (W & D)
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">±0.5m</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => onBulkResizeStalls({ deltaPx: -10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Shrink by 0.5m (−10px)"
+                    className="py-1.5 px-3 bg-white hover:bg-rose-50 hover:border-rose-300 border border-slate-200 text-rose-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Quick Reduce: Shrink both Width & Depth by 0.5m (−10px)"
                   >
                     <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>−0.5m</span>
+                    <span>−0.5m Both</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => onBulkResizeStalls({ deltaPx: 10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Expand by 0.5m (+10px)"
+                    className="py-1.5 px-3 bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-emerald-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Quick Scale: Expand both Width & Depth by 0.5m (+10px)"
                   >
                     <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+0.5m</span>
+                    <span>+0.5m Both</span>
                   </button>
                 </div>
+              </div>
 
-                {/* Exact Dimension Numeric Inputs */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Width (m)</span>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="40"
-                      disabled={readOnly}
-                      placeholder={((selectedStallsList[0]?.width || 60) / pxPerMeter).toFixed(1)}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
+              {/* 2. Independent Width & Depth Nudges */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Dimensional Nudge
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Width Nudge */}
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-semibold text-slate-500 block text-center">Width</span>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onBulkResizeStalls({ deltaW: -10, keepFlush: bulkKeepFlush })}
+                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                        title="Reduce width by 0.5m"
+                      >
+                        <span>−0.5</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onBulkResizeStalls({ deltaW: 10, keepFlush: bulkKeepFlush })}
+                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                        title="Expand width by 0.5m"
+                      >
+                        <span>+0.5</span>
+                      </button>
+                    </div>
+                  </div>
+                  {/* Depth Nudge */}
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-semibold text-slate-500 block text-center">Depth</span>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onBulkResizeStalls({ deltaH: -10, keepFlush: bulkKeepFlush })}
+                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                        title="Reduce depth by 0.5m"
+                      >
+                        <span>−0.5</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onBulkResizeStalls({ deltaH: 10, keepFlush: bulkKeepFlush })}
+                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                        title="Expand depth by 0.5m"
+                      >
+                        <span>+0.5</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Standard Preset Dimensions */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Standard Presets
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: '3×3m', w: 60, h: 60 },
+                    { label: '3×2m', w: 60, h: 40 },
+                    { label: '4×3m', w: 80, h: 60 },
+                    { label: '2×2m', w: 40, h: 40 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => onBulkResizeStalls({ width: preset.w, height: preset.h, keepFlush: bulkKeepFlush })}
+                      className="py-1 px-1 bg-white hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-slate-700 hover:text-blue-700 font-mono font-bold rounded-md text-[10px] transition-colors cursor-pointer text-center"
+                      title={`Set all selected stalls to ${preset.label}`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Exact Dimension Numeric Inputs */}
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/80">
+                <div>
+                  <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Exact Width (m)</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="40"
+                    disabled={readOnly}
+                    key={`w_${selectedStallsList[0]?.id}_${selectedStallsList[0]?.width}`}
+                    defaultValue={((selectedStallsList[0]?.width || 60) / pxPerMeter).toFixed(1)}
+                    onBlur={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        onBulkResizeStalls({ width: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseFloat((e.target as HTMLInputElement).value);
                         if (!isNaN(val) && val > 0) {
                           onBulkResizeStalls({ width: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
                         }
-                      }}
-                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Depth (m)</span>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="40"
-                      disabled={readOnly}
-                      placeholder={((selectedStallsList[0]?.height || 60) / pxPerMeter).toFixed(1)}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block mb-0.5 font-bold uppercase tracking-wider">Exact Depth (m)</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="40"
+                    disabled={readOnly}
+                    key={`h_${selectedStallsList[0]?.id}_${selectedStallsList[0]?.height}`}
+                    defaultValue={((selectedStallsList[0]?.height || 60) / pxPerMeter).toFixed(1)}
+                    onBlur={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        onBulkResizeStalls({ height: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseFloat((e.target as HTMLInputElement).value);
                         if (!isNaN(val) && val > 0) {
                           onBulkResizeStalls({ height: Math.round(val * pxPerMeter), keepFlush: bulkKeepFlush });
                         }
-                      }}
-                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
@@ -524,7 +633,8 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                     step="1000"
                     placeholder="e.g. 60000"
                     id="bulk-price-input"
-                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono"
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <button
                     onClick={() => {
@@ -740,21 +850,21 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </label>
             </div>
 
-            {/* Custom Dimension Label / Mark */}
+            {/* Booth Display Label (Printed on Canvas) */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[11px] font-bold text-slate-700">
-                  Custom Dimension Mark / Label
+                  Booth Display Label (On Canvas)
                 </label>
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdateStall(stall.id, { name: `${widthMeters}×${depthMeters}` });
+                    onUpdateStall(stall.id, { name: `${widthMeters}×${depthMeters}m` });
                   }}
                   className="text-[10px] text-blue-600 hover:underline cursor-pointer"
-                  title="Reset label to current width × depth"
+                  title="Reset label to match physical width × depth"
                 >
-                  Auto ({widthMeters}×{depthMeters})
+                  Auto ({widthMeters}×{depthMeters}m)
                 </button>
               </div>
               <input
@@ -762,9 +872,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 disabled={readOnly}
                 value={stall.name || ''}
                 onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
-                placeholder="e.g. 3×3, 6×3, VIP Suite"
+                placeholder="e.g. 3×3m, 6×3m, VIP Suite"
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white"
               />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Visual text printed on booth badge. Physical footprint is set by Width & Depth below.
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -816,50 +929,92 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               </div>
             </div>
 
-            {/* Quick Row Width Nudge with clean symbols */}
+            {/* Quick Dimension Nudges */}
             <div className="space-y-1.5 pt-2 border-t border-slate-200/80">
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Quick Row Width Nudge
+                Quick Dimension Nudges
               </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={readOnly || widthMeters <= 1}
-                  onClick={() => {
-                    const newW = Math.max(20, stall.width - 10);
-                    const newWm = newW / pxPerMeter;
-                    const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
-                    onUpdateStall(
-                      stall.id,
-                      { width: newW, areaSqFt: newAreaSqFt },
-                      { pushNeighbors: singlePushNeighbors }
-                    );
-                  }}
-                  className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  title="Shrink stall width by 0.5m (−10px) and pull row neighbors closer"
-                >
-                  <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>−0.5m</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => {
-                    const newW = stall.width + 10;
-                    const newWm = newW / pxPerMeter;
-                    const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
-                    onUpdateStall(
-                      stall.id,
-                      { width: newW, areaSqFt: newAreaSqFt },
-                      { pushNeighbors: singlePushNeighbors }
-                    );
-                  }}
-                  className="py-1.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  title="Expand stall width by 0.5m (+10px) and push row neighbors right"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>+0.5m</span>
-                </button>
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={readOnly || widthMeters <= 1}
+                    onClick={() => {
+                      const newW = Math.max(20, stall.width - 10);
+                      const newWm = newW / pxPerMeter;
+                      const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
+                      onUpdateStall(
+                        stall.id,
+                        { width: newW, areaSqFt: newAreaSqFt },
+                        { pushNeighbors: singlePushNeighbors }
+                      );
+                    }}
+                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    title="Shrink stall width by 0.5m (−10px) and pull row neighbors closer"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>−0.5m Width</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => {
+                      const newW = stall.width + 10;
+                      const newWm = newW / pxPerMeter;
+                      const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
+                      onUpdateStall(
+                        stall.id,
+                        { width: newW, areaSqFt: newAreaSqFt },
+                        { pushNeighbors: singlePushNeighbors }
+                      );
+                    }}
+                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    title="Expand stall width by 0.5m (+10px) and push row neighbors right"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>+0.5m Width</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={readOnly || depthMeters <= 1}
+                    onClick={() => {
+                      const newH = Math.max(20, stall.height - 10);
+                      const newHm = newH / pxPerMeter;
+                      const newAreaSqFt = Math.round(widthMeters * newHm * 10.764);
+                      onUpdateStall(
+                        stall.id,
+                        { height: newH, areaSqFt: newAreaSqFt },
+                        { pushNeighbors: singlePushNeighbors }
+                      );
+                    }}
+                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    title="Shrink stall depth by 0.5m (−10px)"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>−0.5m Depth</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => {
+                      const newH = stall.height + 10;
+                      const newHm = newH / pxPerMeter;
+                      const newAreaSqFt = Math.round(widthMeters * newHm * 10.764);
+                      onUpdateStall(
+                        stall.id,
+                        { height: newH, areaSqFt: newAreaSqFt },
+                        { pushNeighbors: singlePushNeighbors }
+                      );
+                    }}
+                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    title="Expand stall depth by 0.5m (+10px)"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>+0.5m Depth</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -878,7 +1033,8 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 min="0"
                 value={stall.price}
                 onChange={(e) => onUpdateStall(stall.id, { price: Math.max(0, Number(e.target.value)) })}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900"
+                onWheel={(e) => e.currentTarget.blur()}
+                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           </div>

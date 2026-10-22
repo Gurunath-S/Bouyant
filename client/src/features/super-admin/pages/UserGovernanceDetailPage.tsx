@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
+  EyeOff,
   TrendingUp,
   CreditCard,
   Briefcase,
@@ -35,7 +36,18 @@ import {
   Printer,
   ChevronRight,
   KeyRound,
+  Edit3,
+  Sparkles,
+  ShieldAlert,
+  AtSign,
 } from 'lucide-react';
+
+const DEFAULT_ROLE_PAGE_ACCESS: Record<string, string[]> = {
+  SUPERADMIN: ['dashboard', 'events_floorplans', 'event_register', 'companies', 'bookings', 'payments', 'reports', 'governance'],
+  ADMIN: ['dashboard', 'events_floorplans', 'event_register', 'companies', 'bookings', 'payments', 'reports'],
+  STAFF: ['dashboard', 'event_register', 'companies', 'bookings', 'payments'],
+  CLIENT: ['dashboard'],
+};
 
 const PAGE_ACCESS_ITEMS = [
   { id: 'dashboard', label: 'Primary Dashboard', description: 'Executive KPIs, analytics, and operational hub' },
@@ -62,22 +74,133 @@ export const UserGovernanceDetailPage: React.FC = () => {
   // Reset Password State
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [resetUsername, setResetUsername] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [sendNotificationEmail, setSendNotificationEmail] = useState(true);
   const [resettingPassword, setResettingPassword] = useState(false);
+
+  // Edit User Profile State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT'>('CLIENT');
+  const [editUserPages, setEditUserPages] = useState<string[]>([]);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    username: '',
+    phone: '',
+    spcode: '',
+  });
+
+  const generateRandomPassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+    let pwd = 'Buoy@';
+    for (let i = 0; i < 6; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(pwd);
+    setShowResetPassword(true);
+  };
+
+  const handleOpenReset = () => {
+    if (!user) return;
+    setNewPassword('');
+    setResetUsername(user.username || '');
+    setShowResetPassword(false);
+    setSendNotificationEmail(true);
+    setIsResetModalOpen(true);
+  };
+
+  const handleOpenEdit = () => {
+    if (!user) return;
+    setEditUserRole((user.role as any) || 'CLIENT');
+    setEditUserPages(user.pageAccess || DEFAULT_ROLE_PAGE_ACCESS[user.role] || []);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      username: user.username || '',
+      phone: user.phone || '',
+      spcode: user.spcode || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') => {
+    setEditUserRole(newRole);
+    setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || ['dashboard'])]);
+  };
+
+  const handleToggleEditPage = (pageId: string) => {
+    setEditUserPages((prev) =>
+      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
+    );
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      setSavingEdit(true);
+      const updated = await userService.updateUser(user.id, {
+        name: editForm.name,
+        email: editForm.email,
+        username: editForm.username.trim() || undefined,
+        phone: editForm.phone || undefined,
+        spcode: editForm.spcode || undefined,
+        role: editUserRole,
+        pageAccess: editUserPages,
+      });
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name,
+              email: updated.email,
+              username: updated.username,
+              phone: updated.phone,
+              spcode: updated.spcode,
+              role: updated.role,
+              pageAccess: updated.pageAccess,
+            }
+          : null
+      );
+      setActionNotice({
+        type: 'success',
+        message: `User "${updated.name}" profile updated successfully!`,
+      });
+      setIsEditModalOpen(false);
+      setTimeout(() => setActionNotice(null), 5000);
+    } catch (err: any) {
+      setActionNotice({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to update user profile.',
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newPassword) return;
     try {
       setResettingPassword(true);
-      const res = await userService.resetPassword(user.id, newPassword, sendNotificationEmail);
+      const res = await userService.resetPassword(
+        user.id,
+        newPassword,
+        sendNotificationEmail,
+        resetUsername.trim() || undefined
+      );
       setActionNotice({
         type: 'success',
         message: res.message || 'Password reset successfully.',
       });
       setIsResetModalOpen(false);
       setNewPassword('');
-      setSendNotificationEmail(true);
+      if (resetUsername.trim()) {
+        setUser((prev) => (prev ? { ...prev, username: resetUsername.trim() } : null));
+      }
+      setTimeout(() => setActionNotice(null), 5000);
     } catch (err: any) {
       setActionNotice({
         type: 'error',
@@ -281,6 +404,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                   {user.name}
                 </h1>
+                {user.username && (
+                  <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1 font-semibold">
+                    <AtSign className="w-3 h-3 text-purple-500" />
+                    {user.username}
+                  </span>
+                )}
                 {getRoleBadge(user.role)}
                 {user.isActive ? (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
@@ -326,12 +455,23 @@ export const UserGovernanceDetailPage: React.FC = () => {
               </div>
             )}
 
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={handleOpenEdit}
+              leftIcon={<Edit3 className="w-4 h-4 text-purple-600" />}
+              className="font-bold text-xs rounded-xl shadow-xs border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-950/50"
+            >
+              Edit Profile
+            </Button>
+
             {user.role !== 'SUPERADMIN' && (
               <Button
                 type="button"
                 variant="outline"
                 size="md"
-                onClick={() => setIsResetModalOpen(true)}
+                onClick={handleOpenReset}
                 leftIcon={<KeyRound className="w-4 h-4 text-amber-500" />}
                 className="font-bold text-xs rounded-xl shadow-xs border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/50"
               >
@@ -973,29 +1113,98 @@ export const UserGovernanceDetailPage: React.FC = () => {
         onClose={() => {
           setIsResetModalOpen(false);
           setNewPassword('');
+          setResetUsername('');
+          setShowResetPassword(false);
           setSendNotificationEmail(true);
         }}
         title={`Reset Password: ${user.name}`}
       >
         <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
-          <p className="text-slate-600 dark:text-slate-300">
-            Set a new temporary or permanent password for <strong>{user.email}</strong>.
-          </p>
+          {/* Target User & Company Identity Card */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-purple-600" />
+                {user.name}
+              </span>
+              {getRoleBadge(user.role)}
+            </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              New Password * (min 8 characters)
-            </label>
-            <Input
-              type="password"
-              required
-              minLength={8}
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="font-mono text-slate-700 dark:text-slate-300">{user.email}</span>
+              </div>
+              {user.company && (
+                <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-medium">
+                  <Building2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Exhibitor Company: <strong>{user.company.name}</strong> ({user.company.companyCode})
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
+          {/* Editable Username field */}
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Portal Username / Login Identifier
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-mono text-xs">
+                @
+              </span>
+              <input
+                type="text"
+                value={resetUsername}
+                onChange={(e) => setResetUsername(e.target.value)}
+                placeholder="e.g. johndoe"
+                className="w-full pl-7 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              The user can log into the portal with either their email address or this username. You can modify it here.
+            </p>
+          </div>
+
+          {/* New Password input with generator & visibility toggle */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                New Temporary Password * (min 8 characters)
+              </label>
+              <button
+                type="button"
+                onClick={generateRandomPassword}
+                className="text-[11px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-0.5 rounded-lg border border-purple-200 dark:border-purple-800"
+              >
+                <Sparkles className="w-3 h-3 text-purple-500" />
+                Generate Strong Password
+              </button>
+            </div>
+
+            <div className="relative">
+              <input
+                type={showResetPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter or generate temporary password"
+                className="w-full pl-3 pr-10 py-2 text-xs font-mono rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(!showResetPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Email Notification Option */}
           <div className="pt-1">
             <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <input
@@ -1006,15 +1215,25 @@ export const UserGovernanceDetailPage: React.FC = () => {
               />
               <div className="flex-1">
                 <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
-                  Send notification email to user
+                  Send notification email with login credentials to user
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {sendNotificationEmail
-                    ? `An email notification with login credentials will be sent to ${user.email}`
+                    ? `An email with the username and the new temporary password will be sent securely to ${user.email}.`
                     : 'No email will be sent. The user password will be silently updated in the system.'}
                 </span>
               </div>
             </label>
+          </div>
+
+          {/* Security Notice Note */}
+          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong>How does the user know which password to login with?</strong>
+              <br />
+              When notification email is enabled, the system transmits this new temporary password along with their username to <strong>{user.email}</strong> via TLS-encrypted email. For account security, the user is instructed in the email to sign in and immediately change this temporary password.
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -1025,6 +1244,8 @@ export const UserGovernanceDetailPage: React.FC = () => {
               onClick={() => {
                 setIsResetModalOpen(false);
                 setNewPassword('');
+                setResetUsername('');
+                setShowResetPassword(false);
                 setSendNotificationEmail(true);
               }}
             >
@@ -1037,7 +1258,164 @@ export const UserGovernanceDetailPage: React.FC = () => {
               isLoading={resettingPassword}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
             >
-              Set New Password
+              Confirm Password Reset
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit User Profile Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Edit User Profile: ${user.name}`}
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Full Name *
+            </label>
+            <Input
+              type="text"
+              required
+              placeholder="e.g. John Doe"
+              value={editForm.name}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Email Address * (Editable)
+              </label>
+              <Input
+                type="email"
+                required
+                placeholder="user@example.com"
+                value={editForm.email}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Used for platform login and notifications. Must be unique.
+              </p>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Portal Username (Login ID)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-mono text-xs">
+                  @
+                </span>
+                <input
+                  type="text"
+                  value={editForm.username}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
+                  placeholder="e.g. johndoe"
+                  className="w-full pl-7 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Unique identifier for logging in.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Phone Number
+              </label>
+              <Input
+                type="tel"
+                placeholder="+91 9876543210"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+
+            {(editUserRole === 'ADMIN' || editUserRole === 'STAFF') && (
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Assigned Sales SP Code
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. SP-201"
+                  value={editForm.spcode}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, spcode: e.target.value }))}
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Account Role
+            </label>
+            <select
+              value={editUserRole}
+              onChange={(e) => handleEditRoleChange(e.target.value as any)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="CLIENT">Client Exhibitor</option>
+              <option value="STAFF">Operations Staff</option>
+              <option value="ADMIN">Administrator</option>
+              <option value="SUPERADMIN">Super Administrator</option>
+            </select>
+          </div>
+
+          {/* Page Access Matrix (for Admin / Staff / SuperAdmin) */}
+          {editUserRole !== 'CLIENT' && (
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                Granted Portal Page Access ({editUserPages.length} selected)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+                {PAGE_ACCESS_ITEMS.map((page) => {
+                  const isChecked = editUserPages.includes(page.id);
+                  return (
+                    <label
+                      key={page.id}
+                      className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
+                        isChecked
+                          ? 'bg-purple-100/60 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 font-bold'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleEditPage(page.id)}
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="truncate">{page.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              isLoading={savingEdit}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+            >
+              Save Profile Changes
             </Button>
           </div>
         </form>

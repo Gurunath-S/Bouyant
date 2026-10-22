@@ -110,7 +110,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
     try {
       setLoadingBookings(true);
       const roleToFetch = filterRole ?? registrarFilter;
-      const params: any = {};
+      const params: any = { limit: 200 };
       if (roleToFetch !== 'ALL') {
         params.registeredByRole = roleToFetch;
       }
@@ -118,7 +118,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
         params.hasBalanceOnly = true;
       }
       const res = await bookingService.getAllBookings(params);
-      setAdminBookings(res.data || []);
+      const rawList = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.bookings)
+        ? res.bookings
+        : [];
+      setAdminBookings(rawList);
     } catch (err) {
       console.error('Failed to load registered bookings:', err);
     } finally {
@@ -129,6 +136,13 @@ export const AdminEventRegistrationPage: React.FC = () => {
   useEffect(() => {
     fetchExhibitions();
     fetchRegisteredBookings(isStaff ? 'STAFF' : 'ADMIN', false);
+
+    const onFocus = () => {
+      fetchExhibitions();
+      fetchRegisteredBookings();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   const handleRefreshAll = () => {
@@ -207,8 +221,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
         b.bookingReference.toLowerCase().includes(q) ||
         (b.company?.name && b.company.name.toLowerCase().includes(q)) ||
         (b.company?.contactPerson && b.company.contactPerson.toLowerCase().includes(q)) ||
+        (b.contactPerson && b.contactPerson.toLowerCase().includes(q)) ||
+        (b.billingName && b.billingName.toLowerCase().includes(q)) ||
         (b.exhibition?.title && b.exhibition.title.toLowerCase().includes(q)) ||
-        (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber.toLowerCase().includes(q)));
+        (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber?.toLowerCase().includes(q)));
 
       const matchesExhibition =
         bookingExhibitionFilter === 'ALL' || b.exhibitionId === bookingExhibitionFilter;
@@ -371,7 +387,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
         <button
           type="button"
-          onClick={() => setActiveTab('EVENTS')}
+          onClick={() => {
+            setActiveTab('EVENTS');
+            fetchExhibitions();
+          }}
           className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all ${
             activeTab === 'EVENTS'
               ? 'border-purple-600 text-purple-600 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
@@ -387,7 +406,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('ADMIN_DATA')}
+          onClick={() => {
+            setActiveTab('ADMIN_DATA');
+            fetchRegisteredBookings();
+          }}
           className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all ${
             activeTab === 'ADMIN_DATA'
               ? 'border-purple-600 text-purple-600 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
@@ -466,26 +488,48 @@ export const AdminEventRegistrationPage: React.FC = () => {
               {filteredExhibitions.map((e) => {
                 // Calculate accurate stall numbers
                 const allStalls = (e.floorPlans || []).flatMap((fp: any) => fp.stalls || []);
-                const stallCountFromDb = allStalls.length > 0 ? allStalls.length : (e.totalStalls || 0);
+                const totalStalls = allStalls.length > 0
+                  ? allStalls.length
+                  : typeof e.totalStalls === 'number' && e.totalStalls > 0
+                  ? e.totalStalls
+                  : 0;
 
-                let bookedCount = typeof e.bookedStallsCount === 'number'
+                // Stalls on floor plans that are booked/held/blocked
+                const stallsBookedFromFloorPlan = allStalls.filter(
+                  (s: any) => s.status && s.status !== 'AVAILABLE'
+                ).length;
+
+                let bookedCount = allStalls.length > 0
+                  ? stallsBookedFromFloorPlan
+                  : typeof e.bookedStallsCount === 'number'
                   ? e.bookedStallsCount
-                  : allStalls.filter((s: any) => s.status !== 'AVAILABLE').length;
+                  : 0;
 
-                // Fallback check against adminBookings
-                if (bookedCount === 0 && adminBookings.length > 0) {
-                  const evBookings = adminBookings.filter(
-                    (b) => b.exhibitionId === e.id && b.status !== 'CANCELLED' && b.status !== 'EXPIRED'
+                // Also check if any non-cancelled bookings exist in adminBookings for this event
+                const evBookings = adminBookings.filter(
+                  (b) => b.exhibitionId === e.id && b.status !== 'CANCELLED' && b.status !== 'EXPIRED'
+                );
+                if (evBookings.length > 0) {
+                  const bookedFromAdminList = evBookings.reduce(
+                    (sum, b) => sum + (b.stalls?.length || 1),
+                    0
                   );
-                  if (evBookings.length > 0) {
-                    bookedCount = evBookings.reduce((sum, b) => sum + (b.stalls?.length || 1), 0);
+                  if (bookedFromAdminList > bookedCount) {
+                    bookedCount = bookedFromAdminList;
                   }
                 }
 
-                const totalStalls = stallCountFromDb > 0 ? stallCountFromDb : (e.totalStalls || 0);
-                const availableStalls = typeof e.availableStallsCount === 'number'
-                  ? e.availableStallsCount
-                  : Math.max(0, totalStalls - bookedCount);
+                // If backend computed bookedStallsCount and it's higher
+                if (typeof e.bookedStallsCount === 'number' && e.bookedStallsCount > bookedCount) {
+                  bookedCount = e.bookedStallsCount;
+                }
+
+                // Cap bookedCount at totalStalls (if totalStalls > 0)
+                if (totalStalls > 0 && bookedCount > totalStalls) {
+                  bookedCount = totalStalls;
+                }
+
+                const availableStalls = Math.max(0, totalStalls - bookedCount);
                 const percentBooked = totalStalls > 0 ? Math.min(100, Math.round((bookedCount / totalStalls) * 100)) : 0;
                 const isFull = e.isFull === true || (totalStalls > 0 && (availableStalls === 0 || bookedCount >= totalStalls));
                 const isCurrentUpcoming = currentUpcomingEvent && e.id === currentUpcomingEvent.id;
@@ -620,38 +664,34 @@ export const AdminEventRegistrationPage: React.FC = () => {
                               See Details
                             </Button>
                           </Link>
-                        ) : (
-                          // When not full: show regular registration button
-                          <>
+                        ) : e.status === 'PUBLISHED' ? (
+                          // When not full and published: direct entry to interactive booking wizard
+                          <Link
+                            to={`/exhibitions/${e.slug || e.id}/book`}
+                            state={{ from: '/admin/events/register', fromLabel: 'Event Registration Hub' }}
+                            className="flex-1"
+                          >
                             <Button
                               type="button"
-                              variant={e.status === 'PUBLISHED' ? 'primary' : 'outline'}
+                              variant="primary"
                               size="md"
-                              disabled={e.status !== 'PUBLISHED'}
-                              onClick={() => setSelectedExhibitionForReg(e)}
-                              leftIcon={<UserPlus className="w-4 h-4" />}
-                              className={`flex-1 font-black text-xs py-2.5 rounded-xl shadow-xs cursor-pointer ${
-                                e.status === 'PUBLISHED'
-                                  ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
-                              }`}
+                              leftIcon={<Layers className="w-4 h-4" />}
+                              className="w-full font-black text-xs py-2.5 rounded-xl shadow-xs cursor-pointer bg-purple-600 hover:bg-purple-700 text-white"
                             >
-                              {e.status === 'PUBLISHED' ? 'Register Exhibitor' : `Status: ${e.status}`}
+                              Book Stall for Exhibitor
                             </Button>
-
-                            <Link
-                              to={e.status === 'PUBLISHED' ? `/exhibitions/${e.slug || e.id}/book` : '#'}
-                              title="Open Interactive Floor Plan Booking Wizard"
-                              className={`h-[42px] px-2.5 flex items-center justify-center gap-1 rounded-xl font-bold text-xs transition-all active:scale-[0.95] shrink-0 border ${
-                                e.status === 'PUBLISHED'
-                                  ? 'bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 cursor-pointer'
-                                  : 'opacity-40 pointer-events-none border-slate-200'
-                              }`}
-                            >
-                              <Layers className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Wizard</span>
-                            </Link>
-                          </>
+                          </Link>
+                        ) : (
+                          // When not published: show status
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="md"
+                            disabled
+                            className="flex-1 font-black text-xs py-2.5 rounded-xl shadow-xs bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                          >
+                            Status: {e.status}
+                          </Button>
                         )}
 
                         <button

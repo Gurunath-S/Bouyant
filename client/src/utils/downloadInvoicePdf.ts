@@ -83,12 +83,24 @@ function showDownloadToast(status: 'loading' | 'success' | 'error', filename: st
  * Displays immediate visual feedback so users know progress is actively occurring.
  */
 export async function downloadInvoicePdf(
-  target: string | { id?: string; bookingReference?: string; invoice?: { id?: string } },
+  target: string | { id?: string; bookingReference?: string; invoice?: { id?: string }; invoices?: Array<{ id?: string }> },
   customFilename?: string
 ): Promise<void> {
-  const idOrReference = typeof target === 'string'
-    ? target
-    : target.invoice?.id || target.bookingReference || target.id;
+  let idOrReference = '';
+  if (typeof target === 'string') {
+    idOrReference = target.trim();
+  } else if (target && typeof target === 'object') {
+    const t = target as any;
+    idOrReference =
+      t.invoice?.id ||
+      t.invoices?.[0]?.id ||
+      t.invoiceId ||
+      t.invoiceNumber ||
+      t.bookingReference ||
+      t.paymentReference ||
+      t.id ||
+      '';
+  }
 
   if (!idOrReference) {
     console.error('Cannot download invoice PDF: missing ID or reference.');
@@ -96,7 +108,10 @@ export async function downloadInvoicePdf(
   }
 
   // Ensure filename strictly ends with .pdf and has no .html extensions
-  const rawName = (customFilename || `Invoice-${idOrReference}`).replace(/\.html?$/i, '').trim();
+  let rawName = (customFilename || `Invoice-${idOrReference}`).replace(/\.html?$/i, '').trim();
+  if (!rawName.toLowerCase().startsWith('invoice-')) {
+    rawName = `Invoice-${rawName}`;
+  }
   const safeFilename = rawName.toLowerCase().endsWith('.pdf') ? rawName : `${rawName}.pdf`;
 
   // Immediately inform user that PDF generation is in progress
@@ -104,31 +119,72 @@ export async function downloadInvoicePdf(
 
   let pdfBlob: Blob | null = null;
 
-  // Primary and supported download path: Authenticated apiClient arraybuffer endpoint
+  // Primary download path: Authenticated apiClient arraybuffer endpoint
   try {
-    const authRes = await apiClient.get(`/invoices/${encodeURIComponent(idOrReference)}/pdf`, {
+    const authRes: any = await apiClient.get(`/invoices/${encodeURIComponent(idOrReference)}/pdf`, {
       responseType: 'arraybuffer',
+      timeout: 30000,
     });
-    const data = authRes.data;
-    if (data) {
-      const uint8 = new Uint8Array(data.slice(0, 4));
+
+    let rawBuffer: ArrayBuffer | null = null;
+    if (authRes instanceof ArrayBuffer) {
+      rawBuffer = authRes;
+    } else if (authRes instanceof Blob) {
+      rawBuffer = await authRes.arrayBuffer();
+    } else if (authRes?.data instanceof ArrayBuffer) {
+      rawBuffer = authRes.data;
+    } else if (authRes?.data instanceof Blob) {
+      rawBuffer = await authRes.data.arrayBuffer();
+    } else if (authRes && typeof authRes.byteLength === 'number') {
+      rawBuffer = authRes;
+    }
+
+    if (rawBuffer && rawBuffer.byteLength > 0) {
+      const uint8 = new Uint8Array(rawBuffer.slice(0, 4));
       const header = String.fromCharCode(...uint8);
       if (header.startsWith('%PDF')) {
-        pdfBlob = new Blob([data], { type: 'application/pdf' });
+        pdfBlob = new Blob([rawBuffer], { type: 'application/pdf' });
       }
     }
   } catch (authErr: any) {
-    const status = authErr?.response?.status;
-    if (status === 401) {
-      console.warn('Authentication required to download invoice PDF.');
-    } else if (status === 403) {
-      console.warn('Access denied: You are not authorized to download this invoice.');
-    } else if (status === 404) {
-      console.warn('Invoice document not found.');
-    } else if (status === 429) {
-      console.warn('Download rate limit reached. Please wait a moment before trying again.');
-    } else {
-      console.warn('Authenticated PDF endpoint attempt failed:', authErr);
+    console.warn('apiClient PDF request attempt failed, trying direct fetch fallback...', authErr);
+  }
+
+  // Secondary download path: direct fetch with Bearer token & credentials
+  if (!pdfBlob) {
+    try {
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      let baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+      if (!baseUrl && typeof window !== 'undefined') {
+        baseUrl =
+          window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000/api/v1'
+            : '/api/v1';
+      }
+      baseUrl = baseUrl.trim().replace(/^["']+|["']+$/g, '').replace(/\/$/, '');
+      const fetchUrl = `${baseUrl}/invoices/${encodeURIComponent(idOrReference)}/pdf`;
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(fetchUrl, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const arrayBuf = await res.arrayBuffer();
+        if (arrayBuf && arrayBuf.byteLength > 0) {
+          const uint8 = new Uint8Array(arrayBuf.slice(0, 4));
+          const header = String.fromCharCode(...uint8);
+          if (header.startsWith('%PDF')) {
+            pdfBlob = new Blob([arrayBuf], { type: 'application/pdf' });
+          }
+        }
+      }
+    } catch (fetchErr) {
+      console.warn('Direct fetch PDF request fallback also failed:', fetchErr);
     }
   }
 
@@ -145,8 +201,10 @@ export async function downloadInvoicePdf(
     a.click();
     setTimeout(() => {
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    }, 1000);
+      if (document.body.contains(a)) {
+        document.body.removeChild(a);
+      }
+    }, 2000);
     return;
   }
 

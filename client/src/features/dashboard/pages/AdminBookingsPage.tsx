@@ -3,19 +3,21 @@ import { useSearchParams } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download } from 'lucide-react';
+import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const isStaff = user?.role === 'STAFF';
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [totalBookings, setTotalBookings] = useState(0);
@@ -24,6 +26,9 @@ export const AdminBookingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
   const [payingBooking, setPayingBooking] = useState<Booking | null>(null);
+  const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -85,6 +90,26 @@ export const AdminBookingsPage: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, paymentStatusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+
+  const handleConfirmDeleteBooking = async () => {
+    if (!bookingToDelete) return;
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await bookingService.deleteBooking(bookingToDelete.id);
+      setBookingToDelete(null);
+      await fetchBookings();
+    } catch (err: any) {
+      console.error('Failed to delete booking:', err);
+      const apiMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Cannot delete booking. Please ensure it is unpaid or cancelled.';
+      setDeleteError(apiMsg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -339,6 +364,24 @@ export const AdminBookingsPage: React.FC = () => {
                               <span>Bill</span>
                             </button>
                           )}
+
+                          {isSuperAdmin &&
+                            (b.paymentStatus === 'UNPAID' || b.status === 'CANCELLED' || b.status === 'EXPIRED') &&
+                            Number(b.paidAmount || 0) <= 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBookingToDelete(b);
+                                  setDeleteError(null);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded transition-colors"
+                                title="Delete Unpaid / Cancelled Booking (Super Admin)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                                <span>Delete</span>
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -383,6 +426,92 @@ export const AdminBookingsPage: React.FC = () => {
           isAdminMode={true}
         />
       )}
+
+      {/* Delete Booking Confirmation Modal (Super Admin) */}
+      <Modal
+        isOpen={!!bookingToDelete}
+        onClose={() => {
+          if (!isDeleting) {
+            setBookingToDelete(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Delete Booking Record"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="text-sm text-rose-900 dark:text-rose-200">
+              <p className="font-semibold">Irreversible Super Admin Action</p>
+              <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                You are about to delete booking{' '}
+                <strong className="font-mono">{bookingToDelete?.bookingReference}</strong> for{' '}
+                <strong>{bookingToDelete?.company?.name || 'Company'}</strong>. Any held or reserved stalls will be released back to the available inventory immediately.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 text-xs space-y-1.5 border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Exhibition:</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">{bookingToDelete?.exhibition?.title || 'Exhibition'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Stalls:</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">
+                {bookingToDelete?.stalls?.map((s) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Booking Status:</span>
+              <span className="font-medium">{bookingToDelete?.status}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Payment Status:</span>
+              <span className="font-medium">{bookingToDelete?.paymentStatus}</span>
+            </div>
+          </div>
+
+          {deleteError && (
+            <div className="p-3 bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-200">
+              {deleteError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => {
+                setBookingToDelete(null);
+                setDeleteError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={isDeleting}
+              onClick={handleConfirmDeleteBooking}
+              className="bg-rose-600 hover:bg-rose-700 text-white inline-flex items-center gap-1.5"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Booking</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -55,6 +55,7 @@ export const createApp = (): Express => {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      exposedHeaders: ['Content-Disposition', 'Content-Length'],
     })
   );
   app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));

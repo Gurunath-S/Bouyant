@@ -354,7 +354,13 @@ export const AdminCompanyDetailPage: React.FC = () => {
     const targetExpo = exhibitions.find((e) => e.id === targetExhibitionId);
     if (!targetExpo) return;
     navigate(`/exhibitions/${targetExpo.slug}/book`, {
-      state: { from: `/admin/companies/${id}`, fromLabel: `Company ${company.name}` },
+      state: {
+        from: `/admin/companies/${id}`,
+        fromLabel: `Company ${company.name}`,
+        preselectedCompany: company,
+        preselectedCompanyId: company.id,
+        adminBooking: true,
+      },
     });
   };
 

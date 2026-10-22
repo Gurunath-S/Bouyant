@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
-import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2 } from 'lucide-react';
+import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { PaymentStatusBadge, InvoiceStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -9,8 +9,12 @@ import { TablePagination } from '../../../components/ui/TablePagination';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { numberToIndianWords } from '../../../utils/numberToWords';
+import { useAuthStore } from '../../../stores/authStore';
 
 export const AdminPaymentsPage: React.FC = () => {
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
+
   // Navigation Tabs: 'TRANSACTIONS' vs 'INVOICES'
   const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES'>('TRANSACTIONS');
 
@@ -19,6 +23,11 @@ export const AdminPaymentsPage: React.FC = () => {
   const [totalPayments, setTotalPayments] = useState(0);
   const [totalFilteredAmount, setTotalFilteredAmount] = useState(0);
   const [loadingPayments, setLoadingPayments] = useState(true);
+
+  // Super Admin Delete Payment State
+  const [paymentToDelete, setPaymentToDelete] = useState<any | null>(null);
+  const [isDeletingPayment, setIsDeletingPayment] = useState(false);
+  const [deletePaymentError, setDeletePaymentError] = useState<string | null>(null);
 
   // Transactions Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +132,26 @@ export const AdminPaymentsPage: React.FC = () => {
   useEffect(() => {
     setInvoicePage(1);
   }, [invoiceSearch]);
+
+  const handleConfirmDeletePayment = async () => {
+    if (!paymentToDelete) return;
+    try {
+      setIsDeletingPayment(true);
+      setDeletePaymentError(null);
+      await paymentService.deletePayment(paymentToDelete.id);
+      setPaymentToDelete(null);
+      await fetchPayments();
+    } catch (err: any) {
+      console.error('Failed to delete payment:', err);
+      const apiMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Cannot delete payment. Only unpaid, pending, failed, or cancelled payment records can be removed.';
+      setDeletePaymentError(apiMsg);
+    } finally {
+      setIsDeletingPayment(false);
+    }
+  };
 
   const handleRefresh = () => {
     if (activeTab === 'TRANSACTIONS') {
@@ -401,6 +430,22 @@ export const AdminPaymentsPage: React.FC = () => {
                                   )}
                                   <span>{downloadingId === idToUse ? 'Generating...' : 'PDF'}</span>
                                 </button>
+
+                                {isSuperAdmin &&
+                                  (p.status === 'FAILED' || p.status === 'CANCELLED' || p.status === 'PENDING') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPaymentToDelete(p);
+                                        setDeletePaymentError(null);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded transition-colors"
+                                      title="Delete Unpaid / Failed / Cancelled Payment Record (Super Admin)"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                                      <span>Delete</span>
+                                    </button>
+                                  )}
                               </div>
                             </td>
                           </tr>
@@ -773,6 +818,93 @@ export const AdminPaymentsPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Delete Payment Confirmation Modal (Super Admin) */}
+      <Modal
+        isOpen={!!paymentToDelete}
+        onClose={() => {
+          if (!isDeletingPayment) {
+            setPaymentToDelete(null);
+            setDeletePaymentError(null);
+          }
+        }}
+        title="Delete Payment Record"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="text-sm text-rose-900 dark:text-rose-200">
+              <p className="font-semibold">Irreversible Super Admin Action</p>
+              <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                You are about to delete payment attempt{' '}
+                <strong className="font-mono">{paymentToDelete?.paymentReference}</strong>. Only unpaid, pending, failed, or cancelled payment records can be removed from financial logs.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 text-xs space-y-1.5 border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Payment Reference:</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{paymentToDelete?.paymentReference}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Booking Reference:</span>
+              <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
+                {paymentToDelete?.booking?.bookingReference || 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Attempted Amount:</span>
+              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                ₹{Number(paymentToDelete?.amount || 0).toLocaleString('en-IN')} INR
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Payment Status:</span>
+              <span className="font-medium">{paymentToDelete?.status}</span>
+            </div>
+          </div>
+
+          {deletePaymentError && (
+            <div className="p-3 bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-200">
+              {deletePaymentError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeletingPayment}
+              onClick={() => {
+                setPaymentToDelete(null);
+                setDeletePaymentError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={isDeletingPayment}
+              onClick={handleConfirmDeletePayment}
+              className="bg-rose-600 hover:bg-rose-700 text-white inline-flex items-center gap-1.5"
+            >
+              {isDeletingPayment ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Payment</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

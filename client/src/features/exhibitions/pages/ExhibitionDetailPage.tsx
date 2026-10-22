@@ -180,10 +180,27 @@ export const ExhibitionDetailPage: React.FC = () => {
   }
 
   const isCurrentUpcoming = !currentUpcomingEvent || (exhibition && exhibition.id === currentUpcomingEvent.id);
-  const availableCount = stalls.filter((s) => s.status === 'AVAILABLE').length || exhibition.totalStalls || 45;
-  const registeredCount = stalls.length > 0 ? stalls.length - availableCount : 120;
-  const totalSlots = stalls.length || (availableCount + registeredCount);
-  const fillPercentage = Math.min(100, Math.round((registeredCount / totalSlots) * 100));
+  const totalSlots = stalls.length > 0
+    ? stalls.length
+    : (typeof exhibition.totalStalls === 'number' && exhibition.totalStalls > 0)
+    ? exhibition.totalStalls
+    : typeof exhibition.bookedStallsCount === 'number' && typeof exhibition.availableStallsCount === 'number'
+    ? exhibition.bookedStallsCount + exhibition.availableStallsCount
+    : 0;
+
+  const availableCount = stalls.length > 0
+    ? stalls.filter((s) => s.status === 'AVAILABLE').length
+    : typeof exhibition.availableStallsCount === 'number'
+    ? exhibition.availableStallsCount
+    : Math.max(0, totalSlots - (exhibition.bookedStallsCount || 0));
+
+  const registeredCount = stalls.length > 0
+    ? stalls.filter((s) => s.status !== 'AVAILABLE').length
+    : typeof exhibition.bookedStallsCount === 'number'
+    ? exhibition.bookedStallsCount
+    : Math.max(0, totalSlots - availableCount);
+
+  const fillPercentage = totalSlots > 0 ? Math.min(100, Math.round((registeredCount / totalSlots) * 100)) : 0;
 
   const bannerImg = exhibition.bannerUrl || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1200&auto=format&fit=crop';
 
@@ -442,6 +459,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                 <InteractivePinMap
                   venueName={exhibition.venue}
                   cityName={exhibition.city}
+                  address={exhibition.address || undefined}
                   readOnly={true}
                   title={`Exhibition Venue Location — ${exhibition.venue}, ${exhibition.city}`}
                   heightClass="h-72"
@@ -637,6 +655,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                 <InteractivePinMap
                   venueName={exhibition.venue}
                   cityName={exhibition.city}
+                  address={exhibition.address || undefined}
                   readOnly={true}
                   title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
                   heightClass="h-96"
@@ -646,6 +665,9 @@ export const ExhibitionDetailPage: React.FC = () => {
                   <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
                     <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Convention Centre</span>
                     <p className="text-slate-600 dark:text-slate-300">{exhibition.venue}</p>
+                    {exhibition.address && (
+                      <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">{exhibition.address}</p>
+                    )}
                   </div>
                   <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
                     <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Host City</span>
@@ -689,7 +711,9 @@ export const ExhibitionDetailPage: React.FC = () => {
             <div className="space-y-2 pt-2 pb-1">
               <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
                 <span>Stall Availability Status</span>
-                <span className="text-[#1E3FA0] dark:text-blue-400"><b className="font-bold">{availableCount}</b> slots left</span>
+                <span className="text-[#1E3FA0] dark:text-blue-400">
+                  <b className="font-bold">{availableCount}</b> {availableCount === 1 ? 'stall' : 'stalls'} available
+                </span>
               </div>
               <div className="h-2.5 rounded-full bg-[#E6EAF0] dark:bg-slate-800 overflow-hidden">
                 <div
@@ -698,8 +722,8 @@ export const ExhibitionDetailPage: React.FC = () => {
                 />
               </div>
               <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                <span>{registeredCount} stalls reserved</span>
-                <span>{totalSlots} total capacity</span>
+                <span>{registeredCount} / {totalSlots} stalls booked ({fillPercentage}%)</span>
+                <span>{fillPercentage >= 100 ? 'Fully Booked' : 'Open for Booking'}</span>
               </div>
             </div>
 

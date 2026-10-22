@@ -78,7 +78,11 @@ export interface Exhibition {
   spcode?: string | null;
   notificationEmails?: string | null;
   venue: string;
+  address?: string | null;
   city: string;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   startDate: string;
   endDate: string;
   bookingEndDate?: string | null;
@@ -156,6 +160,17 @@ export interface Booking {
   invoice?: Invoice;
   invoices?: Invoice[];
   user?: Partial<User>;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  billingName?: string;
+  billingGst?: string | null;
+  billingPan?: string | null;
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingPinCode?: string;
+  billingCountry?: string;
 }
 
 export interface Payment {
@@ -208,6 +223,7 @@ export interface AdminStaffUser {
   id: string;
   name: string;
   email: string;
+  username?: string | null;
   phone?: string | null;
   role: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT' | string;
   spcode?: string | null;
@@ -278,6 +294,8 @@ export interface CreateUserPayload {
 
 export interface UpdateUserPayload {
   name?: string;
+  email?: string;
+  username?: string | null;
   phone?: string;
   spcode?: string;
   role?: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT';

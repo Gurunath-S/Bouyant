@@ -174,6 +174,11 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
               <span className="font-bold text-slate-900 dark:text-white text-xs">
                 {exhibition.venue}, {exhibition.city}
               </span>
+              {exhibition.address && (
+                <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
+                  {exhibition.address}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -182,6 +187,7 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
         <InteractivePinMap
           venueName={exhibition.venue}
           cityName={exhibition.city}
+          address={exhibition.address || undefined}
           readOnly={true}
           title="Interactive Venue Location & Directions"
           heightClass="h-48"

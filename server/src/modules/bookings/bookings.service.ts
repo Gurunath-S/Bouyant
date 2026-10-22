@@ -913,6 +913,13 @@ static async createBooking(
   // 7a. ADMIN DIRECT CONFIRM — bypass Razorpay entirely
   // ==================================================
 
+  const isPartialPayment = input.paymentType.toUpperCase() === "PARTIAL";
+
+  const nextPaymentDate =
+    isPartialPayment && input.paymentReminderDate
+      ? new Date(`${input.paymentReminderDate}T00:00:00.000Z`)
+      : null;
+
   if (isDirectConfirm) {
     const adminBookingRef = `BKG-2026-${crypto
       .randomUUID()
@@ -999,24 +1006,25 @@ static async createBooking(
             provider: 'OFFLINE_ADMIN',
             paymentMethod: input.paymentMethod || 'ADMIN_DIRECT_ALLOCATION',
             paidAt: new Date(),
+            nextPaymentDate
           },
         });
 
-        // 5. Auto-generate invoice
-        const invoiceNum = generateReference('INV', 6);
-        await tx.invoice.create({
-          data: {
-            invoiceNumber: invoiceNum,
-            bookingId: booking.id,
-            paymentId: payment.id,
-            companyId: input.companyId,
-            totalAmount: result.basePrice,
-            taxAmount: result.bookingTaxAmount,
-            grandTotal: result.grandTotal,
-            status: 'PAID',
-            issueDate: new Date(),
-          },
-        });
+        // // 5. Auto-generate invoice
+        // const invoiceNum = generateReference('INV', 6);
+        // await tx.invoice.create({
+        //   data: {
+        //     invoiceNumber: invoiceNum,
+        //     bookingId: booking.id,
+        //     paymentId: payment.id,
+        //     companyId: input.companyId,
+        //     totalAmount: result.basePrice,
+        //     taxAmount: result.bookingTaxAmount,
+        //     grandTotal: result.grandTotal,
+        //     status: 'PAID',
+        //     issueDate: new Date(),
+        //   },
+        // });
 
         return {
           success: true,
@@ -1283,6 +1291,7 @@ static async createBooking(
               provider:"RAZORPAY",
 
               razorpayOrderId:null,
+              nextPaymentDate
             },
           });
 
@@ -1653,21 +1662,31 @@ static async createBooking(
     }
     if (registeredByRole && registeredByRole !== 'ALL') {
       if (registeredByRole === 'ADMIN') {
-        // ADMIN-registered: company has an ADMIN or SUPERADMIN user linked to it.
-        andConditions.push({ company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } });
-      } else if (registeredByRole === 'STAFF') {
-        // STAFF-registered: staff members don't belong to exhibitor companies.
-        // Attribution is tracked via company.spcode which is set to the staff member's spcode
-        // (e.g. ST00, ST01, ST02, ST03…) when they register an exhibitor.
-        // We also fall back to exhibition.spcode for events submitted by staff.
+        // ADMIN-registered: either the booking was created by an ADMIN/SUPERADMIN,
+        // or the company has an ADMIN/SUPERADMIN user linked to it.
         andConditions.push({
           OR: [
+            { user: { role: { in: ['ADMIN', 'SUPERADMIN'] } } },
+            { company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } },
+          ],
+        });
+      } else if (registeredByRole === 'STAFF') {
+        // STAFF-registered: either the booking was created by a STAFF user,
+        // or attribution is tracked via company.spcode (ST..) or exhibition.spcode (ST..).
+        andConditions.push({
+          OR: [
+            { user: { role: 'STAFF' } },
             { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
             { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
           ],
         });
       } else {
-        andConditions.push({ company: { users: { some: { role: registeredByRole as any } } } });
+        andConditions.push({
+          OR: [
+            { user: { role: registeredByRole as any } },
+            { company: { users: { some: { role: registeredByRole as any } } } },
+          ],
+        });
       }
     }
     if (search && search.trim()) {
@@ -1716,6 +1735,15 @@ static async createBooking(
               email: true,
               city: true,
               gstNumber: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              spcode: true,
             },
           },
           payments: {
@@ -1920,6 +1948,97 @@ static async createBooking(
     }
 
     return { totalProcessed: unbackfilled.length, updated };
+  }
+
+  /**
+   * Delete an unpaid, cancelled, or expired booking (Super Admin only).
+   * Releases associated stalls and removes the booking record.
+   */
+  static async deleteBooking(bookingId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        stalls: { include: { stall: true } },
+        payments: true,
+      },
+    });
+
+    if (!booking) {
+      throw ApiError.notFound('Booking not found.');
+    }
+
+    const paidAmount = Number(booking.paidAmount || 0);
+    const hasSuccessfulPayment = booking.payments?.some((p) => p.status === PaymentStatus.SUCCESS);
+
+    // Safeguard: bookings with actual received payments cannot be deleted
+    if (
+      paidAmount > 0 ||
+      hasSuccessfulPayment ||
+      booking.paymentStatus === BookingPaymentStatus.PAID_FULL ||
+      booking.paymentStatus === BookingPaymentStatus.PARTIALLY_PAID
+    ) {
+      throw ApiError.badRequest(
+        `Cannot delete booking ${booking.bookingReference} because it has verified received payments (₹${paidAmount.toLocaleString('en-IN')}). Only unpaid, cancelled, or expired bookings can be deleted.`
+      );
+    }
+
+    // Must be UNPAID, CANCELLED, EXPIRED, or INITIATED
+    const eligiblePaymentStatuses: BookingPaymentStatus[] = [BookingPaymentStatus.UNPAID];
+    const eligibleBookingStatuses: BookingStatus[] = [
+      BookingStatus.CANCELLED,
+      BookingStatus.EXPIRED,
+      BookingStatus.INITIATED,
+      BookingStatus.PENDING_PAYMENT,
+      BookingStatus.HELD,
+    ];
+
+    if (!eligiblePaymentStatuses.includes(booking.paymentStatus) && !eligibleBookingStatuses.includes(booking.status)) {
+      throw ApiError.badRequest(
+        `Cannot delete booking with status "${booking.status}" and payment status "${booking.paymentStatus}". Only unpaid or cancelled bookings can be deleted.`
+      );
+    }
+
+    const stallIds = booking.stalls.map((s) => s.stallId);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Release stalls back to AVAILABLE if not in another active booking
+      if (stallIds.length > 0) {
+        for (const stallId of stallIds) {
+          const otherActive = await tx.bookingStall.findFirst({
+            where: {
+              stallId,
+              bookingId: { not: bookingId },
+              booking: {
+                status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT, BookingStatus.HELD] },
+              },
+            },
+          });
+
+          if (!otherActive) {
+            await tx.stall.update({
+              where: { id: stallId },
+              data: {
+                status: StallStatus.AVAILABLE,
+                heldUntil: null,
+                heldByUserId: null,
+              },
+            });
+          }
+        }
+      }
+
+      // 2. Clean up related records and booking
+      await tx.bookingStall.deleteMany({ where: { bookingId } });
+      await tx.invoice.deleteMany({ where: { bookingId } });
+      await tx.payment.deleteMany({ where: { bookingId } });
+      await tx.booking.delete({ where: { id: bookingId } });
+    });
+
+    return {
+      id: bookingId,
+      bookingReference: booking.bookingReference,
+      message: `Booking ${booking.bookingReference} deleted successfully.`,
+    };
   }
 }
 

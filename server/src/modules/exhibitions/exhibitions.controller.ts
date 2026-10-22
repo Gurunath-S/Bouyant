@@ -48,7 +48,8 @@ export class ExhibitionsController {
   };
 
   static delete = async (req: Request, res: Response) => {
-    const result = await ExhibitionsService.deleteExhibition(req.params.id);
+    const force = req.query.force === 'true' || req.query.force === '1';
+    const result = await ExhibitionsService.deleteExhibition(req.params.id, force);
     return sendResponse({
       res,
       statusCode: 200,

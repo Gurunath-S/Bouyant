@@ -12,6 +12,7 @@ export interface SearchableComboboxProps {
   disabled?: boolean;
   required?: boolean;
   className?: string;
+  id?: string;
 }
 
 // Global coordinator to ensure strictly one combobox dropdown is open at a time
@@ -56,6 +57,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   disabled = false,
   required = false,
   className = '',
+  id,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(value ?? '');
@@ -67,7 +69,9 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
-  const componentId = useId();
+  const generatedId = useId();
+  const componentId = id || generatedId;
+  const isSelectingRef = useRef(false);
 
   // Keep a ref to the latest state to avoid stale closures in event listeners
   const stateRef = useRef({ searchQuery, isSearching, value, options, onChange });
@@ -205,7 +209,12 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
       const canonicalMatch = options.find(
         (opt) => String(opt).toLowerCase() === trimmed.toLowerCase()
       );
-      const finalVal = canonicalMatch || trimmed;
+      // Fallback: starts-with match (e.g. user typed "tamil", auto-matches "Tamil Nadu")
+      const startsWithMatch = !canonicalMatch
+        ? options.find((opt) => String(opt).toLowerCase().startsWith(trimmed.toLowerCase()))
+        : undefined;
+
+      const finalVal = canonicalMatch || startsWithMatch || trimmed;
 
       onChange(finalVal);
       setSearchQuery(finalVal);
@@ -216,9 +225,12 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
 
   const handleSelectOption = useCallback(
     (option: string) => {
+      isSelectingRef.current = true;
       commitSelection(option);
       closeDropdown();
-      inputRef.current?.blur();
+      setTimeout(() => {
+        isSelectingRef.current = false;
+      }, 200);
     },
     [commitSelection, closeDropdown]
   );
@@ -226,6 +238,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   // Close dropdown on outside click with graceful commit of typed text
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (isSelectingRef.current) return;
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         const { searchQuery: currentQuery, isSearching: currentlySearching, value: currentValue } = stateRef.current;
         if (currentlySearching && currentQuery.trim() && currentQuery.trim() !== currentValue) {
@@ -243,6 +256,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
 
   // Handle focus leaving container completely
   const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (isSelectingRef.current) return;
     const nextTarget = e.relatedTarget as Node | null;
     if (!containerRef.current?.contains(nextTarget)) {
       if (isSearching && searchQuery.trim() && searchQuery.trim() !== value) {
@@ -298,9 +312,10 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
         break;
       case 'Enter':
         e.preventDefault();
+        e.stopPropagation();
         if (highlightedIndex >= 0 && highlightedIndex < displayedOptions.length) {
           handleSelectOption(displayedOptions[highlightedIndex]);
-        } else if (displayedOptions.length === 1) {
+        } else if (displayedOptions.length > 0) {
           handleSelectOption(displayedOptions[0]);
         } else if (searchQuery.trim()) {
           commitSelection(searchQuery);
@@ -455,8 +470,16 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
                 {searchQuery.trim() && (
                   <button
                     type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectOption(searchQuery.trim())}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelectOption(searchQuery.trim());
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelectOption(searchQuery.trim());
+                    }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-purple-600" />
@@ -474,8 +497,16 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
                     key={`${opt}-${idx}`}
                     role="option"
                     aria-selected={isSelected}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectOption(opt)}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelectOption(opt);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelectOption(opt);
+                    }}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                     className={`mx-1.5 my-0.5 px-3 py-2 rounded-xl cursor-pointer flex items-center justify-between transition-all select-none ${
                       isSelected

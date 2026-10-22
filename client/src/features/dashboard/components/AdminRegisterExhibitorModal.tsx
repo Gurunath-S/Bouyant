@@ -705,23 +705,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   Marks stalls as <strong>BOOKED_CONFIRMED</strong> immediately. Generates tax invoice and attributes registration to your admin SP Code.
                 </p>
 
-                {confirmDirectly && (
-                  <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                      Payment Method
-                    </label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full text-xs p-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg outline-none"
-                    >
-                      <option value="OFFLINE_ADMIN_DIRECT">Direct Admin Allocation (Authorized)</option>
-                      <option value="OFFLINE_BANK_NEFT">Bank Transfer (NEFT / RTGS)</option>
-                      <option value="OFFLINE_CHEQUE">Corporate Cheque</option>
-                      <option value="OFFLINE_CASH">Cash Deposit</option>
-                    </select>
-                  </div>
-                )}
+                {/* Offline payment method selector hidden per admin preference */}
               </div>
 
               <div

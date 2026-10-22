@@ -156,12 +156,12 @@ export const AdminEventsPage: React.FC = () => {
     return filteredExhibitions.slice(start, start + PAGE_SIZE);
   }, [filteredExhibitions, currentPage]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (force = false) => {
     if (!exhibitionToDelete) return;
     try {
       setIsDeleting(true);
       setDeleteError(null);
-      await exhibitionService.deleteExhibition(exhibitionToDelete.id);
+      await exhibitionService.deleteExhibition(exhibitionToDelete.id, force);
       setNotification({
         type: 'success',
         message: `Exhibition "${exhibitionToDelete.title}" deleted successfully.`,
@@ -645,15 +645,27 @@ export const AdminEventsPage: React.FC = () => {
           </div>
 
           {deleteError && (
-            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-amber-800">
+            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>Cannot Delete Event</span>
+                <span>Deletion Blocked</span>
               </div>
               <p className="text-[11px] leading-relaxed pl-5">{deleteError}</p>
-              <p className="text-[11px] text-amber-700 pl-5 mt-1 font-semibold">
-                Tip: You can change the exhibition's status to <strong>CANCELLED</strong> in the Edit menu to preserve financial records.
-              </p>
+              <div className="pt-1.5 pl-5 flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleConfirmDelete(true)}
+                  disabled={isDeleting}
+                  className="bg-rose-700 hover:bg-rose-800 text-white text-[11px] py-1.5 px-3 rounded-lg shadow-xs"
+                  leftIcon={isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : undefined}
+                >
+                  Force Delete (Permanently Remove Event &amp; Bookings)
+                </Button>
+                <span className="text-[10px] text-amber-700 dark:text-amber-400">
+                  Or change status to CANCELLED.
+                </span>
+              </div>
             </div>
           )}
 
@@ -672,7 +684,7 @@ export const AdminEventsPage: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={handleConfirmDelete}
+              onClick={() => handleConfirmDelete(false)}
               disabled={isDeleting}
               className="bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
               leftIcon={

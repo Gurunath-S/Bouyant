@@ -28,6 +28,10 @@ export interface CreateBookingPayload {
   discountType?: 'PERCENT' | 'AMOUNT';
   paymentType: 'Partial' | 'FullPayment';
   percentage: number;
+  confirmDirectly?: boolean;
+  paymentMethod?: string;
+  notes?: string;
+  paymentReminderDate?: string | null;
 }
 
 export interface CreateBookingResponse {
@@ -113,5 +117,11 @@ export const bookingService = {
     );
     return res.data?.data || res.data || res;
   },
+
+  deleteBooking: async (bookingId: string): Promise<any> => {
+    const res: any = await apiClient.delete(`/bookings/${bookingId}`);
+    return res.data?.data || res.data || res;
+  },
 };
+
 

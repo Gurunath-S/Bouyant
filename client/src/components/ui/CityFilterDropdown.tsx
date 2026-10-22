@@ -130,6 +130,15 @@ export const CityFilterDropdown: React.FC<CityFilterDropdownProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filteredCities.length > 0) {
+                      onChange(filteredCities[0]);
+                      setIsOpen(false);
+                    }
+                  }
+                }}
                 placeholder="Search cities..."
                 className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/30 focus:border-purple-600 transition-all"
               />
@@ -150,6 +159,11 @@ export const CityFilterDropdown: React.FC<CityFilterDropdownProps> = ({
             {/* "All Cities" Option */}
             <button
               type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                onChange('ALL');
+                setIsOpen(false);
+              }}
               onClick={() => {
                 onChange('ALL');
                 setIsOpen(false);
@@ -183,6 +197,11 @@ export const CityFilterDropdown: React.FC<CityFilterDropdownProps> = ({
                   <button
                     key={city}
                     type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      onChange(city);
+                      setIsOpen(false);
+                    }}
                     onClick={() => {
                       onChange(city);
                       setIsOpen(false);

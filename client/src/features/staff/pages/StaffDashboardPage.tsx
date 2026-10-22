@@ -88,10 +88,10 @@ export const StaffDashboardPage: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              leftIcon={<UserPlus className="w-4 h-4" />}
+              leftIcon={<Layers className="w-4 h-4" />}
               className="bg-purple-600 hover:bg-purple-700 text-white shadow-xs font-bold"
             >
-              Register Exhibitor
+              Book Stall for Exhibitor
             </Button>
           </Link>
           <Link to="/staff/events/register">
@@ -338,7 +338,7 @@ export const StaffDashboardPage: React.FC = () => {
             </p>
             <Link to="/admin/events/register" className="inline-block mt-3">
               <Button variant="primary" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                Register Exhibitor Now
+                Book Stall for Exhibitor
               </Button>
             </Link>
           </div>

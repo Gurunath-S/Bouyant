@@ -23,5 +23,7 @@ router.use(authenticateToken);
 router.get('/my-bookings', asyncHandler(BookingsController.myBookings));
 router.get('/:id', asyncHandler(BookingsController.getById));
 router.get('/', requirePermission(Permissions.BOOKING_MANAGE), asyncHandler(BookingsController.listAll));
+router.delete('/:id', requirePermission(Permissions.BOOKING_DELETE), asyncHandler(BookingsController.delete));
 
 export const bookingRoutes = router;
+

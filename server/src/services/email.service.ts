@@ -3,6 +3,7 @@ import dns from 'dns';
 import { env } from '../config/env.js';
 import { escapeHtml } from '../utils/htmlEscape.js';
 import { resolveClientOrigin } from '../utils/urlHelper.js';
+import { DateTime } from "luxon";
 
 export function getSmtpUser(): string {
   return (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
@@ -95,6 +96,15 @@ export const verifyEmailTransporter = async () => {
   }
 };
 
+export interface PaymentReminderEmailPayload {
+  toEmail: string;
+  toName: string;
+  bookingReference: string;
+  exhibitionTitle: string;
+  remainingBalance: number;
+  nextPaymentDate: Date | string;
+}
+
 export interface BookingConfirmationEmailPayload {
   toEmail: string;
   toName: string;
@@ -172,6 +182,7 @@ export interface AdminPasswordResetNotificationPayload {
   toEmail: string;
   toName: string;
   username?: string;
+  password?: string;
 }
 
 export interface EmailDeliveryResult {
@@ -783,6 +794,7 @@ export class EmailService {
     const safeToName = escapeHtml(payload.toName);
     const safeToEmail = escapeHtml(payload.toEmail);
     const safeUsername = payload.username ? escapeHtml(payload.username) : safeToEmail;
+    const safePassword = payload.password ? escapeHtml(payload.password) : null;
     const loginUrl = `${resolveClientOrigin()}/login`;
     const safeLoginUrl = escapeHtml(loginUrl);
 
@@ -813,8 +825,8 @@ export class EmailService {
         <body style="margin:0; padding:0; background:#f4f6f9; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
           <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
             <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
-              <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px;">Account Password Updated 🔑</h1>
-              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">Buoyant Media Portal Notification</p>
+              <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:-0.5px;">Account Password Reset 🔑</h1>
+              <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">Buoyant Media Portal Login Credentials</p>
             </div>
 
             <div class="mobile-padding" style="padding:28px 32px;">
@@ -822,12 +834,12 @@ export class EmailService {
                 Dear <strong>${safeToName}</strong>,
               </p>
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">
-                Your account password has been updated by an administrator. Please log in to the portal using your unique username:
+                Your account password has been updated by an administrator. Please log in to the Buoyant Media portal using the credentials provided below:
               </p>
 
               <!-- CREDENTIALS BOX -->
               <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:20px; margin-bottom:24px;">
-                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">ACCOUNT IDENTIFIER</h3>
+                <h3 style="margin:0 0 12px; font-size:13px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.8px;">LOGIN CREDENTIALS</h3>
 
                 <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; margin-bottom:12px; border-collapse:collapse;">
                   <tr>
@@ -838,6 +850,12 @@ export class EmailService {
                     <td style="color:#475569; font-weight:500; width:40%;">Registered Email:</td>
                     <td style="color:#0f172a; font-weight:700;">${safeToEmail}</td>
                   </tr>
+                  ${safePassword ? `
+                  <tr>
+                    <td style="color:#475569; font-weight:500; width:40%;">New Password:</td>
+                    <td style="color:#0f172a; font-family:Consolas, Monaco, monospace; font-size:14px; font-weight:700; background:#ffffff; padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; display:inline-block;">${safePassword}</td>
+                  </tr>
+                  ` : ''}
                 </table>
 
                 <div style="text-align:center; margin-top:20px;">
@@ -847,8 +865,14 @@ export class EmailService {
                 </div>
               </div>
 
+              ${safePassword ? `
+              <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:14px; font-size:12px; color:#92400e; line-height:1.5; margin-bottom:16px;">
+                ⚠️ <strong>Security Recommendation:</strong> For your security, we strongly recommend logging in and updating your password immediately after sign-in. Never share your password or credentials with unauthorized individuals.
+              </div>
+              ` : ''}
+
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; font-size:12px; color:#64748b; line-height:1.5;">
-                🔒 <strong>Security Notice:</strong> If you did not request or expect this change, please contact the administration team immediately.
+                🔒 <strong>Security Notice:</strong> If you did not request or expect this change, please contact the Buoyant Media administration team immediately.
               </div>
             </div>
 
@@ -898,4 +922,187 @@ export class EmailService {
   static isConfigured(): boolean {
     return isSmtpConfigured();
   }
+
+    static async sendPaymentReminderEmail(
+  payload: PaymentReminderEmailPayload
+) {
+  const paymentUrl = `${
+    process.env.CLIENT_URL || "http://localhost:5173"
+  }/login`;
+
+  const TIME_ZONE = "Asia/Kolkata";
+
+  // 1. Parse the actual payment due date.
+  const dueDate =
+    typeof payload.nextPaymentDate === "string"
+      ? DateTime.fromISO(payload.nextPaymentDate, {
+          zone: "utc",
+        })
+      : DateTime.fromJSDate(payload.nextPaymentDate, {
+          zone: "utc",
+        });
+
+  if (!dueDate.isValid) {
+    throw new Error("Invalid next payment date.");
+  }
+
+  // 2. Convert the due date to IST.
+  const dueDateIST = dueDate.setZone(TIME_ZONE);
+
+  // 3. Compare calendar dates in IST.
+  const todayIST = DateTime.now()
+    .setZone(TIME_ZONE)
+    .startOf("day");
+
+  const dueDateOnlyIST = dueDateIST.startOf("day");
+
+  const isOverdue =
+    dueDateOnlyIST.toMillis() < todayIST.toMillis();
+
+  const isDueToday =
+    dueDateOnlyIST.toMillis() === todayIST.toMillis();
+
+  // 4. Format the due date in IST.
+  const formattedDueDate = dueDateIST.toLocaleString({
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  // 5. Set the email subject and message.
+  let emailSubject: string;
+  let emailMessage: string;
+  let emailHeading: string;
+
+  if (isOverdue) {
+    emailSubject = `Overdue Payment Reminder - ${payload.bookingReference}`;
+    emailHeading = "Overdue Payment Reminder";
+
+    emailMessage = `
+      Our records indicate that your payment was due on
+      <strong>${formattedDueDate}</strong> and remains outstanding.
+      Please complete the payment as soon as possible.
+    `;
+  } else if (isDueToday) {
+    emailSubject = `Payment Due Today - ${payload.bookingReference}`;
+    emailHeading = "Payment Due Today";
+
+    emailMessage = `
+      Your payment is due today,
+      <strong>${formattedDueDate}</strong>.
+      Please complete the payment today to avoid further delay.
+    `;
+  } else {
+    emailSubject = `Payment Reminder - ${payload.bookingReference}`;
+    emailHeading = "Payment Reminder";
+
+    emailMessage = `
+      This is a friendly reminder that your booking has an
+      outstanding payment. Please complete the payment by
+      <strong>${formattedDueDate}</strong>.
+    `;
+  }
+
+  // 6. Build the email HTML.
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="margin:0;padding:24px;background:#f4f6f9;
+        font-family:Arial,sans-serif;color:#334155;">
+
+        <div style="max-width:560px;margin:auto;background:#fff;
+          border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+
+          <div style="background:#012970;color:#fff;padding:24px;">
+            <h2 style="margin:0;">
+              ${emailHeading}
+            </h2>
+            <p style="margin-bottom:0;">
+              Buoyant Media Exhibition Booking
+            </p>
+          </div>
+
+          <div style="padding:24px;">
+            <p>Dear <strong>${payload.toName}</strong>,</p>
+
+            <p>${emailMessage}</p>
+
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  Booking Reference
+                </td>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  <strong>${payload.bookingReference}</strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  Exhibition
+                </td>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  ${payload.exhibitionTitle}
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  Outstanding Balance
+                </td>
+                <td style="padding:10px;border-bottom:1px solid #eee;
+                  color:#dc2626;">
+                  <strong>
+                    ₹${this.formatINR(payload.remainingBalance)}
+                  </strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:10px;">Payment Due Date</td>
+                <td style="padding:10px;">
+                  <strong>${formattedDueDate}</strong>
+                </td>
+              </tr>
+            </table>
+
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${paymentUrl}"
+                style="background:#012970;color:#fff;padding:12px 24px;
+                border-radius:6px;text-decoration:none;display:inline-block;">
+                Log In to Complete Payment
+              </a>
+            </div>
+
+            <p style="font-size:13px;color:#64748b;">
+              If you have already completed the payment, please disregard
+              this reminder. If you need assistance, contact our team.
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  // 7. Validate SMTP configuration.
+  if (!process.env.SMTP_USER) {
+    throw new Error(
+      "SMTP_USER is not configured. Email was not sent."
+    );
+  }
+
+  // 8. Send the email.
+  await transporter.sendMail({
+    from: `"Buoyant Media" <${process.env.SMTP_USER}>`,
+    to: payload.toEmail,
+    subject: emailSubject,
+    html,
+  });
+
+  console.log(
+    `[EMAIL SERVICE] ${emailHeading} sent to ${payload.toEmail}`
+  );
+
+  return true;
+}
 }

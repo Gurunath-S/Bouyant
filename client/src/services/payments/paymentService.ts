@@ -43,4 +43,10 @@ export const paymentService = {
     const res: any = await apiClient.post(`/payments/balance/${bookingId}`, payload || {});
     return res?.data?.data || res?.data || res;
   },
+
+  deletePayment: async (paymentId: string) => {
+    const res: any = await apiClient.delete(`/payments/${paymentId}`);
+    return res?.data?.data || res?.data || res;
+  },
 };
+

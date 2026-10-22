@@ -39,6 +39,19 @@ export const BookingWizardPage: React.FC = () => {
   const location = useLocation();
   const fromReferrer = (location.state as any)?.from;
   const fromReferrerLabel = (location.state as any)?.fromLabel;
+  const preselectedCompany = (location.state as any)?.preselectedCompany;
+  const preselectedCompanyId = (location.state as any)?.preselectedCompanyId;
+
+  // Admin controls (e.g. discount) are ONLY shown when an admin/staff user opens the
+  // wizard intentionally from the admin dashboard (identified by navigation state).
+  // This ensures CLIENT users and anonymous guests NEVER see admin-only UI, even if
+  // an admin session is active in the same browser.
+  const isAdminBookingContext = Boolean(
+    user &&
+    (user.role === 'ADMIN' || user.role === 'SUPERADMIN' || user.role === 'STAFF') &&
+    (fromReferrer?.includes('/admin') || fromReferrer?.includes('/dashboard') || (location.state as any)?.adminBooking === true)
+  );
+
   const {
     selectedStallIds,
     setHeldStallIds,
@@ -186,9 +199,33 @@ export const BookingWizardPage: React.FC = () => {
         setStalls([]);
       }
 
+      const isPrivileged = Boolean(
+        user && (user.role === 'ADMIN' || user.role === 'SUPERADMIN' || user.role === 'STAFF')
+      );
+
       if (user && user.role === 'CLIENT') {
         const comps = await companyService.getMyCompanies();
         setCompanies(comps || []);
+      } else if (isPrivileged) {
+        try {
+          const res = await companyService.listCompanies(1, '', undefined, undefined, 200);
+          const allComps = res.data || [];
+          setCompanies(allComps);
+
+          if (preselectedCompany) {
+            setSelectedCompany(preselectedCompany);
+            if (preselectedCompany.regNo) setAssignedRegNo(preselectedCompany.regNo);
+          } else if (preselectedCompanyId) {
+            const found = allComps.find((c: any) => c.id === preselectedCompanyId);
+            if (found) {
+              setSelectedCompany(found);
+              if (found.regNo) setAssignedRegNo(found.regNo);
+            }
+          }
+        } catch (compErr) {
+          console.error('Failed to load registered companies for privileged booking:', compErr);
+          setCompanies([]);
+        }
       } else {
         setCompanies([]);
         setSelectedCompany(null);
@@ -201,10 +238,15 @@ export const BookingWizardPage: React.FC = () => {
     }
   }
 
-  // Ensure each booking session starts 100% clean
+  // Initialize booking session, preserving preselected company from navigation
   useEffect(() => {
-    setSelectedCompany(null);
-    setAssignedRegNo('');
+    if (preselectedCompany) {
+      setSelectedCompany(preselectedCompany);
+      if (preselectedCompany.regNo) setAssignedRegNo(preselectedCompany.regNo);
+    } else {
+      setSelectedCompany(null);
+      setAssignedRegNo('');
+    }
     setPendingUserAuth(null);
     setCreatedBooking(null);
   }, [slug]);
@@ -598,6 +640,50 @@ export const BookingWizardPage: React.FC = () => {
         payload,
         { token: tokenToUse }
       );
+
+      // Handle Privileged Direct Offline Allocation (Admin / Superadmin / Staff)
+      if (payload.confirmDirectly) {
+        const bookingData = response?.data || response?.booking || response;
+        const bookingId = bookingData.bookingId || bookingData.id;
+        const bookingReference = bookingData.bookingReference || generateFallbackBookingRef();
+
+        const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+        const calculatedBasePrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+        const calculatedTaxAmount = Math.round(calculatedBasePrice * 0.18);
+        const calculatedGrandTotal = calculatedBasePrice + calculatedTaxAmount;
+
+        const realBooking = {
+          id: bookingId,
+          bookingReference,
+          userId: user?.id,
+          companyId: selectedCompany.id,
+          exhibitionId: exhibition?.id || 'expo_id',
+          status: 'CONFIRMED',
+          paymentStatus: 'PAID_FULL',
+          totalAmount: calculatedBasePrice,
+          taxAmount: calculatedTaxAmount,
+          grandTotal: calculatedGrandTotal,
+          paidAmount: calculatedGrandTotal,
+          balanceAmount: 0,
+          createdAt: new Date().toISOString(),
+          stalls: selectedStallsObj.map((s) => ({
+            id: generateTempStallId(),
+            bookingId,
+            stallId: s.id,
+            price: s.price,
+            stall: s,
+          })),
+          company: selectedCompany,
+          exhibition: exhibition || undefined,
+        };
+
+        setCreatedBooking(realBooking as Booking);
+        setPaymentStatusState('SUCCESS');
+        clearStallSelection();
+        setCurrentStep(5);
+        return;
+      }
+
       if (!response || !response.razorpayOrderId) {
         throw new Error('Failed to generate Razorpay payment order from backend.');
       }
@@ -952,7 +1038,9 @@ export const BookingWizardPage: React.FC = () => {
           onCancel={handleInitiateLeave}
           isPaymentModalDismissed={isPaymentModalDismissed}
           onCancelBookingAndRelease={handleCancelCurrentBooking}
+          showAdminControls={isAdminBookingContext}
         />
+
       )}
 
       {/* STEP 4: BOOKING CONFIRMATION & PASS RECEIPT */}

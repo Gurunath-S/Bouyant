@@ -5,6 +5,7 @@ import { connectDB } from './config/db.js';
 import { getRedisClient } from './config/redis.js';
 import { StallsService } from './modules/stalls/stalls.service.js';
 import { verifyEmailTransporter } from './services/email.service.js';
+import { startPaymentReminderCron } from './job/paymentReminder.cron.js';
 
 // Guarantee process-wide IPv4 precedence (prevents ENETUNREACH in IPv6-restricted environments like Render)
 try {
@@ -19,6 +20,7 @@ const startServer = async () => {
   // Connect Database & Services
   await connectDB();
   getRedisClient();
+  startPaymentReminderCron();
   // Verify email transporter in background so it never delays HTTP server port binding
   verifyEmailTransporter().catch((err) => {
     console.error('⚠️ [EMAIL SERVICE] Background verification error:', err?.message || err);

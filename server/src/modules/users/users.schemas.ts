@@ -32,6 +32,8 @@ export const CreateStaffSchema = z.object({
 
 export const UpdateUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long').optional(),
+  email: z.string().email('Invalid email address format').optional(),
+  username: z.string().trim().min(3, 'Username must be at least 3 characters long').optional().nullable(),
   phone: z.string().optional().nullable(),
   spcode: z.string().trim().toUpperCase().optional().nullable(),
   role: z.enum(['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT']).optional(),
@@ -45,6 +47,7 @@ export const ToggleUserStatusSchema = z.object({
 export const ResetPasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters long'),
   sendEmailNotification: z.boolean().optional().default(true),
+  newUsername: z.string().trim().min(3, 'Username must be at least 3 characters long').optional().nullable(),
 });
 
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;

@@ -8,6 +8,8 @@ import { pdfDownloadLimiter } from '../../middlewares/rateLimiter.js';
 
 const router = Router();
 
+router.get('/public/:id/pdf', asyncHandler(InvoicesController.downloadPdf));
+
 // All invoice operations require a verified authentication context
 router.use(authenticateToken);
 

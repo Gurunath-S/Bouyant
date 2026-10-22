@@ -118,7 +118,7 @@ export const AdminDashboardPage: React.FC = () => {
       );
 
       // Calculate Stall Occupancy numerical metrics
-      let totalStalls = fullActiveUpcoming?.totalStalls || 50;
+      let totalStalls = fullActiveUpcoming?.totalStalls || 0;
       let bookedStallsCount = 0;
 
       if (fullActiveUpcoming?.floorPlans && fullActiveUpcoming.floorPlans.length > 0) {
@@ -126,17 +126,25 @@ export const AdminDashboardPage: React.FC = () => {
         if (stallsList.length > 0) {
           totalStalls = stallsList.length;
           bookedStallsCount = stallsList.filter(
-            (s) => s.status === 'BOOKED_CONFIRMED'
+            (s) => s.status && s.status !== 'AVAILABLE'
           ).length;
         }
+      }
+
+      if (typeof fullActiveUpcoming?.bookedStallsCount === 'number' && fullActiveUpcoming.bookedStallsCount > bookedStallsCount) {
+        bookedStallsCount = fullActiveUpcoming.bookedStallsCount;
       }
 
       if (bookedStallsCount === 0 && currentBookings.length > 0) {
         bookedStallsCount = currentBookings.reduce((sum, b) => sum + (b.stalls?.length || 1), 0);
       }
 
+      if (totalStalls > 0 && bookedStallsCount > totalStalls) {
+        bookedStallsCount = totalStalls;
+      }
+
       const remainingStalls = Math.max(0, totalStalls - bookedStallsCount);
-      const fillPercent = Math.min(100, Math.round((bookedStallsCount / totalStalls) * 100));
+      const fillPercent = totalStalls > 0 ? Math.min(100, Math.round((bookedStallsCount / totalStalls) * 100)) : 0;
 
       const totalRevenue = currentBookings.reduce(
         (sum, b) => sum + (Number(b.paidAmount) || Number(b.grandTotal) || 0),

@@ -39,6 +39,8 @@ interface Step3TaxAuditBillProps {
   onCancel?: () => void;
   isPaymentModalDismissed?: boolean;
   onCancelBookingAndRelease?: () => void;
+  /** Only true when the booking wizard is opened by an admin/staff from the admin dashboard */
+  showAdminControls?: boolean;
 }
 
 export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
@@ -57,17 +59,26 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   onCancel,
   isPaymentModalDismissed,
   onCancelBookingAndRelease,
+  showAdminControls = false,
 }) => {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [termsError, setTermsError] = useState(false);
   const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
   const [discountValue, setDiscountValue] = useState<number>(0);
+  const [paymentExecutionMode, setPaymentExecutionMode] = useState<'DIRECT_OFFLINE' | 'ONLINE_GATEWAY'>('ONLINE_GATEWAY');
+  const [offlineMethod, setOfflineMethod] = useState<string>('ADMIN_DIRECT_ALLOCATION');
+  const [nextPaymentDate, setNextPaymentDate] = useState<Date | null>(null);
+  const today = new Date();
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const basePrice = selectedStalls.reduce((sum, s) => sum + Number(s.price), 0);
   const isPartial = paymentType === 'PARTIAL';
   const effectivePartialPercent = Math.max(10, Math.min(99, partialPercentage));
 
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'STAFF';
+  // Discount and admin controls are only shown when the parent explicitly enables them
+  // (i.e. booking opened from the admin dashboard). Never shown on the public booking wizard,
+  // even if an admin/staff user is currently logged in.
+  const isAdmin = showAdminControls;
 
   // Base rental for this bill
   const billBaseAmount = isPartial
@@ -109,9 +120,12 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
     if (selectedStalls.length === 0 || !selectedCompany) return;
 
-    const contactPerson = user?.name || selectedCompany.contactPerson;
-    const contactEmail = user?.email || selectedCompany.email;
-    const contactPhone = user?.phone || selectedCompany.mobile;
+    const isDirectOffline = isAdmin && paymentExecutionMode === 'DIRECT_OFFLINE';
+
+    // Prioritize exhibitor company contact person, email, and mobile when booking as admin/staff
+    const contactPerson = (!isAdmin && user?.name) ? user.name : (selectedCompany.contactPerson || user?.name || '');
+    const contactEmail = (!isAdmin && user?.email) ? user.email : (selectedCompany.email || user?.email || '');
+    const contactPhone = (!isAdmin && user?.phone) ? user.phone : (selectedCompany.mobile || user?.phone || '');
 
     const payload: CreateBookingPayload = {
       companyId: selectedCompany.id,
@@ -136,6 +150,15 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
         }),
       paymentType: apiPaymentType,
       percentage: isPartial ? effectivePartialPercent : 100,
+      confirmDirectly: isDirectOffline,
+      paymentMethod: isDirectOffline ? offlineMethod : undefined,
+        ...(isPartial && nextPaymentDate && {
+     paymentReminderDate: [
+            nextPaymentDate.getFullYear(),
+            String(nextPaymentDate.getMonth() + 1).padStart(2, '0'),
+            String(nextPaymentDate.getDate()).padStart(2, '0'),
+    ].join('-'),
+   }),
     };
 
     onProceedToPayment(payload);
@@ -423,6 +446,34 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                   </div>
                 </div>
 
+                 <div className="p-3 bg-white dark:bg-slate-800/90 rounded-xl border border-amber-200/80 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <label htmlFor="nextPaymentDate" className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />
+                Next Payment Due Date <span className="text-red-500">*</span>
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                We’ll email you an automated reminder 1 day prior to this date.
+              </p>
+            </div>
+            <input
+              id="nextPaymentDate"
+              type="date"
+              min={minDate}
+              value={
+                nextPaymentDate
+                  ? `${nextPaymentDate.getFullYear()}-${String(nextPaymentDate.getMonth() + 1).padStart(2, '0')}-${String(nextPaymentDate.getDate()).padStart(2, '0')}`
+                  : ''
+              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setNextPaymentDate(value ? new Date(`${value}T00:00:00`) : null);
+              }}
+              required
+              className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#9cc542] shrink-0"
+            />
+          </div>
+
                 <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Custom Advance %:</span>
                   <input
@@ -638,17 +689,30 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                 </div>
               )}
 
+              {/* Privileged Desk Allocation / Payment Mode Selector: Hidden for now per admin request to keep Razorpay alone */}
+              {/* Note: Kept commented for quick re-enabling if needed */}
+
               <Button
                 type="button"
                 variant="primary"
                 size="lg"
-                disabled={payableToday <= 0}
-                className="w-full text-sm font-extrabold bg-[#9cc542] hover:bg-[#82aa30] text-[#012970] shadow-md hover:shadow-lg border-none py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={payableToday <= 0 || isPartial && nextPaymentDate === null}
+                className="w-full text-sm font-extrabold shadow-md hover:shadow-lg border-none py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#9cc542] hover:bg-[#82aa30] text-[#012970]"
                 onClick={handlePayClick}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                {payableToday <= 0 ? 'No Payment Required' : `Pay ₹${payableToday.toLocaleString('en-IN')} Now`}
+                {payableToday <= 0
+                  ? 'No Payment Required'
+                  : isPartial && nextPaymentDate === null
+                    ? 'Select Due Date to Pay'
+                    : `Pay ₹${payableToday.toLocaleString('en-IN')} Now`}
               </Button>
+
+              {/* Razorpay Gateway Badge */}
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Secured by Razorpay • UPI, Cards, NetBanking</span>
+              </div>
 
               {/* Compact & Professional Terms Agreement Checkbox */}
               <div

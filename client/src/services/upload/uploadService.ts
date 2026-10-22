@@ -14,9 +14,16 @@ export const uploadService = {
   uploadImage: async (image: string, folder: string = 'general'): Promise<UploadResponse> => {
     try {
       const res: any = await apiClient.post('/upload', { image, folder });
-      return res.data || res;
+      const payload = res?.data || res;
+      const uploadedUrl = payload?.url || (typeof payload === 'string' ? payload : image);
+      return {
+        url: uploadedUrl,
+        public_id: payload?.public_id || '',
+        format: payload?.format,
+        bytes: payload?.bytes,
+      };
     } catch (err: any) {
-      console.error('Failed to upload image to Cloudinary:', err);
+      console.warn('Failed to upload image to Cloudinary endpoint, using local image data:', err);
       // Fallback: if server upload endpoint fails or offline, return original data URL
       return { url: image };
     }

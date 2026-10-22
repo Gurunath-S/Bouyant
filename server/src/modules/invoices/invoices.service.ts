@@ -74,6 +74,81 @@ export class InvoicesService {
     }
 
     if (!invoice) {
+      // Check if identifier matches a booking directly
+      const booking = await prisma.booking.findFirst({
+        where: {
+          OR: [{ id: identifier }, { bookingReference: identifier }],
+        },
+        include: {
+          company: true,
+          stalls: { include: { stall: true } },
+          exhibition: true,
+          payments: {
+            where: { status: 'SUCCESS' },
+            orderBy: { createdAt: 'asc' },
+          },
+          invoices: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      if (booking) {
+        if (booking.invoices && booking.invoices.length > 0) {
+          invoice = await prisma.invoice.findUnique({
+            where: { id: booking.invoices[0].id },
+            include: {
+              company: true,
+              payment: true,
+              booking: {
+                include: {
+                  stalls: { include: { stall: true } },
+                  exhibition: true,
+                  payments: {
+                    where: { status: 'SUCCESS' },
+                    orderBy: { createdAt: 'asc' },
+                  },
+                  invoices: {
+                    orderBy: { createdAt: 'asc' },
+                  },
+                },
+              },
+            },
+          });
+        } else {
+          // Auto-generate invoice for this booking so user/admin can always download it!
+          const invoiceNum = `INV-${Date.now().toString().slice(-6)}`;
+          invoice = await prisma.invoice.create({
+            data: {
+              invoiceNumber: invoiceNum,
+              bookingId: booking.id,
+              companyId: booking.companyId,
+              paymentId: booking.payments?.[0]?.id || null,
+              totalAmount: booking.totalAmount,
+              taxAmount: booking.taxAmount,
+              grandTotal: booking.grandTotal,
+            },
+            include: {
+              company: true,
+              payment: true,
+              booking: {
+                include: {
+                  stalls: { include: { stall: true } },
+                  exhibition: true,
+                  payments: {
+                    where: { status: 'SUCCESS' },
+                    orderBy: { createdAt: 'asc' },
+                  },
+                  invoices: true,
+                },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    if (!invoice) {
       throw ApiError.notFound('Invoice or bill not found.');
     }
 
@@ -82,6 +157,7 @@ export class InvoicesService {
       const isPrivileged =
         user.role === 'SUPERADMIN' ||
         user.role === 'ADMIN' ||
+        user.role === 'STAFF' ||
         hasUserPermission(user, Permissions.INVOICE_MANAGE);
 
       if (!isPrivileged) {
@@ -97,12 +173,14 @@ export class InvoicesService {
 
           if (
             !userCompanyId ||
-            (invoice.companyId !== userCompanyId && invoice.booking?.companyId !== userCompanyId)
+            (invoice.companyId !== userCompanyId &&
+              invoice.booking?.companyId !== userCompanyId &&
+              invoice.booking?.userId !== user.userId)
           ) {
             throw ApiError.forbidden('Not authorized to access this invoice.');
           }
         } else {
-          // Any other unprivileged role (e.g. STAFF without INVOICE_MANAGE)
+          // Any other unprivileged role
           throw ApiError.forbidden('Not authorized to access this invoice.');
         }
       }
