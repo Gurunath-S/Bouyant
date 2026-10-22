@@ -34,8 +34,3 @@ yarn-debug.log*
 yarn-error.log*
 logs
 *.log
-
-# AI & Agent configuration files
-.agent/
-.agents/
-.gemini/
