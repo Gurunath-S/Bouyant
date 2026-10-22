@@ -17,6 +17,9 @@ build
 # Database & Prisma
 *.db
 *.sqlite
+*.sql
+*.dump
+backups/
 prisma/migrations/*_lock.toml
 pgdata/
 server/pgdata/
