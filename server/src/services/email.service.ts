@@ -103,6 +103,7 @@ export interface PaymentReminderEmailPayload {
   exhibitionTitle: string;
   remainingBalance: number;
   nextPaymentDate: Date | string;
+  stallDetails:string;
 }
 
 export interface BookingConfirmationEmailPayload {
@@ -1036,7 +1037,14 @@ export class EmailService {
                   <strong>${payload.bookingReference}</strong>
                 </td>
               </tr>
-
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  Booked Stalls
+                </td>
+                <td style="padding:10px;border-bottom:1px solid #eee;">
+                  <strong>${payload.stallDetails}</strong>
+                </td>
+             </tr>
               <tr>
                 <td style="padding:10px;border-bottom:1px solid #eee;">
                   Exhibition

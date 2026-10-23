@@ -477,7 +477,7 @@ export const AdminEventsPage: React.FC = () => {
                 {paginatedExhibitions.map((e, idx) => (
                 <tr
                   key={e.id}
-                  onClick={() => navigate(`/admin/events/${e.id}/view`)}
+                  onClick={() => navigate(`/admin/events/${e.id}/edit`)}
                   className="hover:bg-purple-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                 >
                   <td className="w-12 py-3 px-3 text-center font-mono font-bold text-slate-400">

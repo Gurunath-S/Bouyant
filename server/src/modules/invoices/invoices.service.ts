@@ -127,6 +127,7 @@ export class InvoicesService {
               totalAmount: booking.totalAmount,
               taxAmount: booking.taxAmount,
               grandTotal: booking.grandTotal,
+              status: 'PAID',
             },
             include: {
               company: true,
@@ -191,32 +192,71 @@ export class InvoicesService {
 
   static async listUserInvoices(userOrUserId: TokenPayload | string) {
     let companyId: string | null = null;
+    let userId: string | null = null;
+    let userEmail: string | null = null;
+    let isClient = false;
+
     if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+      userId = userOrUserId.userId || null;
+      userEmail = userOrUserId.email ? userOrUserId.email.toLowerCase().trim() : null;
       companyId = userOrUserId.companyId || null;
-      if (!companyId && userOrUserId.userId) {
+      isClient = userOrUserId.role === 'CLIENT';
+
+      if ((!companyId || !userEmail) && userOrUserId.userId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: userOrUserId.userId },
-          select: { companyId: true },
+          select: { companyId: true, email: true },
         });
-        companyId = dbUser?.companyId || null;
+        if (!companyId) companyId = dbUser?.companyId || null;
+        if (!userEmail && dbUser?.email) userEmail = dbUser.email.toLowerCase().trim();
       }
     } else if (typeof userOrUserId === 'string') {
+      userId = userOrUserId;
       const dbUser = await prisma.user.findUnique({
         where: { id: userOrUserId },
-        select: { companyId: true },
+        select: { companyId: true, email: true, role: true },
       });
       companyId = dbUser?.companyId || null;
+      userEmail = dbUser?.email ? dbUser.email.toLowerCase().trim() : null;
+      isClient = dbUser?.role === 'CLIENT';
     }
 
     if (!companyId) {
       return [];
     }
 
+    // Invoices are only given/shown if payment actually happened
+    const whereClause: any = {
+      companyId,
+      OR: [
+        { payment: { status: 'SUCCESS' } },
+        { status: 'PAID' },
+      ],
+    };
+
+    // Client user isolation: strictly show only their own bookings' invoices
+    if (isClient) {
+      whereClause.booking = {
+        OR: [
+          ...(userId ? [{ userId }] : []),
+          ...(userEmail
+            ? [
+                {
+                  userId: null,
+                  contactEmail: { equals: userEmail, mode: 'insensitive' as const },
+                },
+              ]
+            : []),
+        ],
+      };
+    }
+
     return await prisma.invoice.findMany({
-      where: { companyId },
+      where: whereClause,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
         company: { select: { name: true } },
+        payment: true,
         booking: {
           include: {
             stalls: { include: { stall: { select: { stallNumber: true, category: true } } } },

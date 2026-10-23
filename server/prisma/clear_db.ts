@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('================================================================');
-  console.log('🧹 CLEARING DATABASE & SEEDING LOGIN PAGE CREDENTIALS & EVENTS');
+  console.log('🧹 CLEARING DATABASE & SEEDING EXACT 4 EVENTS & DEMO LOGINS');
   console.log('================================================================');
 
   // 1. Delete transactional & operational data in safe Foreign Key order
@@ -47,11 +47,11 @@ async function main() {
   await prisma.user.deleteMany({});
 
   // 3. Prepare passwords exactly matching client/src/features/auth/pages/LoginPage.tsx
-  console.log('\n🔑 Seeding Only Exact Login Page Accounts...');
+  console.log('\n🔑 Seeding Exact Demo Accounts from Login Page...');
   const adminStaffPasswordHash = await bcrypt.hash('Password123!', 10);
   const clientPasswordHash = await bcrypt.hash('DemoUser123!', 10);
 
-  // 1. Super Admin (From Login Page DEMO_ACCOUNTS)
+  // 1. Super Admin (Login Page DEMO_ACCOUNTS)
   await prisma.user.create({
     data: {
       email: 'superadmin@buoyantmedia.com',
@@ -66,12 +66,12 @@ async function main() {
     },
   });
 
-  // 2. Exhibition Admin (From Login Page DEMO_ACCOUNTS)
+  // 2. Exhibition Admin (Login Page DEMO_ACCOUNTS)
   const adminUser = await prisma.user.create({
     data: {
       email: 'admin@buoyantmedia.com',
       passwordHash: adminStaffPasswordHash,
-      username: 'guru_bhai',
+      username: 'admin',
       name: 'guru',
       phone: '8838669315',
       role: UserRole.ADMIN,
@@ -89,7 +89,7 @@ async function main() {
     },
   });
 
-  // 3. Operations Staff (From Login Page DEMO_ACCOUNTS)
+  // 3. Operations Staff (Login Page DEMO_ACCOUNTS)
   await prisma.user.create({
     data: {
       email: 'staff@buoyantmedia.com',
@@ -110,7 +110,7 @@ async function main() {
     },
   });
 
-  // 4. Guru Staff Account
+  // 4. Personal Staff Account (Guru)
   await prisma.user.create({
     data: {
       email: 'guruthedev20@gmail.com',
@@ -138,7 +138,7 @@ async function main() {
       name: 'Demo Innovations Pvt Ltd',
       contactPerson: 'Demo Exhibitor',
       mobile: '+919876543210',
-      email: 'demo@buoyantmedia.com',
+      email: 'demo.company@buoyantmedia.com',
       address: 'Plot 101, Tech Park Phase 1',
       city: 'Bengaluru',
       state: 'Karnataka',
@@ -151,12 +151,12 @@ async function main() {
     },
   });
 
-  // 6. Demo Exhibitor Client (From Login Page DEMO_ACCOUNTS - PW: DemoUser123!)
+  // 6. Demo Exhibitor Client (Login Page DEMO_ACCOUNTS autofills: username 'demo.client' & PW 'DemoUser123!')
   await prisma.user.create({
     data: {
       email: 'demo@buoyantmedia.com',
       passwordHash: clientPasswordHash,
-      username: 'demo_user',
+      username: 'demo.client',
       name: 'Demo Exhibitor',
       phone: '+919876543210',
       role: UserRole.CLIENT,
@@ -166,8 +166,8 @@ async function main() {
     },
   });
 
-  // 7. Seed Official Platform Exhibition Events with Floor Plans & Stalls
-  console.log('🎪 Seeding Official Exhibition Events, Floor Plans & Stalls...');
+  // 7. Seed EXACT 4 Platform Exhibition Events with Floor Plans & Stalls
+  console.log('🎪 Seeding 4 Official Exhibition Events, Floor Plans & Stalls...');
 
   const eventsData = [
     {
@@ -242,24 +242,6 @@ async function main() {
       notificationEmails: 'admin@buoyantmedia.com',
       createdByUserId: adminUser.id,
     },
-    {
-      title: 'National Defense & Aerospace Manufacturing Summit 2027',
-      slug: 'defense-aerospace-summit-2027',
-      description: 'Premier national summit and trade exhibition showcasing advanced aerospace engineering, defense manufacturing, and military tech.',
-      venue: 'Hitex Exhibition Centre (Trade Fair Hall 1)',
-      city: 'Hyderabad, TS',
-      startDate: new Date('2027-02-18T09:00:00Z'),
-      endDate: new Date('2027-02-21T18:00:00Z'),
-      bookingEndDate: new Date('2027-02-10T23:59:59Z'),
-      status: ExhibitionStatus.PUBLISHED,
-      bannerUrl: 'https://images.unsplash.com/photo-1517976487502-5f7946f10157?w=1200',
-      totalStalls: 14,
-      edition: '1',
-      eventCode: 'DA-01',
-      spcode: 'DA01',
-      notificationEmails: 'admin@buoyantmedia.com',
-      createdByUserId: adminUser.id,
-    },
   ];
 
   const stallsTemplate = [
@@ -324,27 +306,27 @@ async function main() {
   }
 
   console.log('\n================================================================');
-  console.log('🎉 DATABASE RESET & SEEDED WITH EXACT LOGIN PAGE ACCOUNTS!');
+  console.log('🎉 DATABASE RESET & SEEDED WITH EXACT 4 EVENTS & DEMO LOGINS!');
   console.log('================================================================');
   console.log('Summary:');
-  console.log(`• Exhibitions Seeded  : ${eventsData.length} Published Events`);
+  console.log(`• Exhibitions Seeded  : ${eventsData.length} Published Events (The 4 core events)`);
   console.log(`• Floor Plans Seeded  : ${eventsData.length} Hall Layout Plans`);
   console.log(`• Stalls Seeded       : ${totalStallsCreated} Stalls (All 100% AVAILABLE)`);
   console.log('• Bookings / Invoices : 0 (Clean Slate)');
   console.log('----------------------------------------------------------------');
   console.log('🔑 EXACT LOGIN PAGE CREDENTIALS:');
   console.log('----------------------------------------------------------------');
-  console.log('1. Demo Exhibitor (Client) : demo@buoyantmedia.com       | PW: DemoUser123!');
-  console.log('2. Exhibition Admin        : admin@buoyantmedia.com      | PW: Password123!');
-  console.log('3. Operations Staff        : staff@buoyantmedia.com      | PW: Password123!');
-  console.log('4. Super Admin             : superadmin@buoyantmedia.com | PW: Password123!');
-  console.log('5. Personal Staff Account  : guruthedev20@gmail.com      | PW: Password123!');
+  console.log('1. Demo Exhibitor (Client) : Username: demo.client         | PW: DemoUser123!');
+  console.log('2. Exhibition Admin        : Email: admin@buoyantmedia.com | PW: Password123!');
+  console.log('3. Operations Staff        : Email: staff@buoyantmedia.com | PW: Password123!');
+  console.log('4. Super Admin             : Email: superadmin@buoyantmedia.com | PW: Password123!');
+  console.log('5. Personal Staff Account  : Email: guruthedev20@gmail.com | PW: Password123!');
   console.log('================================================================\n');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Clear DB Error:', e);
+    console.error('❌ Clear Error:', e);
     process.exit(1);
   })
   .finally(async () => {
