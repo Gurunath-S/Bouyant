@@ -166,8 +166,16 @@ export class FloorPlansService {
           for (const existing of existingStalls) {
             const isRetained = newStallIds.has(existing.id) || newStallNumbers.has(existing.stallNumber.toUpperCase());
             if (!isRetained) {
-              if (existing.bookingStalls && existing.bookingStalls.length > 0) {
-                // Preserve stalls with active bookings
+              const isBookedOrHeld =
+                (existing.bookingStalls && existing.bookingStalls.length > 0) ||
+                existing.status === 'BOOKED_CONFIRMED' ||
+                existing.status === 'PAYMENT_PENDING' ||
+                existing.status === 'BOOKING_IN_PROGRESS' ||
+                existing.status === 'TEMPORARILY_HELD' ||
+                Boolean((existing as any).heldByUserId);
+
+              if (isBookedOrHeld) {
+                // Preserve stalls with active bookings, holds, or pending customer payments
                 continue;
               }
               toDeleteIds.push(existing.id);

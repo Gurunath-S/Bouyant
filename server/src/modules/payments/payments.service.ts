@@ -39,6 +39,7 @@ private static async createInvoice(
       totalAmount,
       taxAmount,
       grandTotal: paymentAmount,
+      status: 'PAID',
     },
   });
 }
@@ -781,7 +782,7 @@ private static async createInvoice(
         const displayUsername = bookingOwnerUser?.username || null;
 
         await EmailService.sendBookingConfirmationEmail({
-          toEmail: contactEmail || comp?.email,
+          toEmail: comp?.email || contactEmail,
           toName: contactPerson,
           companyName: billingName,
           bookingReference: booking.bookingReference,

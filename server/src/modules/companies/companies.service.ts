@@ -586,7 +586,7 @@ export class CompaniesService {
                 gstNumber: cleanGst,
                 panNumber: cleanPan,
                 tanNumber: effectiveTan,
-                industry: input.industry || 'General Exhibitor',
+                industry: input.industry?.trim() || anyInput.category?.trim() || 'General Exhibitor',
                 website: input.website,
                 remarks: input.remarks || 'Not Provided',
                 companyCode: nextCompanyCode,

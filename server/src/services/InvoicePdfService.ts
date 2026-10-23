@@ -34,6 +34,7 @@ export interface InvoicePdfData {
     stallNumber: string;
     category: string;
     areaSqFt?: number;
+    name: string | null;
     amount: number;
   }[];
 
@@ -266,6 +267,7 @@ export class InvoicePdfService {
       stallNumber: bs.stall?.stallNumber || bs.stallId || 'A14',
       category: bs.stall?.category || 'PREMIUM',
       areaSqFt: bs.stall?.areaSqFt ?? 100,
+      name: bs.stall?.name || '',
       amount: Number(bs.price || bs.stall?.price || 0),
     }));
 
@@ -393,16 +395,19 @@ export class InvoicePdfService {
       return `${formatOrdinalDate(data.exhibition.startDate)} to ${formatOrdinalDate(data.exhibition.endDate)}`;
     };
 
-    const primaryStall = data.stalls[0] || {
-      stallNumber: 'A14',
-      category: 'PREMIUM',
-      areaSqFt: 100,
-      amount: data.taxableAmount,
-    };
+       const stallDetailsHtml = data.stalls
+      .map(
+        (stall) => `
+      <span class="item-desc-title">
+        ${stall.stallNumber} (${stall.category.toUpperCase()}) ${stall.name || ''}
+      </span>
+    `
+      )
+      .join(', ');
 
     const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
 
-       return `<!DOCTYPE html>
+     return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8" />
@@ -478,7 +483,7 @@ export class InvoicePdfService {
     margin-bottom: 2px;
   }
   .output-tax-indent {
-    margin-top: 35px;
+    margin-top: 23px;
     text-align: right;
     font-style: italic;
     font-weight: bold;
@@ -590,9 +595,8 @@ export class InvoicePdfService {
       <tr style="height: 240px;">
         <td class="text-right">1</td>
         <td>
-          <div class="item-desc-title">STALL NO : ${primaryStall.stallNumber} (${primaryStall.category.toUpperCase()})</div>
-          <div class="bold">${primaryStall.areaSqFt || 100} SQM</div>
-          <div class="bold" style="margin-top: 4px;">${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),</div>
+          <div class="item-desc-title">STALL NO:${stallDetailsHtml}</div>
+          <div class="bold" style="margin-top: 6px;">${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),</div>
           <div class="bold">DATE: ${formatExhibitionDateRange()},</div>
           <div class="bold">VENUE: ${data.exhibition.venue.toUpperCase()}</div>
           <div class="bold">${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.</div>
@@ -605,23 +609,65 @@ export class InvoicePdfService {
         <td class="text-right bold">${totalQty} SQM</td>
         <td class="text-center">SQM</td>
         <td style="padding: 0;">
-          <div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-            <div style="padding: 5px; text-align: right; font-weight: bold;">${formatMoney(data.taxableAmount)}</div>
-            <div style="border-top: 1px solid #000; padding: 5px; text-align: right; line-height: 1.6;">
-              <div>${formatMoney(data.taxableAmount)}</div>
-              ${data.isTamilNadu ? `<div class="bold">${formatMoney(data.cgstAmount)}</div><div class="bold">${formatMoney(data.sgstAmount)}</div>` : `<div class="bold">${formatMoney(data.totalTax)}</div>`}
-            </div>
-          </div>
-        </td>
-      </tr>
+       <div style="display: flex; flex-direction: column;">
+
+    <!-- Original amount -->
+    <div style="padding: 5px; text-align: right; font-weight: bold;">
+      ${formatMoney(data.taxableAmount)}
+    </div>
+
+    <!-- Border + taxable amount + GST amounts -->
+    <div style="border-top: 1px solid #000; margin-top: 45px; padding: 5px; text-align: right; line-height: 1.6;">
+
+      <div>${formatMoney(data.taxableAmount)}</div>
+
+      ${
+        data.isTamilNadu
+          ? `
+            <div class="bold">${formatMoney(data.cgstAmount)}</div>
+            <div class="bold">${formatMoney(data.sgstAmount)}</div>
+          `
+          : `
+            <div class="bold">${formatMoney(data.totalTax)}</div>
+          `
+      }
+
+    </div>
+  </div>
+</td>
+</tr>
 
       <!-- Total Row -->
-      <tr style="border-top: 1px solid #000; font-weight: bold;">
-        <td colspan="3" class="text-right" style="padding: 5px;">Total</td>
-        <td class="text-right" style="padding: 5px;">${totalQty}</td>
-        <td class="text-center" style="padding: 5px;">-</td>
-        <td class="text-right" style="padding: 5px; font-size: 12px;">${formatMoney(data.grandTotal)}</td>
-      </tr>
+
+<tr class="items-total-row" style="border-top: 1px solid #000; font-weight: bold;">
+
+  <!-- SL NO: Empty -->
+  <td style="padding: 5px;"></td>
+
+  <!-- DESCRIPTION: Total -->
+  <td class="items-total-label" style="padding: 5px; text-align: right;">
+    Total
+  </td>
+
+  <!-- HSN/SAC: Empty -->
+  <td style="padding: 5px;"></td>
+
+  <!-- QUANTITY -->
+  <td class="center bold" style="padding: 5px; text-align: right;">
+    ${totalQty}
+  </td>
+
+  <!-- PER -->
+  <td style="padding: 5px; text-align: center;">
+    -
+  </td>
+
+  <!-- AMOUNT -->
+  <td class="right bold" style="padding: 5px; text-align: right; font-size: 12px;">
+    ${formatMoney(data.grandTotal)}
+  </td>
+
+</tr>
     </tbody>
   </table>
 
@@ -643,32 +689,38 @@ export class InvoicePdfService {
     <thead>
       <tr>
         <th rowspan="2" style="width: 25%; text-align: center;">Taxable<br/>Value</th>
-        <th colspan="2" style="width: 30%;">Central Tax</th>
-        <th colspan="2" style="width: 30%;">State Tax</th>
+        ${data.isTamilNadu?` <th colspan="2" style="width: 30%;">Central Tax</th>
+        <th colspan="2" style="width: 30%;">State Tax</th>`:`<th colspan="2" style="width: 30%;">Tax</th>`}
         <th rowspan="2" style="width: 15%; text-align: center;">Total Tax<br/>Amount</th>
       </tr>
       <tr>
-        <th style="width: 10%;">Rate</th>
+       ${data.isTamilNadu ? ` <th style="width: 10%;">Rate</th>
         <th style="width: 20%;">Amount</th>
         <th style="width: 10%;">Rate</th>
-        <th style="width: 20%;">Amount</th>
+        <th style="width: 20%;">Amount</th>`:`<th style="width: 10%;">Rate</th>
+        <th style="width: 20%;">Amount</th>`}
       </tr>
     </thead>
     <tbody>
       <tr>
         <td class="text-right">${formatMoney(data.taxableAmount)}</td>
+        ${data.isTamilNadu?`
         <td>9 %</td>
         <td class="text-right">${formatMoney(data.cgstAmount)}</td>
         <td>9 %</td>
-        <td class="text-right">${formatMoney(data.sgstAmount)}</td>
+        <td class="text-right">${formatMoney(data.sgstAmount)}</td>`:`
+        <td>18 %</td>
+        <td class="text-right">${formatMoney(data.totalTax)}</td>`}
         <td class="text-right">${formatMoney(data.totalTax)}</td>
       </tr>
-      <tr class="bold">
+      <tr class="bold"> 
         <td class="text-right">Total ${formatMoney(data.taxableAmount)}</td>
-        <td></td>
+        ${data.isTamilNadu? ` <td></td>
         <td class="text-right">${formatMoney(data.cgstAmount)}</td>
         <td></td>
-        <td class="text-right">${formatMoney(data.sgstAmount)}</td>
+        <td class="text-right">${formatMoney(data.sgstAmount)}</td>`:
+         `<td></td>
+          <td class="text-right">${formatMoney(data.totalTax)}</td>`}
         <td class="text-right">${formatMoney(data.totalTax)}</td>
       </tr>
     </tbody>

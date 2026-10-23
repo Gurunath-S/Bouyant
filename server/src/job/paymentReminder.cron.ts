@@ -6,7 +6,7 @@ import { EmailService } from "../services/email.service.js";
 import {WhatsappService} from "../services/whatsapp.service.js";
 export function startPaymentReminderCron() {
   cron.schedule(
-    "* * * * *",  
+    "*/15 * * * *",  
     async () => {
 
       try {
@@ -56,8 +56,7 @@ export function startPaymentReminderCron() {
                   id: true,
                   bookingReference: true,
                   balanceAmount: true,
-                  status: true,
-
+                  status: true,  
                   company: {
                     select: {
                       name: true,
@@ -70,6 +69,16 @@ export function startPaymentReminderCron() {
                   exhibition: {
                     select: {
                       title: true,
+                    },
+                  },
+                  stalls: {
+                    select: {
+                      stall: {
+                        select: {
+                          stallNumber: true,
+                          category:true
+                        },
+                      },
                     },
                   },
                 },
@@ -96,6 +105,11 @@ export function startPaymentReminderCron() {
               });
               continue;
             }
+
+            const stallDetails = booking.stalls
+            .map(({ stall }) => `${stall.stallNumber} (${stall.category})`)
+            .join(", ");
+
               // Get the actual payment due date, not the reminder date.
 
             // Adapt the arguments to your existing email service.
@@ -108,6 +122,7 @@ export function startPaymentReminderCron() {
                   exhibitionTitle: booking.exhibition.title,
                   remainingBalance: Number(booking.balanceAmount),
                   nextPaymentDate,
+                  stallDetails,
                 });
 
                 await prisma.paymentReminder.update({

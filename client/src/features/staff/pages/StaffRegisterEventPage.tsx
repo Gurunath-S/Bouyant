@@ -8,6 +8,7 @@ import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
+import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import {
   CalendarPlus,
   ArrowLeft,
@@ -52,8 +53,11 @@ export const StaffRegisterEventPage: React.FC = () => {
     spcode: user?.spcode || '',
     description: '',
     venue: '',
-    city: 'Mumbai',
-    state: 'Maharashtra',
+    address: '',
+    city: '',
+    state: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
     startDate: '',
     endDate: '',
     bookingEndDate: '',
@@ -408,7 +412,7 @@ export const StaffRegisterEventPage: React.FC = () => {
                   });
                 }}
                 options={availableCities}
-                placeholder="Select or type City..."
+                placeholder={formData.state ? `Select City in ${formData.state}...` : "Select or type City..."}
               />
             </div>
 
@@ -422,6 +426,40 @@ export const StaffRegisterEventPage: React.FC = () => {
               />
             </div>
           </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Full Street Address
+            </label>
+            <Input
+              type="text"
+              placeholder="e.g. Avinashi Road, Peelamedu, Near Airport"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            />
+          </div>
+
+          {/* Interactive Live Pin Map with Reset & Search */}
+          <InteractivePinMap
+            latitude={formData.latitude}
+            longitude={formData.longitude}
+            venueName={formData.venue}
+            cityName={formData.city}
+            address={formData.address}
+            stateName={formData.state}
+            onChangeCoordinates={(lat, lng) => setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }))}
+            onSyncAddress={(addr) => {
+              setFormData((prev) => ({
+                ...prev,
+                venue: addr.venue || prev.venue,
+                address: addr.address || prev.address,
+                city: addr.city || prev.city,
+                state: addr.state || prev.state,
+              }));
+            }}
+            heightClass="h-72"
+            title="Venue Location & Navigation Preview"
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

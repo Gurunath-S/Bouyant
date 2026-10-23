@@ -733,7 +733,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             if (!getValues('email') && comp.email) setValue('email', comp.email, { shouldValidate: true, shouldDirty: true });
           }
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
-
+          if (comp.industry) setValue('category', comp.industry, { shouldValidate: true, shouldDirty: true });
           if (comp.username && comp.email && comp.mobile) {
             const rec: RecognizedExhibitorAccount = {
               username: comp.username,

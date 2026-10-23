@@ -13,6 +13,7 @@
     "seed": "cd server && npm run seed",
     "seed:clean": "cd server && npm run seed:clean",
     "clear": "cd server && npm run clear",
+    "backup": "bash scripts/backup.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix"
   },

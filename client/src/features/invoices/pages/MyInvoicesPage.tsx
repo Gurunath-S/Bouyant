@@ -8,13 +8,6 @@ import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
-const STATUS_STYLES: Record<string, string> = {
-  ISSUED: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-  PAID: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  CANCELLED: 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
-  VOID: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700',
-};
-
 export const MyInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [totalInvoices, setTotalInvoices] = useState(0);
@@ -158,15 +151,11 @@ export const MyInvoicesPage: React.FC = () => {
                   <th className="py-3.5 px-4 text-right">Base (excl. GST)</th>
                   <th className="py-3.5 px-4 text-right">GST 18%</th>
                   <th className="py-3.5 px-4 text-right">Grand Total</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
                 {invoices.map((inv, idx) => {
-                  const displayStatus = (inv as any).status === 'ISSUED' ? 'PAID' : ((inv as any).status || 'PAID');
-                  const statusStyle =
-                    STATUS_STYLES[displayStatus] || STATUS_STYLES['PAID'];
                   const stallNumbers =
                     (inv as any).booking?.stalls
                       ?.map((s: any) => s.stall?.stallNumber || s.stallId)
@@ -208,13 +197,6 @@ export const MyInvoicesPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         ₹{Number(inv.grandTotal || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusStyle}`}
-                        >
-                          {displayStatus}
-                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">

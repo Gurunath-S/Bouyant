@@ -121,12 +121,12 @@ const getInitialBasicInfo = () => ({
   venue: '',
   address: '',
   city: '',
-  state: 'Maharashtra',
+  state: '',
   bannerUrl: '',
   images: [] as string[],
   notificationEmails: '',
-  latitude: 19.1551,
-  longitude: 72.8553,
+  latitude: undefined as number | undefined,
+  longitude: undefined as number | undefined,
   status: 'DRAFT',
 });
 
@@ -474,12 +474,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           venue: data.venue || '',
           address: data.address || '',
           city: data.city || '',
-          state: data.state || 'Maharashtra',
+          state: data.state || '',
           bannerUrl: data.bannerUrl || '',
           images: data.bannerUrl ? [data.bannerUrl] : [],
           notificationEmails: (data as any).notificationEmails || '',
-          latitude: data.latitude ? Number(data.latitude) : 19.1551,
-          longitude: data.longitude ? Number(data.longitude) : 72.8553,
+          latitude: data.latitude ? Number(data.latitude) : undefined,
+          longitude: data.longitude ? Number(data.longitude) : undefined,
           status: data.status || 'PUBLISHED',
         });
 
@@ -1646,11 +1646,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   2. Venue & Location
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Enter venue address and set the location pin on the map.
+                  Enter venue details below. The map and directions will update automatically based on your address.
                 </p>
               </div>
             </div>
 
+            {/* Row 1: Venue Name & Full Street Address */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 id="field-venue"
@@ -1665,6 +1666,36 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 }}
                 placeholder="e.g. Bombay Exhibition Centre (BEC)"
                 required
+              />
+              <Input
+                label="Full Venue Address"
+                value={basicInfo.address}
+                disabled={isViewMode}
+                onChange={(e) => {
+                  if (isViewMode) return;
+                  setBasicInfo({ ...basicInfo, address: e.target.value });
+                }}
+                placeholder="e.g. NSE Nesco Complex, Off Western Express Hwy, Goregaon East"
+              />
+            </div>
+
+            {/* Row 2: State / Region first, then City (filtered by state) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SearchableCombobox
+                label="State / Region"
+                value={basicInfo.state}
+                disabled={isViewMode}
+                onChange={(val) => {
+                  if (isViewMode) return;
+                  setBasicInfo((prev) => ({
+                    ...prev,
+                    state: val,
+                    // If state changed and current city does not match new state, clear city
+                    city: prev.city && val ? prev.city : '',
+                  }));
+                }}
+                options={ALL_INDIAN_STATES}
+                placeholder="Select or type State first..."
               />
               <SearchableCombobox
                 id="field-city"
@@ -1686,31 +1717,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   });
                 }}
                 options={availableCities}
-                placeholder="Select or type City..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Full Venue Address"
-                value={basicInfo.address}
-                disabled={isViewMode}
-                onChange={(e) => {
-                  if (isViewMode) return;
-                  setBasicInfo({ ...basicInfo, address: e.target.value });
-                }}
-                placeholder="e.g. NSE Nesco Complex, Off Western Express Hwy, Goregaon East"
-              />
-              <SearchableCombobox
-                label="State / Region"
-                value={basicInfo.state}
-                disabled={isViewMode}
-                onChange={(val) => {
-                  if (isViewMode) return;
-                  setBasicInfo((prev) => ({ ...prev, state: val }));
-                }}
-                options={ALL_INDIAN_STATES}
-                placeholder="Select or type State..."
+                placeholder={basicInfo.state ? `Select City in ${basicInfo.state}...` : "Select or type City..."}
               />
             </div>
 
@@ -1731,13 +1738,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 if (isViewMode) return;
                 setBasicInfo((prev) => ({
                   ...prev,
+                  venue: addressData.venue || prev.venue,
                   address: addressData.address || prev.address,
                   city: addressData.city || prev.city,
                   state: addressData.state || prev.state,
                 }));
               }}
               heightClass="h-80"
-              title="Interactive Venue Location & Pin Selection Map"
+              title="Live Venue Map & Navigation Preview"
             />
           </div>
 
@@ -2327,7 +2335,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pin Map Coordinates</span>
                       <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-800">
                         <Compass className="w-4 h-4 text-purple-600 shrink-0" />
-                        <span>{basicInfo.latitude.toFixed(4)}° N, {basicInfo.longitude.toFixed(4)}° E</span>
+                        <span>
+                          {basicInfo.latitude != null && basicInfo.longitude != null
+                            ? `${basicInfo.latitude.toFixed(4)}° N, ${basicInfo.longitude.toFixed(4)}° E`
+                            : 'Auto-resolved from Venue'}
+                        </span>
                       </div>
                       <p className="text-[11px] text-slate-500">Calibrated interactive map location</p>
                     </div>

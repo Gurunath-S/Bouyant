@@ -29,6 +29,7 @@ import {
   Shield,
   Zap,
   Star,
+  Lock,
 } from 'lucide-react';
 import { StallCategory, StallStatus } from '../../../../types';
 import {
@@ -38,6 +39,7 @@ import {
   FacilityObject,
   AnnotationObject,
   SelectedItemReference,
+  isStallBookedOrHeld,
 } from '../../../../types/floorPlanStudio';
 
 interface CanvasPropertyInspectorProps {
@@ -149,6 +151,9 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
       .map((r) => r.id);
 
     const selectedStallsList = stalls.filter((s) => selectedStallIds.includes(s.id));
+    const bookedStallsCount = selectedStallsList.filter(isStallBookedOrHeld).length;
+    const allSelectedAreBookedStalls =
+      selectedRefs.length === bookedStallsCount && bookedStallsCount > 0;
 
     return (
       <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 select-none shadow-xs overflow-y-auto z-20">
@@ -162,8 +167,14 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           <div className="flex items-center gap-2">
             {!readOnly && (
               <button
-                onClick={onDeleteSelected}
-                className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                onClick={allSelectedAreBookedStalls ? undefined : onDeleteSelected}
+                disabled={allSelectedAreBookedStalls}
+                className={`text-xs font-bold flex items-center gap-1 ${
+                  allSelectedAreBookedStalls
+                    ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
+                    : 'text-rose-600 hover:text-rose-700 cursor-pointer'
+                }`}
+                title={allSelectedAreBookedStalls ? 'Cannot delete: Selected stalls are booked/held' : 'Delete unbooked elements'}
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
@@ -209,12 +220,27 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               )}
             </div>
             {!readOnly && (
-              <button
-                onClick={onDeleteSelected}
-                className="w-full mt-1.5 py-1.5 px-3 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete All Selected ({selectedRefs.length})
-              </button>
+              <div className="space-y-1.5 mt-1.5">
+                <button
+                  onClick={allSelectedAreBookedStalls ? undefined : onDeleteSelected}
+                  disabled={allSelectedAreBookedStalls}
+                  className={`w-full py-1.5 px-3 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors ${
+                    allSelectedAreBookedStalls
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60'
+                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 cursor-pointer'
+                  }`}
+                  title={allSelectedAreBookedStalls ? 'Cannot delete: Selected stalls are booked/held' : undefined}
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  {allSelectedAreBookedStalls ? 'Booked Stalls Protected' : `Delete All Selected (${selectedRefs.length})`}
+                </button>
+                {bookedStallsCount > 0 && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    {bookedStallsCount} booked stall{bookedStallsCount > 1 ? 's' : ''} strictly protected from deletion
+                  </p>
+                )}
+              </div>
             )}
           </div>
           {/* Quick Duplicate */}
@@ -665,6 +691,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     const stall = stalls.find((s) => s.id === singleRef.id);
     if (!stall) return null;
 
+    const isBooked = isStallBookedOrHeld(stall);
     const widthMeters = Number((stall.width / pxPerMeter).toFixed(1));
     const depthMeters = Number((stall.height / pxPerMeter).toFixed(1));
     const areaSqMeters = Number((widthMeters * depthMeters).toFixed(1));
@@ -673,10 +700,15 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
       <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 select-none shadow-xs overflow-y-auto z-20">
         <div className="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+            <span className={`w-2.5 h-2.5 rounded-full ${isBooked ? 'bg-amber-500' : 'bg-emerald-600'}`} />
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 font-mono">
               Stall #{stall.stallNumber}
             </h3>
+            {isBooked && (
+              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                <Lock className="w-2.5 h-2.5" /> Booked
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
             {!readOnly && (
@@ -689,9 +721,14 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <Copy className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={onDeleteSelected}
-                  className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
-                  title="Delete Stall"
+                  onClick={isBooked ? undefined : onDeleteSelected}
+                  disabled={isBooked}
+                  className={`p-1 rounded transition-colors ${
+                    isBooked
+                      ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                      : 'text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer'
+                  }`}
+                  title={isBooked ? 'Cannot delete: Stall is booked/reserved by a customer' : 'Delete Stall'}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -710,6 +747,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
         </div>
 
         <div className="p-4 space-y-4">
+          {isBooked && (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-xs font-semibold">
+              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Stall booked by customer. Deletion is locked to protect reservations.</span>
+            </div>
+          )}
           {/* Stall Number */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">

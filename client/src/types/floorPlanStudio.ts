@@ -127,3 +127,25 @@ export interface StarterTemplate {
   layoutData: FloorPlanLayoutData;
   stalls: DraftStallItem[];
 }
+
+/**
+ * Checks whether a stall is booked, holds active reservations, or is in the checkout process.
+ * Booked stalls are strictly protected from deletion.
+ */
+export const isStallBookedOrHeld = (stall?: {
+  status?: string;
+  heldByUserId?: string | null;
+  bookingId?: string | null;
+  [key: string]: any;
+} | null): boolean => {
+  if (!stall) return false;
+  const status = stall.status;
+  return (
+    status === 'BOOKED_CONFIRMED' ||
+    status === 'PAYMENT_PENDING' ||
+    status === 'BOOKING_IN_PROGRESS' ||
+    status === 'TEMPORARILY_HELD' ||
+    Boolean(stall.heldByUserId) ||
+    Boolean(stall.bookingId)
+  );
+};

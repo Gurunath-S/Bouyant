@@ -42,6 +42,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
     venue: '',
     address: '',
     city: '',
+    state: '',
     startDate: '',
     endDate: '',
     bookingEndDate: '',
@@ -49,10 +50,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
     status: 'DRAFT',
   });
   const [images, setImages] = useState<string[]>([]);
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number }>({
-    lat: 19.1551,
-    lng: 72.8553,
-  });
+  const [coordinates, setCoordinates] = useState<{ lat?: number; lng?: number }>({});
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -79,6 +77,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           venue: exhibition.venue || '',
           address: exhibition.address || '',
           city: exhibition.city || '',
+          state: (exhibition as any).state || '',
           startDate: sIso,
           endDate: formatToDateInput(exhibition.endDate),
           bookingEndDate: bEndIso,
@@ -86,6 +85,10 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           status: exhibition.status || 'DRAFT',
         });
       setImages(exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
+      setCoordinates({
+        lat: exhibition.latitude ? Number(exhibition.latitude) : undefined,
+        lng: exhibition.longitude ? Number(exhibition.longitude) : undefined,
+      });
       setErrorMessage(null);
     }
   }, [exhibition]);
@@ -215,11 +218,14 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
             venueName={formData.venue}
             cityName={formData.city}
             address={formData.address}
+            stateName={formData.state}
             heightClass="h-56"
             onChangeCoordinates={(lat, lng) => setCoordinates({ lat, lng })}
             onSyncAddress={(addrData) => {
+              if (addrData.venue) handleChange('venue', addrData.venue);
               if (addrData.city) handleChange('city', addrData.city);
               if (addrData.address) handleChange('address', addrData.address);
+              if (addrData.state) handleChange('state', addrData.state);
             }}
             title="Interactive Venue Location Pin"
           />
