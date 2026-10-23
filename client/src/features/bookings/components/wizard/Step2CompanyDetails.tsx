@@ -42,6 +42,13 @@ export interface RecognizedExhibitorAccount {
   name?: string;
 }
 
+const RESERVED_ADMIN_USERNAMES = new Set(['superadmin', 'admin', 'staff', 'operations', 'staffops']);
+
+export function isExhibitorUsernameValid(username?: string | null): boolean {
+  if (!username) return false;
+  return !RESERVED_ADMIN_USERNAMES.has(username.trim().toLowerCase());
+}
+
 export const generateSuggestedUsername = (person: string, companyName: string): string => {
   const raw = (person || companyName || '').trim().toLowerCase();
   const tokens = raw.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
@@ -296,7 +303,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
         const compPhone = (selectedCompany.mobile || '').replace(/\D/g, '').slice(-10);
         const compGst = (selectedCompany.gstNumber || '').trim().toUpperCase();
 
-        if (compUser && compEmail && compPhone) {
+        if (compUser && isExhibitorUsernameValid(compUser) && compEmail && compPhone) {
           const rec: RecognizedExhibitorAccount = {
             username: compUser,
             email: compEmail,
@@ -545,7 +552,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           return;
         }
 
-        if (res.exactMatch && res.username) {
+        if (res.exactMatch && res.username && isExhibitorUsernameValid(res.username)) {
           const rec: RecognizedExhibitorAccount = {
             username: res.username,
             email: cleanEmail,
@@ -734,7 +741,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           }
           if (comp.website) setValue('website', comp.website || '', { shouldValidate: true, shouldDirty: true });
           if (comp.industry) setValue('category', comp.industry, { shouldValidate: true, shouldDirty: true });
-          if (comp.username && comp.email && comp.mobile) {
+          if (comp.username && isExhibitorUsernameValid(comp.username) && comp.email && comp.mobile) {
             const rec: RecognizedExhibitorAccount = {
               username: comp.username,
               email: comp.email.trim().toLowerCase(),

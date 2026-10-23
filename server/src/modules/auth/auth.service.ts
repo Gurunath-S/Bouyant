@@ -166,6 +166,7 @@ export class AuthService {
       const exactUser = await prisma.user.findFirst({
         where: {
           companyId: matchedCompany.id,
+          role: 'CLIENT',
           email: cleanEmail,
           phone: { contains: cleanPhone },
         },

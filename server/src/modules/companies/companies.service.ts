@@ -31,7 +31,8 @@ export class CompaniesService {
       },
       include: {
         users: {
-          select: { id: true, email: true, username: true, name: true, phone: true },
+          where: { role: 'CLIENT' },
+          select: { id: true, email: true, username: true, name: true, phone: true, role: true },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -471,6 +472,7 @@ export class CompaniesService {
         const exactMatchUser = await prisma.user.findFirst({
           where: {
             companyId: existingCompany.id,
+            role: 'CLIENT',
             email: normalizedEmail,
             phone: { contains: cleanPhoneDigits },
           },
@@ -604,8 +606,9 @@ export class CompaniesService {
             // Authenticated acting user:
             // "Authenticated users must not be silently reassigned to another company."
             // "Existing user identity and company association remain unchanged."
-            // Only associate if the user currently has no company assigned:
-            if (!user.companyId) {
+            // Only associate if the acting user is an exhibitor (CLIENT) and currently has no company assigned:
+            // Superadmins, admins, and operations staff are internal platform managers and must NEVER be bound to a client company.
+            if (!user.companyId && user.role === 'CLIENT') {
               user = await tx.user.update({
                 where: { id: user.id },
                 data: { companyId: company.id },
