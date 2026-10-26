@@ -45,7 +45,7 @@ export const InvoiceDetailPage: React.FC = () => {
 
   const getBackConfig = () => {
     if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN' || user?.role === 'STAFF') {
-      return { to: '/admin/payments?tab=INVOICES', label: 'Back to Billing & Invoices' };
+      return { to: '/workspace/payments?tab=INVOICES', label: 'Back to Billing & Invoices' };
     }
     return { to: '/invoices', label: 'Back to My Invoices' };
   };

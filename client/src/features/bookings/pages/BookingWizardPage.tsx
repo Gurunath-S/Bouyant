@@ -22,6 +22,7 @@ import { TimerExtensionModal } from '../../../components/ui/TimerExtensionModal'
 import { AccountExistsLoginModal } from '../components/wizard/AccountExistsLoginModal';
 import { showAlert } from '../../../stores/dialogStore';
 import { normalizeCountryName } from '../../../data/indianStatesCities';
+import { loadRazorpay } from '../../../utils/razorpay';
 
 function generateFallbackBookingRef() {
   return 'BKG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
@@ -751,6 +752,7 @@ export const BookingWizardPage: React.FC = () => {
   // Launch Razorpay Payment Gateway directly
   const executeRazorpayGateway = async (booking: Booking, orderInfo: any) => {
     // Ensure Razorpay SDK script is loaded
+    await loadRazorpay();
     if (typeof (window as any).Razorpay === 'undefined') {
       await showAlert({
         title: 'Payment Gateway Loading',

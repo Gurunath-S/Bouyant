@@ -177,12 +177,12 @@ export const StaffRegisterEventPage: React.FC = () => {
           <div className="pt-4 flex items-center justify-center gap-3">
             {isAdminOrSuperAdmin ? (
               <>
-                <Link to={`/admin/events/${successEvent.id}/edit`}>
+                <Link to={`/workspace/events/${successEvent.id}/edit`}>
                   <Button variant="primary" size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
                     Design Floor Plan & Stalls
                   </Button>
                 </Link>
-                <Link to="/admin/events">
+                <Link to="/workspace/events">
                   <Button variant="outline" size="sm">
                     Manage Exhibitions
                   </Button>
@@ -214,7 +214,7 @@ export const StaffRegisterEventPage: React.FC = () => {
       <div className="border-b border-slate-200 dark:border-slate-800 pb-4 flex items-center justify-between">
         <div>
           <BackButton
-            to={isAdminOrSuperAdmin ? '/admin/events' : '/staff/dashboard'}
+            to={isAdminOrSuperAdmin ? '/workspace/events' : '/staff/dashboard'}
             label={`Back to ${isAdminOrSuperAdmin ? 'Manage Exhibitions' : 'Dashboard'}`}
             variant="ghost"
             size="xs"

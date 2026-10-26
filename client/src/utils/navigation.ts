@@ -18,7 +18,7 @@ export const getEventsConsoleUrl = (role?: UserRole | string): string => {
   switch (role) {
     case 'SUPERADMIN':
     case 'ADMIN':
-      return '/admin/events';
+      return '/workspace/events';
     case 'STAFF':
       return '/staff/events';
     case 'CLIENT':
@@ -32,7 +32,7 @@ export const getInvoicesUrl = (role?: UserRole | string): string => {
     case 'SUPERADMIN':
     case 'ADMIN':
     case 'STAFF':
-      return '/admin/payments?tab=INVOICES';
+      return '/workspace/payments?tab=INVOICES';
     case 'CLIENT':
     default:
       return '/invoices';
@@ -44,7 +44,7 @@ export const getBookingsUrl = (role?: UserRole | string): string => {
     case 'SUPERADMIN':
     case 'ADMIN':
     case 'STAFF':
-      return '/admin/bookings';
+      return '/workspace/bookings';
     case 'CLIENT':
     default:
       return '/my-bookings';

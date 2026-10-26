@@ -222,7 +222,125 @@ export const router = createBrowserRouter([
         ),
       },
 
-      // Admin Routes (Accessible to ADMIN and SUPERADMIN)
+      // Shared Workspace Routes (Authoritative Console for Exhibitions, Companies, Bookings & Payments)
+      {
+        path: 'workspace/events',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
+            <AdminEventsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/register',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="event_register">
+            <AdminEventRegistrationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/new',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/builder/new',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/events/:id/view',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/exhibitions/create',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/exhibitions/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/exhibitions/:id/view',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
+            <AdminExhibitionBuilderPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/companies',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="companies">
+            <AdminCompaniesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/companies/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="companies">
+            <AdminCompanyDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/bookings',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="bookings">
+            <AdminBookingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/payments',
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="payments">
+            <AdminPaymentsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/invoices',
+        element: <Navigate to="/workspace/payments?tab=INVOICES" replace />,
+      },
+
+      // Admin Routes (Accessible to ADMIN and SUPERADMIN, with redirects/aliases for legacy compatibility)
       {
         path: 'admin/dashboard',
         element: (
@@ -233,43 +351,23 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/events',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="events_floorplans">
-            <AdminEventsPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events" replace />,
       },
       {
         path: 'admin/events/register',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="event_register">
-            <AdminEventRegistrationPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events/register" replace />,
       },
       {
         path: 'admin/events/create',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
-            <AdminExhibitionBuilderPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events/create" replace />,
       },
       {
         path: 'admin/events/new',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
-            <AdminExhibitionBuilderPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events/new" replace />,
       },
       {
         path: 'admin/events/builder/new',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
-            <AdminExhibitionBuilderPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events/builder/new" replace />,
       },
       {
         path: 'admin/events/:id/edit',
@@ -289,11 +387,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/exhibitions/create',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
-            <AdminExhibitionBuilderPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events/create" replace />,
       },
       {
         path: 'admin/exhibitions/:id/edit',
@@ -313,11 +407,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/companies',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="companies">
-            <AdminCompaniesPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/companies" replace />,
       },
       {
         path: 'admin/companies/:id',
@@ -329,23 +419,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/bookings',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="bookings">
-            <AdminBookingsPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/bookings" replace />,
       },
       {
         path: 'admin/payments',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN', 'SUPERADMIN', 'STAFF']} requiredPage="payments">
-            <AdminPaymentsPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/payments" replace />,
       },
       {
         path: 'admin/invoices',
-        element: <Navigate to="/admin/payments?tab=INVOICES" replace />,
+        element: <Navigate to="/workspace/payments?tab=INVOICES" replace />,
       },
     ],
   }],

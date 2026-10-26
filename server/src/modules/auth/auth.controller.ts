@@ -4,22 +4,32 @@ import { sendResponse } from '../../utils/response.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 
 export class AuthController {
-  private static isProduction = process.env.NODE_ENV === 'production';
-  private static cookieOptions = {
-    httpOnly: true,
-    secure: AuthController.isProduction,
-    sameSite: (AuthController.isProduction ? 'none' : 'lax') as 'none' | 'lax',
-  };
+  private static getCookieOptions(req: Request) {
+    const isHttps =
+      req.secure ||
+      req.headers['x-forwarded-proto'] === 'https' ||
+      process.env.NODE_ENV === 'production' ||
+      Boolean(process.env.RENDER) ||
+      Boolean(process.env.VERCEL);
+
+    return {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: (isHttps ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+    };
+  }
 
   static register = async (req: Request, res: Response) => {
     const { user, tokens } = await AuthService.register(req.body);
 
+    const cookieOpts = AuthController.getCookieOptions(req);
     res.cookie('accessToken', tokens.accessToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 24 * 60 * 60 * 1000,
     });
     res.cookie('refreshToken', tokens.refreshToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -59,12 +69,13 @@ export class AuthController {
   static login = async (req: Request, res: Response) => {
     const { user, tokens } = await AuthService.login(req.body);
 
+    const cookieOpts = AuthController.getCookieOptions(req);
     res.cookie('accessToken', tokens.accessToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 24 * 60 * 60 * 1000,
     });
     res.cookie('refreshToken', tokens.refreshToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -80,12 +91,13 @@ export class AuthController {
     const refreshToken = req.body.refreshToken || req.cookies?.refreshToken;
     const tokens = await AuthService.refreshSession(refreshToken);
 
+    const cookieOpts = AuthController.getCookieOptions(req);
     res.cookie('accessToken', tokens.accessToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 24 * 60 * 60 * 1000,
     });
     res.cookie('refreshToken', tokens.refreshToken, {
-      ...AuthController.cookieOptions,
+      ...cookieOpts,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -108,8 +120,9 @@ export class AuthController {
   };
 
   static logout = async (req: Request, res: Response) => {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    const cookieOpts = AuthController.getCookieOptions(req);
+    res.clearCookie('accessToken', cookieOpts);
+    res.clearCookie('refreshToken', cookieOpts);
     return sendResponse({
       res,
       statusCode: 200,

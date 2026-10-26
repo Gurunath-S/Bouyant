@@ -5,6 +5,7 @@ import { paymentService } from '../../../services/payments/paymentService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { formatCurrency, formatDisplayDate } from '../../../utils/date';
+import { loadRazorpay } from '../../../utils/razorpay';
 import {
   CreditCard,
   CheckCircle2,
@@ -102,7 +103,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
   if (!isOpen || !booking) return null;
 
-  const executeRazorpay = (orderData: any) => {
+  const executeRazorpay = async (orderData: any) => {
+    await loadRazorpay();
     if (typeof (window as any).Razorpay === 'undefined') {
       setError('Razorpay SDK failed to load. Please check your internet connection and try again.');
       setIsProcessing(false);

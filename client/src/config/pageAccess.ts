@@ -15,31 +15,31 @@ export const PAGE_ACCESS_ITEMS: PageAccessItem[] = [
   {
     id: 'event_register',
     label: 'Event Registration Hub',
-    path: '/admin/events/register',
+    path: '/workspace/events/register',
     description: 'Registration hub to launch and initiate new exhibitions and events',
   },
   {
     id: 'events_floorplans',
     label: 'Exhibitions & Floor Plans',
-    path: '/admin/events',
+    path: '/workspace/events',
     description: 'Exhibition management, floor plan designer, and stall architecture',
   },
   {
     id: 'companies',
     label: 'Exhibitor Directory & Registered Events',
-    path: '/admin/companies',
+    path: '/workspace/companies',
     description: 'Directory of registered exhibitors, enterprise profiles, and KYC data',
   },
   {
     id: 'bookings',
     label: 'Exhibition Bookings',
-    path: '/admin/bookings',
+    path: '/workspace/bookings',
     description: 'Stall booking management, approval pipeline, and hold states',
   },
   {
     id: 'payments',
     label: 'Payments & Transactions',
-    path: '/admin/payments',
+    path: '/workspace/payments',
     description: 'Payment reconciliations, Razorpay transactions, and financial audit logs',
   },
   {

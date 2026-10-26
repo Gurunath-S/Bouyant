@@ -827,7 +827,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         }
         keysToRemove.forEach((k) => localStorage.removeItem(k));
       } catch (_e) {}
-      navigate('/admin/events');
+      navigate('/workspace/events');
     } catch (err: any) {
       await showAlert({
         title: 'Save Failed',
@@ -881,7 +881,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </button>
             ) : (
               <BackButton
-                to="/admin/events"
+                to="/workspace/events"
                 label="Back to Exhibitions Console"
                 variant="ghost"
                 size="xs"
@@ -904,7 +904,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => navigate(`/admin/events/${id}/edit?step=${currentStep}`)}
+                onClick={() => navigate(`/workspace/events/${id}/edit?step=${currentStep}`)}
                 leftIcon={<Pencil className="w-3.5 h-3.5" />}
                 className="bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
               >
@@ -917,7 +917,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/admin/events/${id}/view?step=${currentStep}`)}
+                  onClick={() => navigate(`/workspace/events/${id}/view?step=${currentStep}`)}
                   leftIcon={<Eye className="w-3.5 h-3.5" />}
                 >
                   View Mode
@@ -947,7 +947,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </span>
             </div>
             <button
-              onClick={() => navigate(`/admin/events/${id}/edit?step=${currentStep}`)}
+              onClick={() => navigate(`/workspace/events/${id}/edit?step=${currentStep}`)}
               className="text-xs font-bold text-blue-700 dark:text-blue-300 underline hover:text-blue-900 dark:hover:text-blue-100 shrink-0 cursor-pointer"
             >
               Click here to edit
@@ -2072,7 +2072,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     setEventDbId(created.id);
                   }
                   if (created?.slug) {
-                    navigate(`/admin/events/${created.slug}/edit`, { replace: true });
+                    navigate(`/workspace/events/${created.slug}/edit`, { replace: true });
                   }
                   await showAlert({
                     title: 'Floor Plan Saved',

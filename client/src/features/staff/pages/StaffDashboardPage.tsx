@@ -84,7 +84,7 @@ export const StaffDashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Link to="/admin/events/register">
+          <Link to="/workspace/events/register">
             <Button
               variant="primary"
               size="sm"
@@ -192,7 +192,7 @@ export const StaffDashboardPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Link to="/admin/events/register">
+          <Link to="/workspace/events/register">
             <Button
               variant="secondary"
               size="md"
@@ -218,7 +218,7 @@ export const StaffDashboardPage: React.FC = () => {
             </p>
           </div>
           <Link
-            to="/admin/bookings?registrar=STAFF"
+            to="/workspace/bookings?registrar=STAFF"
             className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
           >
             <span>View All Bookings ({totalStaffBookingsCount})</span>
@@ -336,7 +336,7 @@ export const StaffDashboardPage: React.FC = () => {
             <p className="text-slate-400 mt-1">
               Go to the Event Registration Hub to register an exhibitor and allocate stalls.
             </p>
-            <Link to="/admin/events/register" className="inline-block mt-3">
+            <Link to="/workspace/events/register" className="inline-block mt-3">
               <Button variant="primary" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
                 Book Stall for Exhibitor
               </Button>

@@ -358,7 +358,7 @@ export const AdminDashboardPage: React.FC = () => {
           >
             <RefreshCw className="w-4 h-4" />
           </button>
-          <Link to="/admin/events">
+          <Link to="/workspace/events">
             <Button
               variant="primary"
               size="sm"
@@ -445,7 +445,7 @@ export const AdminDashboardPage: React.FC = () => {
             <AlertCircle className="w-5 h-5 text-amber-600" />
             <span>No current active upcoming event with open bookings.</span>
           </div>
-          <Link to="/admin/events/register">
+          <Link to="/workspace/events/register">
             <Button size="sm" variant="outline" className="text-xs">Create Event</Button>
           </Link>
         </div>
@@ -459,7 +459,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirmed Revenue</p>
             <Link
-              to={`/admin/bookings?status=CONFIRMED${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              to={`/workspace/bookings?status=CONFIRMED${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
               className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
               title="Click to view confirmed bookings ledger for this event"
             >
@@ -520,7 +520,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Registered</p>
             <Link
-              to={`/admin/companies${currentUpcomingEvent?.id ? `?exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              to={`/workspace/companies${currentUpcomingEvent?.id ? `?exhibitionId=${currentUpcomingEvent.id}` : ''}`}
               className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
               title="Click to view registered exhibitor directory for this event"
             >
@@ -545,7 +545,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Balance</p>
             <Link
-              to={`/admin/bookings?status=PENDING_PAYMENT${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
+              to={`/workspace/bookings?status=PENDING_PAYMENT${currentUpcomingEvent?.id ? `&exhibitionId=${currentUpcomingEvent.id}` : ''}`}
               className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:scale-110 transition-transform flex items-center gap-1 cursor-pointer"
               title="Click to view pending payment bookings for this event"
             >
@@ -623,7 +623,7 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             <Link
-              to="/admin/bookings"
+              to="/workspace/bookings"
               className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 hover:underline transition-colors ml-1"
             >
               <span>View All</span>

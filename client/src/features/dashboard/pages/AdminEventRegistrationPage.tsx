@@ -294,7 +294,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
           </Button>
 
           {!isStaff && (
-            <Link to="/admin/events/new">
+            <Link to="/workspace/events/new">
               <Button
                 type="button"
                 variant="primary"
@@ -477,7 +477,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 No events matched your search keyword or status filter. Try clearing filters or create a new exhibition.
               </p>
-              <Link to="/admin/events/new">
+              <Link to="/workspace/events/new">
                 <Button variant="primary" size="sm" className="bg-purple-600 hover:bg-purple-700 text-white mt-2">
                   Create Exhibition
                 </Button>
@@ -668,7 +668,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           // When not full and published: direct entry to interactive booking wizard
                           <Link
                             to={`/exhibitions/${e.slug || e.id}/book`}
-                            state={{ from: '/admin/events/register', fromLabel: 'Event Registration Hub' }}
+                            state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
                             className="flex-1"
                           >
                             <Button

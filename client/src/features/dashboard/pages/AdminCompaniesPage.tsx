@@ -185,7 +185,7 @@ export const AdminCompaniesPage: React.FC = () => {
 
     // Navigate to the exhibition booking wizard with company context
     navigate(`/exhibitions/${targetExpo.slug}/book`, {
-      state: { from: '/admin/companies', fromLabel: 'Exhibitors Directory', adminBooking: true },
+      state: { from: '/workspace/companies', fromLabel: 'Exhibitors Directory', adminBooking: true },
     });
 
   };
@@ -205,7 +205,7 @@ export const AdminCompaniesPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link to="/admin/events/register">
+          <Link to="/workspace/events/register">
             <Button
               variant="outline"
               size="sm"
@@ -451,7 +451,7 @@ export const AdminCompaniesPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
                           <Link
-                            to={`/admin/companies/${c.id}`}
+                            to={`/workspace/companies/${c.id}`}
                             className="truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                           >
                             {c.name}
@@ -460,7 +460,7 @@ export const AdminCompaniesPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Link
-                            to={`/admin/companies/${c.id}`}
+                            to={`/workspace/companies/${c.id}`}
                             className="font-mono text-[10px] text-slate-600 dark:text-slate-400 hover:text-purple-600 bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 px-1.5 py-0.5 rounded transition-colors"
                           >
                             {c.companyCode}
@@ -590,7 +590,7 @@ export const AdminCompaniesPage: React.FC = () => {
                             {/* Multi-event indicator pill for repeat exhibitors */}
                             {companyBookings.length > 1 && (
                               <Link
-                                to={`/admin/companies/${c.id}`}
+                                to={`/workspace/companies/${c.id}`}
                                 className="w-full py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-purple-950/50 border border-slate-200 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-800 text-[11px] font-bold text-slate-700 hover:text-purple-700 dark:text-slate-300 dark:hover:text-purple-300 transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
                                 title={`Click to view all ${companyBookings.length} event registrations for ${c.name}`}
                               >
@@ -619,7 +619,7 @@ export const AdminCompaniesPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Link
-                            to={`/admin/companies/${c.id}`}
+                            to={`/workspace/companies/${c.id}`}
                             title="View Complete Event Registration History & Company Profile"
                             className="p-1.5 rounded-lg bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-600 border border-slate-200 hover:border-purple-200 transition-colors inline-flex items-center justify-center cursor-pointer"
                           >

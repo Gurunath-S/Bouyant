@@ -355,7 +355,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
     if (!targetExpo) return;
     navigate(`/exhibitions/${targetExpo.slug}/book`, {
       state: {
-        from: `/admin/companies/${id}`,
+        from: `/workspace/companies/${id}`,
         fromLabel: `Company ${company.name}`,
         preselectedCompany: company,
         preselectedCompanyId: company.id,
@@ -386,7 +386,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Exhibitor Not Found</h3>
         <p className="text-xs text-slate-500">{error || 'The requested company record does not exist.'}</p>
         <div className="flex justify-center">
-          <BackButton to="/admin/companies" label="Back to Exhibitors Directory" variant="outline" />
+          <BackButton to="/workspace/companies" label="Back to Exhibitors Directory" variant="outline" />
         </div>
       </div>
     );
@@ -397,7 +397,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
       {/* Top Breadcrumb & Page Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <BackButton to="/admin/companies" label="Exhibitors Directory" variant="ghost" size="xs" />
+          <BackButton to="/workspace/companies" label="Exhibitors Directory" variant="ghost" size="xs" />
           <span>/</span>
           <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
             {company.name}

@@ -722,7 +722,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                         </p>
                       </div>
 
-                      <Link to={`/admin/events/${ex.slug || ex.id}/edit`}>
+                      <Link to={`/workspace/events/${ex.slug || ex.id}/edit`}>
                         <Button variant="outline" size="sm" className="shrink-0 text-xs py-1 px-2.5">
                           Manage
                         </Button>
@@ -865,7 +865,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                               View
                             </Button>
                           </Link>
-                          <Link to={`/admin/events/${ex.slug || ex.id}/edit`}>
+                          <Link to={`/workspace/events/${ex.slug || ex.id}/edit`}>
                             <Button variant="primary" size="sm" className="text-xs py-1 px-2.5 bg-purple-600">
                               Edit Builder
                             </Button>

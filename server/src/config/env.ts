@@ -28,7 +28,7 @@ export const env = {
         : !isNaN(Number(process.env.TRUST_PROXY))
         ? Number(process.env.TRUST_PROXY)
         : process.env.TRUST_PROXY)
-    : (process.env.NODE_ENV === 'production' ? 1 : false),
+    : (process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER) || Boolean(process.env.VERCEL) ? 1 : false),
 
   // WhatsApp Configuration
   WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true',

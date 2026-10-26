@@ -18,8 +18,6 @@ import {
   Calendar,
   Building2,
   RefreshCw,
-  Search,
-  Filter,
   MapPin,
   Clock,
   Activity,
@@ -35,9 +33,6 @@ export const SuperAdminDashboardPage: React.FC = () => {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorMetrics, setErrorMetrics] = useState<string | null>(null);
 
-  // Filters for recent bookings stream
-  const [bookingSearch, setBookingSearch] = useState('');
-  const [bookingStatusFilter, setBookingStatusFilter] = useState('ALL');
 
   // Request race-condition protection ref
   const requestIdRef = useRef(0);
@@ -95,21 +90,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
 
   const isEventScoped = selectedEventId !== 'ALL' && data?.eventScoped;
 
-  // Filter recent bookings based on search query and status filter
-  const filteredRecentBookings = (data?.recentBookings || []).filter((b: any) => {
-    const matchesSearch =
-      bookingSearch.trim() === '' ||
-      (b.bookingReference && b.bookingReference.toLowerCase().includes(bookingSearch.toLowerCase())) ||
-      (b.company?.name && b.company.name.toLowerCase().includes(bookingSearch.toLowerCase())) ||
-      (b.exhibition?.title && b.exhibition.title.toLowerCase().includes(bookingSearch.toLowerCase()));
-
-    const matchesStatus =
-      bookingStatusFilter === 'ALL' ||
-      b.status === bookingStatusFilter ||
-      b.paymentStatus === bookingStatusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
+  const recentBookings = data?.recentBookings || [];
 
   return (
     <div className="space-y-6">
@@ -205,21 +186,6 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-              isEventScoped
-                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${isEventScoped ? 'bg-purple-500' : 'bg-amber-500'} animate-pulse`}
-            />
-            {isEventScoped ? 'Event-Scoped Data' : 'Platform-Wide Aggregation'}
-          </span>
-        </div>
       </div>
 
       {/* 3. Event Scope Metadata Card (Displayed when a specific published event is selected) */}
@@ -259,7 +225,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Link to={`/admin/events`}>
+              <Link to="/workspace/events">
                 <Button variant="outline" size="sm" rightIcon={<ArrowUpRight className="w-3.5 h-3.5" />}>
                   Floor Plan & Stalls
                 </Button>
@@ -455,7 +421,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </p>
           </div>
           <div className="pt-4">
-            <Link to="/admin/events">
+            <Link to="/workspace/events">
               <Button
                 variant="primary"
                 size="sm"
@@ -497,7 +463,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
 
       {/* 6. Recent Platform Bookings Stream */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -512,43 +478,12 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search reference, company..."
-                value={bookingSearch}
-                onChange={(e) => setBookingSearch(e.target.value)}
-                className="pl-8 pr-3 py-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40 w-44"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 text-xs">
-              <Filter className="w-3 h-3 text-slate-400" />
-              <select
-                value={bookingStatusFilter}
-                onChange={(e) => setBookingStatusFilter(e.target.value)}
-                className="bg-transparent text-slate-700 dark:text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
-              >
-                <option value="ALL">All Status</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="PAID_FULL">Fully Paid</option>
-                <option value="PARTIALLY_PAID">Partially Paid</option>
-                <option value="PENDING_PAYMENT">Pending Payment</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-
-            <Link
-              to={isEventScoped ? `/admin/bookings?exhibitionId=${selectedEventId}` : '/admin/bookings'}
-              className="text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:underline shrink-0 ml-2"
-            >
-              All Bookings →
-            </Link>
-          </div>
+          <Link
+            to={isEventScoped ? `/workspace/bookings?exhibitionId=${selectedEventId}` : '/workspace/bookings'}
+            className="text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:underline shrink-0"
+          >
+            All Bookings →
+          </Link>
         </div>
 
         {loadingMetrics ? (
@@ -556,9 +491,9 @@ export const SuperAdminDashboardPage: React.FC = () => {
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-500 mb-2" />
             Loading booking reservations...
           </div>
-        ) : filteredRecentBookings.length > 0 ? (
+        ) : recentBookings.length > 0 ? (
           <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-            {filteredRecentBookings.map((b: any) => (
+            {recentBookings.map((b: any) => (
               <div key={b.id} className="py-3 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-colors">
                 <div>
                   <p className="font-bold text-slate-800 dark:text-slate-200">

@@ -752,7 +752,7 @@ export const ReportsPage: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate('/admin/bookings')}
+                    onClick={() => navigate('/workspace/bookings')}
                     className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer"
                   >
                     <span>View All Bookings</span>

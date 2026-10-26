@@ -228,7 +228,7 @@ export const AdminEventsPage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/admin/events/register')}
+            onClick={() => navigate('/workspace/events/register')}
             leftIcon={<CalendarPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
             className="border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
           >
@@ -237,7 +237,7 @@ export const AdminEventsPage: React.FC = () => {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => navigate('/admin/events/builder/new')}
+            onClick={() => navigate('/workspace/events/builder/new')}
             leftIcon={<Plus className="w-4 h-4" />}
             className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
           >
@@ -477,7 +477,7 @@ export const AdminEventsPage: React.FC = () => {
                 {paginatedExhibitions.map((e, idx) => (
                 <tr
                   key={e.id}
-                  onClick={() => navigate(`/admin/events/${e.id}/edit`)}
+                  onClick={() => navigate(`/workspace/events/${e.id}/edit`)}
                   className="hover:bg-purple-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                 >
                   <td className="w-12 py-3 px-3 text-center font-mono font-bold text-slate-400">
@@ -582,7 +582,7 @@ export const AdminEventsPage: React.FC = () => {
                     {/* Edit Exhibition & Floor Plan Button */}
                     <button
                       type="button"
-                      onClick={() => navigate(`/admin/events/${e.id}/edit`)}
+                      onClick={() => navigate(`/workspace/events/${e.id}/edit`)}
                       className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700 rounded-lg shadow-2xs transition-all"
                       title="Edit Exhibition & Floor Plan"
                     >

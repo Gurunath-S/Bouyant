@@ -161,7 +161,7 @@ export const ExhibitionDetailPage: React.FC = () => {
 
   const getBackConfig = () => {
     if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN') {
-      return { to: '/admin/events', label: 'Back to Exhibitions Console' };
+      return { to: '/workspace/events', label: 'Back to Exhibitions Console' };
     }
     if (user?.role === 'STAFF') {
       return { to: '/staff/events', label: 'Back to Staff Events' };
