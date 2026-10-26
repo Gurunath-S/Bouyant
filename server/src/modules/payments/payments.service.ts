@@ -548,10 +548,19 @@ private static async createInvoice(
           currentPayment.amount.toString()
         );
 
-      const currentBalance =
-        new Prisma.Decimal(
-          booking.balanceAmount.toString()
-        );
+      const grandTotal = new Prisma.Decimal(booking.grandTotal.toString());
+      const currentPaid = new Prisma.Decimal(booking.paidAmount?.toString() || '0');
+      let currentBalance = new Prisma.Decimal(
+        booking.balanceAmount?.toString() || '0'
+      );
+
+      // Reconcile currentBalance if uninitialized or non-positive while grandTotal - currentPaid > 0
+      if (currentBalance.lessThanOrEqualTo(0)) {
+        const calculated = grandTotal.minus(currentPaid);
+        if (calculated.greaterThan(0)) {
+          currentBalance = calculated;
+        }
+      }
 
       // Prevent payment from exceeding balance.
       if (
@@ -661,13 +670,17 @@ private static async createInvoice(
       }
     
       const invoice = await this.createInvoice(tx,booking,currentPayment,paymentAmount);
-      await updateBookingPaymentReminder(
+      try {
+        await updateBookingPaymentReminder(
           tx,
           updatedBooking.id,
           currentPayment.id,
-          bookingIsFullyPaid ? null : currentPayment.nextPaymentDate,
+          bookingIsFullyPaid ? null : (currentPayment.nextPaymentDate || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
           updatedBooking.balanceAmount
         );
+      } catch (reminderErr: any) {
+        console.warn('Payment reminder scheduling warning (non-fatal):', reminderErr?.message || reminderErr);
+      }
       // =====================================================
       // RESPONSE
       // =====================================================
@@ -857,13 +870,13 @@ private static async createInvoice(
           console.error('⚠️ [ADMIN PAYMENT EMAIL FAILED]:', adminEmailErr?.message || adminEmailErr);
         }
 
-         // Send WhatsApp Confirmation with Invoice attachment via AskEva
-          await WhatsappService.sendBookingConfirmation({
-            booking,
-            payment,
-            invoice,
-            paymentAmount: paymentAmount.toNumber(),
-          });
+        //  // Send WhatsApp Confirmation with Invoice attachment via AskEva
+        //   await WhatsappService.sendBookingConfirmation({
+        //     booking,
+        //     payment,
+        //     invoice,
+        //     paymentAmount: paymentAmount.toNumber(),
+        //   });
 
         // Dispatch notifications & admin alerts
         // NotificationsService.dispatchEvent({
@@ -1081,6 +1094,9 @@ static async createBalancePaymentOrder(
       provider: 'RAZORPAY',
       razorpayOrderId: razorpayOrder.id,
       installmentType: installmentTypeStr,
+      nextPaymentDate: isPartial
+        ? (nextDueDate ? new Date(`${nextDueDate}T00:00:00.000Z`) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000))
+        : null,
     },
   });
 

@@ -30,34 +30,27 @@ export async function updateBookingPaymentReminder(
     return null;
   }
 
-  // 3. An outstanding balance requires a next payment date.
-  if (!nextPaymentDate) {
-    throw new Error(
-      "Next payment date is required for an outstanding balance."
-    );
-  }
-
-  // 4. Convert the selected payment date to India Standard Time.
-  const dueDateIST = DateTime.fromJSDate(nextPaymentDate, {
-    zone: "utc",
-  })
-    .setZone(TIME_ZONE)
-    .startOf("day");
-
-  if (!dueDateIST.isValid) {
-    throw new Error("Invalid next payment date.");
-  }
-
-  // 5. Get today's calendar date in IST.
+  // 3. Convert or fallback next payment date to India Standard Time.
   const todayIST = DateTime.now()
     .setZone(TIME_ZONE)
     .startOf("day");
 
-  // 6. Do not allow a payment due date in the past.
-  if (dueDateIST.toMillis() < todayIST.toMillis()) {
-    throw new Error(
-      "Next payment date cannot be in the past."
-    );
+  let dueDateIST: DateTime;
+
+  if (nextPaymentDate) {
+    dueDateIST = DateTime.fromJSDate(nextPaymentDate, {
+      zone: "utc",
+    })
+      .setZone(TIME_ZONE)
+      .startOf("day");
+  } else {
+    // Default to 15 days from today if no explicit date was provided
+    dueDateIST = todayIST.plus({ days: 15 });
+  }
+
+  // If date was invalid or in the past, gracefully clamp to 15 days ahead instead of throwing
+  if (!dueDateIST.isValid || dueDateIST.toMillis() < todayIST.toMillis()) {
+    dueDateIST = todayIST.plus({ days: 15 });
   }
 
   let reminderTimeIST: DateTime;
