@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Booking } from '../../../types';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
-import { BookmarkCheck, FileText, CreditCard, Download, Clock } from 'lucide-react';
+import { BookmarkCheck, FileText, CreditCard, Download, Clock, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
+import { BookingDetailModal } from '../components/BookingDetailModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
@@ -19,6 +20,8 @@ export const MyBookingsPage: React.FC = () => {
   // Payment Modal State
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedDetailBooking, setSelectedDetailBooking] = useState<Booking | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   async function fetchBookings() {
     try {
@@ -138,6 +141,18 @@ export const MyBookingsPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                          onClick={() => {
+                            setSelectedDetailBooking(b);
+                            setIsDetailModalOpen(true);
+                          }}
+                          title="View full booking & payment transactions"
+                        >
+                          Details
+                        </Button>
                         {isEligibleForPayment && (
                           <Button
                             variant="primary"
@@ -210,6 +225,17 @@ export const MyBookingsPage: React.FC = () => {
         }}
         booking={selectedPaymentBooking}
         onSuccess={fetchBookings}
+      />
+
+      {/* Booking Detail & Payment Transactions Audit Modal */}
+      <BookingDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailBooking(null);
+        }}
+        booking={selectedDetailBooking}
+        onRefresh={fetchBookings}
       />
     </div>
   );
