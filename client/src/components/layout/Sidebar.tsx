@@ -8,7 +8,6 @@ import {
   BookmarkCheck,
   Building2,
   FileText,
-  Bell,
   ShieldCheck,
   ShieldAlert,
   CreditCard,
@@ -54,7 +53,6 @@ export const Sidebar: React.FC = () => {
     { to: '/my-bookings', label: 'My Bookings', icon: BookmarkCheck },
     { to: '/my-company', label: 'My Company Profile', icon: Building2 },
     { to: '/invoices', label: 'Invoices', icon: FileText },
-    // { to: '/notifications', label: 'Notifications', icon: Bell }, // hidden
   ];
 
   // Master catalog of internal staff/admin navigation items mapped to granular page permissions
