@@ -870,14 +870,22 @@ static async createBooking(
   }
 
   const snapshotContactPerson =
-    input.contactPerson?.trim() || dbUser?.name || company.contactPerson;
+    input.contactPerson?.trim() ||
+    company.contactPerson ||
+    (!isPrivilegedUser ? dbUser?.name : null) ||
+    'Authorized Representative';
+
   const snapshotContactEmail =
     input.contactEmail?.trim().toLowerCase() ||
-    user?.email?.toLowerCase() ||
-    dbUser?.email?.toLowerCase() ||
+    company.email?.toLowerCase() ||
+    (!isPrivilegedUser ? (user?.email?.toLowerCase() || dbUser?.email?.toLowerCase()) : null) ||
     company.email;
+
   const snapshotContactPhone =
-    input.contactPhone?.trim() || dbUser?.phone || company.mobile;
+    input.contactPhone?.trim() ||
+    company.mobile ||
+    (!isPrivilegedUser ? dbUser?.phone : null) ||
+    company.mobile;
 
   const snapshotBillingName = input.billingName?.trim() || company.name;
   const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
@@ -888,24 +896,30 @@ static async createBooking(
   const snapshotBillingPinCode = input.billingPinCode?.trim() || company.pinCode;
   const snapshotBillingCountry = input.billingCountry?.trim() || company.country || 'India';
 
-  let bookingUserId: string | null = dbUser ? dbUser.id : null;
+  let bookingUserId: string | null = null;
 
-  // If no authenticated user matched, but this is a guest booking for an existing company,
-  // associate the booking with the company's exhibitor account matching the snapshot contact email/phone
-  if (!bookingUserId && snapshotContactEmail) {
+  if (!isPrivilegedUser && dbUser) {
+    bookingUserId = dbUser.id;
+  } else {
+    // When Admin or Staff fills in a booking for a client/exhibitor company,
+    // attribute the booking to the exhibitor user of that company rather than the staff/admin!
     const matchedCompanyUser = await prisma.user.findFirst({
       where: {
         companyId: company.id,
-        email: snapshotContactEmail.toLowerCase(),
+        role: 'CLIENT',
+        ...(snapshotContactEmail ? { email: { equals: snapshotContactEmail, mode: 'insensitive' as const } } : {}),
       },
-      select: { id: true, phone: true },
+      select: { id: true },
+    }) || await prisma.user.findFirst({
+      where: {
+        companyId: company.id,
+        role: 'CLIENT',
+      },
+      select: { id: true },
     });
+
     if (matchedCompanyUser) {
-      const cleanInputDigits = snapshotContactPhone?.replace(/\D/g, '').slice(-10);
-      const cleanUserDigits = matchedCompanyUser.phone?.replace(/\D/g, '').slice(-10);
-      if (!cleanInputDigits || !cleanUserDigits || cleanInputDigits === cleanUserDigits) {
-        bookingUserId = matchedCompanyUser.id;
-      }
+      bookingUserId = matchedCompanyUser.id;
     }
   }
 
@@ -1448,7 +1462,6 @@ static async createBooking(
             ...(userEmail
               ? [
                   {
-                    userId: null,
                     contactEmail: { equals: userEmail, mode: 'insensitive' as const },
                   },
                 ]

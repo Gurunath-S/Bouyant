@@ -234,15 +234,16 @@ export class InvoicesService {
       ],
     };
 
-    // Client user isolation: strictly show only their own bookings' invoices
+    // Client user isolation: strictly show only their own company & representative bookings' invoices
     if (isClient) {
+      whereClause.companyId = companyId;
       whereClause.booking = {
+        companyId,
         OR: [
           ...(userId ? [{ userId }] : []),
           ...(userEmail
             ? [
                 {
-                  userId: null,
                   contactEmail: { equals: userEmail, mode: 'insensitive' as const },
                 },
               ]
