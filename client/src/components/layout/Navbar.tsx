@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { Bell, LogOut, ChevronDown, Building, Home } from 'lucide-react';
+import { LogOut, ChevronDown, Building, Home } from 'lucide-react';
 import { ConfirmLeaveToHomeModal } from '../ui/ConfirmLeaveToHomeModal';
 
 export const Navbar: React.FC = () => {
@@ -74,17 +74,6 @@ export const Navbar: React.FC = () => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Notifications Button — hidden */}
-          {/* <Link
-            to="/notifications"
-            className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            title="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white dark:ring-slate-900" />
-          </Link>
-
-          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-1" /> */}
 
           {/* User Profile Dropdown */}
           <div className="relative">

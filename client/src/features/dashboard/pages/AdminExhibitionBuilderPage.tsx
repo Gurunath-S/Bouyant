@@ -161,10 +161,13 @@ const formatTimeDisplay = (time24?: string): string => {
 const formatIsoWithTime = (dateStr: string, timeStr: string, defaultHour: number) => {
   if (!dateStr) return new Date().toISOString();
   try {
+    const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
     const [h, m] = (timeStr || `${defaultHour}:00`).split(':');
-    const d = new Date(dateStr);
+    const safeH = String(parseInt(h || `${defaultHour}`, 10)).padStart(2, '0');
+    const safeM = String(parseInt(m || '0', 10)).padStart(2, '0');
+    const localIso = `${dateOnly}T${safeH}:${safeM}:00`;
+    const d = new Date(localIso);
     if (isNaN(d.getTime())) return new Date().toISOString();
-    d.setHours(parseInt(h || `${defaultHour}`, 10), parseInt(m || '0', 10), 0, 0);
     return d.toISOString();
   } catch {
     return new Date().toISOString();
@@ -439,13 +442,21 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         if (data.startDate) {
           const sDate = new Date(data.startDate);
           if (!isNaN(sDate.getTime()) && (sDate.getHours() !== 0 || sDate.getMinutes() !== 0)) {
-            loadedStartTime = `${String(sDate.getHours()).padStart(2, '0')}:${String(sDate.getMinutes()).padStart(2, '0')}`;
+            if (sDate.getUTCHours() === 9 && sDate.getUTCMinutes() === 0) {
+              loadedStartTime = '09:00';
+            } else {
+              loadedStartTime = `${String(sDate.getHours()).padStart(2, '0')}:${String(sDate.getMinutes()).padStart(2, '0')}`;
+            }
           }
         }
         if (data.endDate) {
           const eDate = new Date(data.endDate);
           if (!isNaN(eDate.getTime()) && (eDate.getHours() !== 0 || eDate.getMinutes() !== 0)) {
-            loadedEndTime = `${String(eDate.getHours()).padStart(2, '0')}:${String(eDate.getMinutes()).padStart(2, '0')}`;
+            if (eDate.getUTCHours() === 18 && eDate.getUTCMinutes() === 0) {
+              loadedEndTime = '18:00';
+            } else {
+              loadedEndTime = `${String(eDate.getHours()).padStart(2, '0')}:${String(eDate.getMinutes()).padStart(2, '0')}`;
+            }
           }
         }
 

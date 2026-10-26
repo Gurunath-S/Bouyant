@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Outlet, Navigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
@@ -34,7 +34,6 @@ const MyBookingsPage = lazy(() => import('../features/bookings/pages/MyBookingsP
 const PaymentSuccessPage = lazy(() => import('../features/payments/pages/PaymentSuccessPage').then(m => ({ default: m.PaymentSuccessPage })));
 const MyInvoicesPage = lazy(() => import('../features/invoices/pages/MyInvoicesPage').then(m => ({ default: m.MyInvoicesPage })));
 const InvoiceDetailPage = lazy(() => import('../features/invoices/pages/InvoiceDetailPage').then(m => ({ default: m.InvoiceDetailPage })));
-const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const SuperAdminDashboardPage = lazy(() => import('../features/super-admin/pages/SuperAdminDashboardPage').then(m => ({ default: m.SuperAdminDashboardPage })));
 const SuperAdminUsersPage = lazy(() => import('../features/super-admin/pages/SuperAdminUsersPage').then(m => ({ default: m.SuperAdminUsersPage })));
 const UserGovernanceDetailPage = lazy(() => import('../features/super-admin/pages/UserGovernanceDetailPage').then(m => ({ default: m.UserGovernanceDetailPage })));
@@ -159,7 +158,7 @@ export const router = createBrowserRouter([
       { path: 'payment-success', element: <PaymentSuccessPage /> },
       { path: 'invoices', element: <MyInvoicesPage /> },
       { path: 'invoices/:id', element: <InvoiceDetailPage /> },
-      { path: 'notifications', element: <NotificationsPage /> },
+      { path: 'notifications', element: <Navigate to="/dashboard" replace /> },
 
       // Super Admin Routes
       {
@@ -346,11 +345,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/invoices',
-        element: (
-          <ProtectedRoute allowedRoles={['ADMIN']}>
-            <MyInvoicesPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/admin/payments?tab=INVOICES" replace />,
       },
     ],
   }],

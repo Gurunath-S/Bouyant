@@ -16,6 +16,7 @@ export interface PaymentReminderPayload {
   bookingReference:string;
   paymentAmount: number;
   nextPaymentDate: Date|string;
+  stallDetails:string;
 }
 
 export class WhatsappService {
@@ -159,6 +160,7 @@ static async sendWhatsappRemainder(
     bookingReference,
     paymentAmount,
     nextPaymentDate,
+    stallDetails
 
   } = params;
 
@@ -200,34 +202,12 @@ if (!dueDate.isValid) {
 }
 
 const dueDateIST = dueDate.setZone(TIME_ZONE);
-const todayIST = DateTime.now().setZone(TIME_ZONE).startOf("day");
-const dueDateOnlyIST = dueDateIST.startOf("day");
-
-const isOverdue = dueDateOnlyIST.toMillis() < todayIST.toMillis();
-const isDueToday = dueDateOnlyIST.toMillis() === todayIST.toMillis();
 
 const formattedDueDate = dueDateIST.toLocaleString({
   day: "2-digit",
   month: "long",
   year: "numeric",
 });
-
-let reminderMessage: string;
-
-if (isOverdue) {
-  reminderMessage =
-    `Your payment was due on ${formattedDueDate} and remains outstanding. ` +
-    `Please complete the payment as soon as possible.`;
-} else if (isDueToday) {
-  reminderMessage =
-    `Your payment is due today, ${formattedDueDate}. ` +
-    `Please complete the payment today to avoid further delay.`;
-} else {
-  reminderMessage =
-    `This is a friendly reminder that your booking has an outstanding payment. ` +
-    `Please complete the payment by ${formattedDueDate}.`;
-}
-
 
     // 2. Build the AskEva reminder template payload.
     const payload = {
@@ -242,32 +222,37 @@ if (isOverdue) {
         components: [
           {
             type: "body",
-            parameters: [
-              {
-                type: "text",
-                text: `${contactPerson || "Customer"}`,
-              },
-              {
-                type: "text",
-                text: reminderMessage
-              },
-              {
-                type:"text",
-                text:bookingReference
-              },
-              {
-                type: "text",
-                text: exhibitionName,
-              },
-              {
-                type: "text",
-                text: paymentAmount.toFixed(2),
-              },
-              {
-                type: "text",
-                text: formattedDueDate,
-              },
-            ],
+              parameters: [
+  {
+    type: "text",
+    text: contactPerson || "Customer",
+  },
+  {
+    type: "text",
+    text: exhibitionName,
+  },
+  {
+    type: "text",
+    text: "Stall Booking Payment",
+  },
+  {
+    type: "text",
+    text: bookingReference,
+  },
+  {
+    type: "text",
+    text: stallDetails,
+  },
+  {
+    type: "text",
+    text: paymentAmount.toFixed(2),
+  },
+  {
+    type: "text",
+    text: formattedDueDate,
+  },
+
+],
           },
         ],
       },

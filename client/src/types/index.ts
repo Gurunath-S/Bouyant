@@ -85,6 +85,8 @@ export interface Exhibition {
   longitude?: number | null;
   startDate: string;
   endDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
   bookingEndDate?: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
   category?: string;

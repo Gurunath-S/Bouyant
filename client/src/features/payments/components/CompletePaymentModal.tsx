@@ -56,7 +56,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const stallNumbers = booking?.stalls?.map((s) => s.stall?.stallNumber || s.stallId).join(', ') || 'Assigned Booth';
 
   useEffect(() => {
-    if (booking && balanceDue > 0) {
+    if (isOpen && booking && balanceDue > 0) {
       setPaymentOption('full');
       setCustomAmount(String(balanceDue));
       const d = new Date();
@@ -65,7 +65,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       setError(null);
       setSuccessMessage(null);
     }
-  }, [booking?.id, balanceDue]);
+  }, [isOpen, booking?.id, balanceDue]);
 
   const payableAmount = useMemo(() => {
     if (paymentOption === 'full') return balanceDue;

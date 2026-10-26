@@ -67,6 +67,105 @@ export function formatDisplayDateTime(dateInput: string | Date | null | undefine
 }
 
 /**
+ * Format any time string ("HH:mm"), ISO string, or Date object into 12-hour format "h:mm AM/PM" (e.g. "10:00 AM", "6:00 PM")
+ */
+export function formatDisplayTime(timeOrDateInput: string | Date | null | undefined): string {
+  if (!timeOrDateInput) return '';
+
+  // If already in "HH:mm" or "HH:mm:ss" format
+  if (typeof timeOrDateInput === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(timeOrDateInput.trim())) {
+    const parts = timeOrDateInput.trim().split(':');
+    let h = parseInt(parts[0], 10);
+    const m = parts[1] || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  const date = typeof timeOrDateInput === 'string' ? new Date(timeOrDateInput) : timeOrDateInput;
+  if (!date || isNaN(date.getTime())) return '';
+
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+/**
+ * Extract and format operating hours from an exhibition object or start/end dates.
+ * Returns { hours: string, subtitle: string, isConfigured: boolean }
+ */
+export function formatExhibitionOperatingHours(
+  exhibition: {
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
+    startTime?: string | null;
+    endTime?: string | null;
+  } | null | undefined
+): { hours: string; subtitle: string; isConfigured: boolean } {
+  if (!exhibition) {
+    return { hours: '9:00 AM – 6:00 PM', subtitle: 'Standard Exhibition Hours', isConfigured: false };
+  }
+
+  // 1. If explicit startTime & endTime strings are present
+  if (exhibition.startTime && exhibition.endTime) {
+    const startStr = formatDisplayTime(exhibition.startTime);
+    const endStr = formatDisplayTime(exhibition.endTime);
+    if (startStr && endStr) {
+      return {
+        hours: `${startStr} – ${endStr}`,
+        subtitle: 'Official Daily Expo Schedule',
+        isConfigured: true,
+      };
+    }
+  }
+
+  // 2. Extract from startDate and endDate
+  if (exhibition.startDate && exhibition.endDate) {
+    const sDate = typeof exhibition.startDate === 'string' ? new Date(exhibition.startDate) : exhibition.startDate;
+    const eDate = typeof exhibition.endDate === 'string' ? new Date(exhibition.endDate) : exhibition.endDate;
+
+    if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime())) {
+      // Check if both dates are midnight (date-only with no configured time)
+      const isMidnight =
+        (sDate.getHours() === 0 && sDate.getMinutes() === 0 && eDate.getHours() === 0 && eDate.getMinutes() === 0) ||
+        (sDate.getUTCHours() === 0 && sDate.getUTCMinutes() === 0 && eDate.getUTCHours() === 0 && eDate.getUTCMinutes() === 0);
+
+      if (!isMidnight) {
+        // Special case: if saved with UTC 9:00 and 18:00 (as in default seeds)
+        if (sDate.getUTCHours() === 9 && sDate.getUTCMinutes() === 0 && eDate.getUTCHours() === 18 && eDate.getUTCMinutes() === 0) {
+          return {
+            hours: '9:00 AM – 6:00 PM',
+            subtitle: 'Standard Exhibition Hours',
+            isConfigured: true,
+          };
+        }
+
+        const startStr = formatDisplayTime(sDate);
+        const endStr = formatDisplayTime(eDate);
+        if (startStr && endStr) {
+          return {
+            hours: `${startStr} – ${endStr}`,
+            subtitle: 'Official Daily Expo Schedule',
+            isConfigured: true,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    hours: '9:00 AM – 6:00 PM',
+    subtitle: 'Standard Exhibition Hours',
+    isConfigured: false,
+  };
+}
+
+/**
  * Convert an ISO date string (YYYY-MM-DD or full ISO) to "DD/MM/YYYY" for form entry
  */
 export function isoToDisplayInputDate(isoDate: string | null | undefined): string {

@@ -42,10 +42,16 @@ export const PublicFooter: React.FC = () => {
           <div>
             © {new Date().getFullYear()} Buoyant Media. All rights reserved.
           </div>
-          <div className="flex items-center gap-6 text-xs">
-            <span className="flex items-center gap-1.5 text-[#2DD4BF]">
-              <Globe className="w-3.5 h-3.5" /> Official Event Platform
-            </span>
+            <div className="flex items-center gap-6 text-xs">
+            <a
+              href="https://buoyantevents.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#2DD4BF] hover:text-teal-300 hover:underline transition-colors font-medium"
+            >
+              <Globe className="w-3.5 h-3.5 shrink-0" />
+              <span>Official Event Platform</span>
+            </a>
           </div>
         </div>
       </div>

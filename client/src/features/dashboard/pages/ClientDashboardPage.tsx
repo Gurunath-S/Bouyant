@@ -19,6 +19,7 @@ import {
   ExternalLink,
   X,
   Download,
+  Eye,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
@@ -26,6 +27,7 @@ import { formatDisplayDate, formatCurrency } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
+import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 
 export const ClientDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -49,6 +51,8 @@ export const ClientDashboardPage: React.FC = () => {
   // Payment Modal State
   const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<Booking | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedDetailBooking, setSelectedDetailBooking] = useState<Booking | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   async function loadDashboardData() {
     try {
@@ -73,9 +77,14 @@ export const ClientDashboardPage: React.FC = () => {
   // Derived financial metrics
   const totalPaid = useMemo(() => {
     return myBookings.reduce((acc, b) => {
+      if (b.status === 'CANCELLED' || b.status === 'EXPIRED') return acc;
+      const successfulPayments = (b.payments || []).filter(p => p.status === 'SUCCESS');
+      if (successfulPayments.length > 0) {
+        return acc + successfulPayments.reduce((pSum, p) => pSum + Number(p.amount || 0), 0);
+      }
       const paid = Number(b.paidAmount);
       if (!isNaN(paid) && paid > 0) return acc + paid;
-      if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' || b.status === 'CONFIRMED') {
+      if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL') {
         return acc + Number(b.grandTotal || b.totalAmount || 0);
       }
       return acc;
@@ -84,18 +93,17 @@ export const ClientDashboardPage: React.FC = () => {
 
   const totalBalanceDue = useMemo(() => {
     return myBookings.reduce((acc, b) => {
-      if (b.status === 'EXPIRED' || b.status === 'CANCELLED') return acc;
-      const balance = Number(b.balanceAmount);
-      if (!isNaN(balance) && balance >= 0) {
-        if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' || b.status === 'CONFIRMED') {
-          return acc;
-        }
-        return acc + balance;
-      }
-      if (b.paymentStatus === 'UNPAID' || b.status === 'PENDING_PAYMENT') {
-        return acc + Number(b.grandTotal || b.totalAmount || 0);
-      }
-      return acc;
+      if (b.status === 'CANCELLED' || b.status === 'EXPIRED') return acc;
+      if (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL') return acc;
+
+      const grandTotal = Number(b.grandTotal || b.totalAmount || 0);
+      const paid = (b.payments || []).filter(p => p.status === 'SUCCESS').reduce((pSum, p) => pSum + Number(p.amount || 0), 0) || Number(b.paidAmount || 0);
+
+      const balance = b.balanceAmount !== undefined && b.balanceAmount !== null && !isNaN(Number(b.balanceAmount))
+        ? Number(b.balanceAmount)
+        : Math.max(0, grandTotal - paid);
+
+      return acc + (balance > 0 ? balance : 0);
     }, 0);
   }, [myBookings]);
 
@@ -371,11 +379,17 @@ export const ClientDashboardPage: React.FC = () => {
                                 </Button>
                               )
                             )}
-                      <Link to="/my-bookings">
-                        <Button variant="secondary" size="sm" rightIcon={<ExternalLink className="w-3.5 h-3.5" />}>
-                          Details
-                        </Button>
-                      </Link>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                        onClick={() => {
+                          setSelectedDetailBooking(booking);
+                          setIsDetailModalOpen(true);
+                        }}
+                      >
+                        Payments & Details
+                      </Button>
                     </div>
                   </>
                 );
@@ -486,6 +500,17 @@ export const ClientDashboardPage: React.FC = () => {
         }}
         booking={selectedPaymentBooking}
         onSuccess={loadDashboardData}
+      />
+
+      {/* Booking Detail & Payments Audit Modal */}
+      <BookingDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailBooking(null);
+        }}
+        booking={selectedDetailBooking}
+        onRefresh={loadDashboardData}
       />
     </div>
   );

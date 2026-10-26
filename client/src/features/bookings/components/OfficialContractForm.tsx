@@ -2,7 +2,7 @@ import React from 'react';
 import { Company, Exhibition, Stall } from '../../../types';
 import { normalizeCountryName } from '../../../data/indianStatesCities';
 import { Building2, Calendar, MapPin, Printer, ShieldCheck, CreditCard } from 'lucide-react';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, formatDisplayDateRange, formatExhibitionOperatingHours } from '../../../utils/date';
 
 interface OfficialContractFormProps {
   company: Company;
@@ -35,6 +35,10 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
     [exhibition.startDate]
   );
 
+  const operatingHours = React.useMemo(() => {
+    return formatExhibitionOperatingHours(exhibition);
+  }, [exhibition]);
+
   return (
     <div className="bg-white dark:bg-slate-900 border-2 border-[#012970] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6 shadow-md text-slate-800 dark:text-slate-200 font-sans print:border-none print:shadow-none">
       {/* Header Banner */}
@@ -47,10 +51,14 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
             {exhibition.title || 'MEDICCON EXPO 2026'}
           </h2>
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 mt-0.5">
-            <Calendar className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" /> 20, 21 & 22 November 2026 (Friday, Saturday & Sunday • 10:30am - 6:00pm)
+            <Calendar className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />{' '}
+            {formatDisplayDateRange(exhibition.startDate, exhibition.endDate)} ({operatingHours.hours})
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
-            <MapPin className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" /> CODISSIA TRADE FAIR CENTRE, (HALL - A & HALL – B), COIMBATORE, TAMILNADU
+            <MapPin className="w-3.5 h-3.5 text-[#09539b] dark:text-blue-400" />{' '}
+            {exhibition.venue || 'Exhibition Centre'}
+            {exhibition.city ? `, ${exhibition.city}` : ''}
+            {exhibition.state ? `, ${exhibition.state}` : ''}
           </p>
         </div>
 

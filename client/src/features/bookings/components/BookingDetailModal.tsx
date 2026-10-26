@@ -206,40 +206,107 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           })()}
         </div>
 
-        {/* Payment Transaction Audit */}
-        {booking.payment && (
-          <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
-            <h4 className="font-extrabold text-[#012970] dark:text-blue-400 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-700 pb-2">
-              <CreditCard className="w-4 h-4 text-[#09539b] dark:text-blue-400" /> Gateway Transaction Record
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-              <div>
-                <span className="text-slate-400 block">Payment Ref:</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                  {booking.payment.paymentReference}
+        {/* Payment Transaction Audit & History */}
+        {(() => {
+          const paymentList = (booking.payments && booking.payments.length > 0)
+            ? booking.payments
+            : (booking.payment ? [booking.payment] : []);
+
+          if (paymentList.length === 0) return null;
+
+          const successfulPayments = paymentList.filter((p: any) => p.status === 'SUCCESS');
+
+          return (
+            <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                <h4 className="font-extrabold text-[#012970] dark:text-blue-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                  Payment Records &amp; Transactions ({successfulPayments.length} Completed)
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {paymentList.length} {paymentList.length === 1 ? 'Transaction' : 'Transactions'} Total
                 </span>
               </div>
-              <div>
-                <span className="text-slate-400 block">Gateway Provider:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {booking.payment.provider}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Payment Method:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {booking.payment.paymentMethod || 'Razorpay UPI'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Txn Reference ID:</span>
-                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {booking.payment.transactionId || 'TXN-AUTO-CONFIRM'}
-                </span>
+
+              <div className="space-y-2.5">
+                {paymentList.map((p: any, idx: number) => {
+                  const isSuccess = p.status === 'SUCCESS';
+                  const isPending = p.status === 'PENDING';
+                  const isFailed = p.status === 'FAILED';
+
+                  const badgeClass = isSuccess
+                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : isPending
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+
+                  const installmentLabel = p.installmentType?.includes('PARTIAL')
+                    ? 'Partial Advance'
+                    : p.installmentType?.includes('BALANCE')
+                    ? 'Balance Payment'
+                    : idx === 0
+                    ? 'Initial Payment'
+                    : `Payment #${idx + 1}`;
+
+                  return (
+                    <div
+                      key={p.id || p.paymentReference || idx}
+                      className={`p-3 rounded-lg border text-xs transition-colors ${
+                        isSuccess
+                          ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700'
+                          : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-700/60 pb-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            #{idx + 1} {installmentLabel}
+                          </span>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                            {p.status}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400 text-sm">
+                            ₹{Number(p.amount || 0).toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 ml-1">INR</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block">Payment Ref:</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block" title={p.paymentReference}>
+                            {p.paymentReference || '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Provider / Method:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                            {p.provider || 'RAZORPAY'} • {p.paymentMethod || 'UPI / Gateway'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Txn Reference ID:</span>
+                          <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block truncate" title={p.transactionId || p.razorpayPaymentId || '-'}>
+                            {p.transactionId || p.razorpayPaymentId || '-'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Paid At / Date:</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300 block">
+                            {p.paidAt ? formatDisplayDateTime(p.paidAt) : (p.createdAt ? formatDisplayDateTime(p.createdAt) : '-')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">

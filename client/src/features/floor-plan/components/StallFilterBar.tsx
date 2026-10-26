@@ -79,22 +79,6 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
     return existing.length > 0 ? existing : defaultCats;
   }, [stalls]);
 
-  // Check if any stalls have custom hex colors assigned in studio
-  const customColors = useMemo(() => {
-    if (!stalls) return [];
-    const colors = new Set<string>();
-    stalls.forEach((s) => {
-      const c =
-        (s as any).color ||
-        layoutData?.stallColors?.[s.stallNumber] ||
-        layoutData?.stallColors?.[s.id];
-      if (c && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c)) {
-        colors.add(c.toLowerCase());
-      }
-    });
-    return Array.from(colors);
-  }, [stalls, layoutData]);
-
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs transition-colors duration-200">
 
@@ -141,32 +125,8 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
           })}
         </div>
 
-        {/* Legend Indicators with Category Colors, Custom Colors, Selected and Booked */}
+        {/* Legend Indicators: Selected and Booked */}
         <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-300">
-          {/* Available Stall Tiers */}
-          <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Available:</span>
-            {activeCategories.map((cat) => {
-              const style = CATEGORY_STYLES[cat];
-              return (
-                <span key={cat} className="flex items-center gap-1" title={`${style.label} Tier Available`}>
-                  <span className={`w-2.5 h-2.5 rounded-xs border-2 ${style.swatchBorder} ${style.swatchBg} inline-block`} />
-                  <span className="text-[11px] text-slate-700 dark:text-slate-300">{style.label}</span>
-                </span>
-              );
-            })}
-            {customColors.map((hex, idx) => (
-              <span key={hex} className="flex items-center gap-1" title={`Custom Color Stall (${hex})`}>
-                <span
-                  className="w-2.5 h-2.5 rounded-xs border-2 inline-block"
-                  style={{ borderColor: hex, backgroundColor: `${hex}26` }}
-                />
-                <span className="text-[11px] text-slate-700 dark:text-slate-300">
-                  Custom {customColors.length > 1 ? `#${idx + 1}` : ''}
-                </span>
-              </span>
-            ))}
-          </div>
 
           {/* Selected Status */}
           <span className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-300">
