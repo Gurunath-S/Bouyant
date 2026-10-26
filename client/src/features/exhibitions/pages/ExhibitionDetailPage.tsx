@@ -22,7 +22,7 @@ import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, formatExhibitionOperatingHours } from '../../../utils/date';
 import { showAlert } from '../../../stores/dialogStore';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { BackButton } from '../../../components/ui/BackButton';
@@ -86,6 +86,10 @@ export const ExhibitionDetailPage: React.FC = () => {
     const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
     return `${diffDays} Day${diffDays > 1 ? 's' : ''} Expo`;
   }, [exhibition?.startDate, exhibition?.endDate]);
+
+  const operatingHours = React.useMemo(() => {
+    return formatExhibitionOperatingHours(exhibition);
+  }, [exhibition]);
 
   const handleViewLocation = () => {
     setActiveTab('location');
@@ -299,10 +303,10 @@ export const ExhibitionDetailPage: React.FC = () => {
                     Operating Hours
                   </div>
                   <div className="text-base font-bold text-[#121B3D] dark:text-slate-100 font-sora leading-snug">
-                    9:00 AM – 6:00 PM
+                    {operatingHours.hours}
                   </div>
                   <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Standard Exhibition Hours
+                    {operatingHours.subtitle}
                   </div>
                 </div>
               </div>
@@ -641,7 +645,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                   <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl flex items-center justify-between">
                     <div>
                       <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Official Inauguration & Trade Days</span>
-                      <span className="text-slate-500 dark:text-slate-400">9:00 AM – 6:00 PM</span>
+                      <span className="text-slate-500 dark:text-slate-400">{operatingHours.hours}</span>
                     </div>
                     <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] rounded-md font-mono font-bold">Expo Days</span>
                   </div>
