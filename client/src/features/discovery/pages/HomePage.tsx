@@ -21,12 +21,14 @@ import {
   MousePointerClick,
   FileCheck2,
   LayoutDashboard,
+  ArrowUp
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   async function fetchExhibitions() {
     try {
@@ -43,6 +45,22 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     fetchExhibitions();
   }, []);
+
+     useEffect(() => {
+  const handleScroll = () => {
+    setShowScrollTop(window.scrollY > 300);
+  };
+
+  window.addEventListener('scroll', handleScroll, {
+    passive: true,
+  });
+
+  handleScroll();
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+  };
+}, []);
 
   // Active / Flagship upcoming event strictly from database exhibitions
   const featuredEvent: Exhibition | null = React.useMemo(() => {
@@ -94,7 +112,7 @@ export const HomePage: React.FC = () => {
         {/* ========================================================================= */}
         {/* 1. HERO SECTION — SOFT BLUE BACKDROP WITH DOT MATRIX */}
         {/* ========================================================================= */}
-        <section className="bg-[#F4F8FD] dark:bg-slate-900/90 py-12 sm:py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden border-b border-[#E6EAF0] dark:border-slate-800">
+        <section id="home" className="bg-[#F4F8FD] dark:bg-slate-900/90 py-12 sm:py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden border-b border-[#E6EAF0] dark:border-slate-800">
           {/* Architectural Dot Grid Pattern */}
           <div
             className="absolute inset-0 opacity-[0.35] dark:opacity-[0.15] pointer-events-none"
@@ -115,7 +133,7 @@ export const HomePage: React.FC = () => {
                 <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] dark:border-slate-700 shadow-xs">
                   <Calendar className="w-4 h-4 text-[#0E8074] dark:text-teal-400" />
                   <span>
-                    {formatDisplayDate(featuredEvent.startDate)} – {formatDisplayDate(featuredEvent.endDate)}
+                    Start Date : {formatDisplayDate(featuredEvent.startDate)} – End Date : {formatDisplayDate(featuredEvent.endDate)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#E6EAF0] dark:border-slate-700 shadow-xs">
@@ -336,6 +354,29 @@ export const HomePage: React.FC = () => {
       </main>
 
       <PublicFooter />
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById('home')?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+        }}
+        aria-label="Scroll to top"
+        title="Scroll to top"
+        className="
+          fixed bottom-5 right-5 z-50
+          flex h-11 w-11 items-center justify-center
+          rounded-full bg-slate-700 text-white
+          shadow-lg transition-all duration-300
+          hover:bg-[#1E3FA0] hover:-translate-y-1
+          focus:outline-none focus:ring-2 focus:ring-blue-300
+        "
+      >
+        <ArrowUp className="h-5 w-5" strokeWidth={2.5} />
+      </button>
+    )}
     </div>
   );
 };
