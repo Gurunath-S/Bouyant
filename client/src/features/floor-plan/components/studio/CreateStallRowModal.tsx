@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, LayoutGrid, Check, ArrowRight, ArrowDown } from 'lucide-react';
+import { X, LayoutGrid, Check, ArrowRight, ArrowDown, AlertCircle } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
 
@@ -12,6 +12,7 @@ interface CreateStallRowModalProps {
   canvasHeight: number;
   existingStallsCount?: number;
   nextSuggestedNumber?: string;
+  existingStalls?: DraftStallItem[];
 }
 
 type SizePreset = '3x3' | '4x3' | '6x3' | '6x6' | '2x2' | 'custom';
@@ -25,6 +26,7 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
   canvasHeight,
   existingStallsCount = 0,
   nextSuggestedNumber,
+  existingStalls = [],
 }) => {
   // Dimension & Preset State
   const [selectedPreset, setSelectedPreset] = useState<SizePreset>('3x3');
@@ -62,6 +64,21 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
       setStartNum(existingStallsCount + 1);
     }
   }, [isOpen, nextSuggestedNumber, existingStallsCount]);
+
+  const conflictingNumbers = useMemo(() => {
+    if (!existingStalls || existingStalls.length === 0) return [];
+    const existingSet = new Set(existingStalls.map((s) => s.stallNumber.trim().toUpperCase()));
+    const conflicts: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const num = startNum + i;
+      const numStr = num < 10 ? `0${num}` : `${num}`;
+      const stallNumber = prefix ? `${prefix}-${numStr}` : `${numStr}`;
+      if (existingSet.has(stallNumber.toUpperCase())) {
+        conflicts.push(stallNumber);
+      }
+    }
+    return conflicts;
+  }, [prefix, startNum, count, existingStalls]);
 
   if (!isOpen) return null;
 
@@ -172,6 +189,8 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
   const theme = getCategoryTheme(category);
 
   const handleCreate = () => {
+    if (conflictingNumbers.length > 0) return;
+
     // Center the row nicely on canvas
     const rowSpanPx =
       direction === 'horizontal'
@@ -582,6 +601,21 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
           </div>
         </div>
 
+        {/* Duplicate Conflict Alert Banner */}
+        {conflictingNumbers.length > 0 && (
+          <div className="mx-6 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">Duplicate Stall Identifier Conflict</p>
+              <p className="text-[11px] text-red-700 mt-0.5">
+                The following stall numbers already exist on this floor plan:{' '}
+                <strong>{conflictingNumbers.slice(0, 6).join(', ')}{conflictingNumbers.length > 6 ? ` (+${conflictingNumbers.length - 6} more)` : ''}</strong>.
+                Please change the prefix or starting number so that every stall is unique.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500 font-medium">
@@ -602,8 +636,13 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
             </button>
             <button
               type="button"
+              disabled={conflictingNumbers.length > 0}
               onClick={handleCreate}
-              className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 transition-all active:scale-98"
+              className={`px-5 py-2 text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-all active:scale-98 ${
+                conflictingNumbers.length > 0
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'text-white bg-blue-600 hover:bg-blue-700 cursor-pointer'
+              }`}
             >
               <Check className="w-4 h-4" /> Place {count} Stalls on Canvas
             </button>

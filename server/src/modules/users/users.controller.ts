@@ -117,4 +117,14 @@ export class UsersController {
       data: result,
     });
   };
+
+  static delete = async (req: AuthenticatedRequest, res: Response) => {
+    const result = await UsersService.deleteUser(req.params.id, req.user);
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  };
 }

@@ -190,11 +190,13 @@ export class InvoicesService {
     return invoice;
   }
 
-  static async listUserInvoices(userOrUserId: TokenPayload | string) {
+static async listUserInvoices(userOrUserId: TokenPayload | string,search:string='',page: number = 1,
+  limit: number = 10) {
     let companyId: string | null = null;
     let userId: string | null = null;
     let userEmail: string | null = null;
     let isClient = false;
+
 
     if (typeof userOrUserId === 'object' && userOrUserId !== null) {
       userId = userOrUserId.userId || null;
@@ -222,7 +224,13 @@ export class InvoicesService {
     }
 
     if (!companyId) {
-      return [];
+        return {
+            invoices: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+        };
     }
 
     // Invoices are only given/shown if payment actually happened
@@ -251,23 +259,88 @@ export class InvoicesService {
         ],
       };
     }
+   const searchText = search.trim();
 
-    return await prisma.invoice.findMany({
-      where: whereClause,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: {
-        company: { select: { name: true } },
-        payment: true,
-        booking: {
-          include: {
-            stalls: { include: { stall: { select: { stallNumber: true, category: true } } } },
-            exhibition: { select: { title: true } },
+if (searchText) {
+  whereClause.AND = [
+    {
+      OR: [
+        {
+          invoiceNumber: {
+            contains: searchText,
+            mode: 'insensitive',
+          },
+        },
+        {
+          id: {
+            contains: searchText,
+            mode: 'insensitive',
+          },
+        },
+        {
+          booking: {
+            is: {
+              exhibition: {
+                is: {
+                  title: {
+                    contains: searchText,
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  ];
+}
+    const skip = (page - 1) * limit;
+
+const [invoices, total] = await Promise.all([
+  prisma.invoice.findMany({
+    where: whereClause,
+    skip,
+    take: limit,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: {
+      company: {
+        select: { name: true },
+      },
+      payment: true,
+      booking: {
+        include: {
+          stalls: {
+            include: {
+              stall: {
+                select: {
+                  stallNumber: true,
+                  category: true,
+                },
+              },
+            },
+          },
+          exhibition: {
+            select: { title: true },
           },
         },
       },
-    });
-  }
+    },
+  }),
 
+  prisma.invoice.count({
+    where: whereClause,
+  }),
+]);
+
+  return {
+      invoices,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+  };
+  }
   private static pdfCache = new Map<string, { buffer: Buffer; cachedAt: number }>();
 
   static clearPdfCache() {

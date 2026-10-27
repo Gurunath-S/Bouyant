@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const CreateUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long'),
   email: z.string().email('Invalid email address'),
+  username: z.string().trim().min(3, 'Username must be at least 3 characters long').optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
   role: z.enum(['SUPERADMIN', 'ADMIN', 'STAFF'], {
     errorMap: () => ({ message: 'Role must be SUPERADMIN, ADMIN, or STAFF' }),
@@ -15,6 +16,7 @@ export const CreateUserSchema = z.object({
 export const CreateAdminSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long'),
   email: z.string().email('Invalid email address'),
+  username: z.string().trim().min(3, 'Username must be at least 3 characters long').optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
   phone: z.string().optional().nullable(),
   spcode: z.string().trim().toUpperCase().optional().nullable(),
@@ -24,6 +26,7 @@ export const CreateAdminSchema = z.object({
 export const CreateStaffSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long'),
   email: z.string().email('Invalid email address'),
+  username: z.string().trim().min(3, 'Username must be at least 3 characters long').optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
   phone: z.string().optional().nullable(),
   spcode: z.string().trim().toUpperCase().optional().nullable(),

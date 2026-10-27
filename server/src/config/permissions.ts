@@ -9,6 +9,7 @@ export const Permissions = {
   USER_VIEW: 'USER_VIEW',
   USER_STATUS_TOGGLE: 'USER_STATUS_TOGGLE',
   USER_RESET_PASSWORD: 'USER_RESET_PASSWORD',
+  USER_DELETE: 'USER_DELETE',
 
   // Event / Exhibition Capabilities
   EVENT_CREATE: 'EVENT_CREATE',
@@ -51,6 +52,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
     Permissions.USER_VIEW,
     Permissions.USER_STATUS_TOGGLE,
     Permissions.USER_RESET_PASSWORD,
+    Permissions.USER_DELETE,
     Permissions.EVENT_CREATE,
     Permissions.EVENT_MANAGE,
     Permissions.EVENT_DELETE,
@@ -151,11 +153,18 @@ export const hasUserPermission = (
   permission: Permission
 ): boolean => {
   if (!user || !user.role) return false;
-  if (user.role === 'SUPERADMIN') return true;
+  if (permission === Permissions.PROFILE_MANAGE) return true;
 
-  // Baseline role permissions check
-  const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
-  if (roleSet && roleSet.has(permission)) return true;
+  const hasExplicitPageAccess = Array.isArray(user.pageAccess) && user.pageAccess.length > 0;
+
+  // Uncustomized Super Admin retains full platform capabilities
+  if (user.role === 'SUPERADMIN' && !hasExplicitPageAccess) return true;
+
+  // Baseline role permissions check (when not restricted by customized page access)
+  if (!hasExplicitPageAccess) {
+    const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
+    if (roleSet && roleSet.has(permission)) return true;
+  }
 
   // Custom page access grants check
   const effectivePages =
@@ -172,6 +181,7 @@ export const hasUserPermission = (
       Permissions.USER_MANAGE_STAFF,
       Permissions.USER_STATUS_TOGGLE,
       Permissions.USER_RESET_PASSWORD,
+      Permissions.USER_DELETE,
     ];
     if (govPermissions.includes(permission)) return true;
   }

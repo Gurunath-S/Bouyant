@@ -336,6 +336,20 @@ export class ExhibitionsService {
 
     // Seed initial stalls if provided
     if (initialStalls.length > 0) {
+      const seenNumbers = new Set<string>();
+      for (let i = 0; i < initialStalls.length; i++) {
+        const num = (initialStalls[i].stallNumber || '').trim();
+        if (num) {
+          const upper = num.toUpperCase();
+          if (seenNumbers.has(upper)) {
+            throw ApiError.badRequest(
+              `Duplicate stall identifier "${num}" detected. Every stall on a floor plan must have a unique identifier/number.`
+            );
+          }
+          seenNumbers.add(upper);
+        }
+      }
+
       const validCategories = ['STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
       const validStatuses = ['AVAILABLE', 'HELD', 'BOOKED_CONFIRMED', 'BLOCKED'];
 
@@ -515,6 +529,20 @@ export class ExhibitionsService {
       }
 
       if (initialStalls && initialStalls.length > 0 && fp) {
+        const seenNumbers = new Set<string>();
+        for (let i = 0; i < initialStalls.length; i++) {
+          const num = (initialStalls[i].stallNumber || '').trim();
+          if (num) {
+            const upper = num.toUpperCase();
+            if (seenNumbers.has(upper)) {
+              throw ApiError.badRequest(
+                `Duplicate stall identifier "${num}" detected. Every stall on a floor plan must have a unique identifier/number.`
+              );
+            }
+            seenNumbers.add(upper);
+          }
+        }
+
         const validCategories = ['STANDARD', 'PREMIUM', 'CORNER', 'ISLAND'];
         const validStatuses = ['AVAILABLE', 'TEMPORARILY_HELD', 'BOOKING_IN_PROGRESS', 'PAYMENT_PENDING', 'BOOKED_CONFIRMED', 'BLOCKED'];
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Square, Check, Sliders, ArrowRight } from 'lucide-react';
+import { X, Square, Check, Sliders, ArrowRight, AlertCircle } from 'lucide-react';
 import { StallCategory } from '../../../../types';
 import { DraftStallItem } from '../../../../types/floorPlanStudio';
 
@@ -8,8 +8,9 @@ interface CreateCustomStallModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateStall: (stall: DraftStallItem) => void;
-  existingStallsCount: number;
+  existingStallsCount?: number;
   nextSuggestedNumber: string;
+  existingStalls?: DraftStallItem[];
 }
 
 const PRESET_DIMENSIONS = [
@@ -26,12 +27,25 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   onCreateStall,
   existingStallsCount: _existingStallsCount,
   nextSuggestedNumber,
+  existingStalls = [],
 }) => {
   const [widthMeters, setWidthMeters] = useState<number>(3);
   const [depthMeters, setDepthMeters] = useState<number>(3);
   const [widthFeet, setWidthFeet] = useState<number>(9.8);
   const [depthFeet, setDepthFeet] = useState<number>(9.8);
   const [stallNumber, setStallNumber] = useState<string>(nextSuggestedNumber);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setStallNumber(nextSuggestedNumber);
+    }
+  }, [isOpen, nextSuggestedNumber]);
+
+  const isDuplicateNumber = React.useMemo(() => {
+    const trimmed = stallNumber.trim().toUpperCase();
+    if (!trimmed) return false;
+    return existingStalls.some((s) => s.stallNumber.trim().toUpperCase() === trimmed);
+  }, [stallNumber, existingStalls]);
   const [customLabel, setCustomLabel] = useState<string>('3×3m');
   const [category, setCategory] = useState<StallCategory>('STANDARD');
   const [unit, setUnit] = useState<'m' | 'ft'>('m');
@@ -126,6 +140,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDuplicateNumber || !stallNumber.trim()) return;
 
     const widthPx = Math.round(effectiveWidthMeters * pxPerMeter);
     const heightPx = Math.round(effectiveDepthMeters * pxPerMeter);
@@ -320,12 +335,23 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                 value={stallNumber}
                 onChange={(e) => setStallNumber(e.target.value.toUpperCase())}
                 placeholder="e.g. S-01, B-12"
-                className="w-full px-3 py-2 text-xs font-mono font-bold uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 text-xs font-mono font-bold uppercase border rounded-lg focus:ring-2 ${
+                  isDuplicateNumber
+                    ? 'border-red-400 text-red-700 bg-red-50/40 focus:ring-red-400'
+                    : 'border-slate-300 focus:ring-blue-500'
+                }`}
                 required
               />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
-                Unique stall number on this floor plan
-              </span>
+              {isDuplicateNumber ? (
+                <span className="text-[11px] text-red-600 font-bold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Stall #{stallNumber.trim()} already exists. Please choose a unique number.
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Unique stall identifier on this floor plan
+                </span>
+              )}
             </div>
 
             <div>
@@ -442,7 +468,12 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+              disabled={isDuplicateNumber || !stallNumber.trim()}
+              className={`px-6 py-2.5 font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all ${
+                isDuplicateNumber || !stallNumber.trim()
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-98'
+              }`}
             >
               <span>Add Stall to Canvas</span>
               <ArrowRight className="w-3.5 h-3.5" />

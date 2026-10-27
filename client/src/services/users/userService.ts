@@ -74,4 +74,9 @@ export const userService = {
     });
     return res.data;
   },
+
+  deleteUser: async (id: string): Promise<{ message: string; id: string }> => {
+    const res: any = await apiClient.delete(`/users/${id}`);
+    return res.data;
+  },
 };

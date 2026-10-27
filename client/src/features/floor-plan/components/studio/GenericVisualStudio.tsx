@@ -957,6 +957,13 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   }, [stalls]);
 
   const handleCreateCustomStall = (customDraft: DraftStallItem) => {
+    const isDuplicate = stalls.some(
+      (s) => s.stallNumber.trim().toUpperCase() === customDraft.stallNumber.trim().toUpperCase()
+    );
+    if (isDuplicate) {
+      alert(`Stall identifier "${customDraft.stallNumber}" already exists on this floor plan. Each stall must have a unique number.`);
+      return;
+    }
     const spawnPos = getNewItemSpawnCoordinates(customDraft.width, customDraft.height);
     const placedStall: DraftStallItem = {
       ...customDraft,
@@ -1038,6 +1045,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
   // Bulk Row Placement Generator
   const handleGenerateStallRow = (generatedStalls: DraftStallItem[]) => {
+    const existingSet = new Set(stalls.map((s) => s.stallNumber.trim().toUpperCase()));
+    const conflicts = generatedStalls.filter((s) => existingSet.has(s.stallNumber.trim().toUpperCase()));
+    if (conflicts.length > 0) {
+      alert(`Cannot place stalls: The following stall numbers already exist on the floor plan: ${conflicts.map((s) => s.stallNumber).join(', ')}`);
+      return;
+    }
     const nextStalls = [...stalls, ...generatedStalls];
     setStalls(nextStalls);
     setSelectedRefs(generatedStalls.map((s) => ({ type: 'stall', id: s.id })));
@@ -1505,6 +1518,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               ) {
                 nextVal++;
                 nextStallNum = `${prefix}${nextVal.toString().padStart(digits.length, '0')}`;
+              }
+            } else {
+              let copyIdx = c;
+              nextStallNum = `${orig.stallNumber}-copy-${copyIdx}`;
+              while (
+                stalls.some((s) => s.stallNumber.toUpperCase() === nextStallNum.toUpperCase()) ||
+                newStallsToAdd.some((s) => s.stallNumber.toUpperCase() === nextStallNum.toUpperCase())
+              ) {
+                copyIdx++;
+                nextStallNum = `${orig.stallNumber}-copy-${copyIdx}`;
               }
             }
 
@@ -2147,6 +2170,28 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         backgroundImageUrl: finalBlueprintUrl,
         backgroundOpacity,
       };
+
+      // Validate stall identifier uniqueness before saving
+      const seenStallNumbers = new Set<string>();
+      const duplicateNumbers = new Set<string>();
+      for (const s of stalls) {
+        const num = s.stallNumber?.trim().toUpperCase();
+        if (!num) continue;
+        if (seenStallNumbers.has(num)) {
+          duplicateNumbers.add(s.stallNumber.trim());
+        } else {
+          seenStallNumbers.add(num);
+        }
+      }
+      if (duplicateNumbers.size > 0) {
+        await showAlert({
+          title: 'Duplicate Stall Numbers',
+          message: `Cannot save floor plan: Duplicate stall numbers detected (${Array.from(duplicateNumbers).join(', ')}). Every stall on a floor plan must have a unique identifier.`,
+          type: 'danger',
+        });
+        return;
+      }
+
       await onSaveLayout({ layoutData, stalls });
       // Keep autoSaveKey active so unexpected network drops or wizard step changes never erase user work
     } catch (err: any) {
@@ -4229,6 +4274,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
         existingStallsCount={stalls.length}
+        existingStalls={stalls}
         nextSuggestedNumber={getNextSuggestedStallNumber()}
       />
 
@@ -4238,6 +4284,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         onClose={() => setIsCustomStallModalOpen(false)}
         onCreateStall={handleCreateCustomStall}
         existingStallsCount={stalls.length}
+        existingStalls={stalls}
         nextSuggestedNumber={getNextSuggestedStallNumber()}
       />
 

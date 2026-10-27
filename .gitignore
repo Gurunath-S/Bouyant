@@ -2,6 +2,9 @@
 node_modules
 .pnpm-store
 
+# cache chrome
+.cache/
+
 # Environment variables
 .env
 .env.local

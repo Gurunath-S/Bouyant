@@ -40,7 +40,11 @@ import {
   Sparkles,
   ShieldAlert,
   AtSign,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { getUserEffectivePageAccess } from '../../../config/pageAccess';
+import { useAuthStore } from '../../../stores/authStore';
 
 const DEFAULT_ROLE_PAGE_ACCESS: Record<string, string[]> = {
   SUPERADMIN: ['dashboard', 'events_floorplans', 'event_register', 'companies', 'bookings', 'payments', 'reports', 'governance'],
@@ -80,10 +84,22 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const [resettingPassword, setResettingPassword] = useState(false);
 
   // Edit User Profile State
+  const { user: currentUser } = useAuthStore();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT'>('CLIENT');
+  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF'>('ADMIN');
   const [editUserPages, setEditUserPages] = useState<string[]>([]);
+  const [editModalError, setEditModalError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    username?: string;
+    phone?: string;
+    spcode?: string;
+    pageAccess?: string;
+  }>({});
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -113,40 +129,119 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
   const handleOpenEdit = () => {
     if (!user) return;
-    setEditUserRole((user.role as any) || 'CLIENT');
-    setEditUserPages(user.pageAccess || DEFAULT_ROLE_PAGE_ACCESS[user.role] || []);
+    const role: 'SUPERADMIN' | 'ADMIN' | 'STAFF' =
+      user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'STAFF'
+        ? (user.role as any)
+        : 'ADMIN';
+    setEditUserRole(role);
+    setEditUserPages(getUserEffectivePageAccess(user));
     setEditForm({
-      name: user.name,
-      email: user.email,
+      name: user.name || '',
+      email: user.email || '',
       username: user.username || '',
       phone: user.phone || '',
       spcode: user.spcode || '',
     });
+    setEditModalError(null);
+    setEditFieldErrors({});
     setIsEditModalOpen(true);
   };
 
-  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') => {
+  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF') => {
     setEditUserRole(newRole);
     setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || ['dashboard'])]);
+    if (editFieldErrors.pageAccess) {
+      setEditFieldErrors((prev) => ({ ...prev, pageAccess: undefined }));
+    }
   };
 
   const handleToggleEditPage = (pageId: string) => {
-    setEditUserPages((prev) =>
-      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
-    );
+    setEditUserPages((prev) => {
+      const next = prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId];
+      if (next.length > 0 && editFieldErrors.pageAccess) {
+        setEditFieldErrors((e) => ({ ...e, pageAccess: undefined }));
+      }
+      return next;
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    setEditModalError(null);
+
+    const trimmedName = editForm.name?.trim() || '';
+    const trimmedEmail = editForm.email?.trim() || '';
+    const trimmedUsername = editForm.username?.trim() || '';
+    const trimmedPhone = editForm.phone?.trim() || '';
+    const trimmedSpcode = editForm.spcode?.trim().toUpperCase() || '';
+
+    const errors: {
+      name?: string;
+      email?: string;
+      username?: string;
+      phone?: string;
+      spcode?: string;
+      pageAccess?: string;
+    } = {};
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.name = 'Full name is required (minimum 2 characters)';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      errors.email = 'Email address is required';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!trimmedUsername) {
+      errors.username = 'Portal username is required';
+    } else if (trimmedUsername.length < 3) {
+      errors.username = 'Portal username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedUsername)) {
+      errors.username = 'Username can only contain letters, numbers, underscores, and hyphens';
+    }
+
+    if (!trimmedPhone) {
+      errors.phone = 'Phone number is required';
+    } else if (trimmedPhone.length < 7) {
+      errors.phone = 'Phone number must be at least 7 digits';
+    }
+
+    if (!trimmedSpcode) {
+      errors.spcode = 'SP Code is required';
+    } else if (trimmedSpcode.length < 2) {
+      errors.spcode = 'SP Code must be at least 2 characters long';
+    }
+
+    if (editUserPages.length === 0) {
+      errors.pageAccess = 'At least one page access permission must be granted';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      const missingLabels: string[] = [];
+      if (errors.name) missingLabels.push('Full Name');
+      if (errors.email) missingLabels.push('Email Address');
+      if (errors.username) missingLabels.push('Portal Username');
+      if (errors.phone) missingLabels.push('Phone Number');
+      if (errors.spcode) missingLabels.push('SP Code');
+      if (errors.pageAccess) missingLabels.push('Page Access Rights');
+
+      setEditFieldErrors(errors);
+      setEditModalError(`Please correct the required fields: ${missingLabels.join(', ')}.`);
+      return;
+    }
+
     try {
       setSavingEdit(true);
       const updated = await userService.updateUser(user.id, {
-        name: editForm.name,
-        email: editForm.email,
-        username: editForm.username.trim() || undefined,
-        phone: editForm.phone || undefined,
-        spcode: editForm.spcode || undefined,
+        name: trimmedName,
+        email: trimmedEmail,
+        username: trimmedUsername,
+        phone: trimmedPhone,
+        spcode: trimmedSpcode,
         role: editUserRole,
         pageAccess: editUserPages,
       });
@@ -169,12 +264,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
         message: `User "${updated.name}" profile updated successfully!`,
       });
       setIsEditModalOpen(false);
+      setEditModalError(null);
+      setEditFieldErrors({});
       setTimeout(() => setActionNotice(null), 5000);
     } catch (err: any) {
-      setActionNotice({
-        type: 'error',
-        message: err?.response?.data?.message || err?.message || 'Failed to update user profile.',
-      });
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user profile.';
+      setEditModalError(errMsg);
     } finally {
       setSavingEdit(false);
     }
@@ -264,6 +359,24 @@ export const UserGovernanceDetailPage: React.FC = () => {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!user) return;
+    try {
+      setDeletingUser(true);
+      await userService.deleteUser(user.id);
+      navigate('/super-admin/users');
+    } catch (err: any) {
+      setActionNotice({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to delete user account.',
+      });
+      setIsDeleteModalOpen(false);
+      setTimeout(() => setActionNotice(null), 5000);
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'SUPERADMIN':
@@ -344,7 +457,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const totalBookedValue = bookings.reduce((sum, b) => sum + Number(b.grandTotal || 0), 0);
 
   const heldStalls = user.heldStalls || [];
-  const effectivePages = user.pageAccess || [];
+  const effectivePages = getUserEffectivePageAccess(user);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 py-4">
@@ -493,6 +606,28 @@ export const UserGovernanceDetailPage: React.FC = () => {
               }`}
             >
               {togglingStatus ? 'Updating...' : user.isActive ? 'Deactivate Login' : 'Activate User Account'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setIsDeleteModalOpen(true)}
+              disabled={
+                user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
+                currentUser?.id === user.id
+              }
+              leftIcon={<Trash2 className="w-4 h-4 text-rose-500" />}
+              className="font-bold text-xs rounded-xl shadow-xs border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/50 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                user.email?.toLowerCase() === 'superadmin@buoyantmedia.com'
+                  ? 'Root Super Administrator account cannot be deleted'
+                  : currentUser?.id === user.id
+                  ? 'You cannot delete your own account'
+                  : `Delete user account for ${user.name}`
+              }
+            >
+              Delete Account
             </Button>
           </div>
         </div>
@@ -1267,144 +1402,197 @@ export const UserGovernanceDetailPage: React.FC = () => {
       {/* Edit User Profile Modal */}
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditModalError(null);
+          setEditFieldErrors({});
+        }}
         title={`Edit User Profile: ${user.name}`}
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+          {/* In-Modal Alert Banner */}
+          {editModalError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-rose-900 dark:text-rose-100">Update Failed</p>
+                <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">{editModalError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModalError(null)}
+                className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 p-0.5 rounded transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Full Name *
+              Account Role *
             </label>
-            <Input
-              type="text"
-              required
-              placeholder="e.g. John Doe"
-              value={editForm.name}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-            />
+            <div className="grid grid-cols-3 gap-2">
+              {(['ADMIN', 'STAFF', 'SUPERADMIN'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => handleEditRoleChange(r)}
+                  className={`p-2 rounded-xl border text-center transition-all ${
+                    editUserRole === r
+                      ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="text-xs font-bold block">
+                    {r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Email Address * (Editable)
+                Full Name *
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. John Doe"
+                value={editForm.name}
+                error={editFieldErrors.name}
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, name: e.target.value }));
+                  if (editFieldErrors.name) setEditFieldErrors((prev) => ({ ...prev, name: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Email Address *
               </label>
               <Input
                 type="email"
-                required
                 placeholder="user@example.com"
                 value={editForm.email}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                error={editFieldErrors.email}
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, email: e.target.value }));
+                  if (editFieldErrors.email) setEditFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
-              <p className="text-[10px] text-slate-400 mt-1">
-                Used for platform login and notifications. Must be unique.
-              </p>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Portal Username (Login ID)
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-mono text-xs">
-                  @
-                </span>
-                <input
-                  type="text"
-                  value={editForm.username}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="e.g. johndoe"
-                  className="w-full pl-7 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Unique identifier for logging in.
-              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Phone Number
+                Portal Username *
+              </label>
+              <Input
+                type="text"
+                value={editForm.username}
+                error={editFieldErrors.username}
+                placeholder="e.g. johndoe"
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, username: e.target.value }));
+                  if (editFieldErrors.username) setEditFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Phone Number *
               </label>
               <Input
                 type="tel"
-                placeholder="+91 9876543210"
+                placeholder="+91 98765 43210"
                 value={editForm.phone}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                error={editFieldErrors.phone}
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, phone: e.target.value }));
+                  if (editFieldErrors.phone) setEditFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
             </div>
 
-            {(editUserRole === 'ADMIN' || editUserRole === 'STAFF') && (
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Assigned Sales SP Code
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. SP-201"
-                  value={editForm.spcode}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, spcode: e.target.value }))}
-                />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Account Role
-            </label>
-            <select
-              value={editUserRole}
-              onChange={(e) => handleEditRoleChange(e.target.value as any)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="CLIENT">Client Exhibitor</option>
-              <option value="STAFF">Operations Staff</option>
-              <option value="ADMIN">Administrator</option>
-              <option value="SUPERADMIN">Super Administrator</option>
-            </select>
-          </div>
-
-          {/* Page Access Matrix (for Admin / Staff / SuperAdmin) */}
-          {editUserRole !== 'CLIENT' && (
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="block font-bold text-slate-700 dark:text-slate-300">
-                Granted Portal Page Access ({editUserPages.length} selected)
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                SP Code *
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                {PAGE_ACCESS_ITEMS.map((page) => {
-                  const isChecked = editUserPages.includes(page.id);
-                  return (
-                    <label
-                      key={page.id}
-                      className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                        isChecked
-                          ? 'bg-purple-100/60 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 font-bold'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleEditPage(page.id)}
-                        className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="truncate">{page.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              <Input
+                type="text"
+                placeholder="e.g. SP-201"
+                value={editForm.spcode}
+                error={editFieldErrors.spcode}
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, spcode: e.target.value.toUpperCase() }));
+                  if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
+              />
             </div>
-          )}
+          </div>
+
+          {/* Page Access Matrix */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                Granted Portal Page Access * ({editUserPages.length}/{PAGE_ACCESS_ITEMS.length} selected)
+              </label>
+              <p className="text-[10px] text-slate-400">
+                Custom page permissions for this user account. At least one page is required.
+              </p>
+              {editFieldErrors.pageAccess && (
+                <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1">
+                  {editFieldErrors.pageAccess}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+              {PAGE_ACCESS_ITEMS.map((page) => {
+                const isChecked = editUserPages.includes(page.id);
+                return (
+                  <label
+                    key={page.id}
+                    className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
+                      isChecked
+                        ? 'bg-purple-100/60 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleEditPage(page.id)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="truncate">{page.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsEditModalOpen(false)}
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditModalError(null);
+                setEditFieldErrors({});
+              }}
             >
               Cancel
             </Button>
@@ -1419,6 +1607,70 @@ export const UserGovernanceDetailPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete User Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Delete User Account"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/60 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Permanent Action Warning</p>
+              <p className="mt-1 text-[11px] leading-relaxed">
+                Are you sure you want to permanently delete the account for{' '}
+                <strong>{user?.name}</strong> ({user?.email})? This action cannot be reversed.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 space-y-1.5 text-[11px]">
+            <p><strong>Account Role:</strong> {user?.role}</p>
+            {user?.spcode && <p><strong>SP Code:</strong> {user?.spcode}</p>}
+            <p className="pt-1 text-slate-500 dark:text-slate-400">
+              Historical bookings and created exhibitions will remain preserved with user reference unlinked, and any active stall holds placed by this user will be immediately released.
+            </p>
+          </div>
+
+          {user?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' && (
+            <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
+              The root Super Administrator account is protected and cannot be deleted.
+            </p>
+          )}
+
+          {currentUser?.id === user?.id && (
+            <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
+              You cannot delete your own currently logged-in account.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              isLoading={deletingUser}
+              disabled={
+                user?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
+                currentUser?.id === user?.id
+              }
+              onClick={handleDeleteConfirm}
+            >
+              Delete User Account
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

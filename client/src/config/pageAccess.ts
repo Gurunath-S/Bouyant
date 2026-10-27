@@ -111,8 +111,6 @@ export function hasPageAccess(
   pageId: string
 ): boolean {
   if (!user) return false;
-  // Super admin always has full access
-  if (user.role === 'SUPERADMIN') return true;
   const effectivePages = getUserEffectivePageAccess(user);
   return effectivePages.includes(pageId);
 }

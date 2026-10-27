@@ -1,7 +1,21 @@
 // services/InvoicePdfService.ts
 
-import puppeteer, { type Browser } from 'puppeteer';
+import pdfmake from 'pdfmake';
 import { ApiError } from '../utils/apiError.js';
+
+// Restrict external URL fetches for security
+pdfmake.setUrlAccessPolicy(() => false);
+// Allow standard font definitions
+pdfmake.setLocalAccessPolicy(() => true);
+
+pdfmake.setFonts({
+  Helvetica: {
+    normal: 'Helvetica',
+    bold: 'Helvetica-Bold',
+    italics: 'Helvetica-Oblique',
+    bolditalics: 'Helvetica-BoldOblique',
+  },
+});
 
 export interface InvoicePdfData {
   invoiceNumber: string;
@@ -59,26 +73,30 @@ export interface InvoicePdfData {
 export function numberToIndianWords(amount: number): string {
   if (isNaN(amount) || amount <= 0) return 'INR Rupees Zero Only';
 
-  const a = [
-    '', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ',
-    'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '
+  const singleDigits = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen',
   ];
-  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const tens = [
+    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety',
+  ];
 
   const inWords = (n: number): string => {
     let str = '';
     if (n > 19) {
-      str += b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : ' ');
-    } else {
-      str += a[n];
+      str += tens[Math.floor(n / 10)] + ' ';
+      n %= 10;
+    }
+    if (n > 0) {
+      str += singleDigits[n] + ' ';
     }
     return str;
   };
 
   const convert = (n: number): string => {
-    if (n === 0) return '';
     let str = '';
-
     if (Math.floor(n / 10000000) > 0) {
       str += convert(Math.floor(n / 10000000)) + 'Crore ';
       n %= 10000000;
@@ -106,50 +124,12 @@ export function numberToIndianWords(amount: number): string {
   return `INR Rupees ${words} Only`;
 }
 
-let sharedBrowserPromise: Promise<Browser> | null = null;
-
-async function getSharedBrowser(): Promise<Browser> {
-  if (!sharedBrowserPromise) {
-    sharedBrowserPromise = (async () => {
-      const b = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-extensions',
-          '--no-first-run',
-          // '--no-zygote',
-          // '--single-process',
-        ],
-      });
-      b.on('disconnected', () => {
-        sharedBrowserPromise = null;
-      });
-      return b;
-    })();
-    sharedBrowserPromise.catch(() => {
-      sharedBrowserPromise = null;
-    });
-  }
-
-  try {
-    const browser = await sharedBrowserPromise;
-    if (!browser.connected) {
-      sharedBrowserPromise = null;
-      return getSharedBrowser();
-    }
-    return browser;
-  } catch (err) {
-    sharedBrowserPromise = null;
-    throw err;
-  }
-}
-
+// ---------------------------------------------------------------------------
+// Concurrency & Queuing Management
+// ---------------------------------------------------------------------------
 let activeRenders = 0;
-export const MAX_CONCURRENT_PDF_RENDERS = 3;
-export const MAX_RENDER_QUEUE_SIZE = 10;
+export const MAX_CONCURRENT_PDF_RENDERS = 10;
+export const MAX_RENDER_QUEUE_SIZE = 50;
 export const QUEUE_WAIT_TIMEOUT_MS = 15000;
 
 interface QueueItem {
@@ -251,6 +231,41 @@ export function resetRenderQueueForTesting(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+const formatMoney = (amount: number): string =>
+  amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const formatDate = (date?: Date): string => {
+  if (!date) return '-';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const formatOrdinalDate = (date?: Date): string => {
+  if (!date) return '';
+  const day = date.getDate();
+  const monthNames = [
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+  ];
+  const month = monthNames[date.getMonth()];
+  const year = date.getFullYear();
+  const suffix = (day >= 11 && day <= 13) ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10];
+  return `${day}${suffix} ${month}, ${year}`;
+};
+
+const formatExhibitionDateRange = (ex: { startDate?: Date; endDate?: Date }): string => {
+  if (!ex.startDate || !ex.endDate) return '20th, 21st & 22nd NOVEMBER, 2026';
+  return `${formatOrdinalDate(ex.startDate)} to ${formatOrdinalDate(ex.endDate)}`;
+};
+
 export class InvoicePdfService {
   /**
    * Builds the invoice PDF rendering data payload.
@@ -286,8 +301,9 @@ export class InvoicePdfService {
     const contactPerson = (booking?.contactPerson && booking.contactPerson.trim()) || comp.contactPerson || '';
     const contactEmail = (booking?.contactEmail && booking.contactEmail.trim()) || comp.email || '';
     const contactPhone = (booking?.contactPhone && booking.contactPhone.trim()) || comp.mobile || '';
-    const buyerState = String(comp?.state || "").trim().toLowerCase();
-    const isTamilNadu = buyerState === "tamil nadu";
+    const buyerState = String(comp?.state || '').trim().toLowerCase();
+    const isTamilNadu = buyerState === 'tamil nadu';
+
     return {
       invoiceNumber: invoice.invoiceNumber || '160',
       invoiceDate: invoice.createdAt ? new Date(invoice.createdAt) : new Date(),
@@ -330,433 +346,460 @@ export class InvoicePdfService {
     };
   }
 
+  /**
+   * Generates a high-performance, exact-layout PDF invoice buffer using pdfmake.
+   * Completely eliminated headless browser / Puppeteer dependency.
+   */
   static async generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     const releaseSlot = await acquirePdfRenderSlot();
     try {
-      const html = this.buildInvoiceHtml(data);
-      const browser = await getSharedBrowser();
-      const page = await browser.newPage();
-
-      try {
-        await page.setContent(html, {
-          waitUntil: 'domcontentloaded',
-        });
-
-        const pdf = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: {
-            top: '8mm',
-            right: '8mm',
-            bottom: '8mm',
-            left: '8mm',
-          },
-        });
-
-        return Buffer.from(pdf);
-      } finally {
-        await page.close().catch(() => {});
-      }
+      const docDef = this.buildDocDefinition(data);
+      const pdfDoc = pdfmake.createPdf(docDef);
+      const buffer = await pdfDoc.getBuffer();
+      return buffer;
     } finally {
       releaseSlot();
     }
   }
 
-  private static buildInvoiceHtml(data: InvoicePdfData): string {
-    const formatMoney = (amount: number): string =>
-      amount.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-
-    const formatDate = (date?: Date): string => {
-      if (!date) return '-';
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    };
-
-    const formatOrdinalDate = (date?: Date): string => {
-      if (!date) return '';
-      const day = date.getDate();
-      const monthNames = [
-        'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-        'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
-      ];
-      const month = monthNames[date.getMonth()];
-      const year = date.getFullYear();
-      const suffix = (day >= 11 && day <= 13) ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10];
-      return `${day}${suffix} ${month}, ${year}`;
-    };
-
-    const formatExhibitionDateRange = (): string => {
-      if (!data.exhibition.startDate || !data.exhibition.endDate) return '20th, 21st & 22nd NOVEMBER, 2026';
-      return `${formatOrdinalDate(data.exhibition.startDate)} to ${formatOrdinalDate(data.exhibition.endDate)}`;
-    };
-
-       const stallDetailsHtml = data.stalls
-      .map(
-        (stall) => `
-      <span class="item-desc-title">
-        ${stall.stallNumber} (${stall.category.toUpperCase()}) ${stall.name || ''}
-      </span>
-    `
-      )
+  /**
+   * Builds the declarative pdfmake document definition matching the original invoice layout.
+   */
+  static buildDocDefinition(data: InvoicePdfData): any {
+    const stallDetailsText = data.stalls
+      .map((s) => `${s.stallNumber} (${s.category.toUpperCase()}) ${s.name || ''}`.trim())
       .join(', ');
 
     const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
 
-     return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<title>Tax Invoice - ${data.invoiceNumber}</title>
-<style>
-  @page { size: A4; margin: 8mm; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
-    color: #000;
-    background: #fff;
-    -webkit-print-color-adjust: exact;
-  }
-  .invoice-container {
-    width: 100%;
-    border: 1px solid #000;
-    box-sizing: border-box;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
-  td, th {
-    vertical-align: top;
-    padding: 4px 6px;
-    word-wrap: break-word;
-  }
-  .bold { font-weight: bold; }
-  .text-center { text-align: center; }
-  .text-right { text-align: right; }
-  .uppercase { text-transform: uppercase; }
+    const tableNoPadding = {
+      hLineWidth: () => 0.75,
+      vLineWidth: () => 0.75,
+      hLineColor: () => '#000000',
+      vLineColor: () => '#000000',
+      paddingLeft: () => 0,
+      paddingRight: () => 0,
+      paddingTop: () => 0,
+      paddingBottom: () => 0,
+    };
 
-  /* Header Box */
-  .supplier-box {
-    border-right: 1px solid #000;
-    line-height: 1.35;
-  }
-  .supplier-name {
-    font-weight: bold;
-    font-size: 13px;
-    margin-bottom: 2px;
-  }
+    const tableWithPadding = {
+      hLineWidth: () => 0.75,
+      vLineWidth: () => 0.75,
+      hLineColor: () => '#000000',
+      vLineColor: () => '#000000',
+      paddingLeft: () => 5,
+      paddingRight: () => 5,
+      paddingTop: () => 4,
+      paddingBottom: () => 4,
+    };
 
-  /* Items Table */
-  .items-table {
-    border-top: 1px solid #000;
-    border-bottom: 1px solid #000;
-  }
-  .items-table th {
-    border-bottom: 1px solid #000;
-    border-right: 1px solid #000;
-    font-weight: normal;
-    font-size: 10.5px;
-    padding: 5px;
-    text-align: center;
-  }
-  .items-table th:last-child {
-    border-right: none;
-  }
-  .items-table td {
-    border-right: 1px solid #000;
-    padding: 5px;
-  }
-  .items-table td:last-child {
-    border-right: none;
-  }
-  .item-desc-title {
-    font-weight: bold;
-    margin-bottom: 2px;
-  }
-  .output-tax-indent {
-    margin-top: 23px;
-    text-align: right;
-    font-style: italic;
-    font-weight: bold;
-    padding-right: 15px;
-    line-height: 1.6;
-  }
+    return {
+      pageSize: 'A4' as const,
+      pageMargins: [22.6, 22.6, 22.6, 22.6] as [number, number, number, number],
+      defaultStyle: {
+        font: 'Helvetica',
+        fontSize: 8.5,
+        lineHeight: 1.25,
+        color: '#000000',
+      },
+      content: [
+        {
+          table: {
+            widths: ['*'],
+            body: [
+              [
+                {
+                  stack: [
+                    // 1. TOP HEADER (Supplier & Buyer + Invoice Info)
+                    {
+                      table: {
+                        widths: ['50%', '50%'],
+                        body: [
+                          [
+                            // Left column: Supplier on top, Buyer below
+                            {
+                              stack: [
+                                // Supplier
+                                {
+                                  stack: [
+                                    { text: 'BUOYANT MEDIA', bold: true, fontSize: 10 },
+                                    { text: 'NO 57A, 2ND FLOOR,' },
+                                    { text: 'RAMASAMY STREET, KK PUDUR,' },
+                                    { text: 'NSR ROAD, CBE-641038' },
+                                    { text: 'MOBILE : 9500288222' },
+                                    { text: 'GSTIN : 33ACXPH4512M1ZA' },
+                                    { text: 'State Name : Tamil Nadu, Code : 33' },
+                                  ],
+                                  margin: [6, 6, 6, 6],
+                                },
+                                // Divider line
+                                {
+                                  canvas: [
+                                    { type: 'line', x1: 0, y1: 0, x2: 275, y2: 0, lineWidth: 0.75, lineColor: '#000' },
+                                  ],
+                                },
+                                // Buyer
+                                {
+                                  stack: [
+                                    { text: 'Buyer (Bill To)', fontSize: 7.5 },
+                                    {
+                                      text: (data.company.name || 'EXHIBITOR COMPANY').toUpperCase(),
+                                      bold: true,
+                                      fontSize: 10,
+                                      margin: [0, 2, 0, 2],
+                                    },
+                                    data.company.address ? { text: data.company.address.toUpperCase() } : {},
+                                    {
+                                      text: [data.company.city, data.company.state, data.company.pinCode]
+                                        .filter(Boolean)
+                                        .join(', ')
+                                        .toUpperCase(),
+                                    },
+                                    { text: `GSTIN/UIN : ${data.company.gstin || 'URP'}` },
+                                    data.company.pan ? { text: `PAN : ${data.company.pan.toUpperCase()}` } : {},
+                                    data.company.contactPerson ? { text: `Contact Person : ${data.company.contactPerson}` } : {},
+                                    data.company.mobile || data.company.email
+                                      ? { text: `Contact : ${[data.company.mobile, data.company.email].filter(Boolean).join(' | ')}` }
+                                      : {},
+                                    { text: `State Name : ${data.company.state || 'Tamil Nadu'}` },
+                                  ],
+                                  margin: [6, 6, 6, 6],
+                                },
+                              ],
+                              border: [false, false, true, false],
+                            },
+                            // Right column: Invoice No & Date + Space below
+                            {
+                              stack: [
+                                // Top split: Invoice No | Dated
+                                {
+                                  table: {
+                                    widths: ['50%', '50%'],
+                                    body: [
+                                      [
+                                        {
+                                          stack: [
+                                            { text: 'Invoice No.', fontSize: 7.5 },
+                                            { text: data.invoiceNumber, bold: true, fontSize: 9.5, margin: [0, 2, 0, 0] },
+                                          ],
+                                          margin: [6, 6, 6, 6],
+                                          border: [false, false, true, true],
+                                        },
+                                        {
+                                          stack: [
+                                            { text: 'Dated', fontSize: 7.5 },
+                                            { text: formatDate(data.invoiceDate), bold: true, fontSize: 9.5, margin: [0, 2, 0, 0] },
+                                          ],
+                                          margin: [6, 6, 6, 6],
+                                          border: [false, false, false, true],
+                                        },
+                                      ],
+                                    ],
+                                  },
+                                  layout: tableNoPadding,
+                                },
+                                // Empty bottom space
+                                {
+                                  text: '',
+                                  margin: [0, 100, 0, 0],
+                                },
+                              ],
+                              border: [false, false, false, false],
+                            },
+                          ],
+                        ],
+                      },
+                      layout: tableNoPadding,
+                    },
 
-  /* Tax Breakdown Table */
-  .tax-table {
-    border-top: 1px solid #000;
-    border-bottom: 1px solid #000;
-    text-align: center;
-    font-size: 10px;
-  }
-  .tax-table th, .tax-table td {
-    border-right: 1px solid #000;
-    border-bottom: 1px solid #000;
-    padding: 4px;
-  }
+                    // 2. ITEMS TABLE
+                    {
+                      table: {
+                        widths: ['6%', '48%', '11%', '12%', '8%', '15%'],
+                        body: [
+                          // Headers
+                          [
+                            { text: 'Sl\nNo', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'Description of Goods', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'HSN/SAC', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'Quantity', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'Per', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'Amount', alignment: 'center', fontSize: 8, border: [false, true, false, true] },
+                          ],
+                          // Body Row
+                          [
+                            { text: '1', alignment: 'right', border: [false, false, true, true] },
+                            {
+                              stack: [
+                                { text: `STALL NO:${stallDetailsText}`, bold: true },
+                                {
+                                  text: `${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),`,
+                                  bold: true,
+                                  margin: [0, 4, 0, 0],
+                                },
+                                { text: `DATE: ${formatExhibitionDateRange(data.exhibition)},`, bold: true },
+                                { text: `VENUE: ${data.exhibition.venue.toUpperCase()}`, bold: true },
+                                { text: `${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.`, bold: true },
+                                // Output Tax indent
+                                {
+                                  text: data.isTamilNadu ? 'OUTPUT CGST\nOUTPUT SGST' : 'OUTPUT IGST',
+                                  alignment: 'right',
+                                  bold: true,
+                                  italics: true,
+                                  margin: [0, 30, 10, 0],
+                                  lineHeight: 1.4,
+                                },
+                              ],
+                              border: [false, false, true, true],
+                            },
+                            { text: '', border: [false, false, true, true] },
+                            { text: `${totalQty} SQM`, bold: true, alignment: 'right', border: [false, false, true, true] },
+                            { text: 'SQM', alignment: 'center', border: [false, false, true, true] },
+                            {
+                              stack: [
+                                { text: formatMoney(data.taxableAmount), bold: true, alignment: 'right' },
+                                {
+                                  canvas: [
+                                    { type: 'line', x1: 0, y1: 50, x2: 80, y2: 50, lineWidth: 0.75, lineColor: '#000' },
+                                  ],
+                                },
+                                {
+                                  text: data.isTamilNadu
+                                    ? `\n\n\n\n${formatMoney(data.taxableAmount)}\n${formatMoney(data.cgstAmount)}\n${formatMoney(data.sgstAmount)}`
+                                    : `\n\n\n\n${formatMoney(data.taxableAmount)}\n${formatMoney(data.totalTax)}`,
+                                  alignment: 'right',
+                                  bold: true,
+                                  lineHeight: 1.4,
+                                },
+                              ],
+                              border: [false, false, false, true],
+                            },
+                          ],
+                          // Total Row
+                          [
+                            { text: '', border: [false, false, true, true] },
+                            { text: 'Total', alignment: 'right', bold: true, border: [false, false, true, true] },
+                            { text: '', border: [false, false, true, true] },
+                            { text: `${totalQty}`, alignment: 'right', bold: true, border: [false, false, true, true] },
+                            { text: '-', alignment: 'center', border: [false, false, true, true] },
+                            {
+                              text: formatMoney(data.grandTotal),
+                              alignment: 'right',
+                              bold: true,
+                              fontSize: 9.5,
+                              border: [false, false, false, true],
+                            },
+                          ],
+                        ],
+                      },
+                      layout: tableWithPadding,
+                    },
 
-.tax-table th:last-child,
-.tax-table td:last-child {
-  border-right: 1px solid #000;
-}
+                    // 3. AMOUNT CHARGEABLE IN WORDS
+                    {
+                      table: {
+                        widths: ['85%', '15%'],
+                        body: [
+                          [
+                            {
+                              stack: [
+                                { text: 'Amount Chargeable (in words)', fontSize: 7.5 },
+                                { text: data.amountInWords || 'INR Rupees Zero Only', bold: true, fontSize: 9 },
+                              ],
+                              border: [false, false, false, true],
+                              margin: [6, 4, 6, 4],
+                            },
+                            {
+                              text: 'E. & O.E',
+                              italics: true,
+                              alignment: 'right',
+                              fontSize: 8,
+                              border: [false, false, false, true],
+                              margin: [6, 4, 6, 4],
+                            },
+                          ],
+                        ],
+                      },
+                      layout: tableNoPadding,
+                    },
 
-  .tax-table tr:last-child td {
-    border-bottom: none;
-  }
+                    // 4. TAX BREAKDOWN TABLE
+                    {
+                      table: {
+                        widths: data.isTamilNadu
+                          ? ['25%', '10%', '20%', '10%', '20%', '15%']
+                          : ['25%', '20%', '35%', '20%'],
+                        body: data.isTamilNadu
+                          ? [
+                              // Header Row 1
+                              [
+                                { text: 'Taxable\nValue', rowSpan: 2, alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Central Tax', colSpan: 2, alignment: 'center', bold: true, border: [false, false, true, true] },
+                                {},
+                                { text: 'State Tax', colSpan: 2, alignment: 'center', bold: true, border: [false, false, true, true] },
+                                {},
+                                { text: 'Total\nTax Amount', rowSpan: 2, alignment: 'center', bold: true, border: [false, false, false, true] },
+                              ],
+                              // Header Row 2
+                              [
+                                {},
+                                { text: 'Rate', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Amount', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Rate', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Amount', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                {},
+                              ],
+                              // Data Row
+                              [
+                                { text: formatMoney(data.taxableAmount), alignment: 'right', border: [false, false, true, true] },
+                                { text: '9 %', alignment: 'center', border: [false, false, true, true] },
+                                { text: formatMoney(data.cgstAmount), alignment: 'right', border: [false, false, true, true] },
+                                { text: '9 %', alignment: 'center', border: [false, false, true, true] },
+                                { text: formatMoney(data.sgstAmount), alignment: 'right', border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', border: [false, false, false, true] },
+                              ],
+                              // Total Row
+                              [
+                                { text: `Total ${formatMoney(data.taxableAmount)}`, alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: '', border: [false, false, true, true] },
+                                { text: formatMoney(data.cgstAmount), alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: '', border: [false, false, true, true] },
+                                { text: formatMoney(data.sgstAmount), alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, false, true] },
+                              ],
+                            ]
+                          : [
+                              // IGST Headers
+                              [
+                                { text: 'Taxable\nValue', rowSpan: 2, alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Tax', colSpan: 2, alignment: 'center', bold: true, border: [false, false, true, true] },
+                                {},
+                                { text: 'Total\nTax Amount', rowSpan: 2, alignment: 'center', bold: true, border: [false, false, false, true] },
+                              ],
+                              [
+                                {},
+                                { text: 'Rate', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                { text: 'Amount', alignment: 'center', bold: true, border: [false, false, true, true] },
+                                {},
+                              ],
+                              [
+                                { text: formatMoney(data.taxableAmount), alignment: 'right', border: [false, false, true, true] },
+                                { text: '18 %', alignment: 'center', border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', border: [false, false, false, true] },
+                              ],
+                              [
+                                { text: `Total ${formatMoney(data.taxableAmount)}`, alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: '', border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, false, true] },
+                              ],
+                            ],
+                      },
+                      layout: tableWithPadding,
+                    },
 
-  /* Bottom Details */
-  .bottom-table {
-    border-top: 1px solid #000;
-  }
-  .bottom-table td {
-    padding: 6px;
-    line-height: 1.4;
-  }
-</style>
-</head>
-<body>
+                    // 5. TAX AMOUNT IN WORDS
+                    {
+                      table: {
+                        widths: ['*'],
+                        body: [
+                          [
+                            {
+                              text: [
+                                { text: 'Tax Amount (in words) : ' },
+                                { text: data.amountInWords || numberToIndianWords(data.totalTax), bold: true },
+                              ],
+                              border: [false, false, false, true],
+                              margin: [6, 4, 6, 4],
+                            },
+                          ],
+                        ],
+                      },
+                      layout: tableNoPadding,
+                    },
 
-<div class="invoice-container">
-  <!-- Top Supplier & Buyer details -->
-<div style="display:flex; font-size:11px; line-height:1.35;">
-
-  <!-- LEFT COLUMN (50%): Supplier on top, Buyer below -->
-  <div style="width:50%; display:flex; flex-direction:column; border-right:1px solid #000;">
-
-    <!-- Supplier -->
-    <div style="padding:6px; border-bottom:1px solid #000;">
-      <div style="font-weight:bold; font-size:13px;">BUOYANT MEDIA</div>
-      <div>NO 57A, 2ND FLOOR,</div>
-      <div>RAMASAMY STREET, KK PUDUR,</div>
-      <div>NSR ROAD, CBE-641038</div>
-      <div>MOBILE : 9500288222</div>
-      <div>GSTIN : 33ACXPH4512M1ZA</div>
-      <div>State Name : Tamil Nadu, Code : 33</div>
-    </div>
-
-    <!-- Buyer (takes remaining height) -->
-    <div style="padding:6px; flex:1;">
-      <div style="font-size:10px;">Buyer (Bill To)</div>
-      <div style="font-weight:bold; font-size:13px; margin-top:2px;">${(data.company.name || 'EXHIBITOR COMPANY').toUpperCase()}</div>
-      ${data.company.address ? `<div>${data.company.address.toUpperCase()}</div>` : ''}
-      <div>${[data.company.city, data.company.state, data.company.pinCode].filter(Boolean).join(', ').toUpperCase()}</div>
-      <div>GSTIN/UIN : ${data.company.gstin || 'URP'}</div>
-      ${data.company.pan ? `<div>PAN : ${data.company.pan.toUpperCase()}</div>` : ''}
-      ${data.company.contactPerson ? `<div>Contact Person : ${data.company.contactPerson}</div>` : ''}
-      ${data.company.mobile || data.company.email ? `<div>Contact : ${[data.company.mobile, data.company.email].filter(Boolean).join(' | ')}</div>` : ''}
-      <div>State Name : ${data.company.state || 'Tamil Nadu'}</div>
-    </div>
-  </div>
-
-  <!-- RIGHT COLUMN (50%): Invoice/Date on top (30%), empty below (70%) -->
-  <div style="width:50%; display:flex; flex-direction:column;">
-
-    <!-- Top 30%: Invoice No + Dated -->
-    <div style="flex:2; display:flex; border-bottom:1px solid #000;">
-      <div style="width:50%; padding:6px; border-right:1px solid #000;">
-        <div>Invoice No.</div>
-        <div style="font-weight:bold; font-size:12px; margin-top:4px;">${data.invoiceNumber}</div>
-      </div>
-      <div style="width:50%; padding:6px;">
-        <div>Dated</div>
-        <div style="font-weight:bold; font-size:12px; margin-top:4px;">${formatDate(data.invoiceDate)}</div>
-      </div>
-    </div>
-
-    <!-- Bottom 70%: empty space for extra details (consignee, PO no, etc.) -->
-    <div style="flex:8; padding:6px;">
-      <!-- add extra company / delivery details here later -->
-    </div>
-  </div>
-
-</div>
-  <!-- Items Table -->
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th style="width: 6%;">Sl<br/>No</th>
-        <th style="width: 48%;">Description of Goods</th>
-        <th style="width: 11%;">HSN/SAC</th>
-        <th style="width: 12%;">Quantity</th>
-        <th style="width: 8%;">Per</th>
-        <th style="width: 15%;">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr style="height: 240px;">
-        <td class="text-right">1</td>
-        <td>
-          <div class="item-desc-title">STALL NO:${stallDetailsHtml}</div>
-          <div class="bold" style="margin-top: 6px;">${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),</div>
-          <div class="bold">DATE: ${formatExhibitionDateRange()},</div>
-          <div class="bold">VENUE: ${data.exhibition.venue.toUpperCase()}</div>
-          <div class="bold">${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.</div>
-
-          <div class="output-tax-indent">
-            ${data.isTamilNadu ? `<div>OUTPUT CGST</div><div>OUTPUT SGST</div>` : `<div>OUTPUT IGST</div>`}
-          </div>
-        </td>
-        <td class="text-center"></td>
-        <td class="text-right bold">${totalQty} SQM</td>
-        <td class="text-center">SQM</td>
-        <td style="padding: 0;">
-       <div style="display: flex; flex-direction: column;">
-
-    <!-- Original amount -->
-    <div style="padding: 5px; text-align: right; font-weight: bold;">
-      ${formatMoney(data.taxableAmount)}
-    </div>
-
-    <!-- Border + taxable amount + GST amounts -->
-    <div style="border-top: 1px solid #000; margin-top: 45px; padding: 5px; text-align: right; line-height: 1.6;">
-
-      <div>${formatMoney(data.taxableAmount)}</div>
-
-      ${
-        data.isTamilNadu
-          ? `
-            <div class="bold">${formatMoney(data.cgstAmount)}</div>
-            <div class="bold">${formatMoney(data.sgstAmount)}</div>
-          `
-          : `
-            <div class="bold">${formatMoney(data.totalTax)}</div>
-          `
-      }
-
-    </div>
-  </div>
-</td>
-</tr>
-
-      <!-- Total Row -->
-
-<tr class="items-total-row" style="border-top: 1px solid #000; font-weight: bold;">
-
-  <!-- SL NO: Empty -->
-  <td style="padding: 5px;"></td>
-
-  <!-- DESCRIPTION: Total -->
-  <td class="items-total-label" style="padding: 5px; text-align: right;">
-    Total
-  </td>
-
-  <!-- HSN/SAC: Empty -->
-  <td style="padding: 5px;"></td>
-
-  <!-- QUANTITY -->
-  <td class="center bold" style="padding: 5px; text-align: right;">
-    ${totalQty}
-  </td>
-
-  <!-- PER -->
-  <td style="padding: 5px; text-align: center;">
-    -
-  </td>
-
-  <!-- AMOUNT -->
-  <td class="right bold" style="padding: 5px; text-align: right; font-size: 12px;">
-    ${formatMoney(data.grandTotal)}
-  </td>
-
-</tr>
-    </tbody>
-  </table>
-
-  <!-- Amount Chargeable in Words -->
-  <table style="border-bottom: 1px solid #000;">
-    <tr>
-      <td style="padding: 5px 6px;">
-        <div style="font-size: 9.5px;">Amount Chargeable (in words)</div>
-        <div class="bold" style="font-size: 11px;">${data.amountInWords || numberToIndianWords(data.grandTotal)}</div>
-      </td>
-      <td class="text-right" style="vertical-align: top; font-style: italic; font-size: 10px; width: 80px; padding: 5px 6px;">
-        E. & O.E
-      </td>
-    </tr>
-  </table>
-
-  <!-- Tax Breakdown Table -->
-  <table class="tax-table">
-    <thead>
-      <tr>
-        <th rowspan="2" style="width: 25%; text-align: center;">Taxable<br/>Value</th>
-        ${data.isTamilNadu?` <th colspan="2" style="width: 30%;">Central Tax</th>
-        <th colspan="2" style="width: 30%;">State Tax</th>`:`<th colspan="2" style="width: 30%;">Tax</th>`}
-        <th rowspan="2" style="width: 15%; text-align: center;">Total Tax<br/>Amount</th>
-      </tr>
-      <tr>
-       ${data.isTamilNadu ? ` <th style="width: 10%;">Rate</th>
-        <th style="width: 20%;">Amount</th>
-        <th style="width: 10%;">Rate</th>
-        <th style="width: 20%;">Amount</th>`:`<th style="width: 10%;">Rate</th>
-        <th style="width: 20%;">Amount</th>`}
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="text-right">${formatMoney(data.taxableAmount)}</td>
-        ${data.isTamilNadu?`
-        <td>9 %</td>
-        <td class="text-right">${formatMoney(data.cgstAmount)}</td>
-        <td>9 %</td>
-        <td class="text-right">${formatMoney(data.sgstAmount)}</td>`:`
-        <td>18 %</td>
-        <td class="text-right">${formatMoney(data.totalTax)}</td>`}
-        <td class="text-right">${formatMoney(data.totalTax)}</td>
-      </tr>
-      <tr class="bold"> 
-        <td class="text-right">Total ${formatMoney(data.taxableAmount)}</td>
-        ${data.isTamilNadu? ` <td></td>
-        <td class="text-right">${formatMoney(data.cgstAmount)}</td>
-        <td></td>
-        <td class="text-right">${formatMoney(data.sgstAmount)}</td>`:
-         `<td></td>
-          <td class="text-right">${formatMoney(data.totalTax)}</td>`}
-        <td class="text-right">${formatMoney(data.totalTax)}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <!-- Tax Amount in Words -->
-  <div style="padding: 5px 6px; border-bottom: 1px solid #000; font-size: 10.5px;">
-    Tax Amount (in words) : <span class="bold">${numberToIndianWords(data.totalTax)}</span>
-  </div>
-
-  <!-- Note & Bank Details Footer -->
-  <table class="bottom-table" style="width:100%; border-collapse:collapse; border:1px solid #000; border-top:none;">
-  <tr>
-    <!-- LEFT: Note (spans both rows) -->
-    <td rowspan="2" style="width:50%; border-right:1px solid #000; vertical-align:top; padding:6px;">
-      <div class="bold">Note:</div>
-      <div style="font-size:10px;">${data.note || 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media'}</div>
-    </td>
-
-    <!-- RIGHT ROW 1: Bank details -->
-    <td style="width:50%; vertical-align:top; padding:6px; border-bottom:1px solid #000;">
-      <div><span class="bold">BANK DETAILS</span> : <span class="bold">${data.bankDetails?.accountName || 'BUOYANT MEDIA'}</span></div>
-      <div>Bank Name : <span class="bold">${data.bankDetails?.bankName || 'THE FEDERAL BANK LTD'}</span></div>
-      <div>A/C No : <span class="bold">${data.bankDetails?.accountNumber || '18020200001046'}</span></div>
-      <div>Branch &amp; IFSC Code : <span class="bold">${data.bankDetails?.branchAndIfsc || 'SAIBABA COLONY & FDRL0001802'}</span></div>
-    </td>
-  </tr>
-
-  <!-- RIGHT ROW 2: Empty box for seal & signature -->
-  <tr>
-    <td style="height:70px; padding:6px;"></td>
-  </tr>
-</table>
-</div>
-
-</body>
-</html>`;
+                    // 6. BOTTOM TABLE (Note & Bank Details)
+                    {
+                      table: {
+                        widths: ['50%', '50%'],
+                        body: [
+                          [
+                            // Left: Note
+                            {
+                              stack: [
+                                { text: 'Note:', bold: true },
+                                {
+                                  text:
+                                    data.note ||
+                                    'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media',
+                                  fontSize: 8,
+                                },
+                              ],
+                              margin: [6, 6, 6, 6],
+                              border: [false, false, true, false],
+                            },
+                            // Right: Bank details & Signature
+                            {
+                              stack: [
+                                {
+                                  stack: [
+                                    {
+                                      text: [
+                                        { text: 'BANK DETAILS : ', bold: true },
+                                        { text: data.bankDetails?.accountName || 'BUOYANT MEDIA', bold: true },
+                                      ],
+                                    },
+                                    {
+                                      text: [
+                                        { text: 'Bank Name : ' },
+                                        { text: data.bankDetails?.bankName || 'THE FEDERAL BANK LTD', bold: true },
+                                      ],
+                                    },
+                                    {
+                                      text: [
+                                        { text: 'A/C No : ' },
+                                        { text: data.bankDetails?.accountNumber || '18020200001046', bold: true },
+                                      ],
+                                    },
+                                    {
+                                      text: [
+                                        { text: 'Branch & IFSC Code : ' },
+                                        { text: data.bankDetails?.branchAndIfsc || 'SAIBABA COLONY & FDRL0001802', bold: true },
+                                      ],
+                                    },
+                                  ],
+                                  margin: [6, 6, 6, 6],
+                                },
+                                // Divider line
+                                {
+                                  canvas: [
+                                    { type: 'line', x1: 0, y1: 0, x2: 275, y2: 0, lineWidth: 0.75, lineColor: '#000' },
+                                  ],
+                                },
+                                // Empty space for seal / signature
+                                {
+                                  text: '',
+                                  margin: [0, 40, 0, 0],
+                                },
+                              ],
+                              border: [false, false, false, false],
+                            },
+                          ],
+                        ],
+                      },
+                      layout: tableNoPadding,
+                    },
+                  ],
+                  border: [true, true, true, true], // outer bounding box
+                },
+              ],
+            ],
+          },
+          layout: tableNoPadding,
+        },
+      ],
+    };
   }
 }

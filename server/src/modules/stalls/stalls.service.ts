@@ -71,28 +71,24 @@ export class StallsService {
   }
 
   static async createStall(input: CreateStallInput) {
+    const trimmedNumber = input.stallNumber.trim();
     const existing = await prisma.stall.findUnique({
       where: {
         floorPlanId_stallNumber: {
           floorPlanId: input.floorPlanId,
-          stallNumber: input.stallNumber,
+          stallNumber: trimmedNumber,
         },
       },
     });
 
     if (existing) {
-      return await prisma.stall.update({
-        where: { id: existing.id },
-        data: {
-          ...input,
-          price: input.price,
-        },
-      });
+      throw ApiError.conflict(`A stall with identifier "${trimmedNumber}" already exists on this floor plan.`);
     }
 
     return await prisma.stall.create({
       data: {
         ...input,
+        stallNumber: trimmedNumber,
         price: input.price,
       },
     });
@@ -102,6 +98,24 @@ export class StallsService {
     const stall = await prisma.stall.findUnique({ where: { id: stallId } });
     if (!stall) {
       throw ApiError.notFound('Stall not found.');
+    }
+
+    if (input.stallNumber) {
+      const trimmedNumber = input.stallNumber.trim();
+      if (trimmedNumber.toUpperCase() !== stall.stallNumber.toUpperCase()) {
+        const duplicate = await prisma.stall.findUnique({
+          where: {
+            floorPlanId_stallNumber: {
+              floorPlanId: stall.floorPlanId,
+              stallNumber: trimmedNumber,
+            },
+          },
+        });
+        if (duplicate && duplicate.id !== stallId) {
+          throw ApiError.conflict(`A stall with identifier "${trimmedNumber}" already exists on this floor plan.`);
+        }
+      }
+      input.stallNumber = trimmedNumber;
     }
 
     return await prisma.stall.update({

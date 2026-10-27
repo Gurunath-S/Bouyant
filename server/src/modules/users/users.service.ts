@@ -423,6 +423,20 @@ export class UsersService {
       }
     }
 
+    let username: string | null = null;
+    if (input.username && input.username.trim()) {
+      const cleanUsername = input.username.trim();
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          username: { equals: cleanUsername, mode: 'insensitive' },
+        },
+      });
+      if (existingUser) {
+        throw ApiError.conflict(`Username '${cleanUsername}' is already taken.`);
+      }
+      username = cleanUsername;
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 10);
     const targetRole = input.role as UserRole;
     const pageAccess =
@@ -434,6 +448,7 @@ export class UsersService {
       data: {
         name: input.name.trim(),
         email,
+        username,
         passwordHash,
         phone: input.phone ? input.phone.trim() : null,
         spcode,
@@ -445,6 +460,7 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        username: true,
         phone: true,
         role: true,
         spcode: true,
@@ -685,6 +701,56 @@ export class UsersService {
       message,
       emailSent,
       username: finalUsername,
+    };
+  }
+
+  static async deleteUser(id: string, actingAdmin?: TokenPayload) {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw ApiError.notFound('User not found.');
+    }
+
+    if (user.email.toLowerCase() === 'superadmin@buoyantmedia.com') {
+      throw ApiError.forbidden('The root Super Administrator account cannot be deleted.');
+    }
+
+    if (actingAdmin && actingAdmin.userId === id) {
+      throw ApiError.forbidden('You cannot delete your own account.');
+    }
+
+    if (actingAdmin && actingAdmin.role !== 'SUPERADMIN' && user.role === UserRole.SUPERADMIN) {
+      throw ApiError.forbidden('Only Super Administrators can delete Super Administrator accounts.');
+    }
+
+    if (actingAdmin && actingAdmin.role === 'ADMIN' && user.role === UserRole.ADMIN) {
+      throw ApiError.forbidden('Administrators cannot delete other Administrator accounts.');
+    }
+
+    // Release any active holds placed by this user
+    try {
+      await prisma.stall.updateMany({
+        where: { heldByUserId: id },
+        data: {
+          heldByUserId: null,
+          heldUntil: null,
+          status: 'AVAILABLE',
+        },
+      });
+    } catch (_stallErr) {
+      // Non-blocking cleanup
+    }
+
+    // Delete user (Prisma onDelete SetNull preserves exhibitions & bookings, Notification cascades)
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      message: `User account '${user.name}' (${user.email}) has been permanently deleted.`,
     };
   }
 }

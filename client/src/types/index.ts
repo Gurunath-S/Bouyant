@@ -279,6 +279,7 @@ export interface AdminStaffUser {
 export interface CreateAdminStaffPayload {
   name: string;
   email: string;
+  username?: string | null;
   password: string;
   phone?: string;
   spcode?: string;
@@ -287,6 +288,7 @@ export interface CreateAdminStaffPayload {
 export interface CreateUserPayload {
   name: string;
   email: string;
+  username?: string | null;
   password: string;
   role: 'SUPERADMIN' | 'ADMIN' | 'STAFF';
   phone?: string;

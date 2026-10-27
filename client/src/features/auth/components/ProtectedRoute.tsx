@@ -39,7 +39,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (user) {
     // If a requiredPage is specified, check page permission
     if (requiredPage) {
-      const pagePermitted = user.role === 'SUPERADMIN' || hasPageAccess(user, requiredPage);
+      const pagePermitted = hasPageAccess(user, requiredPage);
       if (!pagePermitted) {
         return <Navigate to={getRoleDefaultDashboard(user.role)} replace />;
       }

@@ -74,4 +74,10 @@ router.post(
   asyncHandler(UsersController.resetPassword)
 );
 
+router.delete(
+  '/:id',
+  requirePermission(Permissions.USER_DELETE, Permissions.USER_MANAGE_ADMIN, Permissions.USER_MANAGE_STAFF),
+  asyncHandler(UsersController.delete)
+);
+
 export const userRoutes = router;

@@ -37,7 +37,10 @@ import {
   Square,
   Check,
   ExternalLink,
+  X,
+  Trash2,
 } from 'lucide-react';
+import { useAuthStore } from '../../../stores/authStore';
 
 export const SuperAdminUsersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,9 +78,11 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [createUserRole, setCreateUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF'>('ADMIN');
   const [createUserPages, setCreateUserPages] = useState<string[]>(DEFAULT_ROLE_PAGE_ACCESS.ADMIN);
   const [editUser, setEditUser] = useState<AdminStaffUser | null>(null);
-  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT'>('ADMIN');
+  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF'>('ADMIN');
   const [editUserPages, setEditUserPages] = useState<string[]>([]);
   const [statusTargetUser, setStatusTargetUser] = useState<AdminStaffUser | null>(null);
+  const { user: currentUser } = useAuthStore();
+  const [deleteTargetUser, setDeleteTargetUser] = useState<AdminStaffUser | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<AdminStaffUser | null>(null);
   const [sendNotificationEmail, setSendNotificationEmail] = useState<boolean>(true);
 
@@ -89,12 +94,14 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [detailsSection, setDetailsSection] = useState<'profile' | 'access' | 'organization' | 'events' | 'activity'>('profile');
 
   // Form states
-  const [createForm, setCreateForm] = useState<CreateAdminStaffPayload>({
+  const [createForm, setCreateForm] = useState<CreateUserPayload>({
     name: '',
     email: '',
+    username: '',
     password: '',
     phone: '',
     spcode: '',
+    role: 'ADMIN',
   });
 
   const [editForm, setEditForm] = useState<UpdateUserPayload>({
@@ -110,6 +117,28 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Dedicated in-modal error states so error messages appear directly inside the modal popup
+  const [createModalError, setCreateModalError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    username?: string;
+    password?: string;
+    phone?: string;
+    spcode?: string;
+    pageAccess?: string;
+  }>({});
+  const [editModalError, setEditModalError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    username?: string;
+    phone?: string;
+    spcode?: string;
+    pageAccess?: string;
+  }>({});
+  const [resetModalError, setResetModalError] = useState<string | null>(null);
 
   // Ref to protect against asynchronous race conditions
   const usersReqIdRef = useRef(0);
@@ -217,10 +246,14 @@ export const SuperAdminUsersPage: React.FC = () => {
     setCreateForm({
       name: '',
       email: '',
+      username: '',
       password: '',
       phone: '',
       spcode: '',
+      role: initialRole,
     });
+    setCreateModalError(null);
+    setCreateFieldErrors({});
     setFeedbackMsg(null);
     setCreateModalOpen(true);
   };
@@ -228,20 +261,105 @@ export const SuperAdminUsersPage: React.FC = () => {
   const handleCreateRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF') => {
     setCreateUserRole(newRole);
     setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || [])]);
+    if (createFieldErrors.pageAccess) {
+      setCreateFieldErrors((prev) => ({ ...prev, pageAccess: undefined }));
+    }
   };
 
   const handleToggleCreatePage = (pageId: string) => {
-    setCreateUserPages((prev) =>
-      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
-    );
+    setCreateUserPages((prev) => {
+      const next = prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId];
+      if (next.length > 0 && createFieldErrors.pageAccess) {
+        setCreateFieldErrors((e) => ({ ...e, pageAccess: undefined }));
+      }
+      return next;
+    });
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateModalError(null);
+    const errors: {
+      name?: string;
+      email?: string;
+      username?: string;
+      password?: string;
+      phone?: string;
+      spcode?: string;
+      pageAccess?: string;
+    } = {};
+
+    const trimmedName = createForm.name?.trim() || '';
+    const trimmedEmail = createForm.email?.trim() || '';
+    const trimmedUsername = createForm.username?.trim() || '';
+    const password = createForm.password || '';
+    const trimmedPhone = createForm.phone?.trim() || '';
+    const trimmedSpcode = createForm.spcode?.trim().toUpperCase() || '';
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.name = 'Full name is required (minimum 2 characters)';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      errors.email = 'Email address is required';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!trimmedUsername) {
+      errors.username = 'Portal username is required';
+    } else if (trimmedUsername.length < 3) {
+      errors.username = 'Portal username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedUsername)) {
+      errors.username = 'Username can only contain letters, numbers, underscores, and hyphens';
+    }
+
+    if (!password || password.length < 8) {
+      errors.password = 'Initial password must be at least 8 characters long';
+    }
+
+    if (!trimmedPhone) {
+      errors.phone = 'Phone number is required';
+    } else if (trimmedPhone.length < 7) {
+      errors.phone = 'Phone number must be at least 7 digits';
+    }
+
+    if (!trimmedSpcode) {
+      errors.spcode = 'SP Code is required';
+    } else if (trimmedSpcode.length < 2) {
+      errors.spcode = 'SP Code must be at least 2 characters long';
+    }
+
+    if (createUserPages.length === 0) {
+      errors.pageAccess = 'At least one page access permission must be granted';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      const missingLabels: string[] = [];
+      if (errors.name) missingLabels.push('Full Name');
+      if (errors.email) missingLabels.push('Email Address');
+      if (errors.username) missingLabels.push('Portal Username');
+      if (errors.password) missingLabels.push('Initial Password');
+      if (errors.phone) missingLabels.push('Phone Number');
+      if (errors.spcode) missingLabels.push('SP Code');
+      if (errors.pageAccess) missingLabels.push('Page Access Rights');
+
+      setCreateFieldErrors(errors);
+      setCreateModalError(`Please correct the required fields: ${missingLabels.join(', ')}.`);
+      return;
+    }
+
     try {
       setActionLoading(true);
       await userService.createUser({
         ...createForm,
+        name: trimmedName,
+        email: trimmedEmail,
+        username: trimmedUsername,
+        password,
+        phone: trimmedPhone,
+        spcode: trimmedSpcode,
         role: createUserRole,
         pageAccess: createUserPages,
       });
@@ -250,12 +368,12 @@ export const SuperAdminUsersPage: React.FC = () => {
         text: `${createUserRole === 'SUPERADMIN' ? 'Super Admin' : createUserRole === 'ADMIN' ? 'Admin' : 'Staff'} user account created successfully with custom page access!`,
       });
       setCreateModalOpen(false);
+      setCreateModalError(null);
+      setCreateFieldErrors({});
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
     } catch (err: any) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err?.response?.data?.message || err?.message || 'Failed to create user. Please check credentials.',
-      });
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to create user. Please check credentials.';
+      setCreateModalError(errMsg);
     } finally {
       setActionLoading(false);
     }
@@ -263,16 +381,21 @@ export const SuperAdminUsersPage: React.FC = () => {
 
   const handleOpenEdit = (user: AdminStaffUser) => {
     setEditUser(user);
-    const userRole = (user.role as 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') || 'CLIENT';
+    const userRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' =
+      user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'STAFF'
+        ? user.role
+        : 'ADMIN';
     setEditUserRole(userRole);
     setEditUserPages(getUserEffectivePageAccess(user));
     setEditForm({
-      name: user.name,
-      email: user.email,
+      name: user.name || '',
+      email: user.email || '',
       username: user.username || '',
       phone: user.phone || '',
       spcode: user.spcode || '',
     });
+    setEditModalError(null);
+    setEditFieldErrors({});
     setFeedbackMsg(null);
   };
 
@@ -282,6 +405,7 @@ export const SuperAdminUsersPage: React.FC = () => {
     setResetUsername(user.username || '');
     setShowResetPassword(false);
     setSendNotificationEmail(true);
+    setResetModalError(null);
   };
 
   const generateRandomPassword = () => {
@@ -294,38 +418,116 @@ export const SuperAdminUsersPage: React.FC = () => {
     setShowResetPassword(true);
   };
 
-  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT') => {
+  const handleEditRoleChange = (newRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF') => {
     setEditUserRole(newRole);
     setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[newRole] || ['dashboard'])]);
+    if (editFieldErrors.pageAccess) {
+      setEditFieldErrors((prev) => ({ ...prev, pageAccess: undefined }));
+    }
   };
 
   const handleToggleEditPage = (pageId: string) => {
-    setEditUserPages((prev) =>
-      prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId]
-    );
+    setEditUserPages((prev) => {
+      const next = prev.includes(pageId) ? prev.filter((p) => p !== pageId) : [...prev, pageId];
+      if (next.length > 0 && editFieldErrors.pageAccess) {
+        setEditFieldErrors((e) => ({ ...e, pageAccess: undefined }));
+      }
+      return next;
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
+    setEditModalError(null);
+
+    const trimmedName = editForm.name?.trim() || '';
+    const trimmedEmail = editForm.email?.trim() || '';
+    const trimmedUsername = editForm.username?.trim() || '';
+    const trimmedPhone = editForm.phone?.trim() || '';
+    const trimmedSpcode = editForm.spcode?.trim().toUpperCase() || '';
+
+    const errors: {
+      name?: string;
+      email?: string;
+      username?: string;
+      phone?: string;
+      spcode?: string;
+      pageAccess?: string;
+    } = {};
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.name = 'Full name is required (minimum 2 characters)';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      errors.email = 'Email address is required';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!trimmedUsername) {
+      errors.username = 'Portal username is required';
+    } else if (trimmedUsername.length < 3) {
+      errors.username = 'Portal username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedUsername)) {
+      errors.username = 'Username can only contain letters, numbers, underscores, and hyphens';
+    }
+
+    if (!trimmedPhone) {
+      errors.phone = 'Phone number is required';
+    } else if (trimmedPhone.length < 7) {
+      errors.phone = 'Phone number must be at least 7 digits';
+    }
+
+    if (!trimmedSpcode) {
+      errors.spcode = 'SP Code is required';
+    } else if (trimmedSpcode.length < 2) {
+      errors.spcode = 'SP Code must be at least 2 characters long';
+    }
+
+    if (editUserPages.length === 0) {
+      errors.pageAccess = 'At least one page access permission must be granted';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      const missingLabels: string[] = [];
+      if (errors.name) missingLabels.push('Full Name');
+      if (errors.email) missingLabels.push('Email Address');
+      if (errors.username) missingLabels.push('Portal Username');
+      if (errors.phone) missingLabels.push('Phone Number');
+      if (errors.spcode) missingLabels.push('SP Code');
+      if (errors.pageAccess) missingLabels.push('Page Access Rights');
+
+      setEditFieldErrors(errors);
+      setEditModalError(`Please correct the required fields: ${missingLabels.join(', ')}.`);
+      return;
+    }
+
     try {
       setActionLoading(true);
       await userService.updateUser(editUser.id, {
         ...editForm,
+        name: trimmedName,
+        email: trimmedEmail,
+        username: trimmedUsername,
+        phone: trimmedPhone,
+        spcode: trimmedSpcode,
         role: editUserRole,
         pageAccess: editUserPages,
       });
       setFeedbackMsg({
         type: 'success',
-        text: `User "${editUser.name}" updated successfully!`,
+        text: `User "${trimmedName}" updated successfully!`,
       });
       setEditUser(null);
+      setEditModalError(null);
+      setEditFieldErrors({});
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
     } catch (err: any) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err?.response?.data?.message || err?.message || 'Failed to update user.',
-      });
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user.';
+      setEditModalError(errMsg);
     } finally {
       setActionLoading(false);
     }
@@ -353,9 +555,37 @@ export const SuperAdminUsersPage: React.FC = () => {
     }
   };
 
+  const handleDeleteUserConfirm = async () => {
+    if (!deleteTargetUser) return;
+    try {
+      setActionLoading(true);
+      await userService.deleteUser(deleteTargetUser.id);
+      setFeedbackMsg({
+        type: 'success',
+        text: `User account "${deleteTargetUser.name}" (${deleteTargetUser.email}) has been permanently deleted.`,
+      });
+      setDeleteTargetUser(null);
+      await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
+    } catch (err: any) {
+      setFeedbackMsg({
+        type: 'error',
+        text: err?.response?.data?.message || err?.message || 'Failed to delete user account.',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetTargetUser || !newPassword) return;
+    setResetModalError(null);
+
+    if (newPassword.length < 8) {
+      setResetModalError('Password must be at least 8 characters long.');
+      return;
+    }
+
     try {
       setActionLoading(true);
       const usernameArg = resetUsername.trim() !== (resetTargetUser.username || '') ? resetUsername.trim() : undefined;
@@ -365,16 +595,15 @@ export const SuperAdminUsersPage: React.FC = () => {
         text: res.message || 'Password reset successfully.',
       });
       setResetTargetUser(null);
+      setResetModalError(null);
       setNewPassword('');
       setResetUsername('');
       setShowResetPassword(false);
       setSendNotificationEmail(true);
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
     } catch (err: any) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err?.response?.data?.message || err?.message || 'Failed to reset password.',
-      });
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to reset password.';
+      setResetModalError(errMsg);
     } finally {
       setActionLoading(false);
     }
@@ -777,31 +1006,46 @@ export const SuperAdminUsersPage: React.FC = () => {
                     {/* 5. Page Access & Scope */}
                     <td className="px-4 py-3.5">
                       <div className="space-y-1">
-                        {user.role === 'SUPERADMIN' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-                            <Shield className="w-3 h-3 text-amber-500" />
-                            All 8 Pages (Super Admin)
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                getUserEffectivePageAccess(user).length === PAGE_ACCESS_ITEMS.length
-                                  ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
-                                  : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                              }`}
-                              title={getUserEffectivePageAccess(user).join(', ')}
-                            >
-                              <ShieldCheck className="w-3 h-3 text-blue-500" />
-                              {getUserEffectivePageAccess(user).length}/8 Pages
-                            </span>
-                            {getUserEffectivePageAccess(user).includes('governance') && user.role !== 'SUPERADMIN' && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300">
-                                +Governance
+                        {(() => {
+                          const effectivePages = getUserEffectivePageAccess(user);
+                          const isAllPages = effectivePages.length === PAGE_ACCESS_ITEMS.length;
+                          const accessTitle = effectivePages
+                            .map((id) => PAGE_ACCESS_ITEMS.find((p) => p.id === id)?.label || id)
+                            .join(', ');
+
+                          if (isAllPages) {
+                            return (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800"
+                                title={accessTitle}
+                              >
+                                <Shield className="w-3 h-3 text-amber-500" />
+                                All 8 Pages {user.role === 'SUPERADMIN' ? '(Super Admin)' : ''}
                               </span>
-                            )}
-                          </div>
-                        )}
+                            );
+                          }
+
+                          return (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  user.role === 'SUPERADMIN'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                                }`}
+                                title={accessTitle}
+                              >
+                                <ShieldCheck className="w-3 h-3 text-blue-500" />
+                                {effectivePages.length}/{PAGE_ACCESS_ITEMS.length} Pages
+                              </span>
+                              {effectivePages.includes('governance') && user.role !== 'SUPERADMIN' && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300">
+                                  +Governance
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {user.eventAssociation ? (
                           <p className="text-[10px] text-slate-400 font-medium">
                             {user.eventAssociation}
@@ -834,7 +1078,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                         <button
                           onClick={() => handleOpenEdit(user)}
                           className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors"
-                          title="Edit User Details"
+                          title="Edit User Details & Page Access"
                           aria-label={`Edit user ${user.name}`}
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -860,6 +1104,29 @@ export const SuperAdminUsersPage: React.FC = () => {
                           aria-label={`Reset password for ${user.name}`}
                         >
                           <KeyRound className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => setDeleteTargetUser(user)}
+                          disabled={
+                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
+                            currentUser?.id === user.id
+                          }
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' || currentUser?.id === user.id
+                              ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                              : 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
+                          }`}
+                          title={
+                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com'
+                              ? 'Root Super Administrator account cannot be deleted'
+                              : currentUser?.id === user.id
+                              ? 'You cannot delete your own account'
+                              : `Delete user account for ${user.name}`
+                          }
+                          aria-label={`Delete user ${user.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -1362,11 +1629,34 @@ export const SuperAdminUsersPage: React.FC = () => {
       {/* 5. ADD USER MODAL */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          setCreateModalOpen(false);
+          setCreateModalError(null);
+          setCreateFieldErrors({});
+        }}
         title="Add New Platform User"
         maxWidth="2xl"
       >
         <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+          {/* In-Modal Alert Banner */}
+          {createModalError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-rose-900 dark:text-rose-100">Action Required</p>
+                <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">{createModalError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreateModalError(null)}
+                className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 p-0.5 rounded transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Role Selection */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1425,10 +1715,14 @@ export const SuperAdminUsersPage: React.FC = () => {
               </label>
               <Input
                 type="text"
-                required
                 placeholder="e.g. John Doe"
                 value={createForm.name}
-                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                error={createFieldErrors.name}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, name: e.target.value });
+                  if (createFieldErrors.name) setCreateFieldErrors((prev) => ({ ...prev, name: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
               />
             </div>
 
@@ -1438,50 +1732,87 @@ export const SuperAdminUsersPage: React.FC = () => {
               </label>
               <Input
                 type="email"
-                required
                 placeholder="name@buoyantmedia.com"
                 value={createForm.email}
-                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                error={createFieldErrors.email}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, email: e.target.value });
+                  if (createFieldErrors.email) setCreateFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Portal Username *
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. john_buoyant"
+                value={createForm.username || ''}
+                error={createFieldErrors.username}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, username: e.target.value });
+                  if (createFieldErrors.username) setCreateFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
+            </div>
+
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Initial Password * (min 8 chars)
               </label>
               <Input
                 type="password"
-                required
-                minLength={8}
                 placeholder="••••••••••••"
                 value={createForm.password}
-                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                error={createFieldErrors.password}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, password: e.target.value });
+                  if (createFieldErrors.password) setCreateFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
               />
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Phone Number (Optional)
+                Phone Number *
               </label>
               <Input
                 type="text"
                 placeholder="+91 98765 43210"
                 value={createForm.phone || ''}
-                onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                error={createFieldErrors.phone}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, phone: e.target.value });
+                  if (createFieldErrors.phone) setCreateFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
               />
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Staff SP Code (Optional)
+                SP Code *
               </label>
               <Input
                 type="text"
                 placeholder={createUserRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
                 value={createForm.spcode || ''}
-                onChange={(e) => setCreateForm({ ...createForm, spcode: e.target.value })}
+                error={createFieldErrors.spcode}
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, spcode: e.target.value.toUpperCase() });
+                  if (createFieldErrors.spcode) setCreateFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                  if (createModalError) setCreateModalError(null);
+                }}
               />
             </div>
           </div>
@@ -1491,11 +1822,16 @@ export const SuperAdminUsersPage: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <div>
                 <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
-                  Configured Page Access Rights ({createUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                  Configured Page Access Rights * ({createUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
                 </label>
                 <p className="text-[10px] text-slate-400">
-                  Select which pages this user can view and access in their workspace navigation.
+                  Select which pages this user can view and access in their workspace navigation. At least one page is required.
                 </p>
+                {createFieldErrors.pageAccess && (
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1">
+                    {createFieldErrors.pageAccess}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1586,18 +1922,41 @@ export const SuperAdminUsersPage: React.FC = () => {
       {/* 6. EDIT USER MODAL */}
       <Modal
         isOpen={!!editUser}
-        onClose={() => setEditUser(null)}
+        onClose={() => {
+          setEditUser(null);
+          setEditModalError(null);
+          setEditFieldErrors({});
+        }}
         title={`Edit User: ${editUser?.name}`}
         maxWidth="2xl"
       >
         <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+          {/* In-Modal Alert Banner */}
+          {editModalError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-rose-900 dark:text-rose-100">Update Failed</p>
+                <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">{editModalError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModalError(null)}
+                className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 p-0.5 rounded transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Role Selection */}
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              User Role
+              User Role *
             </label>
-            <div className="grid grid-cols-4 gap-2">
-              {(['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT'] as const).map((r) => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['SUPERADMIN', 'ADMIN', 'STAFF'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -1609,7 +1968,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                   }`}
                 >
                   <span className="text-xs font-bold block">
-                    {r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : r === 'STAFF' ? 'Staff' : 'Client'}
+                    {r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}
                   </span>
                 </button>
               ))}
@@ -1623,9 +1982,13 @@ export const SuperAdminUsersPage: React.FC = () => {
               </label>
               <Input
                 type="text"
-                required
                 value={editForm.name || ''}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                error={editFieldErrors.name}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, name: e.target.value });
+                  if (editFieldErrors.name) setEditFieldErrors((prev) => ({ ...prev, name: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
             </div>
 
@@ -1635,9 +1998,13 @@ export const SuperAdminUsersPage: React.FC = () => {
               </label>
               <Input
                 type="email"
-                required
                 value={editForm.email || ''}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                error={editFieldErrors.email}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, email: e.target.value });
+                  if (editFieldErrors.email) setEditFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
             </div>
           </div>
@@ -1645,38 +2012,53 @@ export const SuperAdminUsersPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Portal Username
+                Portal Username *
               </label>
               <Input
                 type="text"
                 placeholder="e.g. client_username"
                 value={editForm.username || ''}
-                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                error={editFieldErrors.username}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, username: e.target.value });
+                  if (editFieldErrors.username) setEditFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
               <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Phone Number
+                Phone Number *
               </label>
               <Input
                 type="text"
                 placeholder="+91 98765 43210"
                 value={editForm.phone || ''}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                error={editFieldErrors.phone}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, phone: e.target.value });
+                  if (editFieldErrors.phone) setEditFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Unique Staff SP Code
+                SP Code *
               </label>
               <Input
                 type="text"
                 placeholder="e.g. B001, ST01"
                 value={editForm.spcode || ''}
-                onChange={(e) => setEditForm({ ...editForm, spcode: e.target.value })}
+                error={editFieldErrors.spcode}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, spcode: e.target.value.toUpperCase() });
+                  if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                  if (editModalError) setEditModalError(null);
+                }}
               />
             </div>
           </div>
@@ -1686,11 +2068,16 @@ export const SuperAdminUsersPage: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <div>
                 <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
-                  Configured Page Access Rights ({editUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                  Configured Page Access Rights * ({editUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
                 </label>
                 <p className="text-[10px] text-slate-400">
-                  Custom page permissions for this user account.
+                  Custom page permissions for this user account. At least one page is required.
                 </p>
+                {editFieldErrors.pageAccess && (
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1">
+                    {editFieldErrors.pageAccess}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1826,6 +2213,7 @@ export const SuperAdminUsersPage: React.FC = () => {
         isOpen={!!resetTargetUser}
         onClose={() => {
           setResetTargetUser(null);
+          setResetModalError(null);
           setNewPassword('');
           setResetUsername('');
           setShowResetPassword(false);
@@ -1835,6 +2223,25 @@ export const SuperAdminUsersPage: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs">
+          {/* In-Modal Alert Banner */}
+          {resetModalError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-rose-900 dark:text-rose-100">Reset Failed</p>
+                <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">{resetModalError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetModalError(null)}
+                className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 p-0.5 rounded transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* User & Company Summary Card */}
           {resetTargetUser && (
             <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
@@ -1983,6 +2390,70 @@ export const SuperAdminUsersPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* 9. DELETE USER CONFIRMATION MODAL */}
+      <Modal
+        isOpen={!!deleteTargetUser}
+        onClose={() => setDeleteTargetUser(null)}
+        title="Delete User Account"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/60 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Permanent Action Warning</p>
+              <p className="mt-1 text-[11px] leading-relaxed">
+                Are you sure you want to permanently delete the account for{' '}
+                <strong>{deleteTargetUser?.name}</strong> ({deleteTargetUser?.email})? This action cannot be reversed.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 space-y-1.5 text-[11px]">
+            <p><strong>Account Role:</strong> {deleteTargetUser?.role}</p>
+            {deleteTargetUser?.spcode && <p><strong>SP Code:</strong> {deleteTargetUser?.spcode}</p>}
+            <p className="pt-1 text-slate-500 dark:text-slate-400">
+              Historical bookings and created exhibitions will remain preserved with user reference unlinked, and any active stall holds placed by this user will be immediately released.
+            </p>
+          </div>
+
+          {deleteTargetUser?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' && (
+            <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
+              The root Super Administrator account is protected and cannot be deleted.
+            </p>
+          )}
+
+          {currentUser?.id === deleteTargetUser?.id && (
+            <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
+              You cannot delete your own currently logged-in account.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteTargetUser(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              isLoading={actionLoading}
+              disabled={
+                deleteTargetUser?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
+                currentUser?.id === deleteTargetUser?.id
+              }
+              onClick={handleDeleteUserConfirm}
+            >
+              Delete User Account
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

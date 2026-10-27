@@ -20,11 +20,16 @@ export class InvoicesController {
     });
   };
 
-  static myInvoices = async (req: AuthenticatedRequest, res: Response) => {
+static myInvoices = async (req: AuthenticatedRequest, res: Response) => {
     if (!req.user) {
       throw ApiError.unauthorized('Authentication required.');
     }
-    const invoices = await InvoicesService.listUserInvoices(req.user);
+      const search = String(req.query.search ?? "").trim();
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(100,Math.max(1, Number(req.query.limit) || 10));
+
+
+    const invoices = await InvoicesService.listUserInvoices(req.user,search,page,limit);
     return sendResponse({
       res,
       statusCode: 200,

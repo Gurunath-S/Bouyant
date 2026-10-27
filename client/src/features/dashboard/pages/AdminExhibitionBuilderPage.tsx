@@ -715,6 +715,29 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       });
       return;
     }
+
+    // Validate stall identifier uniqueness across the floor plan
+    const seenStallNumbers = new Set<string>();
+    const duplicateNumbers = new Set<string>();
+    for (const s of stalls) {
+      const num = s.stallNumber?.trim().toUpperCase();
+      if (!num) continue;
+      if (seenStallNumbers.has(num)) {
+        duplicateNumbers.add(s.stallNumber.trim());
+      } else {
+        seenStallNumbers.add(num);
+      }
+    }
+    if (duplicateNumbers.size > 0) {
+      setCurrentStep(2);
+      await showAlert({
+        title: 'Duplicate Stall Numbers Detected',
+        message: `Cannot publish exhibition: Duplicate stall numbers detected (${Array.from(duplicateNumbers).join(', ')}). Every stall on a floor plan must have a unique identifier.`,
+        type: 'danger',
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const computedBookingEndDate = basicInfo.bookingEndDate
@@ -1936,6 +1959,27 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               setStalls(currentStalls as any);
             }}
             onSaveLayout={async ({ layoutData: savedLayout, stalls: savedStalls }) => {
+              // Validate stall identifier uniqueness
+              const seenStallNumbers = new Set<string>();
+              const duplicateNumbers = new Set<string>();
+              for (const s of savedStalls) {
+                const num = s.stallNumber?.trim().toUpperCase();
+                if (!num) continue;
+                if (seenStallNumbers.has(num)) {
+                  duplicateNumbers.add(s.stallNumber.trim());
+                } else {
+                  seenStallNumbers.add(num);
+                }
+              }
+              if (duplicateNumbers.size > 0) {
+                await showAlert({
+                  title: 'Duplicate Stall Numbers',
+                  message: `Cannot save layout: Duplicate stall numbers detected (${Array.from(duplicateNumbers).join(', ')}). Every stall on a floor plan must have a unique identifier.`,
+                  type: 'danger',
+                });
+                return;
+              }
+
               setLayoutData(savedLayout);
               setStalls(savedStalls as any);
               try {

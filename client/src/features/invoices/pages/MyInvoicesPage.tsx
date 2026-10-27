@@ -19,41 +19,71 @@ export const MyInvoicesPage: React.FC = () => {
 
   const reqIdRef = React.useRef(0);
 
-  const fetchInvoices = useCallback(async (page: number, limit: number, q: string) => {
-    const reqId = ++reqIdRef.current;
-    try {
+  const fetchInvoices = useCallback(
+    async (page: number, limit: number, q: string) => {
+      const reqId = ++reqIdRef.current;
+
+      try {
       setLoading(true);
-      // CLIENT must use /invoices/my-invoices — the base /invoices requires INVOICE_MANAGE (admin only)
+
       const res: any = await apiClient.get('/invoices/my-invoices', {
-        params: { page, limit, search: q || undefined },
+        params: {
+          page,
+          limit,
+          search: q || undefined,
+        },
       });
 
       if (reqId !== reqIdRef.current) return;
 
-      // Defensive unwrapping — server may return array or { data: [], total } shapes
+      // Extract API response
       const payload = res?.data ?? res;
-      const list: Invoice[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.invoices)
-        ? payload.invoices
-        : Array.isArray(payload?.data)
-        ? payload.data
-        : [];
+
+      // Handle { data: { invoices, total } } or { invoices, total }
+      const result =
+        payload?.data && !Array.isArray(payload.data)
+          ? payload.data
+          : payload;
+
+      const list: Invoice[] = Array.isArray(result?.invoices)
+        ? result.invoices
+        : Array.isArray(result)
+          ? result
+          : Array.isArray(result?.data)
+            ? result.data
+            : [];
 
       const total: number =
-        typeof payload?.total === 'number' ? payload.total : list.length;
+        typeof result?.total === 'number'
+          ? result.total
+          : list.length;
 
       setInvoices(list);
       setTotalInvoices(total);
     } catch (err) {
       if (reqId !== reqIdRef.current) return;
+
       console.error('Failed to load invoices:', err);
       setInvoices([]);
       setTotalInvoices(0);
     } finally {
-      if (reqId === reqIdRef.current) setLoading(false);
+      if (reqId === reqIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  },
+  []
+);
+
+  // Debounce search input
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setCurrentPage(1);
+    setSearch(searchInput.trim());
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [searchInput]);
 
   useEffect(() => {
     fetchInvoices(currentPage, pageSize, search);
@@ -107,9 +137,9 @@ export const MyInvoicesPage: React.FC = () => {
             </button>
           )}
         </div>
-        <Button type="submit" variant="primary" size="sm">
+        {/* <Button type="submit" variant="primary" size="sm">
           Search
-        </Button>
+        </Button> */}
       </form>
 
       {/* Content */}
@@ -246,4 +276,3 @@ export const MyInvoicesPage: React.FC = () => {
     </div>
   );
 };
-

@@ -30,6 +30,7 @@ import {
   Zap,
   Star,
   Lock,
+  AlertCircle,
 } from 'lucide-react';
 import { StallCategory, StallStatus } from '../../../../types';
 import {
@@ -754,18 +755,44 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </div>
           )}
           {/* Stall Number */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Stall Identifier / Number
-            </label>
-            <input
-              type="text"
-              disabled={readOnly}
-              value={stall.stallNumber}
-              onChange={(e) => onUpdateStall(stall.id, { stallNumber: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold uppercase focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {(() => {
+            const isDuplicate = Boolean(
+              stall.stallNumber &&
+              stalls.some(
+                (s) => s.id !== stall.id && s.stallNumber.trim().toUpperCase() === stall.stallNumber.trim().toUpperCase()
+              )
+            );
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Stall Identifier / Number
+                  </label>
+                  {isDuplicate && (
+                    <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Duplicate!
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  disabled={readOnly}
+                  value={stall.stallNumber}
+                  onChange={(e) => onUpdateStall(stall.id, { stallNumber: e.target.value.toUpperCase() })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg font-mono font-bold uppercase focus:ring-2 ${
+                    isDuplicate
+                      ? 'border-rose-400 bg-rose-50 text-rose-900 focus:ring-rose-400 focus:border-rose-500'
+                      : 'border-slate-300 focus:ring-blue-500'
+                  }`}
+                />
+                {isDuplicate && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium">
+                    Stall #{stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Category */}
           <div>

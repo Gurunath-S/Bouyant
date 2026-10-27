@@ -147,16 +147,26 @@ export class FloorPlansService {
             existingMap.set(es.stallNumber.toUpperCase(), es);
           });
 
-          // Deduplicate incoming stalls by stallNumber to ensure intra-batch uniqueness
+          // Validate incoming stalls by stallNumber to ensure intra-batch uniqueness
           const seenNumbers = new Set<string>();
-          const sanitizedStalls = stalls.map((s, idx) => {
-            let num = (s.stallNumber || `S-${idx + 1}`).trim();
-            if (seenNumbers.has(num.toUpperCase())) {
-              num = `${num}-${idx + 1}`;
+          for (let i = 0; i < stalls.length; i++) {
+            const num = (stalls[i].stallNumber || '').trim();
+            if (!num) {
+              throw ApiError.badRequest(`Stall #${i + 1} is missing a stall identifier.`);
             }
-            seenNumbers.add(num.toUpperCase());
-            return { ...s, stallNumber: num };
-          });
+            const upper = num.toUpperCase();
+            if (seenNumbers.has(upper)) {
+              throw ApiError.badRequest(
+                `Duplicate stall identifier "${num}" detected. Every stall on a floor plan must have a unique identifier/number.`
+              );
+            }
+            seenNumbers.add(upper);
+          }
+
+          const sanitizedStalls = stalls.map((s) => ({
+            ...s,
+            stallNumber: s.stallNumber.trim(),
+          }));
 
           const newStallNumbers = new Set(sanitizedStalls.map((s) => s.stallNumber.toUpperCase()));
           const newStallIds = new Set(sanitizedStalls.filter((s) => s.id).map((s) => s.id));
