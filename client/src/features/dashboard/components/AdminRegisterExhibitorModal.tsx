@@ -3,6 +3,7 @@ import { Exhibition, Stall, Company, Booking } from '../../../types';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { companyService } from '../../../services/companies/companyService';
 import { bookingService } from '../../../services/bookings/bookingService';
+import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
@@ -61,13 +62,18 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
     industry: 'Technology',
   });
 
+  const { user } = useAuthStore();
+  const isStaff = user?.role === 'STAFF';
+
   // Stall Selection
   const [selectedStallIds, setSelectedStallIds] = useState<string[]>([]);
   const [stallSearch, setStallSearch] = useState('');
 
   // Allocation Mode
   const [confirmDirectly, setConfirmDirectly] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState('OFFLINE_ADMIN_DIRECT');
+  const [paymentMethod, setPaymentMethod] = useState(
+    isStaff ? 'OFFLINE_STAFF_DIRECT' : 'OFFLINE_ADMIN_DIRECT'
+  );
   const [notes, _setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -109,10 +115,11 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
       setSelectedStallIds([]);
       setSelectedCompanyId('');
       setCompanySearch('');
+      setPaymentMethod(isStaff ? 'OFFLINE_STAFF_DIRECT' : 'OFFLINE_ADMIN_DIRECT');
       loadExhibitionDetails(exhibition.id);
       loadCompanies();
     }
-  }, [isOpen, exhibition]);
+  }, [isOpen, exhibition, isStaff]);
 
   // Flatten available stalls
   const allStalls = useMemo(() => {
@@ -229,12 +236,16 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
       }
 
       // Submit booking
+      const effectivePaymentMethod = confirmDirectly
+        ? (isStaff ? 'OFFLINE_STAFF_DIRECT' : (paymentMethod || 'OFFLINE_ADMIN_DIRECT'))
+        : undefined;
+
       const booking = await bookingService.createBooking({
         exhibitionId: exhibition.id,
         stallIds: selectedStallIds,
         companyId: targetCompanyId,
         confirmDirectly,
-        paymentMethod: confirmDirectly ? paymentMethod : undefined,
+        paymentMethod: effectivePaymentMethod,
         notes: notes.trim() || undefined,
       });
 
@@ -702,7 +713,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Marks stalls as <strong>BOOKED_CONFIRMED</strong> immediately. Generates tax invoice and attributes registration to your admin SP Code.
+                  Marks stalls as <strong>BOOKED_CONFIRMED</strong> immediately. Generates tax invoice and attributes registration to your {isStaff ? 'staff' : 'admin'} SP Code ({user?.spcode || (isStaff ? 'STAFF' : 'ADMIN')}).
                 </p>
 
                 {/* Offline payment method selector hidden per admin preference */}

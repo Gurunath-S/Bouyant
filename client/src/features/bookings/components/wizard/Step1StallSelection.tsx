@@ -61,7 +61,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
             <span>{conflicts.length} selected stall(s) are no longer available</span>
           </div>
           <p className="text-rose-600 dark:text-rose-300">
-            Another user has reserved or booked the following stall(s). Please remove them to proceed with your remaining selection:
+            Another user has booked the following stall(s). Please remove them to proceed with your remaining selection:
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
             {conflicts.map((c) => (
@@ -137,7 +137,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               setBlockedNotice('');
               toggleStallSelection(s);
             } else {
-              setBlockedNotice(`Stall #${s.stallNumber} is currently blocked / reserved by another user.`);
+              setBlockedNotice(`Stall #${s.stallNumber} is already booked.`);
             }
           }}
         />

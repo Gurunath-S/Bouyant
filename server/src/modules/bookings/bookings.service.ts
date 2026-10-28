@@ -12,313 +12,6 @@ export class BookingsService {
   /**
    * CREATE BOOKING WITH STRICT CONCURRENCY & AUTHORITATIVE SERVER PRICING
    */
-  // static async createBooking(userId: string, input: CreateBookingInput) {
-  //   // 1. Release expired holds first
-  //   await StallsService.releaseExpiredHolds();
-
-  //   // 2. Resolve target User & Company
-  //   const user = await prisma.user.findUnique({
-  //     where: { id: userId },
-  //     include: { company: true },
-  //   });
-
-  //   if (!user) throw ApiError.notFound('User account not found.');
-
-  //   const targetCompanyId = input.companyId || user.companyId;
-  //   if (!targetCompanyId) {
-  //     throw ApiError.badRequest('Please complete your Company Profile before making a stall booking.');
-  //   }
-
-  //   // Verify Exhibition status & current upcoming active event rule
-  //   const exhibition = await prisma.exhibition.findUnique({
-  //     where: { id: input.exhibitionId },
-  //   });
-  //   if (!exhibition) throw ApiError.notFound('Exhibition event not found.');
-
-  //   const now = new Date();
-
-  //   // SINGLE ACTIVE UPCOMING EVENT RULE:
-  //   // Only the single current active published upcoming exhibition allows bookings
-  //   const currentUpcomingEvent = await prisma.exhibition.findFirst({
-  //     where: {
-  //       status: 'PUBLISHED',
-  //       endDate: { gte: now },
-  //     },
-  //     orderBy: { startDate: 'asc' },
-  //   });
-
-  //   if (currentUpcomingEvent && exhibition.id !== currentUpcomingEvent.id) {
-  //     throw ApiError.badRequest(
-  //       `Stall bookings are strictly restricted to the current upcoming event ("${currentUpcomingEvent.title}"). Bookings for this exhibition are closed.`
-  //     );
-  //   }
-
-  //   if (exhibition.status === 'COMPLETED') {
-  //     throw ApiError.badRequest('This exhibition has concluded. Stall bookings are closed.');
-  //   }
-  //   if (exhibition.status === 'CANCELLED') {
-  //     throw ApiError.badRequest('This exhibition is cancelled. Stall bookings are not accepted.');
-  //   }
-  //   const isAdminUser = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
-  //   if (exhibition.status === 'DRAFT' && !isAdminUser) {
-  //     throw ApiError.badRequest('This exhibition is in draft mode and not yet published for booking.');
-  //   }
-
-  //   const bookingDeadline = exhibition.bookingEndDate
-  //     ? new Date(exhibition.bookingEndDate)
-  //     : new Date(exhibition.startDate.getTime() - 15 * 24 * 60 * 60 * 1000);
-
-  //   if (now > bookingDeadline) {
-  //     throw ApiError.badRequest(
-  //       `Stall bookings for this exhibition closed on ${bookingDeadline.toLocaleDateString()}. New reservations are no longer accepted.`
-  //     );
-  //   }
-
-  //   if (now > exhibition.endDate) {
-  //     throw ApiError.badRequest('This exhibition event has ended. Stall bookings are closed.');
-  //   }
-
-  //   // Sort stall IDs deterministically to prevent multi-stall deadlocks (PostgreSQL 40P01)
-  //   const sortedStallIds = [...input.stallIds].sort();
-
-  //   // 1. Idempotency Check: Return existing booking if idempotencyKey is provided
-  //   if (input.idempotencyKey) {
-  //     const existingIdempotentBooking = await prisma.booking.findUnique({
-  //       where: { idempotencyKey: input.idempotencyKey },
-  //       include: {
-  //         stalls: { include: { stall: true } },
-  //         exhibition: true,
-  //         company: true,
-  //         user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
-  //       },
-  //     });
-  //     if (existingIdempotentBooking) {
-  //       return existingIdempotentBooking;
-  //     }
-  //   }
-
-  //   // 2. Prevent duplicate active pending booking for the exact same stalls by the same user
-  //   const existingActiveBooking = await prisma.booking.findFirst({
-  //     where: {
-  //       userId,
-  //       status: { in: ['INITIATED', 'PENDING_PAYMENT'] },
-  //       stalls: { some: { stallId: { in: sortedStallIds } } },
-  //     },
-  //     include: {
-  //       stalls: { include: { stall: true } },
-  //       exhibition: true,
-  //       company: true,
-  //       user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
-  //     },
-  //   });
-  //   if (existingActiveBooking) {
-  //     return existingActiveBooking;
-  //   }
-
-  //   // 3. Verify Stalls & Exhibition
-  //   const stalls = await prisma.stall.findMany({
-  //     where: { id: { in: sortedStallIds } },
-  //     include: { floorPlan: true },
-  //   });
-
-  //   if (stalls.length !== sortedStallIds.length) {
-  //     throw ApiError.notFound('One or more target stalls not found.');
-  //   }
-
-  //   for (const stall of stalls) {
-  //     if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
-  //       throw ApiError.badRequest(`Stall ${stall.stallNumber} does not belong to this exhibition event.`);
-  //     }
-  //     if (stall.status === 'BOOKED_CONFIRMED' || stall.status === 'BLOCKED') {
-  //       throw ApiError.conflict(`Stall ${stall.stallNumber} is no longer available for booking.`);
-  //     }
-  //     if (stall.status === 'TEMPORARILY_HELD' && stall.heldByUserId && stall.heldByUserId !== userId) {
-  //       throw ApiError.conflict(`Stall ${stall.stallNumber} is currently held by another user. Please select another stall.`);
-  //     }
-  //   }
-
-  //   // 4. Server-calculated Authoritative Pricing
-  //   const basePrice = stalls.reduce((sum, stall) => sum.add(new Prisma.Decimal(stall.price.toString())), new Prisma.Decimal(0));
-  //   const taxRate = new Prisma.Decimal('0.18'); // 18% Tax / GST
-  //   const taxAmount = basePrice.mul(taxRate);
-  //   const grandTotal = basePrice.add(taxAmount);
-
-  //   const bookingRef = generateReference('BKG', 6);
-
-  //   // 5. ATOMIC POSTGRESQL TRANSACTION WITH DETERMINISTIC SORTED LOCK ORDER
-  //   return await prisma.$transaction(async (tx) => {
-  //     // Re-verify and lock stalls atomically within transaction using sorted IDs
-  //     const currentStalls = await tx.stall.findMany({
-  //       where: { id: { in: sortedStallIds } },
-  //       orderBy: { id: 'asc' }, // Explicit deterministic lock order
-  //     });
-
-  //     for (const currentStall of currentStalls) {
-  //       if (currentStall.status === 'BOOKED_CONFIRMED' || currentStall.status === 'BLOCKED') {
-  //         throw ApiError.conflict(`Double Booking Conflict: Stall ${currentStall.stallNumber} was confirmed by another client moments ago.`);
-  //       }
-  //       if (
-  //         currentStall.status === 'TEMPORARILY_HELD' &&
-  //         currentStall.heldByUserId &&
-  //         currentStall.heldByUserId !== userId
-  //       ) {
-  //         throw ApiError.conflict(`Stall Hold Conflict: Another client has held Stall ${currentStall.stallNumber}.`);
-  //       }
-  //     }
-
-  //     const isAdminUser = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
-  //     const isDirectConfirm = input.confirmDirectly && isAdminUser;
-
-  //     if (isDirectConfirm) {
-  //       // Direct Admin Allocation: atomically update only if available/held
-  //       const updateResult = await tx.stall.updateMany({
-  //         where: {
-  //           id: { in: sortedStallIds },
-  //           OR: [
-  //             { status: 'AVAILABLE' },
-  //             { status: 'TEMPORARILY_HELD' },
-  //           ],
-  //         },
-  //         data: {
-  //           status: 'BOOKED_CONFIRMED',
-  //           heldUntil: null,
-  //           heldByUserId: null,
-  //         },
-  //       });
-
-  //       if (updateResult.count !== sortedStallIds.length) {
-  //         throw ApiError.conflict('Double Booking Conflict: One or more selected stalls were booked or held by another user just now.');
-  //       }
-
-  //       const booking = await tx.booking.create({
-  //         data: {
-  //           bookingReference: bookingRef,
-  //           idempotencyKey: input.idempotencyKey || null,
-  //           userId,
-  //           companyId: targetCompanyId,
-  //           exhibitionId: input.exhibitionId,
-  //           status: 'CONFIRMED',
-  //           paymentStatus: 'PAID_FULL',
-  //           totalAmount: basePrice,
-  //           taxAmount,
-  //           grandTotal,
-  //           paidAmount: grandTotal,
-  //           balanceAmount: new Prisma.Decimal(0),
-  //           stalls: {
-  //             create: stalls.map((s) => ({
-  //               stallId: s.id,
-  //               price: new Prisma.Decimal(s.price.toString()),
-  //             })),
-  //           },
-  //         },
-  //         include: {
-  //           stalls: { include: { stall: true } },
-  //           exhibition: true,
-  //           company: true,
-  //           user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
-  //         },
-  //       });
-
-  //       // Create Payment Record for Admin Allocation
-  //       const paymentRef = generateReference('PAY', 8, false);
-  //       const payment = await tx.payment.create({
-  //         data: {
-  //           paymentReference: paymentRef,
-  //           bookingId: booking.id,
-  //           userId,
-  //           amount: grandTotal,
-  //           currency: 'INR',
-  //           status: 'SUCCESS',
-  //           provider: 'OFFLINE_ADMIN',
-  //           paymentMethod: input.paymentMethod || 'ADMIN_DIRECT_ALLOCATION',
-  //           paidAt: new Date(),
-  //         },
-  //       });
-
-  //       // Generate Invoice
-  //       const invoiceNum = generateReference('INV', 6);
-  //       await tx.invoice.create({
-  //         data: {
-  //           invoiceNumber: invoiceNum,
-  //           bookingId: booking.id,
-  //           paymentId: payment.id,
-  //           companyId: targetCompanyId,
-  //           totalAmount: basePrice,
-  //           taxAmount,
-  //           grandTotal,
-  //           status: 'PAID',
-  //           issueDate: new Date(),
-  //         },
-  //       });
-
-  //       return booking;
-  //     }
-
-  //     // Standard / Client Hold Flow: Atomically claim stalls for payment pending using sorted IDs
-  //     const updateResult = await tx.stall.updateMany({
-  //       where: {
-  //         id: { in: sortedStallIds },
-  //         OR: [
-  //           { status: 'AVAILABLE' },
-  //           { status: 'TEMPORARILY_HELD', heldByUserId: userId },
-  //         ],
-  //       },
-  //       data: {
-  //         status: 'PAYMENT_PENDING',
-  //         heldUntil: new Date(Date.now() + 15 * 60 * 1000), // 15 mins to complete payment
-  //         heldByUserId: userId,
-  //       },
-  //     });
-
-  //     if (updateResult.count !== sortedStallIds.length) {
-  //       throw ApiError.conflict('Double Booking Conflict: One or more selected stalls are no longer available for booking.');
-  //     }
-
-  //     // Create Booking record with Idempotency Key
-  //     const booking = await tx.booking.create({
-  //       data: {
-  //         bookingReference: bookingRef,
-  //         idempotencyKey: input.idempotencyKey || null,
-  //         userId,
-  //         companyId: targetCompanyId,
-  //         exhibitionId: input.exhibitionId,
-  //         status: 'PENDING_PAYMENT',
-  //         totalAmount: basePrice,
-  //         taxAmount,
-  //         grandTotal,
-  //         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-  //         stalls: {
-  //           create: stalls.map((s) => ({
-  //             stallId: s.id,
-  //             price: new Prisma.Decimal(s.price.toString()),
-  //           })),
-  //         },
-  //       },
-  //       include: {
-  //         stalls: { include: { stall: true } },
-  //         exhibition: true,
-  //         company: true,
-  //         user: { select: { id: true, name: true, email: true, role: true, spcode: true } },
-  //       },
-  //     });
-
-  //     // Initialize Payment Record
-  //     const paymentRef = generateReference('PAY', 8, false);
-  //     await tx.payment.create({
-  //       data: {
-  //         paymentReference: paymentRef,
-  //         bookingId: booking.id,
-  //         userId,
-  //         amount: grandTotal,
-  //         currency: 'INR',
-  //         status: 'PENDING',
-  //         provider: 'RAZORPAY',
-  //       },
-  //     });
-
-  //     return booking;
-  //   });
-  // }
 
    /*
    Booking Calculation 
@@ -500,9 +193,9 @@ private static validateStalls(
   }
 }
   /**
-   * Helper: Validates exhibition existence, published status, and 15-day pre-event cutoff
+   * Helper: Validates exhibition existence, published status, and booking window
    */
-  private static async validateExhibitionBookingWindow(exhibitionId: string) {
+  private static async validateExhibitionBookingWindow(exhibitionId: string, isPrivilegedUser = false) {
     if (!exhibitionId) {
       throw ApiError.badRequest('Exhibition ID or slug is required.');
     }
@@ -533,12 +226,17 @@ private static validateStalls(
       throw ApiError.badRequest('This exhibition event is already completed. Stall bookings are closed.');
     }
 
-    const now = new Date();
-    const eventStartDate = new Date(exhibition.startDate);
+    // Privileged users (ADMIN, SUPERADMIN, STAFF) can allocate/book stalls during live events (e.g. spot registration)
+    if (isPrivilegedUser) {
+      return exhibition;
+    }
 
-    // B. Safety check: Has event already started or completed?
-    if (now >= eventStartDate) {
-      throw ApiError.badRequest('This exhibition event has already started. Stall bookings are closed.');
+    const now = new Date();
+    const eventEndDate = new Date(exhibition.endDate);
+
+    // B. Safety check: Has event already concluded?
+    if (now > eventEndDate) {
+      throw ApiError.badRequest('This exhibition event has already concluded. Stall bookings are closed.');
     }
 
     // C. Check cutoff deadline (use custom bookingEndDate if set, otherwise 15-day prior to startDate)
@@ -546,6 +244,7 @@ private static validateStalls(
     if (exhibition.bookingEndDate) {
       bookingCutoffDeadline = new Date(exhibition.bookingEndDate);
     } else {
+      const eventStartDate = new Date(exhibition.startDate);
       bookingCutoffDeadline = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
       bookingCutoffDeadline.setHours(23, 59, 59, 999);
     }
@@ -569,153 +268,6 @@ private static validateStalls(
   /**
    * CREATE BOOKING WITH STRICT CONCURRENCY & AUTHORITATIVE SERVER PRICING
    */
-//   static async createBooking(user: AuthenticatedRequest['user'], input: CreateBookingInput) {
-
-//     // 1. Release expired holds first
-//     // await StallsService.releaseExpiredHolds();
-
-//     // 2. Verify Exhibition & 15-Day Booking Window (Helper)
-
-//     await BookingsService.validateExhibitionBookingWindow(input.exhibitionId);
-
-//     const company = await prisma.company.findUnique({
-//       where: { id: input.companyId },
-//     });
-
-//     if (!company) {
-//       throw ApiError.badRequest(
-//         'Company not found. Please complete your Company Profile before making a stall booking.'
-//       );
-//     }
-//     // 4. Verify Stalls & Exhibition
-
-//     const stalls = await prisma.stall.findMany({
-//       where: { id: { in: input.stallIds } },
-//       include: { floorPlan: true },
-//     });
-
-//     if (stalls.length !== input.stallIds.length) {
-//       throw ApiError.notFound('One or more target stalls not found.');
-//     }
-
-//     for (const stall of stalls) {
-//       if (stall.floorPlan.exhibitionId !== input.exhibitionId) {
-//         throw ApiError.badRequest(`Stall ${stall.stallNumber} does not belong to this exhibition event.`);
-//       }
-//       if (stall.status === 'BOOKED_CONFIRMED' || stall.status === 'BLOCKED') {
-//         throw ApiError.conflict(`Stall ${stall.stallNumber} is no longer available for booking.`);
-//       }
-
-//       // if (stall.status === 'TEMPORARILY_HELD' && stall.heldByUserId && stall.heldByUserId !== input.companyId) {
-//       //   throw ApiError.conflict(`Stall ${stall.stallNumber} is currently held by another user. Please select another stall.`);
-//       // }
-//     }
-
-//     // 5. Server-calculated Authoritative Pricing
-
-//     const result = BookingsService.calculate(stalls, user, input);
-
-//     const bookingRef = `BKG-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-
-//     // // 6. ATOMIC POSTGRESQL TRANSACTION (DOUBLE-BOOKING PROTECTION)
-
-//     return await prisma.$transaction(async (tx) => {
-
-//       // Re-verify and lock stalls atomically within transaction
-
-//       const currentStalls = await tx.stall.findMany({
-//         where: { id: { in: input.stallIds } },
-//       });
-
-//       for (const currentStall of currentStalls) {
-//         if (currentStall.status === 'BOOKED_CONFIRMED' || currentStall.status === 'BLOCKED') {
-//           throw ApiError.conflict(`Double Booking Conflict: Stall ${currentStall.stallNumber} was confirmed by another client moments ago.`);
-//         }
-//         // if (
-//         //   currentStall.status === 'TEMPORARILY_HELD' &&
-//         //   currentStall.heldByUserId &&
-//         //   currentStall.heldByUserId !== input.companyId
-//         // ) {
-//         //   throw ApiError.conflict(`Stall Hold Conflict: Another client has held Stall ${currentStall.stallNumber}.`);
-//         // }
-//       }
-
-//       // Update stall statuses to PAYMENT_PENDING
-//       await tx.stall.updateMany({
-//         where: { id: { in: input.stallIds } },
-//         data: {
-//           status:"PAYMENT_PENDING",
-//           heldUntil: new Date(Date.now() + 15 * 60 * 1000), // 15 mins to complete payment
-//           heldByUserId: input.companyId,
-//         },
-//       });
-
-//       // Create Booking record
-
-//       // Store the remaining balance after each successful payment.
-//       // Subtract the current payment amount from the balance and update the remaining amount.
-//       // If the balance becomes 0, mark the booking as fully paid;
-//       // otherwise, store the remaining balance for the next payment.
-
-//       const booking = await tx.booking.create({
-//         data: {
-//           bookingReference: bookingRef,
-//           companyId: input.companyId,
-//           exhibitionId: input.exhibitionId,
-//           status: 'PENDING_PAYMENT',
-//           totalAmount: result.basePrice,
-//           taxAmount: result.bookingTaxAmount,
-//           grandTotal: result.grandTotal,
-//           balanceAmount: result.grandTotal,
-//           discountAmount: input.discountAmount,
-//           discountType: input.discountType,
-//           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-//           stalls: {
-//             create: stalls.map((s) => ({
-//               stallId: s.id,
-//               price: new Prisma.Decimal(s.price.toString())
-//             }))
-//           }
-//         },
-//         include: {
-//           stalls: { include: { stall: true } },
-//           exhibition: true,
-//           company: true,
-
-//         },
-//       });
-
-//       // razorpay orderCreation  
-//       const razorpayAmount = result.payableAmount.mul(100).toNumber();
-
-//       const razorpayOrder = await razorpay.orders.create({
-//         amount: razorpayAmount,
-//         currency: 'INR',
-//         receipt: bookingRef,
-//       });
-
-//       // Initialize Payment Record
-//       // const paymentRef = `PAY-${Math.floor(10000 + Math.random() * 90000)}`;
-//       // await tx.payment.create({
-//       //   data: {
-//       //     paymentReference: paymentRef,
-//       //     bookingId: booking.id,
-//       //     amount: grandTotal,
-//       //     currency: 'INR',
-//       //     status: 'PENDING',
-//       //     provider: 'RAZORPAY',
-//       //   },
-//       // });
-
-//       return {
-//   booking,
-//   razorpayOrderId: razorpayOrder.id,
-//   razorpayKeyId: "rzp_test_TUQoPoDakOeGn7",
-//   amount: razorpayOrder.amount,
-//   currency: razorpayOrder.currency,
-// };
-//     });
-//   }
 static async createBooking(
   user: AuthenticatedRequest['user'],
   input: CreateBookingInput
@@ -724,8 +276,11 @@ static async createBooking(
   // 1. Validate exhibition booking window
   // ==================================================
 
+  const isPrivilegedUser = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role ?? '');
+
   const exhibition = await BookingsService.validateExhibitionBookingWindow(
-    input.exhibitionId
+    input.exhibitionId,
+    isPrivilegedUser
   );
 
   // ==================================================
@@ -743,8 +298,6 @@ static async createBooking(
       'Company not found. Please complete your Company Profile before making a stall booking.'
     );
 	  }
-
-	  const isPrivilegedUser = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role ?? '');
 
 	  // Admin/Staff/SuperAdmin can skip Razorpay and directly confirm with an offline payment record
 	  const isDirectConfirm = !!(input.confirmDirectly && isPrivilegedUser);
@@ -764,14 +317,25 @@ static async createBooking(
   // We only overwrite if the company doesn't already carry
   // a staff-attributed spcode (startsWith 'ST').
   // ==================================================
-  if (
-    user?.role === 'STAFF' &&
-    !company.spcode?.toUpperCase().startsWith('ST')
-  ) {
-    await prisma.company.update({
-      where: { id: company.id },
-      data: { spcode: user.spcode ?? 'ST-STAFF' },
-    });
+  if (user?.role === 'STAFF') {
+    const staffSpcode = (user.spcode && user.spcode.trim()) ? user.spcode.trim() : 'ST-STAFF';
+    if (company.spcode !== staffSpcode) {
+      await prisma.company.update({
+        where: { id: company.id },
+        data: { spcode: staffSpcode },
+      });
+      company.spcode = staffSpcode;
+    }
+  } else if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+    const adminSpcode = (user.spcode && user.spcode.trim()) ? user.spcode.trim() : (user.role === 'SUPERADMIN' ? 'SA01' : 'AD01');
+    const currUpper = (company.spcode || '').toUpperCase();
+    if (!currUpper.startsWith('ST') && !currUpper.startsWith('SP') && currUpper !== adminSpcode.toUpperCase()) {
+      await prisma.company.update({
+        where: { id: company.id },
+        data: { spcode: adminSpcode },
+      });
+      company.spcode = adminSpcode;
+    }
   }
 
   // ==================================================
@@ -927,7 +491,7 @@ static async createBooking(
   // 7a. ADMIN DIRECT CONFIRM — bypass Razorpay entirely
   // ==================================================
 
-  const isPartialPayment = input.paymentType.toUpperCase() === "PARTIAL";
+  const isPartialPayment = input.paymentType?.toUpperCase() === "PARTIAL";
 
   const nextPaymentDate =
     isPartialPayment && input.paymentReminderDate
@@ -1008,7 +572,14 @@ static async createBooking(
           },
         });
 
-        // 4. Create offline/admin payment record (no Razorpay)
+        // 4. Create offline/admin/staff payment record (no Razorpay)
+        const isStaff = user?.role === 'STAFF';
+        const defaultMethod = isStaff ? 'OFFLINE_STAFF_DIRECT' : 'ADMIN_DIRECT_ALLOCATION';
+        const paymentProvider = isStaff ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
+        const paymentMethod = isStaff
+          ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? input.paymentMethod : 'OFFLINE_STAFF_DIRECT')
+          : (input.paymentMethod || defaultMethod);
+
         const paymentRef = generateReference('PAY', 10, false);
         const payment = await tx.payment.create({
           data: {
@@ -1017,8 +588,8 @@ static async createBooking(
             amount: result.grandTotal,
             currency: 'INR',
             status: PaymentStatus.SUCCESS,
-            provider: 'OFFLINE_ADMIN',
-            paymentMethod: input.paymentMethod || 'ADMIN_DIRECT_ALLOCATION',
+            provider: paymentProvider,
+            paymentMethod: paymentMethod,
             paidAt: new Date(),
             nextPaymentDate
           },
@@ -1041,8 +612,13 @@ static async createBooking(
         // });
 
         return {
-          success: true,
-          message: 'Booking confirmed and allocated directly by admin. No payment gateway required.',
+          ...booking,
+          id: booking.id,
+          bookingId: booking.id,
+          bookingReference: booking.bookingReference,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          paymentId: payment.id,
           data: {
             bookingId: booking.id,
             bookingReference: booking.bookingReference,
@@ -1676,21 +1252,30 @@ static async createBooking(
     if (registeredByRole && registeredByRole !== 'ALL') {
       if (registeredByRole === 'ADMIN') {
         // ADMIN-registered: either the booking was created by an ADMIN/SUPERADMIN,
-        // or the company has an ADMIN/SUPERADMIN user linked to it.
+        // or the company has an ADMIN/SUPERADMIN user linked to it, or offline admin payment / AD/SA spcode.
         andConditions.push({
           OR: [
             { user: { role: { in: ['ADMIN', 'SUPERADMIN'] } } },
             { company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } },
+            { payments: { some: { OR: [{ provider: 'OFFLINE_ADMIN' }, { paymentMethod: { contains: 'ADMIN', mode: 'insensitive' } }] } } },
+            { company: { spcode: { startsWith: 'AD', mode: 'insensitive' } } },
+            { company: { spcode: { startsWith: 'SA', mode: 'insensitive' } } },
+            { exhibition: { spcode: { startsWith: 'AD', mode: 'insensitive' } } },
+            { exhibition: { spcode: { startsWith: 'SA', mode: 'insensitive' } } },
           ],
         });
       } else if (registeredByRole === 'STAFF') {
         // STAFF-registered: either the booking was created by a STAFF user,
-        // or attribution is tracked via company.spcode (ST..) or exhibition.spcode (ST..).
+        // or attribution is tracked via company.spcode (ST.. or SP..) or exhibition.spcode,
+        // or payment recorded via staff direct allocation
         andConditions.push({
           OR: [
             { user: { role: 'STAFF' } },
             { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+            { company: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
             { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+            { exhibition: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
+            { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
           ],
         });
       } else {

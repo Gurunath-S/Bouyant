@@ -517,6 +517,7 @@ export const BookingWizardPage: React.FC = () => {
       setLoading(true);
       const res = await companyService.createCompany({
         ...data,
+        id: selectedCompany?.id,
         regNo: assignedRegNo || undefined,
         edition: exhibition?.edition,
         eventCode: exhibition?.eventCode,
@@ -623,7 +624,8 @@ export const BookingWizardPage: React.FC = () => {
       setLoading(true);
       setIsPaymentModalDismissed(false);
 
-      const tokenToUse = pendingUserAuth?.tokens?.accessToken || (user ? undefined : null);
+      const isPrivileged = user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role);
+      const tokenToUse = isPrivileged ? undefined : (pendingUserAuth?.tokens?.accessToken || null);
 
       // Cancel any previous unfulfilled booking before creating an updated one
       if (createdBooking && createdBooking.id && !createdBooking.id.startsWith('bkg_')) {

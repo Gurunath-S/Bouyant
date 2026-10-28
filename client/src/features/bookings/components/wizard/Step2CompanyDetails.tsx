@@ -31,6 +31,7 @@ import {
   Lock,
   LogIn,
   Search,
+  Edit3,
 } from 'lucide-react';
 import { authService } from '../../../../services/auth/authService';
 
@@ -151,6 +152,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   const [isAddingNewCompany, setIsAddingNewCompany] = useState(companies.length === 0 && !selectedCompany);
   const [privilegedCompanySearch, setPrivilegedCompanySearch] = useState('');
   const [isChangingCompany, setIsChangingCompany] = useState(false);
+  const [isEditingExistingCompany, setIsEditingExistingCompany] = useState(false);
 
   const filteredPrivilegedCompanies = React.useMemo(() => {
     if (!privilegedCompanySearch.trim()) return companies;
@@ -184,6 +186,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     setValue,
     getValues,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -293,6 +296,10 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
   // Update form fields dynamically whenever `user` state changes or resets
   React.useEffect(() => {
+    // If registering a brand new company, do not populate from previously selected company
+    if (isAddingNewCompany && !isEditingExistingCompany) {
+      return;
+    }
     if (selectedCompany) {
       setValue('name', selectedCompany.name || '');
       if (isClientUser && user?.username) {
@@ -389,7 +396,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('tanNumber', '');
       setValue('website', '');
     }
-  }, [user, selectedCompany, setValue, getValues, isClientUser]);
+  }, [user, selectedCompany, setValue, getValues, isClientUser, isAddingNewCompany, isEditingExistingCompany]);
 
   // Ensure authenticated client exhibitor uses their verified username and does not trigger taken check
   React.useEffect(() => {
@@ -715,6 +722,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           const comp = res.existingCompany;
           setValue('name', comp.name, { shouldValidate: true, shouldDirty: true });
           if (comp.panNumber) setValue('panNumber', comp.panNumber, { shouldValidate: true, shouldDirty: true });
+          if (comp.tanNumber) setValue('tanNumber', comp.tanNumber, { shouldValidate: true, shouldDirty: true });
           if (comp.state) setValue('state', comp.state, { shouldValidate: true, shouldDirty: true });
 
           const currentAddr = comp.address || getValues('address') || '';
@@ -810,6 +818,80 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     }
   };
 
+  const handleRegisterNewCompany = () => {
+    onSelectCompany(null as any);
+    setIsEditingExistingCompany(false);
+    setIsAddingNewCompany(true);
+    setIsChangingCompany(false);
+
+    reset({
+      name: '',
+      category: '',
+      industry: '',
+      designation: '',
+      username: '',
+      contactPerson: user?.name || '',
+      mobile: user?.phone || '',
+      email: user?.email || '',
+      pinCode: '',
+      address: '',
+      city: '',
+      state: '',
+      country: 'India',
+      gstNumber: '',
+      panNumber: '',
+      tanNumber: '',
+      website: '',
+    });
+
+    setGstVerificationSuccess(false);
+    setGstVerifiedDetails(null);
+    setGstError('');
+    setGstNotice('');
+    verifiedGstRef.current = '';
+    previousGstRef.current = '';
+
+    setRecognizedAccount(null);
+    recognizedAccountRef.current = null;
+    existingAccountUsernameRef.current = null;
+    wasRecognizedRef.current = false;
+    setUsernameStatus('idle');
+    setUsernameMessage('');
+  };
+
+  const handleEditCompany = (comp: Company) => {
+    onSelectCompany(comp);
+    setIsEditingExistingCompany(true);
+    setIsAddingNewCompany(true);
+    setIsChangingCompany(false);
+
+    reset({
+      name: comp.name || '',
+      category: comp.industry || 'General Exhibitor',
+      industry: comp.industry || 'General Exhibitor',
+      designation: (comp as any).designation || '',
+      username: (comp as any).username || '',
+      contactPerson: comp.contactPerson || '',
+      mobile: comp.mobile || '',
+      email: comp.email || '',
+      pinCode: comp.pinCode || '',
+      address: comp.address || '',
+      city: comp.city || '',
+      state: comp.state || '',
+      country: normalizeCountryName(comp.country || 'India'),
+      gstNumber: comp.gstNumber || '',
+      panNumber: comp.panNumber || '',
+      tanNumber: comp.tanNumber || '',
+      website: comp.website || '',
+    });
+
+    if (comp.gstNumber) {
+      setGstVerificationSuccess(true);
+      verifiedGstRef.current = comp.gstNumber;
+      previousGstRef.current = comp.gstNumber;
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
       <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -869,10 +951,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                setIsAddingNewCompany(true);
-                setIsChangingCompany(false);
-              }}
+              onClick={handleRegisterNewCompany}
               className="inline-flex items-center gap-1 text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer shrink-0 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" /> Register New Company
@@ -926,8 +1005,15 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   </span>
                   <button
                     type="button"
+                    onClick={() => handleEditCompany(selectedCompany)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline px-2.5 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" /> Edit Details
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setIsChangingCompany(true)}
-                    className="text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline px-2.5 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
+                    className="text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline px-2.5 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                   >
                     Change Company
                   </button>
@@ -1017,6 +1103,24 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                     <p><span className="font-semibold text-slate-500 dark:text-slate-400">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
                     <p><span className="font-semibold text-slate-500 dark:text-slate-400">Contact:</span> {c.contactPerson} ({c.email})</p>
                   </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditCompany(c);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#09539b] dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Edit Details
+                    </button>
+                    {selectedCompany?.id === c.id && (
+                      <span className="text-[11px] font-bold text-[#09539b] dark:text-blue-400">
+                        Selected Profile
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -1028,10 +1132,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      setIsAddingNewCompany(true);
-                      setIsChangingCompany(false);
-                    }}
+                    onClick={handleRegisterNewCompany}
                     className="text-xs"
                     leftIcon={<Plus className="w-3.5 h-3.5" />}
                   >
@@ -1063,12 +1164,32 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       {/* Guest / New Company Details Form */}
       {(companies.length === 0 || isAddingNewCompany) && (
         <form onSubmit={handleSubmit(onSubmitCompanyForm)} className="space-y-5">
-          {companies.length > 0 && (
+          {isEditingExistingCompany ? (
+            <div className="flex items-center justify-between gap-2 p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl mb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                <span className="text-xs font-bold text-[#09539b] dark:text-blue-300">
+                  Editing Corporate Profile: <strong>{selectedCompany?.name}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingNewCompany(false);
+                  setIsEditingExistingCompany(false);
+                }}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 underline cursor-pointer"
+              >
+                Cancel Editing
+              </button>
+            </div>
+          ) : companies.length > 0 && (
             <button
               type="button"
               onClick={() => {
                 setIsAddingNewCompany(false);
                 setIsChangingCompany(true);
+                setIsEditingExistingCompany(false);
               }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors cursor-pointer mb-3"
             >

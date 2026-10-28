@@ -109,10 +109,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
   async function fetchRegisteredBookings(filterRole?: string, balanceOnly?: boolean) {
     try {
       setLoadingBookings(true);
-      const roleToFetch = filterRole ?? registrarFilter;
+      const effectiveRole = isStaff ? 'STAFF' : (filterRole ?? registrarFilter);
       const params: any = { limit: 200 };
-      if (roleToFetch !== 'ALL') {
-        params.registeredByRole = roleToFetch;
+      if (effectiveRole !== 'ALL') {
+        params.registeredByRole = effectiveRole;
       }
       if (balanceOnly ?? balanceOnlyFilter) {
         params.hasBalanceOnly = true;
@@ -133,6 +133,15 @@ export const AdminEventRegistrationPage: React.FC = () => {
     }
   }
 
+  // Ensure role-specific data refreshes as soon as authenticated user identity resolves
+  useEffect(() => {
+    if (user?.role) {
+      const defaultRole = user.role === 'STAFF' ? 'STAFF' : 'ADMIN';
+      setRegistrarFilter(defaultRole);
+      fetchRegisteredBookings(defaultRole);
+    }
+  }, [user?.role]);
+
   useEffect(() => {
     fetchExhibitions();
     fetchRegisteredBookings(isStaff ? 'STAFF' : 'ADMIN', false);
@@ -147,15 +156,34 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
   const handleRefreshAll = () => {
     fetchExhibitions();
-    fetchRegisteredBookings();
+    fetchRegisteredBookings(isStaff ? 'STAFF' : registrarFilter);
   };
 
-  const handleRegistrationSuccess = (newBooking: Booking) => {
+  const handleRegistrationSuccess = (newBooking: any) => {
+    const bookingRef = newBooking?.bookingReference || newBooking?.data?.bookingReference || 'N/A';
     setSuccessBanner(
-      `Registration created successfully! Reference: ${newBooking.bookingReference}. Stalls allocated.`
+      `Registration created successfully! Reference: ${bookingRef}. Stalls allocated.`
     );
+    // Optimistically update adminBookings immediately so statistics update without delay
+    if (newBooking) {
+      const formattedBooking: Booking = {
+        ...newBooking,
+        id: newBooking.id || newBooking.bookingId || newBooking.data?.bookingId,
+        bookingReference: bookingRef,
+        status: newBooking.status || newBooking.data?.bookingStatus || 'CONFIRMED',
+        paymentStatus: newBooking.paymentStatus || newBooking.data?.paymentStatus || 'PAID_FULL',
+        grandTotal: newBooking.grandTotal || newBooking.totalAmount || 0,
+      };
+      setAdminBookings((prev) => {
+        const exists = prev.some(
+          (b) => b.id === formattedBooking.id || b.bookingReference === formattedBooking.bookingReference
+        );
+        if (exists) return prev;
+        return [formattedBooking, ...prev];
+      });
+    }
     fetchExhibitions();
-    fetchRegisteredBookings();
+    fetchRegisteredBookings(isStaff ? 'STAFF' : registrarFilter);
     setActiveTab('ADMIN_DATA');
     setTimeout(() => setSuccessBanner(null), 8000);
   };

@@ -36,13 +36,25 @@ export class ReportsService {
       });
       userSpcode = userRecord?.spcode || null;
 
-      // Staff only sees exhibitions created by them or matching their SPCode
-      bookingWhere.exhibition = {
-        OR: [
-          { createdByUserId: userId },
-          ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
-        ],
-      };
+      // Staff sees bookings registered by staff, attributed to their SPCode, or in their exhibitions
+      bookingWhere.OR = [
+        { user: { role: 'STAFF' } },
+        { user: { id: userId } },
+        { exhibition: { createdByUserId: userId } },
+        { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
+        ...(userSpcode
+          ? [
+              { company: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
+              { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+              { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
+              { exhibition: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
+            ]
+          : [
+              { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+              { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
+              { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+            ]),
+      ];
     }
 
     // Exhibition scope
@@ -115,6 +127,29 @@ export class ReportsService {
         OR: [
           { createdByUserId: userId },
           ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
+          {
+            bookings: {
+              some: {
+                OR: [
+                  { user: { role: 'STAFF' } },
+                  { user: { id: userId } },
+                  { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
+                  ...(userSpcode
+                    ? [
+                        { company: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
+                        { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+                        { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
+                        { exhibition: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
+                      ]
+                    : [
+                        { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+                        { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
+                        { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
+                      ]),
+                ],
+              },
+            },
+          },
         ],
       };
 
@@ -139,8 +174,8 @@ export class ReportsService {
         }),
         prisma.exhibition.count({
           where: {
-            ...staffExhibitionWhere,
-            startDate: { gte: new Date() },
+            status: 'PUBLISHED',
+            endDate: { gte: new Date() },
           },
         }),
         prisma.exhibition.count({ where: staffExhibitionWhere }),

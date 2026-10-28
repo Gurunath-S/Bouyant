@@ -63,7 +63,21 @@ export const StaffDashboardPage: React.FC = () => {
   useEffect(() => {
     fetchMetrics();
     fetchRecentStaffBookings();
+
+    const onFocus = () => {
+      fetchMetrics();
+      fetchRecentStaffBookings();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchMetrics();
+      fetchRecentStaffBookings();
+    }
+  }, [user?.id]);
 
   return (
     <div className="space-y-6">
