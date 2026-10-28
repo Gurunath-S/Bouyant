@@ -84,6 +84,7 @@ export class BookingsController {
       registeredByRole,
       exhibitionId,
       userId,
+      actingUser: req.user,
     });
     return sendResponse({
       res,

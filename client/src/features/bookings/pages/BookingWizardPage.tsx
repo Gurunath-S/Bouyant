@@ -49,8 +49,7 @@ export const BookingWizardPage: React.FC = () => {
   // an admin session is active in the same browser.
   const isAdminBookingContext = Boolean(
     user &&
-    (user.role === 'ADMIN' || user.role === 'SUPERADMIN' || user.role === 'STAFF') &&
-    (fromReferrer?.includes('/admin') || fromReferrer?.includes('/dashboard') || (location.state as any)?.adminBooking === true)
+    ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role)
   );
 
   const {

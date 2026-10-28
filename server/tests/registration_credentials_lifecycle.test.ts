@@ -247,7 +247,7 @@ async function runRegistrationCredentialsLifecycleSuite() {
     // 2.8 Authenticated rebooking preserves existing user password
     const actingUserTokens = regResult.tokens;
     // Decode token payload
-    const base64Payload = actingUserTokens.accessToken.split('.')[1];
+    const base64Payload = actingUserTokens!.accessToken.split('.')[1];
     const actingUserPayload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf8'));
 
     const rebookingResult = await CompaniesService.createCompany(

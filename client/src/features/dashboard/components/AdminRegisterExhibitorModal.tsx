@@ -226,7 +226,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
           edition: exhibition.edition,
           eventCode: exhibition.eventCode,
         });
-        targetCompanyId = createdComp.id;
+        targetCompanyId = createdComp?.company?.id || createdComp?.id;
       }
 
       if (!targetCompanyId) {

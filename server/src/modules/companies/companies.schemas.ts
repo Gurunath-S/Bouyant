@@ -15,6 +15,7 @@ export const CreateCompanySchema = z
     panNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     tanNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     industry: z.string().trim().optional().or(z.literal('')).default('General Exhibitor'),
+    category: z.string().trim().optional(),
     website: z.string().trim().optional().or(z.literal('')),
     remarks: z.string().trim().optional(),
     spcode: z.string().trim().optional(),
@@ -38,5 +39,7 @@ export const GstVerificationSchema = z
 
 export const UpdateCompanySchema = CreateCompanySchema.partial();
 
-export type CreateCompanyInput = z.infer<typeof CreateCompanySchema>;
-export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;
+export type CreateCompanyInput = z.input<typeof CreateCompanySchema>;
+export type CreateCompanyOutput = z.infer<typeof CreateCompanySchema>;
+export type UpdateCompanyInput = z.input<typeof UpdateCompanySchema>;
+export type UpdateCompanyOutput = z.infer<typeof UpdateCompanySchema>;
