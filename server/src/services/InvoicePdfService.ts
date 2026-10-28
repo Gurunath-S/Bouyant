@@ -1,13 +1,13 @@
-// services/InvoicePdfService.ts
-
+ // services/InvoicePdfService.ts
+ 
 import pdfmake from 'pdfmake';
 import { ApiError } from '../utils/apiError.js';
-
+ 
 // Restrict external URL fetches for security
 pdfmake.setUrlAccessPolicy(() => false);
 // Allow standard font definitions
 pdfmake.setLocalAccessPolicy(() => true);
-
+ 
 pdfmake.setFonts({
   Helvetica: {
     normal: 'Helvetica',
@@ -16,11 +16,11 @@ pdfmake.setFonts({
     bolditalics: 'Helvetica-BoldOblique',
   },
 });
-
+ 
 export interface InvoicePdfData {
   invoiceNumber: string;
   invoiceDate: Date;
-
+ 
   company: {
     name: string;
     address?: string;
@@ -34,7 +34,7 @@ export interface InvoicePdfData {
     email?: string;
     mobile?: string;
   };
-
+ 
   exhibition: {
     title: string;
     edition?: string;
@@ -51,38 +51,38 @@ export interface InvoicePdfData {
     name: string | null;
     amount: number;
   }[];
-
+ 
   taxableAmount: number;
   cgstAmount: number;
   sgstAmount: number;
   totalTax: number;
   grandTotal: number;
-
+ 
   amountInWords?: string;
-
+ 
   bankDetails?: {
     bankName: string;
     accountName: string;
     accountNumber: string;
     branchAndIfsc: string;
   };
-
+ 
   note?: string;
 }
-
+ 
 export function numberToIndianWords(amount: number): string {
   if (isNaN(amount) || amount <= 0) return 'INR Rupees Zero Only';
-
+ 
   const singleDigits = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
     'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
     'Seventeen', 'Eighteen', 'Nineteen',
   ];
-
+ 
   const tens = [
     '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety',
   ];
-
+ 
   const inWords = (n: number): string => {
     let str = '';
     if (n > 19) {
@@ -94,7 +94,7 @@ export function numberToIndianWords(amount: number): string {
     }
     return str;
   };
-
+ 
   const convert = (n: number): string => {
     let str = '';
     if (Math.floor(n / 10000000) > 0) {
@@ -118,12 +118,12 @@ export function numberToIndianWords(amount: number): string {
     }
     return str;
   };
-
+ 
   const integerPart = Math.floor(amount);
   const words = convert(integerPart).trim();
   return `INR Rupees ${words} Only`;
 }
-
+ 
 // ---------------------------------------------------------------------------
 // Concurrency & Queuing Management
 // ---------------------------------------------------------------------------
@@ -131,16 +131,16 @@ let activeRenders = 0;
 export const MAX_CONCURRENT_PDF_RENDERS = 10;
 export const MAX_RENDER_QUEUE_SIZE = 50;
 export const QUEUE_WAIT_TIMEOUT_MS = 15000;
-
+ 
 interface QueueItem {
   resolve: (release: () => void) => void;
   reject: (err: any) => void;
   timer: NodeJS.Timeout;
   isCancelled: boolean;
 }
-
+ 
 const renderQueue: QueueItem[] = [];
-
+ 
 export async function acquirePdfRenderSlot(timeoutMs: number = QUEUE_WAIT_TIMEOUT_MS): Promise<() => void> {
   if (activeRenders < MAX_CONCURRENT_PDF_RENDERS) {
     activeRenders++;
@@ -152,16 +152,16 @@ export async function acquirePdfRenderSlot(timeoutMs: number = QUEUE_WAIT_TIMEOU
       }
     };
   }
-
+ 
   if (renderQueue.length >= MAX_RENDER_QUEUE_SIZE) {
     throw ApiError.serviceUnavailable(
       'PDF generation service is currently at maximum capacity. Please try again shortly.'
     );
   }
-
+ 
   return new Promise<() => void>((resolve, reject) => {
     let item: QueueItem;
-
+ 
     const timer = setTimeout(() => {
       item.isCancelled = true;
       const idx = renderQueue.indexOf(item);
@@ -174,7 +174,7 @@ export async function acquirePdfRenderSlot(timeoutMs: number = QUEUE_WAIT_TIMEOU
         )
       );
     }, timeoutMs);
-
+ 
     item = {
       resolve: (release) => {
         clearTimeout(timer);
@@ -187,14 +187,14 @@ export async function acquirePdfRenderSlot(timeoutMs: number = QUEUE_WAIT_TIMEOU
       timer,
       isCancelled: false,
     };
-
+ 
     renderQueue.push(item);
   });
 }
-
+ 
 export function releasePdfRenderSlot() {
   activeRenders = Math.max(0, activeRenders - 1);
-
+ 
   while (renderQueue.length > 0) {
     const next = renderQueue.shift();
     if (next && !next.isCancelled) {
@@ -211,15 +211,15 @@ export function releasePdfRenderSlot() {
     }
   }
 }
-
+ 
 export function getActivePdfRendersCount(): number {
   return activeRenders;
 }
-
+ 
 export function getRenderQueueLength(): number {
   return renderQueue.length;
 }
-
+ 
 export function resetRenderQueueForTesting(): void {
   activeRenders = 0;
   while (renderQueue.length > 0) {
@@ -230,7 +230,7 @@ export function resetRenderQueueForTesting(): void {
     }
   }
 }
-
+ 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ const formatMoney = (amount: number): string =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-
+ 
 const formatDate = (date?: Date): string => {
   if (!date) return '-';
   const day = String(date.getDate()).padStart(2, '0');
@@ -247,7 +247,7 @@ const formatDate = (date?: Date): string => {
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 };
-
+ 
 const formatOrdinalDate = (date?: Date): string => {
   if (!date) return '';
   const day = date.getDate();
@@ -260,12 +260,12 @@ const formatOrdinalDate = (date?: Date): string => {
   const suffix = (day >= 11 && day <= 13) ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10];
   return `${day}${suffix} ${month}, ${year}`;
 };
-
+ 
 const formatExhibitionDateRange = (ex: { startDate?: Date; endDate?: Date }): string => {
   if (!ex.startDate || !ex.endDate) return '20th, 21st & 22nd NOVEMBER, 2026';
   return `${formatOrdinalDate(ex.startDate)} to ${formatOrdinalDate(ex.endDate)}`;
 };
-
+ 
 export class InvoicePdfService {
   /**
    * Builds the invoice PDF rendering data payload.
@@ -277,7 +277,7 @@ export class InvoicePdfService {
     const taxAmt = Number(invoice.taxAmount || 0);
     const baseAmt = Number(invoice.totalAmount || (totalGrand - taxAmt));
     const halfTax = Number((taxAmt / 2).toFixed(2));
-
+ 
     const stalls = (booking?.stalls || []).map((bs: any) => ({
       stallNumber: bs.stall?.stallNumber || bs.stallId || 'A14',
       category: bs.stall?.category || 'PREMIUM',
@@ -285,10 +285,10 @@ export class InvoicePdfService {
       name: bs.stall?.name || '',
       amount: Number(bs.price || bs.stall?.price || 0),
     }));
-
+ 
     // Precedence: Immutable Booking Snapshots -> Associated Company profile -> Invoice Company fallback
     const comp = booking?.company || invoice?.company || {};
-
+ 
     const billingName = (booking?.billingName && booking.billingName.trim()) || comp.name || 'Exhibitor Company';
     const billingGst = (booking?.billingGst && booking.billingGst.trim()) || comp.gstNumber || undefined;
     const billingPan = (booking?.billingPan && booking.billingPan.trim()) || comp.panNumber || undefined;
@@ -297,13 +297,13 @@ export class InvoicePdfService {
     const billingState = (booking?.billingState && booking.billingState.trim()) || comp.state || '';
     const billingPinCode = (booking?.billingPinCode && booking.billingPinCode.trim()) || comp.pinCode || '';
     const billingCountry = (booking?.billingCountry && booking.billingCountry.trim()) || comp.country || 'India';
-
+ 
     const contactPerson = (booking?.contactPerson && booking.contactPerson.trim()) || comp.contactPerson || '';
     const contactEmail = (booking?.contactEmail && booking.contactEmail.trim()) || comp.email || '';
     const contactPhone = (booking?.contactPhone && booking.contactPhone.trim()) || comp.mobile || '';
-    const buyerState = String(comp?.state || '').trim().toLowerCase();
-    const isTamilNadu = buyerState === 'tamil nadu';
-
+    const buyerState = String(billingState || '').trim().toLowerCase().replace(/\s+/g, '');
+    const isTamilNadu = buyerState === 'tamilnadu';
+ 
     return {
       invoiceNumber: invoice.invoiceNumber || '160',
       invoiceDate: invoice.createdAt ? new Date(invoice.createdAt) : new Date(),
@@ -345,7 +345,7 @@ export class InvoicePdfService {
       note: 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media',
     };
   }
-
+ 
   /**
    * Generates a high-performance, exact-layout PDF invoice buffer using pdfmake.
    * Completely eliminated headless browser / Puppeteer dependency.
@@ -361,17 +361,18 @@ export class InvoicePdfService {
       releaseSlot();
     }
   }
-
+ 
   /**
    * Builds the declarative pdfmake document definition matching the original invoice layout.
    */
   static buildDocDefinition(data: InvoicePdfData): any {
+ 
     const stallDetailsText = data.stalls
       .map((s) => `${s.stallNumber} (${s.category.toUpperCase()}) ${s.name || ''}`.trim())
       .join(', ');
-
+ 
     const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
-
+ 
     const tableNoPadding = {
       hLineWidth: () => 0.75,
       vLineWidth: () => 0.75,
@@ -382,7 +383,7 @@ export class InvoicePdfService {
       paddingTop: () => 0,
       paddingBottom: () => 0,
     };
-
+ 
     const tableWithPadding = {
       hLineWidth: () => 0.75,
       vLineWidth: () => 0.75,
@@ -393,7 +394,7 @@ export class InvoicePdfService {
       paddingTop: () => 4,
       paddingBottom: () => 4,
     };
-
+ 
     return {
       pageSize: 'A4' as const,
       pageMargins: [22.6, 22.6, 22.6, 22.6] as [number, number, number, number],
@@ -512,7 +513,7 @@ export class InvoicePdfService {
                       },
                       layout: tableNoPadding,
                     },
-
+ 
                     // 2. ITEMS TABLE
                     {
                       table: {
@@ -527,9 +528,9 @@ export class InvoicePdfService {
                             { text: 'Per', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
                             { text: 'Amount', alignment: 'center', fontSize: 8, border: [false, true, false, true] },
                           ],
-                          // Body Row
+                          // 1. Main Stall Item Row
                           [
-                            { text: '1', alignment: 'right', border: [false, false, true, true] },
+                            { text: '1', alignment: 'right', border: [false, false, true, false] },
                             {
                               stack: [
                                 { text: `STALL NO:${stallDetailsText}`, bold: true },
@@ -541,61 +542,103 @@ export class InvoicePdfService {
                                 { text: `DATE: ${formatExhibitionDateRange(data.exhibition)},`, bold: true },
                                 { text: `VENUE: ${data.exhibition.venue.toUpperCase()}`, bold: true },
                                 { text: `${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.`, bold: true },
-                                // Output Tax indent
-                                {
-                                  text: data.isTamilNadu ? 'OUTPUT CGST\nOUTPUT SGST' : 'OUTPUT IGST',
-                                  alignment: 'right',
-                                  bold: true,
-                                  italics: true,
-                                  margin: [0, 30, 10, 0],
-                                  lineHeight: 1.4,
-                                },
                               ],
-                              border: [false, false, true, true],
+                              margin: [0, 0, 0, 35],
+                              border: [false, false, true, false],
                             },
-                            { text: '', border: [false, false, true, true] },
-                            { text: `${totalQty} SQM`, bold: true, alignment: 'right', border: [false, false, true, true] },
-                            { text: 'SQM', alignment: 'center', border: [false, false, true, true] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: `${totalQty} SQM`, bold: true, alignment: 'right', border: [false, false, true, false] },
+                            { text: 'SQM', alignment: 'center', border: [false, false, true, false] },
                             {
-                              stack: [
-                                { text: formatMoney(data.taxableAmount), bold: true, alignment: 'right' },
-                                {
-                                  canvas: [
-                                    { type: 'line', x1: 0, y1: 50, x2: 80, y2: 50, lineWidth: 0.75, lineColor: '#000' },
-                                  ],
-                                },
-                                {
-                                  text: data.isTamilNadu
-                                    ? `\n\n\n\n${formatMoney(data.taxableAmount)}\n${formatMoney(data.cgstAmount)}\n${formatMoney(data.sgstAmount)}`
-                                    : `\n\n\n\n${formatMoney(data.taxableAmount)}\n${formatMoney(data.totalTax)}`,
-                                  alignment: 'right',
-                                  bold: true,
-                                  lineHeight: 1.4,
-                                },
-                              ],
-                              border: [false, false, false, true],
+                              text: formatMoney(data.taxableAmount),
+                              bold: true,
+                              alignment: 'right',
+                              border: [false, false, false, false],
                             },
                           ],
-                          // Total Row
+ 
+                          // 2. Taxable Subtotal Row (Line across Amount column)
                           [
-                            { text: '', border: [false, false, true, true] },
-                            { text: 'Total', alignment: 'right', bold: true, border: [false, false, true, true] },
-                            { text: '', border: [false, false, true, true] },
-                            { text: `${totalQty}`, alignment: 'right', bold: true, border: [false, false, true, true] },
-                            { text: '-', alignment: 'center', border: [false, false, true, true] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            {
+                              text: formatMoney(data.taxableAmount),
+                              alignment: 'right',
+                              border: [false, true, false, false],
+                            },
+                          ],
+ 
+                          // 3. OUTPUT CGST (or OUTPUT IGST) Row
+                          [
+                            { text: '', border: [false, false, true, false] },
+                            {
+                              text: data.isTamilNadu ? 'OUTPUT CGST' : 'OUTPUT IGST',
+                              alignment: 'right',
+                              bold: true,
+                              italics: true,
+                              margin: [0, 0, 10, 0],
+                              border: [false, false, true, false],
+                            },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            { text: '', border: [false, false, true, false] },
+                            {
+                              text: data.isTamilNadu ? formatMoney(data.cgstAmount) : formatMoney(data.totalTax),
+                              alignment: 'right',
+                              bold: true,
+                              border: [false, false, false, false],
+                            },
+                          ],
+ 
+                          // 4. OUTPUT SGST Row (Tamil Nadu only)
+                          ...(data.isTamilNadu
+                            ? [
+                                [
+                                  { text: '', border: [false, false, true, false] },
+                                  {
+                                    text: 'OUTPUT SGST',
+                                    alignment: 'right',
+                                    bold: true,
+                                    italics: true,
+                                    margin: [0, 0, 10, 0],
+                                    border: [false, false, true, false],
+                                  },
+                                  { text: '', border: [false, false, true, false] },
+                                  { text: '', border: [false, false, true, false] },
+                                  { text: '', border: [false, false, true, false] },
+                                  {
+                                    text: formatMoney(data.sgstAmount),
+                                    alignment: 'right',
+                                    bold: true,
+                                    border: [false, false, false, false],
+                                  },
+                                ],
+                              ]
+                            : []),
+ 
+                          // 5. Total Row
+                          [
+                            { text: '', border: [false, true, true, true] },
+                            { text: 'Total', alignment: 'right', bold: true, border: [false, true, true, true] },
+                            { text: '', border: [false, true, true, true] },
+                            { text: `${totalQty}`, alignment: 'right', bold: true, border: [false, true, true, true] },
+                            { text: '-', alignment: 'center', border: [false, true, true, true] },
                             {
                               text: formatMoney(data.grandTotal),
                               alignment: 'right',
                               bold: true,
                               fontSize: 9.5,
-                              border: [false, false, false, true],
+                              border: [false, true, false, true],
                             },
                           ],
                         ],
                       },
                       layout: tableWithPadding,
                     },
-
+ 
                     // 3. AMOUNT CHARGEABLE IN WORDS
                     {
                       table: {
@@ -623,7 +666,7 @@ export class InvoicePdfService {
                       },
                       layout: tableNoPadding,
                     },
-
+ 
                     // 4. TAX BREAKDOWN TABLE
                     {
                       table: {
@@ -699,7 +742,7 @@ export class InvoicePdfService {
                       },
                       layout: tableWithPadding,
                     },
-
+ 
                     // 5. TAX AMOUNT IN WORDS
                     {
                       table: {
@@ -719,7 +762,7 @@ export class InvoicePdfService {
                       },
                       layout: tableNoPadding,
                     },
-
+ 
                     // 6. BOTTOM TABLE (Note & Bank Details)
                     {
                       table: {
@@ -803,3 +846,4 @@ export class InvoicePdfService {
     };
   }
 }
+ 

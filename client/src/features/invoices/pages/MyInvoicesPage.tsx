@@ -124,7 +124,7 @@ useEffect(() => {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by invoice # or exhibition..."
+            placeholder="Search by invoice no. or exhibition..."
             className="w-full pl-8 pr-8 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
           />
           {searchInput && (
@@ -136,10 +136,7 @@ useEffect(() => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>
-        {/* <Button type="submit" variant="primary" size="sm">
-          Search
-        </Button> */}
+        </div>  
       </form>
 
       {/* Content */}
@@ -173,7 +170,7 @@ useEffect(() => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
-                  <th className="w-10 py-3.5 px-3 text-center">#</th>
+                  <th className="w-10 py-3.5 px-3 text-center">S.No</th>
                   <th className="py-3.5 px-4">Invoice No.</th>
                   <th className="py-3.5 px-4">Exhibition</th>
                   <th className="py-3.5 px-4">Stalls</th>
