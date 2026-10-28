@@ -110,7 +110,7 @@ export const PAGE_ACCESS_ITEMS = [
   { id: 'bookings', label: 'Exhibition Bookings', path: '/admin/bookings', description: 'Booking requests, holds, and order approvals' },
   { id: 'payments', label: 'Payments & Transactions', path: '/admin/payments', description: 'Financial ledger, payment verification, and receipts' },
   { id: 'reports', label: 'Platform Reports', path: '/reports', description: 'Platform and business reports' },
-  { id: 'governance', label: 'User & Team Governance', path: '/super-admin/users', description: 'User directory, role assignment, and access control' },
+  { id: 'governance', label: 'User & Team Governance', path: '/workspace/users', description: 'User directory, role assignment, and access control' },
 ] as const;
 
 export type PageAccessId = (typeof PAGE_ACCESS_ITEMS)[number]['id'];

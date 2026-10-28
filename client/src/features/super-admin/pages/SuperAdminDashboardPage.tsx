@@ -123,7 +123,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
           >
             Refresh Data
           </Button>
-          <Link to="/super-admin/users">
+          <Link to="/workspace/users">
             <Button
               variant="primary"
               size="sm"
@@ -395,7 +395,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </p>
           </div>
           <div className="pt-4">
-            <Link to="/super-admin/users">
+            <Link to="/workspace/users">
               <Button
                 variant="primary"
                 size="sm"

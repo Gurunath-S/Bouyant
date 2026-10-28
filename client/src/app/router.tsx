@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { createBrowserRouter, Outlet, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Outlet, Navigate, useParams } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
@@ -41,6 +41,11 @@ const StaffDashboardPage = lazy(() => import('../features/staff/pages/StaffDashb
 const StaffRegisterEventPage = lazy(() => import('../features/staff/pages/StaffRegisterEventPage').then(m => ({ default: m.StaffRegisterEventPage })));
 const StaffEventsPage = lazy(() => import('../features/staff/pages/StaffEventsPage').then(m => ({ default: m.StaffEventsPage })));
 const ReportsPage = lazy(() => import('../features/reports/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+
+const WorkspaceUserDetailRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/workspace/users/${id}` : '/workspace/users'} replace />;
+};
 
 const PageLoader = () => (
   <div className="w-full h-64 flex flex-col items-center justify-center gap-2">
@@ -160,7 +165,7 @@ export const router = createBrowserRouter([
       { path: 'invoices/:id', element: <InvoiceDetailPage /> },
       { path: 'notifications', element: <Navigate to="/dashboard" replace /> },
 
-      // Super Admin Routes
+      // Super Admin Routes (Legacy aliases redirect to /workspace/users)
       {
         path: 'super-admin/dashboard',
         element: (
@@ -171,19 +176,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'super-admin/users',
-        element: (
-          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
-            <SuperAdminUsersPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/users" replace />,
       },
       {
         path: 'super-admin/users/:id',
-        element: (
-          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
-            <UserGovernanceDetailPage />
-          </ProtectedRoute>
-        ),
+        element: <WorkspaceUserDetailRedirect />,
       },
 
       // Staff Routes
@@ -339,6 +336,22 @@ export const router = createBrowserRouter([
         path: 'workspace/invoices',
         element: <Navigate to="/workspace/payments?tab=INVOICES" replace />,
       },
+      {
+        path: 'workspace/users',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
+            <SuperAdminUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'workspace/users/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'STAFF']} requiredPage="governance">
+            <UserGovernanceDetailPage />
+          </ProtectedRoute>
+        ),
+      },
 
       // Admin Routes (Accessible to ADMIN and SUPERADMIN, with redirects/aliases for legacy compatibility)
       {
@@ -428,6 +441,14 @@ export const router = createBrowserRouter([
       {
         path: 'admin/invoices',
         element: <Navigate to="/workspace/payments?tab=INVOICES" replace />,
+      },
+      {
+        path: 'admin/users',
+        element: <Navigate to="/workspace/users" replace />,
+      },
+      {
+        path: 'admin/users/:id',
+        element: <WorkspaceUserDetailRedirect />,
       },
     ],
   }],

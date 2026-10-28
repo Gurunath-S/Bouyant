@@ -72,7 +72,7 @@ export const Sidebar: React.FC = () => {
     },
     {
       pageId: 'governance',
-      to: '/super-admin/users',
+      to: '/workspace/users',
       label: 'User & Team Governance',
       icon: Users,
     },

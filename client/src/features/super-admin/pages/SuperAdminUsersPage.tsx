@@ -39,8 +39,64 @@ import {
   ExternalLink,
   X,
   Trash2,
+  LayoutDashboard,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '../../../stores/authStore';
+
+const PAGE_ICON_CONFIG: Record<
+  string,
+  { icon: React.FC<{ className?: string }>; color: string; bg: string; border: string }
+> = {
+  dashboard: {
+    icon: LayoutDashboard,
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-950/60',
+    border: 'border-blue-200 dark:border-blue-800/80',
+  },
+  event_register: {
+    icon: UserPlus,
+    color: 'text-teal-600 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-950/60',
+    border: 'border-teal-200 dark:border-teal-800/80',
+  },
+  events_floorplans: {
+    icon: Layers,
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-950/60',
+    border: 'border-indigo-200 dark:border-indigo-800/80',
+  },
+  companies: {
+    icon: Building2,
+    color: 'text-purple-600 dark:text-purple-400',
+    bg: 'bg-purple-50 dark:bg-purple-950/60',
+    border: 'border-purple-200 dark:border-purple-800/80',
+  },
+  bookings: {
+    icon: Calendar,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/60',
+    border: 'border-emerald-200 dark:border-emerald-800/80',
+  },
+  payments: {
+    icon: CreditCard,
+    color: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-950/60',
+    border: 'border-amber-200 dark:border-amber-800/80',
+  },
+  reports: {
+    icon: TrendingUp,
+    color: 'text-rose-600 dark:text-rose-400',
+    bg: 'bg-rose-50 dark:bg-rose-950/60',
+    border: 'border-rose-200 dark:border-rose-800/80',
+  },
+  governance: {
+    icon: ShieldCheck,
+    color: 'text-violet-600 dark:text-violet-400',
+    bg: 'bg-violet-50 dark:bg-violet-950/60',
+    border: 'border-violet-200 dark:border-violet-800/80',
+  },
+};
 
 export const SuperAdminUsersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -82,6 +138,9 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [editUserPages, setEditUserPages] = useState<string[]>([]);
   const [statusTargetUser, setStatusTargetUser] = useState<AdminStaffUser | null>(null);
   const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'SUPERADMIN';
+  const allowedCreateRoles = isSuperAdmin ? (['ADMIN', 'STAFF', 'SUPERADMIN'] as const) : (['ADMIN', 'STAFF'] as const);
+  const allowedEditRoles = isSuperAdmin ? (['SUPERADMIN', 'ADMIN', 'STAFF'] as const) : (['ADMIN', 'STAFF'] as const);
   const [deleteTargetUser, setDeleteTargetUser] = useState<AdminStaffUser | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<AdminStaffUser | null>(null);
   const [sendNotificationEmail, setSendNotificationEmail] = useState<boolean>(true);
@@ -241,8 +300,9 @@ export const SuperAdminUsersPage: React.FC = () => {
   };
 
   const handleOpenCreate = (initialRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' = 'ADMIN') => {
-    setCreateUserRole(initialRole);
-    setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[initialRole] || [])]);
+    const safeRole = !isSuperAdmin && initialRole === 'SUPERADMIN' ? 'ADMIN' : initialRole;
+    setCreateUserRole(safeRole);
+    setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[safeRole] || [])]);
     setCreateForm({
       name: '',
       email: '',
@@ -250,7 +310,7 @@ export const SuperAdminUsersPage: React.FC = () => {
       password: '',
       phone: '',
       spcode: '',
-      role: initialRole,
+      role: safeRole,
     });
     setCreateModalError(null);
     setCreateFieldErrors({});
@@ -380,6 +440,13 @@ export const SuperAdminUsersPage: React.FC = () => {
   };
 
   const handleOpenEdit = (user: AdminStaffUser) => {
+    if (!isSuperAdmin && user.role === 'SUPERADMIN') {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'Only Super Administrators can edit Super Admin accounts.',
+      });
+      return;
+    }
     setEditUser(user);
     const userRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' =
       user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'STAFF'
@@ -400,12 +467,41 @@ export const SuperAdminUsersPage: React.FC = () => {
   };
 
   const handleOpenReset = (user: AdminStaffUser) => {
+    if (!isSuperAdmin && user.role === 'SUPERADMIN') {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'Only Super Administrators can reset Super Admin passwords.',
+      });
+      return;
+    }
     setResetTargetUser(user);
     setNewPassword('');
     setResetUsername(user.username || '');
     setShowResetPassword(false);
     setSendNotificationEmail(true);
     setResetModalError(null);
+  };
+
+  const handleOpenStatusModal = (user: AdminStaffUser) => {
+    if (!isSuperAdmin && user.role === 'SUPERADMIN') {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'Only Super Administrators can alter Super Admin account status.',
+      });
+      return;
+    }
+    setStatusTargetUser(user);
+  };
+
+  const handleOpenDeleteModal = (user: AdminStaffUser) => {
+    if (!isSuperAdmin && user.role === 'SUPERADMIN') {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'Only Super Administrators can delete Super Admin accounts.',
+      });
+      return;
+    }
+    setDeleteTargetUser(user);
   };
 
   const generateRandomPassword = () => {
@@ -737,7 +833,7 @@ export const SuperAdminUsersPage: React.FC = () => {
           {selectedEventId !== 'ALL' && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                Displaying users associated with selected event (Super Admins preserved)
+                Displaying users associated with selected event (Platform administrators preserved)
               </span>
               <button
                 onClick={() => handleEventFilterChange('ALL')}
@@ -929,7 +1025,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                         </div>
                         <div>
                           <Link
-                            to={`/super-admin/users/${user.id}`}
+                            to={`/workspace/users/${user.id}`}
                             className="font-bold text-slate-900 dark:text-slate-100 hover:text-purple-600 dark:hover:text-purple-400 hover:underline transition-colors block"
                             title="Open Staff & Admin Works Detail Page"
                           >
@@ -1067,7 +1163,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     <td className="px-5 py-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
-                          to={`/super-admin/users/${user.id}`}
+                          to={`/workspace/users/${user.id}`}
                           className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors inline-flex items-center"
                           title="View Staff & Admin Work Audit Profile (Dedicated Page)"
                           aria-label={`View details for ${user.name}`}
@@ -1077,21 +1173,39 @@ export const SuperAdminUsersPage: React.FC = () => {
 
                         <button
                           onClick={() => handleOpenEdit(user)}
-                          className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors"
-                          title="Edit User Details & Page Access"
+                          disabled={user.role === 'SUPERADMIN' && !isSuperAdmin}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                              : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50'
+                          }`}
+                          title={
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'Only Super Administrators can edit Super Admin accounts'
+                              : 'Edit User Details & Page Access'
+                          }
                           aria-label={`Edit user ${user.name}`}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
 
                         <button
-                          onClick={() => setStatusTargetUser(user)}
+                          onClick={() => handleOpenStatusModal(user)}
+                          disabled={(user.role === 'SUPERADMIN' && !isSuperAdmin) || currentUser?.id === user.id}
                           className={`p-1.5 rounded-lg transition-colors ${
-                            user.isActive
+                            (user.role === 'SUPERADMIN' && !isSuperAdmin) || currentUser?.id === user.id
+                              ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                              : user.isActive
                               ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
                               : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50'
                           }`}
-                          title={user.isActive ? 'Deactivate Account' : 'Activate Account'}
+                          title={
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'Only Super Administrators can alter Super Admin account status'
+                              : currentUser?.id === user.id
+                              ? 'You cannot alter your own account status'
+                              : user.isActive ? 'Deactivate Account' : 'Activate Account'
+                          }
                           aria-label={`${user.isActive ? 'Deactivate' : 'Activate'} user ${user.name}`}
                         >
                           <Power className="w-3.5 h-3.5" />
@@ -1099,26 +1213,40 @@ export const SuperAdminUsersPage: React.FC = () => {
 
                         <button
                           onClick={() => handleOpenReset(user)}
-                          className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition-colors"
-                          title="Reset Password & Credentials"
+                          disabled={user.role === 'SUPERADMIN' && !isSuperAdmin}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                              : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50'
+                          }`}
+                          title={
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'Only Super Administrators can reset Super Admin passwords'
+                              : 'Reset Password & Credentials'
+                          }
                           aria-label={`Reset password for ${user.name}`}
                         >
                           <KeyRound className="w-3.5 h-3.5" />
                         </button>
 
                         <button
-                          onClick={() => setDeleteTargetUser(user)}
+                          onClick={() => handleOpenDeleteModal(user)}
                           disabled={
+                            (user.role === 'SUPERADMIN' && !isSuperAdmin) ||
                             user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
                             currentUser?.id === user.id
                           }
                           className={`p-1.5 rounded-lg transition-colors ${
-                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' || currentUser?.id === user.id
+                            (user.role === 'SUPERADMIN' && !isSuperAdmin) ||
+                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
+                            currentUser?.id === user.id
                               ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
                               : 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
                           }`}
                           title={
-                            user.email?.toLowerCase() === 'superadmin@buoyantmedia.com'
+                            user.role === 'SUPERADMIN' && !isSuperAdmin
+                              ? 'Only Super Administrators can delete Super Admin accounts'
+                              : user.email?.toLowerCase() === 'superadmin@buoyantmedia.com'
                               ? 'Root Super Administrator account cannot be deleted'
                               : currentUser?.id === user.id
                               ? 'You cannot delete your own account'
@@ -1222,7 +1350,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     </p>
                   </div>
                 )}
-                <Link to={`/super-admin/users/${viewDetailsUser.id}`}>
+                <Link to={`/workspace/users/${viewDetailsUser.id}`}>
                   <Button
                     type="button"
                     variant="primary"
@@ -1635,9 +1763,9 @@ export const SuperAdminUsersPage: React.FC = () => {
           setCreateFieldErrors({});
         }}
         title="Add New Platform User"
-        maxWidth="2xl"
+        maxWidth="5xl"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs max-h-[84vh] overflow-y-auto pr-1">
           {/* In-Modal Alert Banner */}
           {createModalError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
@@ -1657,264 +1785,299 @@ export const SuperAdminUsersPage: React.FC = () => {
             </div>
           )}
 
-          {/* Role Selection */}
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              User Role *
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['ADMIN', 'STAFF', 'SUPERADMIN'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => handleCreateRoleChange(r)}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    createUserRole === r
-                      ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-bold">
-                    {r === 'SUPERADMIN' ? (
-                      <Shield className="w-3.5 h-3.5 text-amber-500" />
-                    ) : r === 'ADMIN' ? (
-                      <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                    ) : (
-                      <Users className="w-3.5 h-3.5 text-emerald-500" />
-                    )}
-                    <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
-                    {r === 'SUPERADMIN' ? 'Full Platform Control' : r === 'ADMIN' ? 'Event & Floor Plans' : 'Bookings & Operations'}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px]">
-            {createUserRole === 'SUPERADMIN' ? (
-              <p>
-                <strong>Super Admin:</strong> Highest platform level. Granted access to all 8 platform pages by default, including Platform Reports and User Governance.
-              </p>
-            ) : createUserRole === 'ADMIN' ? (
-              <p>
-                <strong>Admin:</strong> Manages exhibitions, floor plans, bookings, payments, and exhibitors. By default, access to Reports and User Governance is restricted unless granted below.
-              </p>
-            ) : (
-              <p>
-                <strong>Staff:</strong> Operations team. By default has access to Dashboard, Event Registration Hub, Exhibitor Directory, Bookings, and Payments. Additional pages can be delegated below.
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Full Name *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. John Doe"
-                value={createForm.name}
-                error={createFieldErrors.name}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, name: e.target.value });
-                  if (createFieldErrors.name) setCreateFieldErrors((prev) => ({ ...prev, name: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Corporate Email Address *
-              </label>
-              <Input
-                type="email"
-                placeholder="name@buoyantmedia.com"
-                value={createForm.email}
-                error={createFieldErrors.email}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, email: e.target.value });
-                  if (createFieldErrors.email) setCreateFieldErrors((prev) => ({ ...prev, email: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Portal Username *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. john_buoyant"
-                value={createForm.username || ''}
-                error={createFieldErrors.username}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, username: e.target.value });
-                  if (createFieldErrors.username) setCreateFieldErrors((prev) => ({ ...prev, username: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-              <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Initial Password * (min 8 chars)
-              </label>
-              <Input
-                type="password"
-                placeholder="••••••••••••"
-                value={createForm.password}
-                error={createFieldErrors.password}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, password: e.target.value });
-                  if (createFieldErrors.password) setCreateFieldErrors((prev) => ({ ...prev, password: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Phone Number *
-              </label>
-              <Input
-                type="text"
-                placeholder="+91 98765 43210"
-                value={createForm.phone || ''}
-                error={createFieldErrors.phone}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, phone: e.target.value });
-                  if (createFieldErrors.phone) setCreateFieldErrors((prev) => ({ ...prev, phone: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                SP Code *
-              </label>
-              <Input
-                type="text"
-                placeholder={createUserRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
-                value={createForm.spcode || ''}
-                error={createFieldErrors.spcode}
-                onChange={(e) => {
-                  setCreateForm({ ...createForm, spcode: e.target.value.toUpperCase() });
-                  if (createFieldErrors.spcode) setCreateFieldErrors((prev) => ({ ...prev, spcode: undefined }));
-                  if (createModalError) setCreateModalError(null);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Granular Page Access Rights Checkboxes */}
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-2">
+          {/* Horizontal 2-Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: Role & Profile Fields (5 cols) */}
+            <div className="lg:col-span-5 space-y-3">
+              {/* Role Selection */}
               <div>
-                <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
-                  Configured Page Access Rights * ({createUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  User Role *
                 </label>
-                <p className="text-[10px] text-slate-400">
-                  Select which pages this user can view and access in their workspace navigation. At least one page is required.
-                </p>
-                {createFieldErrors.pageAccess && (
-                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1">
-                    {createFieldErrors.pageAccess}
+                <div className={`grid gap-2 ${allowedCreateRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                  {allowedCreateRoles.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => handleCreateRoleChange(r)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        createUserRole === r
+                          ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {r === 'SUPERADMIN' ? (
+                          <Shield className="w-3.5 h-3.5 text-amber-500" />
+                        ) : r === 'ADMIN' ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                        ) : (
+                          <Users className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                        <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
+                        {r === 'SUPERADMIN' ? 'Full Control' : r === 'ADMIN' ? 'Events & Stalls' : 'Operations'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                {createUserRole === 'SUPERADMIN' ? (
+                  <p>
+                    <strong>Super Admin:</strong> Full platform authority. Granted access to all 8 areas by default including User Governance and Reports.
+                  </p>
+                ) : createUserRole === 'ADMIN' ? (
+                  <p>
+                    <strong>Admin:</strong> Manages exhibitions, floor plans, bookings, payments, and exhibitors. Reports and Governance are restricted by default.
+                  </p>
+                ) : (
+                  <p>
+                    <strong>Staff:</strong> Operational desk. Default access to Dashboard, Registration Hub, Exhibitors, Bookings, and Payments.
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCreateUserPages([...DEFAULT_ROLE_PAGE_ACCESS[createUserRole]])}
-                  className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 transition-colors"
-                >
-                  Reset Defaults
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreateUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
-                  className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors"
-                >
-                  Select All
-                </button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Full Name *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={createForm.name}
+                    error={createFieldErrors.name}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, name: e.target.value });
+                      if (createFieldErrors.name) setCreateFieldErrors((prev) => ({ ...prev, name: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Corporate Email Address *
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="name@buoyantmedia.com"
+                    value={createForm.email}
+                    error={createFieldErrors.email}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, email: e.target.value });
+                      if (createFieldErrors.email) setCreateFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Portal Username *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. john_buoyant"
+                    value={createForm.username || ''}
+                    error={createFieldErrors.username}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, username: e.target.value });
+                      if (createFieldErrors.username) setCreateFieldErrors((prev) => ({ ...prev, username: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="+91 98765 43210"
+                    value={createForm.phone || ''}
+                    error={createFieldErrors.phone}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, phone: e.target.value });
+                      if (createFieldErrors.phone) setCreateFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    SP Code *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder={createUserRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
+                    value={createForm.spcode || ''}
+                    error={createFieldErrors.spcode}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, spcode: e.target.value.toUpperCase() });
+                      if (createFieldErrors.spcode) setCreateFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Initial Password *
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={createForm.password}
+                    error={createFieldErrors.password}
+                    onChange={(e) => {
+                      setCreateForm({ ...createForm, password: e.target.value });
+                      if (createFieldErrors.password) setCreateFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      if (createModalError) setCreateModalError(null);
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Min 8 characters</p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-              {PAGE_ACCESS_ITEMS.map((page) => {
-                const isSelected = createUserPages.includes(page.id);
-                return (
-                  <div
-                    key={page.id}
-                    onClick={() => handleToggleCreatePage(page.id)}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
+            {/* RIGHT COLUMN: Granular Page Access Rights (7 cols, 2-column grid with clean images/icons) */}
+            <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                      Page Permissions *
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {createUserPages.length}/{PAGE_ACCESS_ITEMS.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Select granted platform areas. At least one permission required.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCreateUserPages([...DEFAULT_ROLE_PAGE_ACCESS[createUserRole]])}
+                    className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
                   >
-                    <div className="mt-0.5 shrink-0">
-                      {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs truncate">
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
+                    className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+
+              {createFieldErrors.pageAccess && (
+                <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>{createFieldErrors.pageAccess}</span>
+                </div>
+              )}
+
+              {/* 2-Column Permissions Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+                {PAGE_ACCESS_ITEMS.map((page) => {
+                  const isSelected = createUserPages.includes(page.id);
+                  const config = PAGE_ICON_CONFIG[page.id] || {
+                    icon: Layers,
+                    color: 'text-blue-600 dark:text-blue-400',
+                    bg: 'bg-blue-50 dark:bg-blue-950/60',
+                    border: 'border-blue-200 dark:border-blue-800/80',
+                  };
+                  const IconComp = config.icon;
+
+                  return (
+                    <div
+                      key={page.id}
+                      onClick={() => handleToggleCreatePage(page.id)}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
+                        isSelected
+                          ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${config.bg} ${config.color} ${config.border} transition-transform group-hover:scale-105`}
+                          >
+                            <IconComp className="w-3.5 h-3.5" />
+                          </div>
+                          {page.id === 'governance' && (
+                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                              Super Admin
+                            </span>
+                          )}
+                          {page.id === 'reports' && (
+                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                              Reports
+                            </span>
+                          )}
+                        </div>
+                        <div className="shrink-0 mt-0.5">
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 block truncate group-hover:text-[#09539b] dark:group-hover:text-blue-300 transition-colors">
                           {page.label}
                         </span>
-                        {page.id === 'governance' && (
-                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                            Super Admin
-                          </span>
-                        )}
-                        {page.id === 'reports' && (
-                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            Reports
-                          </span>
-                        )}
+                        <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5 leading-tight">
+                          {page.description}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        {page.description}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCreateModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              isLoading={actionLoading}
-              className="bg-[#09539b] hover:bg-[#07427d] text-white font-bold"
-            >
-              Add User
-            </Button>
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+            <span className="text-[11px] text-slate-400">* Required fields</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                isLoading={actionLoading}
+                className="bg-[#09539b] hover:bg-[#07427d] text-white font-bold"
+              >
+                Add User
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>
@@ -1928,9 +2091,9 @@ export const SuperAdminUsersPage: React.FC = () => {
           setEditFieldErrors({});
         }}
         title={`Edit User: ${editUser?.name}`}
-        maxWidth="2xl"
+        maxWidth="5xl"
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1">
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[82vh] overflow-y-auto pr-1">
           {/* In-Modal Alert Banner */}
           {editModalError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
@@ -1950,216 +2113,261 @@ export const SuperAdminUsersPage: React.FC = () => {
             </div>
           )}
 
-          {/* Role Selection */}
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              User Role *
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['SUPERADMIN', 'ADMIN', 'STAFF'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => handleEditRoleChange(r)}
-                  className={`p-2 rounded-xl border text-center transition-all ${
-                    editUserRole === r
-                      ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <span className="text-xs font-bold block">
-                    {r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Full Name *
-              </label>
-              <Input
-                type="text"
-                value={editForm.name || ''}
-                error={editFieldErrors.name}
-                onChange={(e) => {
-                  setEditForm({ ...editForm, name: e.target.value });
-                  if (editFieldErrors.name) setEditFieldErrors((prev) => ({ ...prev, name: undefined }));
-                  if (editModalError) setEditModalError(null);
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Email Address *
-              </label>
-              <Input
-                type="email"
-                value={editForm.email || ''}
-                error={editFieldErrors.email}
-                onChange={(e) => {
-                  setEditForm({ ...editForm, email: e.target.value });
-                  if (editFieldErrors.email) setEditFieldErrors((prev) => ({ ...prev, email: undefined }));
-                  if (editModalError) setEditModalError(null);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Portal Username *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. client_username"
-                value={editForm.username || ''}
-                error={editFieldErrors.username}
-                onChange={(e) => {
-                  setEditForm({ ...editForm, username: e.target.value });
-                  if (editFieldErrors.username) setEditFieldErrors((prev) => ({ ...prev, username: undefined }));
-                  if (editModalError) setEditModalError(null);
-                }}
-              />
-              <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Phone Number *
-              </label>
-              <Input
-                type="text"
-                placeholder="+91 98765 43210"
-                value={editForm.phone || ''}
-                error={editFieldErrors.phone}
-                onChange={(e) => {
-                  setEditForm({ ...editForm, phone: e.target.value });
-                  if (editFieldErrors.phone) setEditFieldErrors((prev) => ({ ...prev, phone: undefined }));
-                  if (editModalError) setEditModalError(null);
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                SP Code *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. B001, ST01"
-                value={editForm.spcode || ''}
-                error={editFieldErrors.spcode}
-                onChange={(e) => {
-                  setEditForm({ ...editForm, spcode: e.target.value.toUpperCase() });
-                  if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
-                  if (editModalError) setEditModalError(null);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Granular Page Access Rights Checkboxes */}
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-2">
+          {/* Horizontal 2-Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* LEFT COLUMN: Role & Profile Fields (5 cols) */}
+            <div className="lg:col-span-5 space-y-3">
+              {/* Role Selection */}
               <div>
-                <label className="block font-extrabold text-slate-900 dark:text-slate-100 text-xs">
-                  Configured Page Access Rights * ({editUserPages.length}/{PAGE_ACCESS_ITEMS.length} Pages Granted)
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  User Role *
                 </label>
-                <p className="text-[10px] text-slate-400">
-                  Custom page permissions for this user account. At least one page is required.
-                </p>
-                {editFieldErrors.pageAccess && (
-                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1">
-                    {editFieldErrors.pageAccess}
-                  </p>
-                )}
+                <div className={`grid gap-2 ${allowedEditRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                  {allowedEditRoles.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => handleEditRoleChange(r)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        editUserRole === r
+                          ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {r === 'SUPERADMIN' ? (
+                          <Shield className="w-3.5 h-3.5 text-amber-500" />
+                        ) : r === 'ADMIN' ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                        ) : (
+                          <Users className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                        <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
+                        {r === 'SUPERADMIN' ? 'Full Control' : r === 'ADMIN' ? 'Events & Stalls' : 'Operations'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
-                  className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 transition-colors"
-                >
-                  Reset Defaults
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
-                  className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors"
-                >
-                  Select All
-                </button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Full Name *
+                  </label>
+                  <Input
+                    type="text"
+                    value={editForm.name || ''}
+                    error={editFieldErrors.name}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, name: e.target.value });
+                      if (editFieldErrors.name) setEditFieldErrors((prev) => ({ ...prev, name: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Email Address *
+                  </label>
+                  <Input
+                    type="email"
+                    value={editForm.email || ''}
+                    error={editFieldErrors.email}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, email: e.target.value });
+                      if (editFieldErrors.email) setEditFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Portal Username *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. client_username"
+                    value={editForm.username || ''}
+                    error={editFieldErrors.username}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, username: e.target.value });
+                      if (editFieldErrors.username) setEditFieldErrors((prev) => ({ ...prev, username: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="+91 98765 43210"
+                    value={editForm.phone || ''}
+                    error={editFieldErrors.phone}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, phone: e.target.value });
+                      if (editFieldErrors.phone) setEditFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  SP Code *
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. B001, ST01"
+                  value={editForm.spcode || ''}
+                  error={editFieldErrors.spcode}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, spcode: e.target.value.toUpperCase() });
+                    if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                    if (editModalError) setEditModalError(null);
+                  }}
+                />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-              {PAGE_ACCESS_ITEMS.map((page) => {
-                const isSelected = editUserPages.includes(page.id);
-                return (
-                  <div
-                    key={page.id}
-                    onClick={() => handleToggleEditPage(page.id)}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
+            {/* RIGHT COLUMN: Granular Page Access Rights (7 cols, 2-column grid with clean images/icons) */}
+            <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                      Page Permissions *
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {editUserPages.length}/{PAGE_ACCESS_ITEMS.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Select granted platform areas. At least one permission required.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
+                    className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
                   >
-                    <div className="mt-0.5 shrink-0">
-                      {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs truncate">
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
+                    className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+
+              {editFieldErrors.pageAccess && (
+                <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>{editFieldErrors.pageAccess}</span>
+                </div>
+              )}
+
+              {/* 2-Column Permissions Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+                {PAGE_ACCESS_ITEMS.map((page) => {
+                  const isSelected = editUserPages.includes(page.id);
+                  const config = PAGE_ICON_CONFIG[page.id] || {
+                    icon: Layers,
+                    color: 'text-blue-600 dark:text-blue-400',
+                    bg: 'bg-blue-50 dark:bg-blue-950/60',
+                    border: 'border-blue-200 dark:border-blue-800/80',
+                  };
+                  const IconComp = config.icon;
+
+                  return (
+                    <div
+                      key={page.id}
+                      onClick={() => handleToggleEditPage(page.id)}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
+                        isSelected
+                          ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${config.bg} ${config.color} ${config.border} transition-transform group-hover:scale-105`}
+                          >
+                            <IconComp className="w-3.5 h-3.5" />
+                          </div>
+                          {page.id === 'governance' && (
+                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                              Super Admin
+                            </span>
+                          )}
+                          {page.id === 'reports' && (
+                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                              Reports
+                            </span>
+                          )}
+                        </div>
+                        <div className="shrink-0 mt-0.5">
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 block truncate group-hover:text-[#09539b] dark:group-hover:text-blue-300 transition-colors">
                           {page.label}
                         </span>
-                        {page.id === 'governance' && (
-                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                            Super Admin
-                          </span>
-                        )}
-                        {page.id === 'reports' && (
-                          <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            Reports
-                          </span>
-                        )}
+                        <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5 leading-tight">
+                          {page.description}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        {page.description}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setEditUser(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              isLoading={actionLoading}
-            >
-              Save Changes
-            </Button>
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+            <span className="text-[11px] text-slate-400">* Required fields</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditUser(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                isLoading={actionLoading}
+                className="bg-[#09539b] hover:bg-[#07427d] text-white font-bold"
+              >
+                Save Changes
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>
@@ -2200,6 +2408,7 @@ export const SuperAdminUsersPage: React.FC = () => {
               variant={statusTargetUser?.isActive ? 'danger' : 'primary'}
               size="sm"
               isLoading={actionLoading}
+              disabled={statusTargetUser?.role === 'SUPERADMIN' && !isSuperAdmin}
               onClick={handleToggleStatusConfirm}
             >
               Confirm {statusTargetUser?.isActive ? 'Deactivation' : 'Activation'}
@@ -2418,6 +2627,12 @@ export const SuperAdminUsersPage: React.FC = () => {
             </p>
           </div>
 
+          {deleteTargetUser?.role === 'SUPERADMIN' && !isSuperAdmin && (
+            <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
+              Only Super Administrators have permission to delete Super Admin accounts.
+            </p>
+          )}
+
           {deleteTargetUser?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' && (
             <p className="p-2.5 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-200 text-[11px] font-semibold">
               The root Super Administrator account is protected and cannot be deleted.
@@ -2445,6 +2660,7 @@ export const SuperAdminUsersPage: React.FC = () => {
               size="sm"
               isLoading={actionLoading}
               disabled={
+                (deleteTargetUser?.role === 'SUPERADMIN' && !isSuperAdmin) ||
                 deleteTargetUser?.email?.toLowerCase() === 'superadmin@buoyantmedia.com' ||
                 currentUser?.id === deleteTargetUser?.id
               }

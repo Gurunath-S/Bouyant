@@ -51,7 +51,7 @@ export const PAGE_ACCESS_ITEMS: PageAccessItem[] = [
   {
     id: 'governance',
     label: 'User & Team Governance',
-    path: '/super-admin/users',
+    path: '/workspace/users',
     description: 'User access governance, team roles, permissions, and credential management',
   },
 ];
