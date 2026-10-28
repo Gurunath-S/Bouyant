@@ -11,12 +11,13 @@ import {
   MapPin,
   ArrowLeft,
   ArrowRight,
-  Award,
   Check,
   Share2,
   AlertCircle,
   AlertTriangle,
   ExternalLink,
+  Lock,
+  Layers,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
@@ -37,7 +38,6 @@ export const ExhibitionDetailPage: React.FC = () => {
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'pricing' | 'schedule' | 'location'>('overview');
   const { selectedStallIds, toggleStallSelection, clearStallSelection: _clearStallSelection } = useFloorPlanStore();
 
   const isBookingClosed = React.useMemo(() => {
@@ -91,12 +91,15 @@ export const ExhibitionDetailPage: React.FC = () => {
     return formatExhibitionOperatingHours(exhibition);
   }, [exhibition]);
 
-  const handleViewLocation = () => {
-    setActiveTab('location');
-    const tabSection = document.getElementById('exhibition-tabs-container');
-    if (tabSection) {
-      tabSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollToSection = (sectionId: string) => {
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  };
+
+  const handleViewLocation = () => {
+    scrollToSection('section-venue-location');
   };
 
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
@@ -205,6 +208,7 @@ export const ExhibitionDetailPage: React.FC = () => {
     : Math.max(0, totalSlots - availableCount);
 
   const fillPercentage = totalSlots > 0 ? Math.min(100, Math.round((registeredCount / totalSlots) * 100)) : 0;
+  const isFull = exhibition.isFull === true || (totalSlots > 0 && availableCount <= 0);
 
   const bannerImg = exhibition.bannerUrl || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1200&auto=format&fit=crop';
 
@@ -380,310 +384,128 @@ export const ExhibitionDetailPage: React.FC = () => {
           </div>
 
           {/* ========================================================================= */}
-          {/* UPSCALE TABBED SECTIONS (ABOUT, PRICING, SCHEDULE) */}
+          {/* OPEN CONTENT SECTIONS (ALL VISIBLE IN OPEN AREA) */}
           {/* ========================================================================= */}
-          <div id="exhibition-tabs-container" className="space-y-6 pt-4">
-            <div className="bg-[#EEF4FC] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl flex overflow-x-auto gap-2 text-xs font-bold">
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'overview'
-                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
-                }`}
-              >
-                About Exhibition
-              </button>
-              <button
-                onClick={() => setActiveTab('map')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'map'
-                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
-                }`}
-              >
-                Interactive Stall Map
-              </button>
-              <button
-                onClick={() => setActiveTab('pricing')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'pricing'
-                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
-                }`}
-              >
-                Stall & Amenities
-              </button>
-              <button
-                onClick={() => setActiveTab('location')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'location'
-                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
-                }`}
-              >
-                Venue & Location Map
-              </button>
-              <button
-                onClick={() => setActiveTab('schedule')}
-                className={`px-4 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'schedule'
-                    ? 'bg-[#1E3FA0] dark:bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-[#121B3D] dark:hover:text-white'
-                }`}
-              >
-                Important Schedule
-              </button>
-            </div>
-
-            {/* Tab 1: Overview & Focus Sectors */}
-            {activeTab === 'overview' && (
-              <div className="space-y-6">
-                <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-6 shadow-xs">
-                  <h4 className="text-lg font-bold text-[#1B37A0] dark:text-blue-400 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-[#0E8074] dark:text-emerald-400" /> Exhibition Focus & Target Sectors
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
-                    <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                      <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Focus Sectors</span>
-                      <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                        Equipment Manufacturers, OEM Suppliers, Importers, Industrial Distributors & Contractors.
-                      </p>
-                    </div>
-                    <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                      <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Target Visitor Profiles</span>
-                      <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                        Managing Directors, Purchase Managers, Technical Engineers, Architects & Trade Dealers.
-                      </p>
-                    </div>
-                  </div>
+          <div className="space-y-8 pt-2">
+            {/* Interactive Floor Plan Stall Map */}
+            <div id="section-stall-map" className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs scroll-mt-24">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-[#1B37A0] dark:text-blue-400 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-[#1E3FA0] dark:text-blue-400" />
+                    <span>Interactive Floor Plan & Stall Map</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Explore exhibition booths, verify dimensions, and click any available stall to reserve immediately.
+                  </p>
                 </div>
-
-                {/* Interactive Venue Location Map */}
-                <InteractivePinMap
-                  venueName={exhibition.venue}
-                  cityName={exhibition.city}
-                  address={exhibition.address || undefined}
-                  readOnly={true}
-                  title={`Exhibition Venue Location — ${exhibition.venue}, ${exhibition.city}`}
-                  heightClass="h-72"
-                />
-
-
+                {!isBookingClosed && (
+                  <Link
+                    to={`/exhibitions/${slug}/book`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1E3FA0] dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    <span>Full Wizard View</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
               </div>
-            )}
 
-            {/* Tab: Interactive Floor Plan Stall Map */}
-            {activeTab === 'map' && (
-              <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-6 shadow-xs">
-
-                {isBookingClosed && (
-                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
-                    <div className="flex items-center gap-2.5">
-                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <span>
-                        <strong>Stall Bookings Closed:</strong> Online registration for this exhibition closed on <strong>{bookingCloseDisplay}</strong>. The floor plan is currently in view-only mode.
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded shrink-0">
-                      Booking Closed
+              {isBookingClosed && (
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>
+                      <strong>Stall Bookings Closed:</strong> Online registration for this exhibition closed on <strong>{bookingCloseDisplay}</strong>. The floor plan is currently in view-only mode.
                     </span>
                   </div>
-                )}
-
-                <div className="relative border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 max-w-[1200px] mx-auto">
-                  <FloorPlanCanvas
-                    stalls={stalls}
-                    layoutData={layoutData}
-                    className="w-full h-[500px] sm:h-[540px]"
-                    onStallSelect={(s) => {
-                      if (isBookingClosed) return;
-                      if (s.status === 'AVAILABLE') toggleStallSelection(s);
-                    }}
-                  />
-                </div>
-
-                {/* Selected Stall Quick Action Box */}
-                {!isBookingClosed && selectedStallIds.length > 0 && (() => {
-                  const selectedStallsObj = stalls.filter(s => selectedStallIds.includes(s.id));
-                  if (selectedStallsObj.length === 0) return null;
-                  
-                  const totalArea = selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0);
-                  const totalPrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
-                  const stallNumbers = selectedStallsObj.map(s => s.stallNumber).join(', ');
-
-                  return (
-                    <div className="p-4 bg-[#EEF4FC] dark:bg-blue-950/40 border-2 border-[#1E3FA0] dark:border-blue-500 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-extrabold text-[#121B3D] dark:text-slate-100 text-base font-mono">
-                            Stalls: {stallNumbers}
-                          </span>
-                          <span className="px-2.5 py-0.5 bg-[#0E8074] text-white text-[10px] font-bold rounded-full uppercase">
-                            {selectedStallsObj.length} Selected
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          Total Area: {totalArea} Sq.Ft • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => navigate(`/exhibitions/${slug}/book?stallIds=${selectedStallIds.join(',')}`)}
-                        className="bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0"
-                      >
-                        Book Selected Stalls <ArrowRight className="w-4 h-4 text-[#84CC16]" />
-                      </button>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* Tab 2: Stall Pricing & Amenities */}
-            {activeTab === 'pricing' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
-                  <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase rounded-full">
-                    Standard Scheme
+                  <span className="text-[10px] font-bold uppercase bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded shrink-0">
+                    Booking Closed
                   </span>
-                  <h4 className="text-lg font-bold text-[#121B3D] dark:text-slate-100">Standard Shell Stall</h4>
-                  <p className="text-2xl font-extrabold text-[#121B3D] dark:text-slate-100">₹1,00,000 <span className="text-xs font-normal text-slate-500 dark:text-slate-400">+ GST</span></p>
-                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-2 pt-2">
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 10 ft × 10 ft Turnkey Shell</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Fascia Name Printing</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 1 Table, 2 Chairs, 1 Wastebin</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 5A Power Point & 3 Lights</li>
-                  </ul>
-                  {isBookingClosed ? (
-                    <Button variant="outline" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
-                      Booking Closed
-                    </Button>
-                  ) : (
-                    <Link to={`/exhibitions/${slug}/book`}>
-                      <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
-                        Book Standard Stall
-                      </Button>
-                    </Link>
-                  )}
                 </div>
+              )}
 
-                <div className="bg-white dark:bg-slate-900 border-2 border-[#1E3FA0] dark:border-blue-500 rounded-2xl p-6 space-y-4 shadow-md relative">
-                  <span className="absolute -top-3 right-6 px-3 py-0.5 bg-[#84CC16] text-[#121B3D] font-bold text-[10px] uppercase rounded-full">
-                    Popular Choice
-                  </span>
-                  <span className="px-3 py-1 bg-[#EEF4FC] dark:bg-blue-950/60 text-[#1E3FA0] dark:text-blue-300 font-bold text-[10px] uppercase rounded-full">
-                    Dual Open Corner
-                  </span>
-                  <h4 className="text-lg font-bold text-[#121B3D] dark:text-slate-100">Premium Corner Stall</h4>
-                  <p className="text-2xl font-extrabold text-[#1E3FA0] dark:text-blue-400">₹1,50,000 <span className="text-xs font-normal text-slate-500 dark:text-slate-400">+ GST</span></p>
-                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-2 pt-2">
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 15 ft × 10 ft Dual Open Aisle</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Maximum Visitor Footfall</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Fascia Branding on 2 Sides</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 2 Tables, 4 Chairs & Spotlights</li>
-                  </ul>
-                  {isBookingClosed ? (
-                    <Button variant="primary" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
-                      Booking Closed
-                    </Button>
-                  ) : (
-                    <Link to={`/exhibitions/${slug}/book`}>
-                      <Button variant="primary" className="w-full font-bold bg-[#1E3FA0] dark:bg-blue-600 mt-2">
-                        Book Corner Stall
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-xs hover:border-[#0E8074] transition-colors">
-                  <span className="px-3 py-1 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold text-[10px] uppercase rounded-full">
-                    Custom Space
-                  </span>
-                  <h4 className="text-lg font-bold text-[#121B3D] dark:text-slate-100">Island Pavilion Zone</h4>
-                  <p className="text-2xl font-extrabold text-[#121B3D] dark:text-slate-100">₹3,00,000 <span className="text-xs font-normal text-slate-500 dark:text-slate-400">+ GST</span></p>
-                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-2 pt-2">
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 20 ft × 20 ft Center Space</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> 4-Side Open Footfall</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> Heavy Power Connection</li>
-                    <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0E8074]" /> VIP Badges Included</li>
-                  </ul>
-                  {isBookingClosed ? (
-                    <Button variant="outline" disabled className="w-full font-bold opacity-60 cursor-not-allowed mt-2">
-                      Booking Closed
-                    </Button>
-                  ) : (
-                    <Link to={`/exhibitions/${slug}/book`}>
-                      <Button variant="outline" className="w-full font-bold border-[#1E3FA0] dark:border-blue-500 text-[#1E3FA0] dark:text-blue-400 mt-2">
-                        Book Island Pavilion
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Important Schedule */}
-            {activeTab === 'schedule' && (
-              <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-xs">
-                <h4 className="text-lg font-bold text-[#1B37A0] dark:text-blue-400">Exhibition Schedule & Important Dates</h4>
-                <div className="space-y-3 text-xs font-medium">
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Stall Booking & Fascia Confirmation</span>
-                      <span className="text-slate-500 dark:text-slate-400">Early bird allocation phase</span>
-                    </div>
-                    <span className="px-3 py-1 bg-[#1E3FA0] dark:bg-blue-600 text-[#FFFFFF] rounded-md font-mono font-bold">Active Now</span>
-                  </div>
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Exhibitor Move-In & Stall Setup</span>
-                      <span className="text-slate-500 dark:text-slate-400">Hall access for stall branding</span>
-                    </div>
-                    <span className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md font-mono font-bold">1 Day Prior</span>
-                  </div>
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Official Inauguration & Trade Days</span>
-                      <span className="text-slate-500 dark:text-slate-400">{operatingHours.hours}</span>
-                    </div>
-                    <span className="px-3 py-1 bg-[#84CC16] text-[#121B3D] rounded-md font-mono font-bold">Expo Days</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 4: Venue & Location Map */}
-            {activeTab === 'location' && (
-              <div className="space-y-6">
-                <InteractivePinMap
-                  venueName={exhibition.venue}
-                  cityName={exhibition.city}
-                  address={exhibition.address || undefined}
-                  readOnly={true}
-                  title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
-                  heightClass="h-96"
+              <div className="relative border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 max-w-[1200px] mx-auto">
+                <FloorPlanCanvas
+                  stalls={stalls}
+                  layoutData={layoutData}
+                  className="w-full h-[500px] sm:h-[540px]"
+                  onStallSelect={(s) => {
+                    if (isBookingClosed) return;
+                    if (s.status === 'AVAILABLE') toggleStallSelection(s);
+                  }}
                 />
+              </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs shadow-xs">
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                    <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Convention Centre</span>
-                    <p className="text-slate-600 dark:text-slate-300">{exhibition.venue}</p>
-                    {exhibition.address && (
-                      <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">{exhibition.address}</p>
-                    )}
+              {/* Selected Stall Quick Action Box */}
+              {!isBookingClosed && selectedStallIds.length > 0 && (() => {
+                const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
+                if (selectedStallsObj.length === 0) return null;
+
+                const totalArea = selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0);
+                const totalPrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
+                const stallNumbers = selectedStallsObj.map((s) => s.stallNumber).join(', ');
+
+                return (
+                  <div className="p-4 bg-[#EEF4FC] dark:bg-blue-950/40 border-2 border-[#1E3FA0] dark:border-blue-500 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-[#121B3D] dark:text-slate-100 text-base font-mono">
+                          Stalls: {stallNumbers}
+                        </span>
+                        <span className="px-2.5 py-0.5 bg-[#0E8074] text-white text-[10px] font-bold rounded-full uppercase">
+                          {selectedStallsObj.length} Selected
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        Total Area: {totalArea} Sq.Ft • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => navigate(`/exhibitions/${slug}/book?stallIds=${selectedStallIds.join(',')}`)}
+                      className="bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0 cursor-pointer"
+                    >
+                      Book Selected Stalls <ArrowRight className="w-4 h-4 text-[#84CC16]" />
+                    </button>
                   </div>
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                    <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Host City</span>
-                    <p className="text-slate-600 dark:text-slate-300">{exhibition.city}</p>
-                  </div>
-                  <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                    <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Parking & Transit</span>
-                    <p className="text-slate-600 dark:text-slate-300">On-site visitor parking & VIP delegate drop-off zones available.</p>
-                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Venue & Location Map */}
+            <div id="section-venue-location" className="space-y-4 scroll-mt-24">
+              <h3 className="text-lg font-bold text-[#1B37A0] dark:text-blue-400 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#0E8074]" />
+                <span>Venue & Location Navigation</span>
+              </h3>
+
+              <InteractivePinMap
+                venueName={exhibition.venue}
+                cityName={exhibition.city}
+                address={exhibition.address || undefined}
+                readOnly={true}
+                title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
+                heightClass="h-96"
+              />
+
+              <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs shadow-xs">
+                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
+                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Convention Centre</span>
+                  <p className="text-slate-600 dark:text-slate-300">{exhibition.venue}</p>
+                  {exhibition.address && (
+                    <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">{exhibition.address}</p>
+                  )}
+                </div>
+                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
+                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Host City</span>
+                  <p className="text-slate-600 dark:text-slate-300">{exhibition.city}</p>
+                </div>
+                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
+                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Parking & Transit</span>
+                  <p className="text-slate-600 dark:text-slate-300">On-site visitor parking & VIP delegate drop-off zones available.</p>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -749,6 +571,16 @@ export const ExhibitionDetailPage: React.FC = () => {
                     Registration cut-off date was {bookingCloseDisplay}
                   </span>
                 </div>
+              ) : isFull ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed shadow-none select-none transition-colors"
+                  title="All stalls are booked for this exhibition"
+                >
+                  <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                  <span>Fully Booked</span>
+                </button>
               ) : (
                 <Link to={`/exhibitions/${slug}/book`}>
                   <button className="w-full bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">

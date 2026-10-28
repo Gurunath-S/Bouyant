@@ -202,14 +202,14 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       };
     }
 
-    // Stalls currently being booked by other users: display as blocked & greyish with dashed border
+    // Stalls currently being booked by other users: display as booked & red
     if (inProgressOther) {
       return {
-        fill: isDark ? '#1e293b' : '#e2e8f0',
-        stroke: isDark ? '#475569' : '#94a3b8',
+        fill: isDark ? '#450a0a' : '#fee2e2',
+        stroke: isDark ? '#ef4444' : '#dc2626',
         strokeWidth: 1.5,
-        textColor: isDark ? '#94a3b8' : '#64748b',
-        strokeDasharray: '4 3',
+        textColor: isDark ? '#fca5a5' : '#991b1b',
+        strokeDasharray: 'none',
       };
     }
 
@@ -273,20 +273,13 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           strokeDasharray: 'none',
         };
       case 'BOOKED_CONFIRMED':
-        return {
-          fill: isDark ? '#1e293b' : '#f1f5f9',
-          stroke: isDark ? '#475569' : '#94a3b8',
-          strokeWidth: 1.5,
-          textColor: isDark ? '#94a3b8' : '#64748b',
-          strokeDasharray: 'none',
-        };
       case 'BLOCKED':
         return {
-          fill: isDark ? '#1e293b' : '#e2e8f0',
-          stroke: isDark ? '#475569' : '#94a3b8',
+          fill: isDark ? '#450a0a' : '#fee2e2',
+          stroke: isDark ? '#ef4444' : '#dc2626',
           strokeWidth: 1.5,
-          textColor: isDark ? '#94a3b8' : '#64748b',
-          strokeDasharray: '4 3',
+          textColor: isDark ? '#fca5a5' : '#991b1b',
+          strokeDasharray: 'none',
         };
       default:
         return {
@@ -778,20 +771,15 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             {filteredStalls.map((stall) => {
               const styles = getStallStyles(stall);
               const inProgressOther = isInProgressByOther(stall);
-              const isBlocked = stall.status === 'BLOCKED' || inProgressOther;
-              const isBooked = stall.status === 'BOOKED_CONFIRMED';
+              const isUnavailable = stall.status === 'BOOKED_CONFIRMED' || stall.status === 'BLOCKED' || inProgressOther;
               const myHeld = isHeldByMe(stall);
-              const isAvailable = stall.status === 'AVAILABLE' && !isBlocked && !isBooked;
+              const isAvailable = stall.status === 'AVAILABLE' && !isUnavailable;
 
               const cursorClass = isAvailable || myHeld
                 ? 'cursor-pointer hover:opacity-85'
                 : 'cursor-not-allowed opacity-90';
 
-              const titleText = inProgressOther
-                ? `Stall ${stall.stallNumber} • Blocked (Booking in progress by another user)`
-                : isBlocked
-                ? `Stall ${stall.stallNumber} • Blocked`
-                : isBooked
+              const titleText = isUnavailable
                 ? `Stall ${stall.stallNumber} • Booked`
                 : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${Math.round(stall.areaSqFt || (stall.width * stall.height) / 100)} sqft`;
 
@@ -815,7 +803,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     fill={styles.fill}
                     stroke={styles.stroke}
                     strokeWidth={styles.strokeWidth}
-                    strokeDasharray={isBlocked ? (styles.strokeDasharray || '4 3') : 'none'}
+                    strokeDasharray={styles.strokeDasharray || 'none'}
                     className="transition-colors"
                   />
 
@@ -832,7 +820,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     const showStatusSubtext =
                       zoomLevel >= 70 &&
                       typo.lines.length === 1 &&
-                      (isBooked || isBlocked) &&
+                      isUnavailable &&
                       stall.height > 40;
 
                     return (
@@ -858,7 +846,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                           </text>
                         ))}
 
-                        {/* Status Indicator (Only if booked/blocked) */}
+                        {/* Status Indicator (Only if booked/unavailable) */}
                         {showStatusSubtext && (
                           <text
                             x={stall.xPosition + stall.width / 2}
@@ -869,7 +857,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                             fontWeight="800"
                             className="select-none pointer-events-none font-mono opacity-90 tracking-wider uppercase"
                           >
-                            {isBooked ? 'BOOKED' : 'BLOCKED'}
+                            BOOKED
                           </text>
                         )}
                       </>

@@ -31,18 +31,18 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', siz
   );
 };
 
-export const StallStatusBadge: React.FC<{ status: StallStatus }> = ({ status }) => {
+export const StallStatusBadge: React.FC<{ status: StallStatus; userView?: boolean }> = ({ status, userView = true }) => {
   switch (status) {
     case 'AVAILABLE':
       return <Badge variant="success">Available</Badge>;
     case 'TEMPORARILY_HELD':
     case 'BOOKING_IN_PROGRESS':
     case 'PAYMENT_PENDING':
-      return <Badge variant="neutral">Blocked (In Progress)</Badge>;
+      return userView ? <Badge variant="danger">Booked</Badge> : <Badge variant="neutral">Blocked (In Progress)</Badge>;
     case 'BOOKED_CONFIRMED':
-      return <Badge variant="neutral">Booked</Badge>;
+      return userView ? <Badge variant="danger">Booked</Badge> : <Badge variant="neutral">Booked</Badge>;
     case 'BLOCKED':
-      return <Badge variant="danger">Blocked</Badge>;
+      return userView ? <Badge variant="danger">Booked</Badge> : <Badge variant="danger">Blocked</Badge>;
     default:
       return <Badge variant="neutral">{status}</Badge>;
   }

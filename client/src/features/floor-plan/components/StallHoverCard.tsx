@@ -54,7 +54,7 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
 
       {/* Status & Category */}
       <div className="flex items-center justify-between">
-        <StallStatusBadge status={isInProgressByOther ? 'BLOCKED' : stall.status} />
+        <StallStatusBadge status={isInProgressByOther || stall.status === 'BLOCKED' ? 'BOOKED_CONFIRMED' : stall.status} userView={true} />
         <span className="px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px] rounded uppercase">
           {stall.category}
         </span>
@@ -104,13 +104,9 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
             Resume Checkout
           </Button>
         ) : (
-          <div className="p-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
-            <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            {isInProgressByOther
-              ? 'Stall Blocked (Booking in progress)'
-              : stall.status === 'BOOKED_CONFIRMED'
-              ? 'Stall Already Booked'
-              : 'Stall Currently Blocked'}
+          <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-center text-xs font-semibold text-red-700 dark:text-red-300 flex items-center justify-center gap-2">
+            <Lock className="w-4 h-4 text-red-500 dark:text-red-400" />
+            Stall Already Booked
           </div>
         )}
       </div>

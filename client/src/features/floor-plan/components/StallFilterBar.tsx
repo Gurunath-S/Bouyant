@@ -136,8 +136,8 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
 
           {/* Booked Status */}
           <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-            <span className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-700 border border-slate-400 dark:border-slate-500 inline-block" />
-            <span>Booked {bookedCount !== null && <strong className="font-mono text-slate-700 dark:text-slate-300">({bookedCount})</strong>}</span>
+            <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-950 border border-red-500 dark:border-red-500 inline-block" />
+            <span>Booked {bookedCount !== null && <strong className="font-mono text-red-600 dark:text-red-400">({bookedCount})</strong>}</span>
           </span>
         </div>
 
