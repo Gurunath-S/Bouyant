@@ -293,7 +293,7 @@ export const CompanyProfilePage: React.FC = () => {
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2 uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-2">
             <FileText className="w-4 h-4" /> 3. Tax Identifiers (for GST &amp; Invoicing)
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
               label="GST Registration Number"
               placeholder="27AAACT29381Z6"
@@ -317,6 +317,19 @@ export const CompanyProfilePage: React.FC = () => {
                   const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
                   e.target.value = upper;
                   setValue('panNumber', upper);
+                },
+              })}
+            />
+            <Input
+              label="Tax Deduction Account (TAN)"
+              placeholder="DELT12345E"
+              maxLength={10}
+              className="font-mono uppercase tracking-wider"
+              {...register('tanNumber', {
+                onChange: (e) => {
+                  const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                  e.target.value = upper;
+                  setValue('tanNumber', upper);
                 },
               })}
             />

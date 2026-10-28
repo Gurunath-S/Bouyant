@@ -95,17 +95,50 @@ export const AdminCompanyDetailPage: React.FC = () => {
 
   // Overall financial and event metrics
   const metrics = useMemo(() => {
-    const totalEvents = allBookings.length;
-    const confirmedEvents = allBookings.filter((b) => b.status === 'CONFIRMED').length;
-    const totalStalls = allBookings.reduce((acc, b) => acc + (b.stalls?.length || 0), 0);
-    const totalContractValue = allBookings
-      .filter((b) => b.status !== 'CANCELLED')
-      .reduce((acc, b) => acc + Number(b.grandTotal || 0), 0);
-    const totalPaid = allBookings
-      .filter((b) => b.status !== 'CANCELLED')
-      .reduce((acc, b) => acc + Number(b.paidAmount || 0), 0);
+    // Only non-cancelled bookings represent active contractual participation
+    const activeBookings = allBookings.filter((b) => b.status !== 'CANCELLED');
+    const confirmedBookings = activeBookings.filter((b) => b.status === 'CONFIRMED');
+
+    // Count distinct unique exhibitions attended
+    const attendedExhibitions = new Set(
+      activeBookings.map((b) => b.exhibitionId || b.exhibition?.id).filter(Boolean)
+    );
+    const confirmedExhibitions = new Set(
+      confirmedBookings.map((b) => b.exhibitionId || b.exhibition?.id).filter(Boolean)
+    );
+
+    const totalEvents = attendedExhibitions.size;
+    const confirmedEvents = confirmedExhibitions.size;
+
+    // Stalls booked: only count stalls from active non-cancelled bookings, deduplicated by stall ID
+    const bookedStallIds = new Set<string>();
+    let totalStalls = 0;
+    for (const b of activeBookings) {
+      for (const bs of b.stalls || []) {
+        const stallKey = bs.stall?.id || bs.stallId || bs.id;
+        if (stallKey) {
+          if (!bookedStallIds.has(stallKey)) {
+            bookedStallIds.add(stallKey);
+            totalStalls++;
+          }
+        } else {
+          totalStalls++;
+        }
+      }
+    }
+
+    // Total Contract Value & Paid: only consider active contracts
+    const totalContractValue = activeBookings.reduce(
+      (acc, b) => acc + Number(b.grandTotal || 0),
+      0
+    );
+    const totalPaid = activeBookings.reduce(
+      (acc, b) => acc + Number(b.paidAmount || 0),
+      0
+    );
     const totalBalance = Math.max(0, totalContractValue - totalPaid);
-    const fulfillmentRate = totalContractValue > 0 ? Math.round((totalPaid / totalContractValue) * 100) : 0;
+    const fulfillmentRate =
+      totalContractValue > 0 ? Math.round((totalPaid / totalContractValue) * 100) : 0;
 
     return {
       totalEvents,
@@ -237,14 +270,22 @@ export const AdminCompanyDetailPage: React.FC = () => {
   };
 
   const getCustomerOverallStatusBadge = () => {
-    if (allBookings.length === 0) {
+    const activeBookings = allBookings.filter((b) => b.status !== 'CANCELLED');
+    if (activeBookings.length === 0) {
+      if (allBookings.length > 0) {
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+            All Cancelled
+          </span>
+        );
+      }
       return (
         <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
           No Bookings
         </span>
       );
     }
-    const hasPaidFull = allBookings.some(
+    const hasPaidFull = activeBookings.some(
       (b) =>
         b.paymentStatus === 'PAID_FULL' ||
         b.paymentStatus === 'PAID' ||
@@ -258,7 +299,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
         </span>
       );
     }
-    const hasPartial = allBookings.some(
+    const hasPartial = activeBookings.some(
       (b) => b.paymentStatus === 'PARTIALLY_PAID' || Number(b.paidAmount || 0) > 0
     );
     if (hasPartial) {

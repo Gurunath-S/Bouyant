@@ -597,7 +597,15 @@ export const AdminCompaniesPage: React.FC = () => {
                                 <span className="flex items-center gap-1.5">
                                   <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                                   <span>
-                                    +{companyBookings.length - 1} more event{companyBookings.length - 1 > 1 ? 's' : ''} attended
+                                    {(() => {
+                                      const uniqueEvents = new Set(
+                                        companyBookings.map((bk) => bk.exhibition?.id).filter(Boolean)
+                                      ).size;
+                                      if (uniqueEvents > 1) {
+                                        return `+${uniqueEvents - 1} more event${uniqueEvents - 1 > 1 ? 's' : ''} attended`;
+                                      }
+                                      return `+${companyBookings.length - 1} more booking${companyBookings.length - 1 > 1 ? 's' : ''}`;
+                                    })()}
                                   </span>
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-600 dark:text-purple-400 group-hover:underline">

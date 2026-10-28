@@ -415,23 +415,32 @@ export class CompaniesService {
     // =========================================================================
     let existingCompany: Company | null = null;
 
-    if (cleanGst) {
-      existingCompany = await prisma.company.findUnique({ where: { gstNumber: cleanGst } });
-    } else {
-      const potentialMatches = await prisma.company.findMany({
-        where: {
-          gstNumber: null,
-          name: { equals: input.name.trim(), mode: 'insensitive' },
-          email: normalizedEmail,
-        },
+    const isExplicitEdit = Boolean(anyInput.id || anyInput.companyId);
+    if (isExplicitEdit) {
+      existingCompany = await prisma.company.findUnique({
+        where: { id: anyInput.id || anyInput.companyId },
       });
+    }
 
-      const exactMatch = potentialMatches.find(
-        (c) => c.mobile === cleanMobile || (cleanPhoneDigits && c.mobile?.replace(/\D/g, '').slice(-10) === cleanPhoneDigits)
-      );
+    if (!existingCompany) {
+      if (cleanGst) {
+        existingCompany = await prisma.company.findUnique({ where: { gstNumber: cleanGst } });
+      } else {
+        const potentialMatches = await prisma.company.findMany({
+          where: {
+            gstNumber: null,
+            name: { equals: input.name.trim(), mode: 'insensitive' },
+            email: normalizedEmail,
+          },
+        });
 
-      if (exactMatch) {
-        existingCompany = exactMatch;
+        const exactMatch = potentialMatches.find(
+          (c) => c.mobile === cleanMobile || (cleanPhoneDigits && c.mobile?.replace(/\D/g, '').slice(-10) === cleanPhoneDigits)
+        );
+
+        if (exactMatch) {
+          existingCompany = exactMatch;
+        }
       }
     }
 
@@ -505,8 +514,41 @@ export class CompaniesService {
       }
     }
 
+    // Compliance Data: Never fabricate synthetic TAN. Respect optional TAN as provided.
+    const effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
+      ? input.tanNumber.trim().toUpperCase()
+      : null;
+
     // Frictionless Guest Booking: If exact existing account identity is recognized, do not force login or create duplicate.
     if (isSameExhibitorIdentity && existingCompany) {
+      const updateData: any = {};
+      if (input.tanNumber !== undefined && effectiveTan !== existingCompany.tanNumber) {
+        updateData.tanNumber = effectiveTan;
+      }
+      if (isExplicitEdit) {
+        if (input.address && input.address !== existingCompany.address) {
+          updateData.address = input.address;
+        }
+        if (input.city && input.city !== existingCompany.city) {
+          updateData.city = input.city;
+        }
+        if (input.state && input.state !== existingCompany.state) {
+          updateData.state = input.state;
+        }
+        if (input.pinCode && input.pinCode !== existingCompany.pinCode) {
+          updateData.pinCode = input.pinCode;
+        }
+        if (input.website !== undefined && input.website !== existingCompany.website) {
+          updateData.website = input.website;
+        }
+      }
+      if (Object.keys(updateData).length > 0) {
+        existingCompany = await prisma.company.update({
+          where: { id: existingCompany.id },
+          data: updateData,
+        });
+      }
+
       return {
         company: existingCompany,
         user: null,
@@ -550,11 +592,6 @@ export class CompaniesService {
       requestedUsername = await CompaniesService.generateUniqueUsername(input.contactPerson || input.name);
     }
 
-    // Compliance Data: Never fabricate synthetic TAN. Respect optional TAN as provided.
-    const effectiveTan = input.tanNumber && input.tanNumber.trim() !== ''
-      ? input.tanNumber.trim().toUpperCase()
-      : null;
-
     // Retry loop for collision-safe sequential codes and concurrent registrations
     const maxRetries = 10;
     let attempt = 0;
@@ -596,6 +633,35 @@ export class CompaniesService {
                 spcode,
               },
             });
+          } else {
+            // Update existing company fields (including TAN number) if modified
+            const updateData: any = {};
+            if (input.tanNumber !== undefined && effectiveTan !== company.tanNumber) {
+              updateData.tanNumber = effectiveTan;
+            }
+            if (isExplicitEdit) {
+              if (input.address && input.address !== company.address) {
+                updateData.address = input.address;
+              }
+              if (input.city && input.city !== company.city) {
+                updateData.city = input.city;
+              }
+              if (input.state && input.state !== company.state) {
+                updateData.state = input.state;
+              }
+              if (input.pinCode && input.pinCode !== company.pinCode) {
+                updateData.pinCode = input.pinCode;
+              }
+              if (input.website !== undefined && input.website !== company.website) {
+                updateData.website = input.website;
+              }
+            }
+            if (Object.keys(updateData).length > 0) {
+              company = await tx.company.update({
+                where: { id: company.id },
+                data: updateData,
+              });
+            }
           }
 
           // User handling:

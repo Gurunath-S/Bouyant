@@ -22,6 +22,8 @@ export const CreateCompanySchema = z
     eventCode: z.string().trim().optional(),
     year: z.string().trim().optional(),
     username: z.string().trim().optional().or(z.literal('')),
+    id: z.string().trim().optional(),
+    companyId: z.string().trim().optional(),
   })
   .passthrough();
 
