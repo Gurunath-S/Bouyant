@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
 import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle } from 'lucide-react';
@@ -14,9 +15,16 @@ import { useAuthStore } from '../../../stores/authStore';
 export const AdminPaymentsPage: React.FC = () => {
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPERADMIN';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
 
   // Navigation Tabs: 'TRANSACTIONS' vs 'INVOICES'
-  const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES'>('TRANSACTIONS');
+  const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES'>(() => {
+    if (tabParam && ['invoices', 'bills', 'billing', 'invoice'].includes(tabParam.toLowerCase())) {
+      return 'INVOICES';
+    }
+    return 'TRANSACTIONS';
+  });
 
   // Transactions State
   const [payments, setPayments] = useState<any[]>([]);
@@ -117,13 +125,46 @@ export const AdminPaymentsPage: React.FC = () => {
     }
   }, [invoicePage, invoicePageSize, invoiceSearch]);
 
+  // Sync active tab with URL query parameter
   useEffect(() => {
-    if (activeTab === 'TRANSACTIONS') {
-      fetchPayments();
-    } else {
-      fetchInvoices();
+    if (tabParam && ['invoices', 'bills', 'billing', 'invoice'].includes(tabParam.toLowerCase())) {
+      setActiveTab('INVOICES');
     }
-  }, [activeTab, fetchPayments, fetchInvoices]);
+  }, [tabParam]);
+
+  const handleTabChange = (tab: 'TRANSACTIONS' | 'INVOICES') => {
+    setActiveTab(tab);
+    const newParams = new URLSearchParams(searchParams);
+    if (tab === 'INVOICES') {
+      newParams.set('tab', 'invoices');
+    } else {
+      newParams.delete('tab');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // Initial load: Fetch BOTH payments and invoices immediately so tab record counts are populated
+  useEffect(() => {
+    fetchPayments();
+    fetchInvoices();
+
+    const onFocus = () => {
+      fetchPayments();
+      fetchInvoices();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  // Re-fetch transactions whenever transactions filters change
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
+
+  // Re-fetch invoices whenever invoices filters change
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -154,11 +195,8 @@ export const AdminPaymentsPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    if (activeTab === 'TRANSACTIONS') {
-      fetchPayments();
-    } else {
-      fetchInvoices();
-    }
+    fetchPayments();
+    fetchInvoices();
   };
 
   // Helper to extract invoice data for modal presentation
@@ -229,7 +267,7 @@ export const AdminPaymentsPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
         <button
           type="button"
-          onClick={() => setActiveTab('TRANSACTIONS')}
+          onClick={() => handleTabChange('TRANSACTIONS')}
           className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all ${
             activeTab === 'TRANSACTIONS'
               ? 'border-purple-600 text-purple-600 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
@@ -245,7 +283,7 @@ export const AdminPaymentsPage: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('INVOICES')}
+          onClick={() => handleTabChange('INVOICES')}
           className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all ${
             activeTab === 'INVOICES'
               ? 'border-purple-600 text-purple-600 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
@@ -372,7 +410,16 @@ export const AdminPaymentsPage: React.FC = () => {
                             <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                               {(currentPage - 1) * pageSize + idx + 1}
                             </td>
-                            <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{p.paymentReference}</td>
+                            <td className="py-3.5 px-4">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-400 block">
+                                {p.paymentReference}
+                              </span>
+                              {p.createdAt && (
+                                <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                  {formatDisplayDateTime(p.createdAt)}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">{p.booking?.bookingReference || 'N/A'}</td>
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-1.5">
@@ -716,8 +763,13 @@ export const AdminPaymentsPage: React.FC = () => {
                   {/* Description */}
                   <div className="col-span-5 border-r border-black p-2 space-y-0.5 leading-snug">
                     <div className="font-bold uppercase">
-                      STALL NO : {modalData.stalls?.map((bs: any) => bs.stall?.stallNumber).join(', ') || modalData.primaryStall.stallNumber} ({modalData.primaryStall.category || 'PREMIUM'})
+                      STALL NO: {modalData.stalls?.map((bs: any) => bs.stall?.stallNumber).join(', ') || modalData.primaryStall.stallNumber} ({modalData.primaryStall.category || 'PREMIUM'})
                     </div>
+                    {modalData.stalls && modalData.stalls.length > 0 && modalData.stalls.some((bs: any) => bs.stall?.actualWidth && bs.stall?.actualHeight) && (
+                      <div className="text-[11px] font-mono font-bold text-slate-700">
+                        SIZE: {modalData.stalls.map((bs: any) => `${bs.stall?.stallNumber || ''}: ${bs.stall?.actualWidth}m × ${bs.stall?.actualHeight}m`).join(', ')}
+                      </div>
+                    )}
                     <div className="font-bold">{modalData.totalQty} SQFT</div>
                     <div className="font-bold mt-1 uppercase">{modalData.exhibition?.title || 'EXPO EXHIBITION'}</div>
                     <div className="text-[10px]">

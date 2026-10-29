@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { useAuthStore } from '../../../stores/authStore';
@@ -73,6 +73,12 @@ export const StaffRegisterEventPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successEvent, setSuccessEvent] = useState<any | null>(null);
 
+  useEffect(() => {
+    if (user?.spcode && !formData.spcode) {
+      setFormData((prev) => ({ ...prev, spcode: user.spcode || '' }));
+    }
+  }, [user?.spcode]);
+
   const handleTitleChange = (val: string) => {
     let code = '';
     const clean = val.replace(/[^a-zA-Z0-9\s]/g, '').trim();
@@ -108,6 +114,7 @@ export const StaffRegisterEventPage: React.FC = () => {
     setFormData((prev) => ({
       ...prev,
       startDate: val,
+      endDate: prev.endDate && val && prev.endDate < val ? val : prev.endDate,
       bookingEndDate: prev.bookingEndDate || cutOff,
       edition: isEditionCustom ? prev.edition : getMonthEdition(val),
     }));
@@ -116,11 +123,21 @@ export const StaffRegisterEventPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (formData.startDate && formData.endDate && formData.endDate < formData.startDate) {
+        setErrorMsg('Exhibition end date cannot be earlier than start date.');
+        return;
+      }
+      if (formData.endDate && formData.bookingEndDate && formData.bookingEndDate > formData.endDate) {
+        setErrorMsg('Booking cut-off date cannot be after exhibition end date.');
+        return;
+      }
+
       setLoading(true);
       setErrorMsg(null);
 
       const payload = {
         ...formData,
+        notificationEmails: user?.email || undefined,
         totalStalls: Number(formData.totalStalls) || 0,
         status: 'DRAFT', // Enters as DRAFT ready for layout & publishing
       };
@@ -182,7 +199,16 @@ export const StaffRegisterEventPage: React.FC = () => {
                     Design Floor Plan & Stalls
                   </Button>
                 </Link>
-                <Link to="/workspace/events">
+                <Link
+                  to="/workspace/events"
+                  state={{
+                    notification: {
+                      type: 'success',
+                      title: 'Exhibition Registered Successfully',
+                      message: `Exhibition "${successEvent.title}" has been created as a draft.`,
+                    },
+                  }}
+                >
                   <Button variant="outline" size="sm">
                     Manage Exhibitions
                   </Button>
@@ -190,9 +216,18 @@ export const StaffRegisterEventPage: React.FC = () => {
               </>
             ) : (
               <>
-                <Link to="/staff/events">
+                <Link
+                  to="/workspace/events"
+                  state={{
+                    notification: {
+                      type: 'success',
+                      title: 'Event Registered Successfully',
+                      message: `Event "${successEvent.title}" has been registered as a draft.`,
+                    },
+                  }}
+                >
                   <Button variant="outline" size="sm">
-                    View My Events
+                    View Exhibitions
                   </Button>
                 </Link>
                 <Link to="/staff/dashboard">
@@ -360,6 +395,7 @@ export const StaffRegisterEventPage: React.FC = () => {
               <DateInput
                 required
                 value={formData.endDate}
+                min={formData.startDate}
                 onChange={(val) => setFormData({ ...formData, endDate: val })}
               />
             </div>
@@ -370,6 +406,7 @@ export const StaffRegisterEventPage: React.FC = () => {
               </label>
               <DateInput
                 value={formData.bookingEndDate}
+                max={formData.endDate || undefined}
                 onChange={(val) => setFormData({ ...formData, bookingEndDate: val })}
               />
             </div>

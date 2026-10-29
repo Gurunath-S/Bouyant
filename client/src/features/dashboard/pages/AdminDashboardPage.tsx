@@ -26,7 +26,7 @@ import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -640,7 +640,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                   <th className="py-3.5 px-4">Booking Ref</th>
                   <th className="py-3.5 px-4">Exhibition Event</th>
-                  <th className="py-3.5 px-4">Stall #</th>
+                  <th className="py-3.5 px-4">Stall No</th>
                   <th className="py-3.5 px-4">Company</th>
                   <th className="py-3.5 px-4 text-right">Amount</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
@@ -658,8 +658,15 @@ export const AdminDashboardPage: React.FC = () => {
                       <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                         {(currentPage - 1) * PAGE_SIZE + idx + 1}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-purple-600 dark:text-purple-400 group-hover:underline">
-                        {b.bookingReference}
+                      <td className="py-3.5 px-4">
+                        <span className="font-mono font-bold text-purple-600 dark:text-purple-400 group-hover:underline block">
+                          {b.bookingReference}
+                        </span>
+                        {b.createdAt && (
+                          <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                            {formatDisplayDateTime(b.createdAt)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall {getStallNumbers(b)}</td>
@@ -715,7 +722,7 @@ export const AdminDashboardPage: React.FC = () => {
                                 title="Inspect full booking details"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>Inspect</span>
+                                <span>View Details</span>
                               </button>
 
                               {isEligibleForPayment && (

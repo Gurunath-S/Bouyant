@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { Exhibition, Booking } from '../../../types';
@@ -13,7 +13,6 @@ import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibito
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { TablePagination } from '../../../components/ui/TablePagination';
-import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
 import {
   CalendarPlus,
   Calendar,
@@ -32,17 +31,42 @@ import {
   CreditCard,
   Download,
   Layers,
+  Clock,
+  X,
 } from 'lucide-react';
 
 export const AdminEventRegistrationPage: React.FC = () => {
   const { user } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const isStaff = user?.role === 'STAFF';
   const isAdmin = user?.role === 'ADMIN';
   const isSuperAdmin = user?.role === 'SUPERADMIN';
   const canToggleDesk = isAdmin || isSuperAdmin;
 
+  const urlTab = searchParams.get('tab');
+  const initialTab =
+    urlTab === 'registrations' || urlTab === 'ADMIN_DATA' ? 'ADMIN_DATA' : 'EVENTS';
+
   // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Registered Data Separately)
-  const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>('EVENTS');
+  const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>(initialTab);
+
+  useEffect(() => {
+    if (urlTab === 'registrations' || urlTab === 'ADMIN_DATA') {
+      setActiveTab('ADMIN_DATA');
+    } else if (urlTab === 'events' || urlTab === 'EVENTS') {
+      setActiveTab('EVENTS');
+    }
+  }, [urlTab]);
+
+  // Capture notifications passed via navigation (e.g. from event builder after creation)
+  useEffect(() => {
+    const navNotification = (location.state as any)?.notification;
+    if (navNotification) {
+      setSuccessBanner(navNotification.message || navNotification.title || 'Exhibition saved successfully.');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Desk Scope: 'MY_DESK' shows only current user's bookings, 'TEAM_DESK' shows all (Admin/SuperAdmin only)
   const [deskScope, setDeskScope] = useState<'MY_DESK' | 'TEAM_DESK'>('MY_DESK');
@@ -53,18 +77,30 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
 
-  // Filters for Events Tab
+  // Filters & Pagination for Events Tab
   const [eventSearch, setEventSearch] = useState('');
   const [eventStatusFilter, setEventStatusFilter] = useState('PUBLISHED');
-  const [eventCityFilter, setEventCityFilter] = useState('ALL');
+  const [eventPage, setEventPage] = useState(1);
+  const EVENT_PAGE_SIZE = 6;
 
   // Filters for Registered Data Tab
   const [bookingSearch, setBookingSearch] = useState('');
+  const [bookingStartDate, setBookingStartDate] = useState('');
+  const [bookingEndDate, setBookingEndDate] = useState('');
   const [bookingExhibitionFilter, setBookingExhibitionFilter] = useState('ALL');
-  const [bookingCityFilter, setBookingCityFilter] = useState('ALL');
   const [registrarFilter, setRegistrarFilter] = useState<string>(isStaff ? 'STAFF' : 'ALL');
   const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
   const [bookingPage, setBookingPage] = useState(1);
+
+  // Synchronized refs to prevent stale closure overwrites (from onFocus, async auth effects, etc.)
+  const deskScopeRef = useRef(deskScope);
+  deskScopeRef.current = deskScope;
+
+  const registrarFilterRef = useRef(registrarFilter);
+  registrarFilterRef.current = registrarFilter;
+
+  const balanceOnlyFilterRef = useRef(balanceOnlyFilter);
+  balanceOnlyFilterRef.current = balanceOnlyFilter;
   const BOOKING_PAGE_SIZE = 10;
 
   // Modal & Share States
@@ -112,72 +148,78 @@ export const AdminEventRegistrationPage: React.FC = () => {
     }
   }
 
-  async function fetchRegisteredBookings(filterRole?: string, balanceOnly?: boolean, scope?: 'MY_DESK' | 'TEAM_DESK') {
-    try {
-      setLoadingBookings(true);
-      const effectiveScope = scope ?? deskScope;
-      const params: any = { limit: 200 };
+  const fetchRegisteredBookings = useCallback(
+    async (filterRole?: string, balanceOnly?: boolean, scope?: 'MY_DESK' | 'TEAM_DESK') => {
+      try {
+        setLoadingBookings(true);
+        const effectiveScope = scope ?? deskScopeRef.current;
+        const effectiveRole = filterRole ?? registrarFilterRef.current;
+        const effectiveBalance = balanceOnly ?? balanceOnlyFilterRef.current;
+        const params: any = { limit: 200 };
 
-      // Personal desk: always filter by current user's own bookings
-      // Staff is always locked to personal desk
-      if (isStaff || effectiveScope === 'MY_DESK') {
-        params.bookedByUserId = 'me';
-      } else {
-        // Team desk (Admin/SuperAdmin): optionally filter by registrar role
-        const effectiveRole = filterRole ?? registrarFilter;
-        if (effectiveRole !== 'ALL') {
-          params.registeredByRole = effectiveRole;
+        // Personal desk: always filter by current user's own bookings
+        // Staff is always locked to personal desk
+        if (isStaff || effectiveScope === 'MY_DESK') {
+          params.bookedByUserId = 'me';
+        } else {
+          // Team desk (Admin/SuperAdmin): optionally filter by registrar role
+          if (effectiveRole && effectiveRole !== 'ALL') {
+            params.registeredByRole = effectiveRole;
+          }
         }
-      }
 
-      if (balanceOnly ?? balanceOnlyFilter) {
-        params.hasBalanceOnly = true;
+        if (effectiveBalance) {
+          params.hasBalanceOnly = true;
+        }
+        const res = await bookingService.getAllBookings(params);
+        const rawList = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.bookings)
+          ? res.bookings
+          : [];
+        setAdminBookings(rawList);
+      } catch (err) {
+        console.error('Failed to load registered bookings:', err);
+      } finally {
+        setLoadingBookings(false);
       }
-      const res = await bookingService.getAllBookings(params);
-      const rawList = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.bookings)
-        ? res.bookings
-        : [];
-      setAdminBookings(rawList);
-    } catch (err) {
-      console.error('Failed to load registered bookings:', err);
-    } finally {
-      setLoadingBookings(false);
-    }
-  }
+    },
+    [isStaff]
+  );
 
-  // Ensure role-specific data refreshes as soon as authenticated user identity resolves
+  // Staff is restricted to personal desk only; never overwrite an Admin/SuperAdmin's choice of TEAM_DESK
   useEffect(() => {
-    if (user?.role) {
+    if (isStaff && deskScopeRef.current !== 'MY_DESK') {
+      deskScopeRef.current = 'MY_DESK';
       setDeskScope('MY_DESK');
-      fetchRegisteredBookings(undefined, undefined, 'MY_DESK');
+      fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, 'MY_DESK');
     }
-  }, [user?.role]);
+  }, [isStaff, fetchRegisteredBookings]);
 
   useEffect(() => {
     fetchExhibitions();
-    fetchRegisteredBookings(undefined, false, 'MY_DESK');
+    fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
 
     const onFocus = () => {
       fetchExhibitions();
-      fetchRegisteredBookings();
+      fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, []);
+  }, [fetchRegisteredBookings]);
 
   const handleRefreshAll = () => {
     fetchExhibitions();
-    fetchRegisteredBookings();
+    fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
   };
 
   const handleDeskScopeChange = (newScope: 'MY_DESK' | 'TEAM_DESK') => {
+    deskScopeRef.current = newScope;
     setDeskScope(newScope);
     setBookingPage(1);
-    fetchRegisteredBookings(undefined, undefined, newScope);
+    fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, newScope);
   };
 
   const handleRegistrationSuccess = (newBooking: any) => {
@@ -204,7 +246,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
       });
     }
     fetchExhibitions();
-    fetchRegisteredBookings(undefined, undefined, deskScope);
+    fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
     setActiveTab('ADMIN_DATA');
     setTimeout(() => setSuccessBanner(null), 8000);
   };
@@ -220,25 +262,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
-  // Distinct unique cities for filtering exhibitions
-  const availableEventCities = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of exhibitions) {
-      if (e.city && e.city.trim()) set.add(e.city.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [exhibitions]);
-
-  // Distinct unique cities for filtering registered bookings
-  const availableBookingCities = useMemo(() => {
-    const set = new Set<string>();
-    for (const b of adminBookings) {
-      if (b.exhibition?.city && b.exhibition.city.trim()) set.add(b.exhibition.city.trim());
-      else if (b.company?.city && b.company.city.trim()) set.add(b.company.city.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [adminBookings]);
-
   // Filtered Events
   const filteredExhibitions = useMemo(() => {
     return exhibitions.filter((e) => {
@@ -253,43 +276,77 @@ export const AdminEventRegistrationPage: React.FC = () => {
       const matchesStatus =
         eventStatusFilter === 'ALL' || e.status === eventStatusFilter;
 
-      const matchesCity =
-        eventCityFilter === 'ALL' ||
-        (e.city && e.city.trim().toLowerCase() === eventCityFilter.trim().toLowerCase());
-
-      return matchesSearch && matchesStatus && matchesCity;
+      return matchesSearch && matchesStatus;
     });
-  }, [exhibitions, eventSearch, eventStatusFilter, eventCityFilter]);
+  }, [exhibitions, eventSearch, eventStatusFilter]);
+
+  useEffect(() => {
+    setEventPage(1);
+  }, [eventSearch, eventStatusFilter]);
+
+  const paginatedExhibitions = useMemo(() => {
+    const start = (eventPage - 1) * EVENT_PAGE_SIZE;
+    return filteredExhibitions.slice(start, start + EVENT_PAGE_SIZE);
+  }, [filteredExhibitions, eventPage]);
 
   // Filtered Admin Bookings
   const filteredAdminBookings = useMemo(() => {
     return adminBookings.filter((b) => {
-      const q = bookingSearch.toLowerCase();
+      const q = bookingSearch.toLowerCase().trim();
+      
+      const createdAtDate = new Date(b.createdAt);
+      const formattedDate = !isNaN(createdAtDate.getTime())
+        ? createdAtDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toLowerCase()
+        : '';
+      const isoDateStr = b.createdAt ? b.createdAt.substring(0, 10) : '';
+
       const matchesSearch =
-        !bookingSearch.trim() ||
+        !q ||
         b.bookingReference.toLowerCase().includes(q) ||
         (b.company?.name && b.company.name.toLowerCase().includes(q)) ||
         (b.company?.contactPerson && b.company.contactPerson.toLowerCase().includes(q)) ||
         (b.contactPerson && b.contactPerson.toLowerCase().includes(q)) ||
         (b.billingName && b.billingName.toLowerCase().includes(q)) ||
         (b.exhibition?.title && b.exhibition.title.toLowerCase().includes(q)) ||
-        (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber?.toLowerCase().includes(q)));
+        (b.stalls && b.stalls.some((bs) => bs.stall?.stallNumber?.toLowerCase().includes(q))) ||
+        formattedDate.includes(q) ||
+        isoDateStr.includes(q);
 
       const matchesExhibition =
         bookingExhibitionFilter === 'ALL' || b.exhibitionId === bookingExhibitionFilter;
 
-      const matchesCity =
-        bookingCityFilter === 'ALL' ||
-        (b.exhibition?.city && b.exhibition.city.trim().toLowerCase() === bookingCityFilter.trim().toLowerCase()) ||
-        (b.company?.city && b.company.city.trim().toLowerCase() === bookingCityFilter.trim().toLowerCase());
+      const matchesBalance =
+        !balanceOnlyFilter ||
+        (Number(b.balanceAmount) > 0 &&
+          Number(b.paidAmount || 0) > 0 &&
+          b.paymentStatus !== 'UNPAID' &&
+          b.status !== 'CANCELLED' &&
+          b.status !== 'EXPIRED');
 
-      return matchesSearch && matchesExhibition && matchesCity;
+      // Date Range Filter (From Date / To Date)
+      let matchesDate = true;
+      if (bookingStartDate) {
+        const start = new Date(bookingStartDate);
+        start.setHours(0, 0, 0, 0);
+        if (createdAtDate < start) {
+          matchesDate = false;
+        }
+      }
+      if (bookingEndDate && matchesDate) {
+        const end = new Date(bookingEndDate);
+        end.setHours(23, 59, 59, 999);
+        if (createdAtDate > end) {
+          matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesExhibition && matchesBalance && matchesDate;
     });
-  }, [adminBookings, bookingSearch, bookingExhibitionFilter, bookingCityFilter]);
+  }, [adminBookings, bookingSearch, bookingStartDate, bookingEndDate, bookingExhibitionFilter, balanceOnlyFilter]);
 
   useEffect(() => {
     setBookingPage(1);
-  }, [bookingSearch, bookingExhibitionFilter]);
+  }, [bookingSearch, bookingStartDate, bookingEndDate, bookingExhibitionFilter, registrarFilter, balanceOnlyFilter, deskScope]);
 
   const paginatedAdminBookings = useMemo(() => {
     const start = (bookingPage - 1) * BOOKING_PAGE_SIZE;
@@ -361,7 +418,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
           </Button>
 
           {!isStaff && (
-            <Link to="/workspace/events/new">
+            <Link
+              to="/workspace/events/new"
+              state={{ from: '/workspace/events/register', fromLabel: 'Back to Event Registration Hub' }}
+            >
               <Button
                 type="button"
                 variant="primary"
@@ -465,7 +525,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Available Exhibitions (Register to Event)</span>
+          <span>Available Exhibitions</span>
           <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-mono">
             {exhibitions.length}
           </span>
@@ -475,7 +535,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
           type="button"
           onClick={() => {
             setActiveTab('ADMIN_DATA');
-            fetchRegisteredBookings();
+            fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
           }}
           className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all ${
             activeTab === 'ADMIN_DATA'
@@ -508,30 +568,23 @@ export const AdminEventRegistrationPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-              {/* City / Location Dropdown Filter */}
-              <CityFilterDropdown
-                label="City"
-                value={eventCityFilter}
-                onChange={setEventCityFilter}
-                cities={availableEventCities}
-                placeholder="All Cities"
-              />
-
-              {/* Status Filter */}
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-slate-500 shrink-0">Status:</label>
-                <select
-                  value={eventStatusFilter}
-                  onChange={(e) => setEventStatusFilter(e.target.value)}
-                  className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200 cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="PUBLISHED">Published (Ready for Booking)</option>
-                  <option value="DRAFT">Draft Mode</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
-                </select>
-              </div>
+              {/* Status Filter - Hidden for staff alone */}
+              {!isStaff && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 shrink-0">Status:</label>
+                  <select
+                    value={eventStatusFilter}
+                    onChange={(e) => setEventStatusFilter(e.target.value)}
+                    className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200 cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="PUBLISHED">Published (Ready for Booking)</option>
+                    <option value="DRAFT">Draft Mode</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -544,15 +597,19 @@ export const AdminEventRegistrationPage: React.FC = () => {
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 No events matched your search keyword or status filter. Try clearing filters or create a new exhibition.
               </p>
-              <Link to="/workspace/events/new">
+              <Link
+                to="/workspace/events/new"
+                state={{ from: '/workspace/events/register', fromLabel: 'Back to Event Registration Hub' }}
+              >
                 <Button variant="primary" size="sm" className="bg-purple-600 hover:bg-purple-700 text-white mt-2">
                   Create Exhibition
                 </Button>
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredExhibitions.map((e) => {
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {paginatedExhibitions.map((e) => {
                 // Calculate accurate stall numbers
                 const allStalls = (e.floorPlans || []).flatMap((fp: any) => fp.stalls || []);
                 const totalStalls = allStalls.length > 0
@@ -653,9 +710,15 @@ export const AdminEventRegistrationPage: React.FC = () => {
                               {e.category}
                             </span>
                           )}
-                          <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-purple-200 transition-colors">
-                            {e.title}
-                          </h3>
+                          <Link
+                            to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
+                            state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
+                            className="hover:underline"
+                          >
+                            <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-purple-200 transition-colors">
+                              {e.title}
+                            </h3>
+                          </Link>
                         </div>
                       </div>
 
@@ -718,7 +781,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         {isFull ? (
                           // When stall is full: hide registration and show "See Details" navigating to event details page
                           <Link
-                            to={`/exhibitions/${e.slug || e.id}`}
+                            to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
+                            state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
                             className="flex-1"
                           >
                             <Button
@@ -732,22 +796,42 @@ export const AdminEventRegistrationPage: React.FC = () => {
                             </Button>
                           </Link>
                         ) : e.status === 'PUBLISHED' ? (
-                          // When not full and published: direct entry to interactive booking wizard
-                          <Link
-                            to={`/exhibitions/${e.slug || e.id}/book`}
-                            state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
-                            className="flex-1"
-                          >
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="md"
-                              leftIcon={<Layers className="w-4 h-4" />}
-                              className="w-full font-black text-xs py-2.5 rounded-xl shadow-xs cursor-pointer bg-purple-600 hover:bg-purple-700 text-white"
+                          // When not full and published: provide both "View Details" and "Register to Event"
+                          <>
+                            <Link
+                              to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
+                              state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
+                              className="shrink-0"
                             >
-                              Book Stall for Exhibitor
-                            </Button>
-                          </Link>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="md"
+                                leftIcon={<Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
+                                className="font-bold text-xs py-2.5 px-3 rounded-xl border-purple-200 dark:border-purple-800/80 hover:bg-purple-50 dark:hover:bg-purple-950/50 text-purple-700 dark:text-purple-300 shadow-xs"
+                                title="View Event Details & Floor Plan Overview"
+                              >
+                                View Details
+                              </Button>
+                            </Link>
+
+                            <Link
+                              to={`/exhibitions/${e.slug || e.id}/book?from=/workspace/events/register`}
+                              state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
+                              className="flex-1"
+                            >
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="md"
+                                leftIcon={<Layers className="w-4 h-4" />}
+                                className="w-full font-black text-xs py-2.5 rounded-xl shadow-xs cursor-pointer bg-purple-600 hover:bg-purple-700 text-white"
+                                title="Open Stall Reservation & Booking Wizard"
+                              >
+                                Register to Event
+                              </Button>
+                            </Link>
+                          </>
                         ) : (
                           // When not published: show status
                           <Button
@@ -783,7 +867,16 @@ export const AdminEventRegistrationPage: React.FC = () => {
                 );
               })}
             </div>
-          )}
+
+            <TablePagination
+              currentPage={eventPage}
+              totalItems={filteredExhibitions.length}
+              pageSize={EVENT_PAGE_SIZE}
+              onPageChange={setEventPage}
+              itemLabel="exhibitions"
+            />
+          </div>
+        )}
         </div>
       )}
 
@@ -830,7 +923,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search by company, booking reference, or stall #..."
+                placeholder="Search by company, booking ref, stall No, or date..."
                 value={bookingSearch}
                 onChange={(e) => setBookingSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
@@ -838,6 +931,53 @@ export const AdminEventRegistrationPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-500 shrink-0">Date:</span>
+                <input
+                  type="date"
+                  value={bookingStartDate}
+                  max={bookingEndDate || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBookingStartDate(val);
+                    if (bookingEndDate && val && val > bookingEndDate) {
+                      setBookingEndDate(val);
+                    }
+                  }}
+                  className="text-xs bg-transparent text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                  title="From Date"
+                />
+                <span className="text-slate-400 text-xs font-semibold">to</span>
+                <input
+                  type="date"
+                  value={bookingEndDate}
+                  min={bookingStartDate || undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBookingEndDate(val);
+                    if (bookingStartDate && val && val < bookingStartDate) {
+                      setBookingStartDate(val);
+                    }
+                  }}
+                  className="text-xs bg-transparent text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                  title="To Date"
+                />
+                {(bookingStartDate || bookingEndDate) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookingStartDate('');
+                      setBookingEndDate('');
+                    }}
+                    className="p-0.5 text-slate-400 hover:text-rose-500 transition-colors ml-0.5 cursor-pointer"
+                    title="Clear date filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               {/* Show registrar filter only in Team Desk mode */}
               {canToggleDesk && deskScope === 'TEAM_DESK' && (
                 <div className="flex items-center gap-1.5">
@@ -846,25 +986,19 @@ export const AdminEventRegistrationPage: React.FC = () => {
                     value={registrarFilter}
                     onChange={(e) => {
                       const val = e.target.value;
+                      registrarFilterRef.current = val;
                       setRegistrarFilter(val);
-                      fetchRegisteredBookings(val, undefined, 'TEAM_DESK');
+                      setBookingPage(1);
+                      fetchRegisteredBookings(val, balanceOnlyFilterRef.current, 'TEAM_DESK');
                     }}
                     className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200"
                   >
-                    <option value="ALL">All Registrars</option>
+                    <option value="ALL">All Registered</option>
                     <option value="ADMIN">Admin Registered</option>
                     <option value="STAFF">Staff Registered</option>
                   </select>
                 </div>
               )}
-
-              <CityFilterDropdown
-                label="City"
-                value={bookingCityFilter}
-                onChange={setBookingCityFilter}
-                cities={availableBookingCities}
-                placeholder="All Cities"
-              />
 
               <div className="flex items-center gap-1.5">
                 <label className="text-xs font-bold text-slate-500 shrink-0">Exhibition:</label>
@@ -888,8 +1022,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
                   checked={balanceOnlyFilter}
                   onChange={(e) => {
                     const val = e.target.checked;
+                    balanceOnlyFilterRef.current = val;
                     setBalanceOnlyFilter(val);
-                    fetchRegisteredBookings(undefined, val);
+                    setBookingPage(1);
+                    fetchRegisteredBookings(registrarFilterRef.current, val, deskScopeRef.current);
                   }}
                   className="rounded text-amber-600 focus:ring-amber-500"
                 />
@@ -925,7 +1061,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-extrabold">
                       <th className="w-12 py-3.5 px-3 text-center">S.No</th>
-                      <th className="py-3.5 px-4">Booking Ref</th>
+                      <th className="py-3.5 px-4">Booking Ref & Date</th>
                       <th className="py-3.5 px-4">Exhibition Event</th>
                       <th className="py-3.5 px-4">Registered Company</th>
                       <th className="py-3.5 px-4">Allocated Stalls</th>
@@ -950,13 +1086,28 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           <span className="font-mono font-bold text-purple-700 dark:text-purple-300 block">
                             {b.bookingReference}
                           </span>
-                          <span className="text-[10px] text-slate-400 block">
-                            {new Date(b.createdAt).toLocaleDateString()}
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 font-medium whitespace-nowrap">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>
+                              {new Date(b.createdAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <span className="text-slate-300 dark:text-slate-600">•</span>
+                            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>
+                              {new Date(b.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 block truncate max-w-xs">
+                        <td className="py-3.5 px-4 min-w-[200px]">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 block break-words">
                             {b.exhibition?.title}
                           </span>
                           <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
@@ -990,10 +1141,10 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            <BookingStatusBadge status={b.status} />
-                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                        <td className="py-3.5 px-4 align-middle">
+                          <div className="flex flex-col gap-1.5 items-start justify-center min-w-[125px]">
+                            <BookingStatusBadge status={b.status} className="w-full text-center" />
+                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full text-center" />
                           </div>
                         </td>
 
@@ -1111,7 +1262,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
         onRefresh={() => {
-          fetchRegisteredBookings();
+          fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
           fetchExhibitions();
         }}
       />
@@ -1124,7 +1275,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
           onClose={() => setPayingBooking(null)}
           onSuccess={() => {
             setPayingBooking(null);
-            fetchRegisteredBookings();
+            fetchRegisteredBookings(registrarFilterRef.current, balanceOnlyFilterRef.current, deskScopeRef.current);
             setSuccessBanner(`Payment recorded successfully for booking #${payingBooking.bookingReference}`);
           }}
           isAdminMode={true}

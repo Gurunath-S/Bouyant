@@ -961,7 +961,12 @@ static async createBalancePaymentOrder(
     );
   }
 
-  if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'CONFIRMED') {
+  if (
+    booking.status !== 'PENDING_PAYMENT' &&
+    booking.status !== 'CONFIRMED' &&
+    booking.status !== 'HELD' &&
+    booking.status !== 'INITIATED'
+  ) {
     throw ApiError.badRequest(
       `Balance payment is not allowed for booking with status ${booking.status}.`
     );
@@ -1056,7 +1061,7 @@ static async createBalancePaymentOrder(
 
   try {
     razorpayOrder = await razorpay.orders.create({
-      amount: payableAmount.mul(100).toNumber(),
+      amount: Math.round(payableAmount.mul(100).toNumber()),
       currency: 'INR',
       receipt: `BAL-${booking.bookingReference}`.substring(0, 40),
       notes: {
@@ -1112,6 +1117,7 @@ static async createBalancePaymentOrder(
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
     keyId: env.RAZORPAY_API_KEY,
+    razorpayKeyId: env.RAZORPAY_API_KEY,
     balanceAmount,
     payableAmount,
     isPartial,

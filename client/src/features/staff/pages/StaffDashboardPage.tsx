@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { reportService } from '../../../services/reports/reportService';
+import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
-import { ReportOverviewData, Booking } from '../../../types';
+import { Exhibition, Booking } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import {
-  CalendarPlus,
   Layers,
   Calendar,
   Building,
-  BarChart3,
   MapPin,
   ArrowRight,
   Briefcase,
@@ -24,49 +22,65 @@ import {
   Download,
   Eye,
   UserPlus,
+  Filter,
+  TrendingUp,
 } from 'lucide-react';
+
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 
 export const StaffDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [data, setData] = useState<ReportOverviewData | null>(null);
+  const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
+  const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>('ALL');
+  const [staffMetrics, setStaffMetrics] = useState({
+    totalBookings: 0,
+    totalValue: 0,
+    totalBalance: 0,
+    totalStalls: 0,
+  });
   const [recentStaffBookings, setRecentStaffBookings] = useState<Booking[]>([]);
-  const [totalStaffBookingsCount, setTotalStaffBookingsCount] = useState(0);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
   const [payingBooking, setPayingBooking] = useState<Booking | null>(null);
 
-  async function fetchMetrics() {
+  async function fetchExhibitionsList() {
     try {
-      const res = await reportService.getOverview();
-      setData(res);
+      const res = await exhibitionService.getExhibitions();
+      setExhibitions(res || []);
     } catch (err) {
-      console.error('Failed to load staff metrics:', err);
+      console.error('Failed to load exhibitions:', err);
     }
   }
 
-  async function fetchRecentStaffBookings() {
+  async function fetchStaffDashboardData(exhibitionId: string = selectedExhibitionId) {
     try {
       setLoadingBookings(true);
       const res: any = await bookingService.getAllBookings({
-        registeredByRole: 'STAFF',
-        limit: 5,
+        bookedByUserId: 'me',
+        exhibitionId: exhibitionId !== 'ALL' ? exhibitionId : undefined,
+        limit: 10,
       });
-      setRecentStaffBookings(res.data || []);
-      setTotalStaffBookingsCount(res?.meta?.total || (res.data ? res.data.length : 0));
+      setRecentStaffBookings(res?.data || []);
+      setStaffMetrics({
+        totalBookings: Number(res?.meta?.total || (res?.data ? res.data.length : 0)),
+        totalValue: Number(res?.meta?.totalValue || 0),
+        totalBalance: Number(res?.meta?.totalBalanceValue || 0),
+        totalStalls: Number(res?.meta?.totalStallsCount || 0),
+      });
     } catch (err) {
-      console.error('Failed to load recent staff bookings:', err);
+      console.error('Failed to load staff bookings & metrics:', err);
     } finally {
       setLoadingBookings(false);
     }
   }
 
   useEffect(() => {
-    fetchMetrics();
-    fetchRecentStaffBookings();
+    fetchExhibitionsList();
+    fetchStaffDashboardData('ALL');
 
     const onFocus = () => {
-      fetchMetrics();
-      fetchRecentStaffBookings();
+      fetchExhibitionsList();
+      fetchStaffDashboardData(selectedExhibitionId);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -74,10 +88,9 @@ export const StaffDashboardPage: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchMetrics();
-      fetchRecentStaffBookings();
+      fetchStaffDashboardData(selectedExhibitionId);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedExhibitionId]);
 
   return (
     <div className="space-y-6">
@@ -89,11 +102,11 @@ export const StaffDashboardPage: React.FC = () => {
               <Briefcase className="w-5 h-5" />
             </span>
             <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              Operations Staff Workspace
+              Staff Dashboard
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Welcome back, <strong>{user?.name}</strong>. Submit new exhibitions, register exhibitors, collect balances, and track operations.
+            Welcome back, <strong>{user?.name}</strong>. Register exhibitors, collect balances, and track operations.
           </p>
         </div>
 
@@ -108,89 +121,135 @@ export const StaffDashboardPage: React.FC = () => {
               Book Stall for Exhibitor
             </Button>
           </Link>
-          <Link to="/staff/events/register">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<CalendarPlus className="w-4 h-4" />}
-              className="font-bold border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
-            >
-              Submit Event
-            </Button>
-          </Link>
-          <Link to="/reports">
-            <Button variant="outline" size="sm" leftIcon={<BarChart3 className="w-4 h-4" />}>
-              Reports
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Events Registered by Staff */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-          <div className="flex justify-between items-start">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Submitted Expos</p>
-            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
-              <Layers className="w-4 h-4" />
-            </div>
+      {/* Performance Filter by Exhibition */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 border border-purple-200 dark:border-purple-800">
+            <Filter className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-            {data?.totalEventsRegistered || 0}
-          </p>
-          <span className="text-[11px] font-semibold text-emerald-600 mt-2 block">
-            Attributed to SP: {user?.spcode || 'STAFF'}
-          </span>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+              Filter Performance by Exhibition
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Select an exhibition to review bookings, sales, pending balances, and stalls allocated by you on that event.
+            </p>
+          </div>
         </div>
 
-        {/* Exhibitor Bookings by Staff */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <EventSelectorDropdown
+            events={exhibitions}
+            selectedEventId={selectedExhibitionId}
+            onSelectEvent={setSelectedExhibitionId}
+            allowAllOption={true}
+            allOptionLabel={`All Exhibitions (${exhibitions.length})`}
+            placeholder="Select Exhibition"
+          />
+          {selectedExhibitionId !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setSelectedExhibitionId('ALL')}
+              className="px-2.5 py-1.5 text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/60 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4 Clean Staff-Specific KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Total Bookings */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
             <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-              Exhibitors Registered
+              Total Bookings
             </p>
             <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2">
-            {totalStaffBookingsCount}
+          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2 font-mono">
+            {staffMetrics.totalBookings}
           </p>
-          <span className="text-[11px] font-semibold text-indigo-500 mt-2 block">
-            Direct assisted bookings
+          <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mt-2 block">
+            Exhibitors registered by you
           </span>
         </div>
 
-        {/* Total Platform Active Events */}
+        {/* 2. Total Booking Value */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Upcoming Expos</p>
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 border border-blue-200 dark:border-blue-800">
-              <Calendar className="w-4 h-4" />
+            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              Total Booking Value
+            </p>
+            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
+              <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-            {data?.upcomingEvents || 0}
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 font-mono">
+            ₹{staffMetrics.totalValue.toLocaleString('en-IN')}
           </p>
-          <span className="text-[11px] font-semibold text-slate-500 mt-2 block">
-            Scheduled across platform
+          <span className="text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-400/80 mt-2 block">
+            Gross revenue booked by you
           </span>
         </div>
 
-        {/* Stalls in Registered Events */}
+        {/* 3. Pending Balance */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex justify-between items-start">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Capacity Created</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Pending Balance
+            </p>
+            <div
+              className={`p-2 rounded-xl border ${
+                staffMetrics.totalBalance > 0
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 border-amber-200 dark:border-amber-800'
+                  : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border-emerald-200 dark:border-emerald-800'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <p
+            className={`text-2xl font-black mt-2 font-mono ${
+              staffMetrics.totalBalance > 0
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-slate-900 dark:text-slate-100'
+            }`}
+          >
+            ₹{staffMetrics.totalBalance.toLocaleString('en-IN')}
+          </p>
+          <span
+            className={`text-[11px] font-semibold mt-2 block ${
+              staffMetrics.totalBalance > 0
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            }`}
+          >
+            {staffMetrics.totalBalance > 0 ? 'Remaining balance to collect' : 'All accounts fully settled'}
+          </span>
+        </div>
+
+        {/* 4. Stalls Booked */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+          <div className="flex justify-between items-start">
+            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+              Stalls Booked
+            </p>
             <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 border border-purple-200 dark:border-purple-800">
               <Building className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-            {data?.totalStallsInRegisteredEvents || 0}
+          <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-2 font-mono">
+            {staffMetrics.totalStalls}
           </p>
-          <span className="text-[11px] font-semibold text-purple-600 mt-2 block">
-            Stalls in your events
+          <span className="text-[11px] font-semibold text-purple-600/80 dark:text-purple-400/80 mt-2 block">
+            Stalls booked & allocated by you
           </span>
         </div>
       </div>
@@ -231,13 +290,23 @@ export const StaffDashboardPage: React.FC = () => {
               Exhibitors you registered into trade shows with stall allocations and balance tracking.
             </p>
           </div>
-          <Link
-            to="/workspace/bookings?registrar=STAFF"
-            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <span>View All Bookings ({totalStaffBookingsCount})</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              to="/workspace/events/register?tab=registrations"
+              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              <span>View All My Bookings ({staffMetrics.totalBookings})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <span className="text-slate-300 dark:text-slate-700 select-none hidden sm:inline">|</span>
+            <Link
+              to="/workspace/bookings"
+              className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              <span>View All Bookings</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         {loadingBookings ? (
@@ -252,9 +321,16 @@ export const StaffDashboardPage: React.FC = () => {
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                      {b.bookingReference}
-                    </span>
+                    <div>
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 block">
+                        {b.bookingReference}
+                      </span>
+                      {b.createdAt && (
+                        <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          {formatDisplayDateTime(b.createdAt)}
+                        </span>
+                      )}
+                    </div>
                     <span className="font-bold text-slate-900 dark:text-slate-100">
                       {b.company?.name || 'Exhibitor'}
                     </span>
@@ -280,7 +356,7 @@ export const StaffDashboardPage: React.FC = () => {
                     const grandTotal = Number(b.grandTotal || 0);
                     const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
                     const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
-                    const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+                    const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
 
                     return (
                       <>
@@ -306,10 +382,11 @@ export const StaffDashboardPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setInspectedBooking(b)}
-                            className="p-1.5 text-slate-600 hover:text-emerald-600 bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"
-                            title="View Dossier"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors"
+                            title="View complete booking details"
                           >
                             <Eye className="w-3.5 h-3.5" />
+                            <span>View Details</span>
                           </button>
 
                           {isEligible && (
@@ -359,72 +436,7 @@ export const StaffDashboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* SECTION 2: Recent Events Registered by this Staff */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
-              My Submitted Events (Catalog)
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Exhibitions submitted under your account profile.
-            </p>
-          </div>
-          <Link to="/staff/events" className="text-xs font-bold text-emerald-600 hover:underline">
-            View All ({data?.registeredEvents?.length || 0}) →
-          </Link>
-        </div>
 
-        {data?.registeredEvents && data.registeredEvents.length > 0 ? (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-            {data.registeredEvents.slice(0, 5).map((e) => (
-              <div key={e.id} className="py-3.5 flex items-center justify-between text-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                      {e.title}
-                    </p>
-                    <span className="font-mono font-bold text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
-                      {e.eventCode}-{e.edition}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-500 text-[11px] mt-1">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      {formatDisplayDate(e.startDate)} – {formatDisplayDate(e.endDate)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      {e.venue}, {e.city}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span
-                    className={`inline-block px-2 py-0.5 text-[10px] font-extrabold rounded border ${
-                      e.status === 'PUBLISHED'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                        : 'bg-amber-50 text-amber-700 border-amber-300'
-                    }`}
-                  >
-                    {e.status}
-                  </span>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {e.totalStalls} Stalls planned
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="py-12 text-center text-xs text-slate-400">
-            <Layers className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-            <p className="font-semibold text-slate-600 dark:text-slate-300">No events submitted yet</p>
-            <p className="text-slate-400 mt-1">Submit your first event using the &quot;Submit Event&quot; button above.</p>
-          </div>
-        )}
-      </div>
 
       {/* Booking Dossier Modal */}
       <BookingDetailModal
@@ -432,8 +444,7 @@ export const StaffDashboardPage: React.FC = () => {
         isOpen={!!inspectedBooking}
         onClose={() => setInspectedBooking(null)}
         onRefresh={() => {
-          fetchRecentStaffBookings();
-          fetchMetrics();
+          fetchStaffDashboardData(selectedExhibitionId);
         }}
       />
 
@@ -445,8 +456,7 @@ export const StaffDashboardPage: React.FC = () => {
           onClose={() => setPayingBooking(null)}
           onSuccess={() => {
             setPayingBooking(null);
-            fetchRecentStaffBookings();
-            fetchMetrics();
+            fetchStaffDashboardData(selectedExhibitionId);
           }}
           isAdminMode={true}
         />

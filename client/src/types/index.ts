@@ -91,6 +91,7 @@ export interface Exhibition {
   status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED';
   category?: string;
   bannerUrl?: string;
+  images?: string[];
   totalStalls: number;
   bookedStallsCount?: number;
   availableStallsCount?: number;

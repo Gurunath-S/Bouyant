@@ -16,6 +16,8 @@ export interface DateInputProps {
   disabled?: boolean;
   className?: string;
   id?: string;
+  min?: string; // Accepts YYYY-MM-DD or DD/MM/YYYY
+  max?: string; // Accepts YYYY-MM-DD or DD/MM/YYYY
 }
 
 export const DateInput: React.FC<DateInputProps> = ({
@@ -28,6 +30,8 @@ export const DateInput: React.FC<DateInputProps> = ({
   disabled = false,
   className = '',
   id,
+  min,
+  max,
 }) => {
   const [displayText, setDisplayText] = useState('');
   const hiddenDateInputRef = useRef<HTMLInputElement>(null);
@@ -75,10 +79,32 @@ export const DateInput: React.FC<DateInputProps> = ({
     }
   };
 
+  // Normalize min and max into YYYY-MM-DD ISO format for native date input
+  const toIsoOnly = (d?: string): string | undefined => {
+    if (!d || !d.trim()) return undefined;
+    const trimmed = d.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return displayInputDateToIso(trimmed);
+    try {
+      const dt = new Date(trimmed);
+      if (!isNaN(dt.getTime())) {
+        return dt.toISOString().split('T')[0];
+      }
+    } catch {
+      // ignore
+    }
+    return undefined;
+  };
+
+  const minIso = toIsoOnly(min);
+  const maxIso = toIsoOnly(max);
+
   // Handle date selection from hidden native calendar picker
   const handleNativePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isoVal = e.target.value; // YYYY-MM-DD
     if (isoVal) {
+      if (minIso && isoVal < minIso) return;
+      if (maxIso && isoVal > maxIso) return;
       const displayVal = isoToDisplayInputDate(isoVal);
       setDisplayText(displayVal);
       onChange(isoVal);
@@ -145,6 +171,8 @@ export const DateInput: React.FC<DateInputProps> = ({
           ref={hiddenDateInputRef}
           type="date"
           tabIndex={-1}
+          min={minIso}
+          max={maxIso}
           value={currentIso && /^\d{4}-\d{2}-\d{2}$/.test(currentIso) ? currentIso : ''}
           onChange={handleNativePickerChange}
           className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"

@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { reportService } from '../../../services/reports/reportService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
-import { ReportOverviewData, Exhibition } from '../../../types';
+import { ReportOverviewData, Exhibition, Booking } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
+import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
+import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import {
   ShieldAlert,
   Users,
@@ -21,7 +23,11 @@ import {
   MapPin,
   Clock,
   Activity,
+  Eye,
+  CreditCard,
 } from 'lucide-react';
+
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 
 export const SuperAdminDashboardPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,6 +38,9 @@ export const SuperAdminDashboardPage: React.FC = () => {
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorMetrics, setErrorMetrics] = useState<string | null>(null);
+
+  const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);
+  const [payingBooking, setPayingBooking] = useState<Booking | null>(null);
 
 
   // Request race-condition protection ref
@@ -102,7 +111,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
               <ShieldAlert className="w-5 h-5" />
             </span>
             <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              Platform Super Admin Hub
+              Platform Overview
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
@@ -154,31 +163,20 @@ export const SuperAdminDashboardPage: React.FC = () => {
             >
               Event Scope Filter
             </label>
-            <div className="flex items-center gap-2 mt-0.5">
-              <select
-                id="overview-event-selector"
-                value={selectedEventId}
-                onChange={(e) => handleEventChange(e.target.value)}
-                disabled={loadingEvents}
-                className="w-full sm:w-auto min-w-[280px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 cursor-pointer"
-              >
-                <option value="ALL">All Events (Platform-Wide Overview)</option>
-                {publishedEvents.length > 0 ? (
-                  publishedEvents.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title} {ev.edition ? `(Edition ${ev.edition})` : ''} — {ev.city}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled value="">
-                    {loadingEvents ? 'Loading published events...' : 'No published events found'}
-                  </option>
-                )}
-              </select>
+            <div className="flex items-center gap-2 mt-1">
+              <EventSelectorDropdown
+                events={publishedEvents}
+                selectedEventId={selectedEventId}
+                onSelectEvent={handleEventChange}
+                allowAllOption={true}
+                allOptionLabel="All Events (Platform-Wide Overview)"
+                placeholder="Select Published Event"
+                align="left"
+              />
               {isEventScoped && (
                 <button
                   onClick={() => handleEventChange('ALL')}
-                  className="text-[11px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 underline shrink-0 px-2"
+                  className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:underline shrink-0 px-2 cursor-pointer"
                 >
                   Reset to All Events
                 </button>
@@ -493,28 +491,88 @@ export const SuperAdminDashboardPage: React.FC = () => {
           </div>
         ) : recentBookings.length > 0 ? (
           <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-            {recentBookings.map((b: any) => (
-              <div key={b.id} className="py-3 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-colors">
-                <div>
-                  <p className="font-bold text-slate-800 dark:text-slate-200">
-                    {b.company?.name || 'Exhibitor Client'}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                    {b.exhibition?.title || 'Exhibition'} • Ref: <span className="font-mono text-slate-700 dark:text-slate-300 font-bold">{b.bookingReference}</span>
-                    {b.createdAt && ` • ${formatDisplayDate(b.createdAt)}`}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-1 items-end">
-                  <p className="font-bold font-mono text-slate-900 dark:text-slate-100">
-                    ₹{Number(b.grandTotal || 0).toLocaleString()} INR
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <BookingStatusBadge status={b.status} />
-                    <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+            {recentBookings.map((b: any) => {
+              const grandTotal = Number(b.grandTotal || 0);
+              const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
+              const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+              const isEligibleForPayment = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
+
+              return (
+                <div
+                  key={b.id}
+                  onClick={() => setInspectedBooking(b)}
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/30 px-3 rounded-xl transition-colors cursor-pointer group"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 dark:text-slate-100">
+                        {b.company?.name || 'Exhibitor Client'}
+                      </span>
+                      <BookingStatusBadge status={b.status} />
+                      <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                    </div>
+                    <div>
+                      <span className="font-mono font-bold text-amber-700 dark:text-amber-400 group-hover:underline block">
+                        {b.bookingReference}
+                      </span>
+                      {b.createdAt && (
+                        <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          {formatDisplayDateTime(b.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      {b.exhibition?.title || 'Exhibition'}
+                      {b.stalls && b.stalls.length > 0 && ` • Stall(s): ${b.stalls.map((bs: any) => bs.stall?.stallNumber || bs.stallId).join(', ')}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 flex-wrap justify-between sm:justify-end">
+                    <div className="text-left sm:text-right">
+                      <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
+                        ₹{grandTotal.toLocaleString()} INR
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block">
+                        Paid: ₹{paidAmount.toLocaleString()}
+                      </span>
+                      {balanceDue > 0 ? (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block">
+                          Due: ₹{balanceDue.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
+                          Settled
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => setInspectedBooking(b)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors"
+                        title="View complete booking details"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Details</span>
+                      </button>
+
+                      {isEligibleForPayment && (
+                        <button
+                          type="button"
+                          onClick={() => setPayingBooking(b)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors"
+                          title="Collect / Record Balance Payment"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Pay Remaining</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="py-10 text-center text-xs text-slate-400">
@@ -522,6 +580,28 @@ export const SuperAdminDashboardPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Booking Dossier Modal */}
+      <BookingDetailModal
+        booking={inspectedBooking}
+        isOpen={!!inspectedBooking}
+        onClose={() => setInspectedBooking(null)}
+        onRefresh={() => fetchMetrics(selectedEventId)}
+      />
+
+      {/* Complete Payment Modal */}
+      {payingBooking && (
+        <CompletePaymentModal
+          booking={payingBooking}
+          isOpen={!!payingBooking}
+          onClose={() => setPayingBooking(null)}
+          onSuccess={() => {
+            setPayingBooking(null);
+            fetchMetrics(selectedEventId);
+          }}
+          isAdminMode={true}
+        />
+      )}
     </div>
   );
 };

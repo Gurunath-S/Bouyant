@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Exhibition } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
@@ -12,14 +12,44 @@ import {
   Calendar,
   MapPin,
   Search,
+  CheckCircle2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 export const StaffEventsPage: React.FC = () => {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [cityFilter, setCityFilter] = useState('ALL');
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    title?: string;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const stateNotif = (location.state as any)?.notification;
+    if (stateNotif) {
+      setNotification({
+        type: stateNotif.type || 'success',
+        title: stateNotif.title,
+        message: stateNotif.message || (typeof stateNotif === 'string' ? stateNotif : ''),
+      });
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   async function fetchEvents() {
     try {
@@ -53,7 +83,9 @@ export const StaffEventsPage: React.FC = () => {
       e.city.toLowerCase().includes(q) ||
       e.venue.toLowerCase().includes(q) ||
       (e.eventCode && e.eventCode.toLowerCase().includes(q)) ||
-      (e.spcode && e.spcode.toLowerCase().includes(q));
+      (e.spcode && e.spcode.toLowerCase().includes(q)) ||
+      (e.createdBy?.spcode && e.createdBy.spcode.toLowerCase().includes(q)) ||
+      (e.createdBy?.name && e.createdBy.name.toLowerCase().includes(q));
 
     const matchesCity =
       cityFilter === 'ALL' ||
@@ -87,6 +119,54 @@ export const StaffEventsPage: React.FC = () => {
           </Button>
         </Link>
       </div>
+
+      {/* Notification Banner */}
+      {notification && (
+        <div
+          className={`p-4 rounded-2xl border flex items-start justify-between shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
+            notification.type === 'success'
+              ? 'bg-emerald-50/90 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700/80 shadow-emerald-500/5'
+              : 'bg-rose-50/90 dark:bg-rose-950/60 text-rose-900 dark:text-rose-100 border-rose-300 dark:border-rose-700/80 shadow-rose-500/5'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`p-1.5 rounded-xl shrink-0 mt-0.5 ${
+                notification.type === 'success'
+                  ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <AlertCircle className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              {notification.title && (
+                <h4 className="font-bold text-xs uppercase tracking-wide opacity-90">
+                  {notification.title}
+                </h4>
+              )}
+              <p
+                className={`text-xs font-medium leading-relaxed ${
+                  notification.title ? 'mt-0.5 text-slate-700 dark:text-slate-300' : ''
+                }`}
+              >
+                {notification.message}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ml-4 shrink-0"
+            title="Dismiss message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -194,9 +274,12 @@ export const StaffEventsPage: React.FC = () => {
                     Stalls: <strong className="text-slate-800 dark:text-slate-200">{expo.totalStalls}</strong>
                   </span>
 
-                  {expo.spcode && (
-                    <span className="font-mono text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-bold">
-                      SP: {expo.spcode}
+                  {(expo.spcode || expo.createdBy?.spcode) && (
+                    <span
+                      className="font-mono text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-bold"
+                      title={expo.createdBy?.name ? `Created by ${expo.createdBy.name}` : undefined}
+                    >
+                      SP: {expo.spcode || expo.createdBy?.spcode}
                     </span>
                   )}
                 </div>

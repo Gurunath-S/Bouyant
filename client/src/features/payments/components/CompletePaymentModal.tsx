@@ -106,20 +106,29 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const executeRazorpay = async (orderData: any) => {
     await loadRazorpay();
     if (typeof (window as any).Razorpay === 'undefined') {
-      setError('Razorpay SDK failed to load. Please check your internet connection and try again.');
+      setError('Razorpay SDK failed to load. Please check your internet connection or ad-blocker and try again.');
+      setIsProcessing(false);
+      return;
+    }
+
+    const key = orderData?.keyId || orderData?.razorpayKeyId || orderData?.key || (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_ThoMbxHjNbMlJa';
+    const razorpayOrderId = orderData?.razorpayOrderId || orderData?.orderId || orderData?.order_id || orderData?.id;
+
+    if (!razorpayOrderId) {
+      setError('Invalid order ID received from payment gateway. Please try again.');
       setIsProcessing(false);
       return;
     }
 
     const options: any = {
-      key: orderData.keyId || orderData.razorpayKeyId,
+      key,
       amount: orderData.amount,
       currency: orderData.currency || 'INR',
       name: 'Buoyant Media',
       description: isPartialPayment
         ? `Partial Payment — Ref: ${booking.bookingReference}`
         : `Balance Payment — Ref: ${booking.bookingReference}`,
-      order_id: orderData.razorpayOrderId,
+      order_id: razorpayOrderId,
       handler: async function (paymentResponse: any) {
         try {
           setIsProcessing(true);
@@ -160,10 +169,15 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
     try {
       const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (resp: any) {
+        console.error('Razorpay payment failed:', resp?.error);
+        setError(resp?.error?.description || 'Payment was declined or cancelled.');
+        setIsProcessing(false);
+      });
       rzp.open();
     } catch (err: any) {
       console.error('Failed to launch Razorpay popup:', err);
-      setError('Unable to launch Razorpay gateway: ' + err.message);
+      setError('Unable to launch Razorpay gateway: ' + (err.message || 'Gateway initialization error'));
       setIsProcessing(false);
     }
   };
@@ -181,8 +195,6 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       return;
     }
 
-
-
     if (isPartialPayment && !nextDueDate) {
       setError('Please select a promise due date for the remaining balance.');
       return;
@@ -198,11 +210,12 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
         nextDueDate: isPartialPayment ? nextDueDate : undefined,
       });
 
-      if (!orderInfo || (!orderInfo.razorpayOrderId && !orderInfo.id)) {
+      const actualOrder = orderInfo?.data || orderInfo;
+      if (!actualOrder || (!actualOrder.razorpayOrderId && !actualOrder.id && !actualOrder.order_id)) {
         throw new Error('Failed to generate balance payment order from payment gateway.');
       }
 
-      executeRazorpay(orderInfo);
+      await executeRazorpay(actualOrder);
     } catch (err: any) {
       console.error('Failed to complete payment:', err);
       setError(err.response?.data?.message || err.message || 'Payment processing failed. Please try again.');

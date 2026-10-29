@@ -12,6 +12,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { formatDisplayDateTime } from '../../../utils/date';
 
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -38,7 +39,7 @@ export const AdminBookingsPage: React.FC = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState(searchParams.get('paymentStatus') || 'ALL');
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState(
-    searchParams.get('registrar') || (isStaff ? 'STAFF' : 'ALL')
+    searchParams.get('registrar') || 'ALL'
   );
   const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
 
@@ -53,6 +54,8 @@ export const AdminBookingsPage: React.FC = () => {
     const reqId = ++bookingsReqIdRef.current;
     try {
       setLoading(true);
+      const bookedByUserId = searchParams.get('bookedByUserId') || undefined;
+
       const res: any = await bookingService.getAllBookings({
         page: currentPage,
         limit: pageSize,
@@ -61,6 +64,7 @@ export const AdminBookingsPage: React.FC = () => {
         paymentStatus: paymentStatusFilter !== 'ALL' ? paymentStatusFilter : undefined,
         exhibitionId: exhibitionFilter !== 'ALL' ? exhibitionFilter : undefined,
         registeredByRole: registrarFilter !== 'ALL' ? registrarFilter : undefined,
+        bookedByUserId,
         hasBalanceOnly: balanceOnlyFilter || undefined,
       });
 
@@ -118,7 +122,7 @@ export const AdminBookingsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BookmarkCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Exhibition Bookings
+            Bookings & Allocations
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             View, filter, and audit stall space reservations across all platform exhibitions.
@@ -146,7 +150,7 @@ export const AdminBookingsPage: React.FC = () => {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search by ref, company name, stall #..."
+              placeholder="Search by ref, company name, stall No..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30 font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400"
@@ -200,7 +204,7 @@ export const AdminBookingsPage: React.FC = () => {
               onChange={(e) => setRegistrarFilter(e.target.value)}
               className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
             >
-              <option value="ALL">All Registrars</option>
+              <option value="ALL">All Registered</option>
               <option value="ADMIN">Admin Registered</option>
               <option value="STAFF">Staff Registered</option>
               <option value="CLIENT">Client Direct Online</option>
@@ -264,11 +268,18 @@ export const AdminBookingsPage: React.FC = () => {
                       <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-purple-700 dark:text-purple-400 group-hover:underline">
-                        {b.bookingReference}
-                      </td>
                       <td className="py-3.5 px-4">
-                        <span className="font-bold text-slate-900 dark:text-slate-100 block truncate max-w-xs">{b.exhibition?.title}</span>
+                        <span className="font-mono font-bold text-purple-700 dark:text-purple-400 group-hover:underline block">
+                          {b.bookingReference}
+                        </span>
+                        {b.createdAt && (
+                          <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                            {formatDisplayDateTime(b.createdAt)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 min-w-[200px]">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 block break-words">{b.exhibition?.title}</span>
                         <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
                           {b.exhibition?.eventCode}-{b.exhibition?.edition}
                         </span>
@@ -280,10 +291,10 @@ export const AdminBookingsPage: React.FC = () => {
                         <span className="font-bold block text-slate-900 dark:text-slate-100">{b.company?.name}</span>
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 block">{b.company?.contactPerson}</span>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-col gap-1 items-start">
-                          <BookingStatusBadge status={b.status} />
-                          <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} />
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="flex flex-col gap-1.5 items-start justify-center min-w-[125px]">
+                          <BookingStatusBadge status={b.status} className="w-full text-center" />
+                          <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full text-center" />
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-right">
@@ -320,18 +331,18 @@ export const AdminBookingsPage: React.FC = () => {
                               e.stopPropagation();
                               setInspectedBooking(b);
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
                             title="Inspect full booking details"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span>View</span>
+                            <span>View Details</span>
                           </button>
 
                           {(() => {
                             const grandTotal = Number(b.grandTotal || 0);
                             const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
                             const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
-                            const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+                            const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
 
                             if (!isEligible) return null;
                             return (
