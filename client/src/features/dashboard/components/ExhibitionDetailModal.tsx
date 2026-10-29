@@ -50,6 +50,18 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
   const startDateFormatted = formatDisplayDate(exhibition.startDate);
   const endDateFormatted = formatDisplayDate(exhibition.endDate);
 
+  const allImages = Array.isArray(exhibition.images) && exhibition.images.length > 0
+    ? exhibition.images.filter(Boolean)
+    : (exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
+
+  const [selectedPhoto, setSelectedPhoto] = React.useState<string>('');
+
+  React.useEffect(() => {
+    setSelectedPhoto(exhibition?.bannerUrl || allImages[0] || '');
+  }, [exhibition?.id, exhibition?.bannerUrl, exhibition?.images]);
+
+  const activeDisplayImg = selectedPhoto || exhibition.bannerUrl || allImages[0] || '';
+
   return (
     <Modal
       isOpen={isOpen}
@@ -58,24 +70,67 @@ export const ExhibitionDetailModal: React.FC<ExhibitionDetailModalProps> = ({
       maxWidth="2xl"
     >
       <div className="space-y-5 text-xs text-slate-700 dark:text-slate-200 max-h-[75vh] overflow-y-auto pr-1">
-        {/* Banner Preview */}
-        {exhibition.bannerUrl ? (
-          <div className="relative h-44 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-xs group">
-            <img
-              src={exhibition.bannerUrl}
-              alt={exhibition.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent flex flex-col justify-end p-4">
-              <span
-                className={`self-start px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider mb-1 ${getStatusBadge(
-                  exhibition.status
-                )}`}
-              >
-                {exhibition.status}
-              </span>
-              <h2 className="text-lg font-bold text-white leading-snug">{exhibition.title}</h2>
+        {/* Banner Preview & Multi-Photo Gallery */}
+        {activeDisplayImg ? (
+          <div className="space-y-2.5">
+            <div className="relative h-48 sm:h-56 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-xs group bg-slate-900">
+              <img
+                src={activeDisplayImg}
+                alt={exhibition.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent flex flex-col justify-end p-4">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span
+                    className={`self-start px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${getStatusBadge(
+                      exhibition.status
+                    )}`}
+                  >
+                    {exhibition.status}
+                  </span>
+                  {allImages.length > 1 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold border border-white/20">
+                      {Math.max(1, allImages.indexOf(activeDisplayImg) + 1)} / {allImages.length} Photos
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg font-bold text-white leading-snug">{exhibition.title}</h2>
+              </div>
             </div>
+
+            {/* Thumbnail Gallery Strip when multiple photos exist */}
+            {allImages.length > 1 && (
+              <div className="space-y-1.5 pt-0.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <span>Uploaded Event Photos & Banners ({allImages.length})</span>
+                  <span className="text-[10px] text-purple-600 dark:text-purple-400">Click any image to preview</span>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                  {allImages.map((img, idx) => {
+                    const isSelected = activeDisplayImg === img;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedPhoto(img)}
+                        className={`relative h-14 w-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shadow-2xs ${
+                          isSelected
+                            ? 'border-purple-600 ring-2 ring-purple-400/40 scale-102'
+                            : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100 hover:border-purple-300'
+                        }`}
+                      >
+                        <img src={img} alt={`Event photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        {img === exhibition.bannerUrl && (
+                          <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 bg-purple-600 text-[8px] font-bold text-white rounded">
+                            Cover
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">

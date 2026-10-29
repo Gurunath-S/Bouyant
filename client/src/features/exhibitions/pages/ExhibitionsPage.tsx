@@ -5,7 +5,6 @@ import { Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
-import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
 import { useAuthStore } from '../../../stores/authStore';
 import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
@@ -15,7 +14,6 @@ export const ExhibitionsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [cityFilter, setCityFilter] = useState('ALL');
 
   async function fetchExhibitions() {
     try {
@@ -44,14 +42,6 @@ export const ExhibitionsPage: React.FC = () => {
     )[0];
   }, [exhibitions]);
 
-  const availableCities = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const e of exhibitions) {
-      if (e.city && e.city.trim()) set.add(e.city.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [exhibitions]);
-
   const now = new Date();
   const filtered = exhibitions.filter((e) => {
     // Hide DRAFT or CANCELLED exhibitions from public page
@@ -72,11 +62,7 @@ export const ExhibitionsPage: React.FC = () => {
       e.city.toLowerCase().includes(search.toLowerCase()) ||
       e.venue.toLowerCase().includes(search.toLowerCase());
 
-    const matchesCity =
-      cityFilter === 'ALL' ||
-      (e.city && e.city.trim().toLowerCase() === cityFilter.trim().toLowerCase());
-
-    return matchesSearch && matchesCity;
+    return matchesSearch;
   });
 
   const getBackConfig = () => {
@@ -106,7 +92,7 @@ export const ExhibitionsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            Exhibitions & Trade Fairs
+            Browse Exhibitions
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Browse trade shows. <strong className="text-purple-600 dark:text-purple-400">Note: Stall bookings are strictly open for the current upcoming event alone.</strong>
@@ -114,14 +100,6 @@ export const ExhibitionsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <CityFilterDropdown
-            label="City"
-            value={cityFilter}
-            onChange={setCityFilter}
-            cities={availableCities}
-            placeholder="All Cities"
-          />
-
           <div className="max-w-xs w-full">
             <Input
               placeholder="Search by event, city, or venue..."

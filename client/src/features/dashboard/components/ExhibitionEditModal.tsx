@@ -84,40 +84,54 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           bannerUrl: exhibition.bannerUrl || '',
           status: exhibition.status || 'DRAFT',
         });
-      setImages(exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
-      setCoordinates({
-        lat: exhibition.latitude ? Number(exhibition.latitude) : undefined,
-        lng: exhibition.longitude ? Number(exhibition.longitude) : undefined,
-      });
-      setErrorMessage(null);
-    }
-  }, [exhibition]);
+        const loadedImages = Array.isArray(exhibition.images) && exhibition.images.length > 0
+          ? exhibition.images
+          : (exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
+        setImages(loadedImages);
+        setCoordinates({
+          lat: exhibition.latitude ? Number(exhibition.latitude) : undefined,
+          lng: exhibition.longitude ? Number(exhibition.longitude) : undefined,
+        });
+        setErrorMessage(null);
+      }
+    }, [exhibition]);
 
-  if (!exhibition) return null;
+    if (!exhibition) return null;
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
+    const handleChange = (field: string, value: string) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      setErrorMessage('Exhibition title is required.');
-      return;
-    }
-    if (!formData.venue.trim() || !formData.city.trim()) {
-      setErrorMessage('Venue and city are required.');
-      return;
-    }
-    if (!formData.startDate || !formData.endDate) {
-      setErrorMessage('Start and end dates are required.');
-      return;
-    }
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!formData.title.trim()) {
+        setErrorMessage('Exhibition title is required.');
+        return;
+      }
+      if (!formData.venue.trim() || !formData.city.trim()) {
+        setErrorMessage('Venue and city are required.');
+        return;
+      }
+      if (!formData.startDate || !formData.endDate) {
+        setErrorMessage('Start and end dates are required.');
+        return;
+      }
+      if (formData.startDate && formData.endDate && formData.endDate < formData.startDate) {
+        setErrorMessage('Exhibition end date cannot be earlier than start date.');
+        return;
+      }
+      if (formData.endDate && formData.bookingEndDate && formData.bookingEndDate > formData.endDate) {
+        setErrorMessage('Booking closing date cannot be after exhibition end date.');
+        return;
+      }
 
-    try {
-      setLoading(true);
-      setErrorMessage(null);
-      await exhibitionService.updateExhibition(exhibition.id, formData);
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+        await exhibitionService.updateExhibition(exhibition.id, {
+          ...formData,
+          images,
+        });
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -240,6 +254,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
               setFormData((prev) => ({
                 ...prev,
                 startDate: isoVal,
+                endDate: prev.endDate && isoVal && prev.endDate < isoVal ? isoVal : prev.endDate,
                 bookingEndDate: prev.bookingEndDate || calculateDefaultBookingEndDate(isoVal),
               }));
             }}
@@ -249,6 +264,7 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
           <DateInput
             label="End Date"
             value={formData.endDate}
+            min={formData.startDate}
             onChange={(isoVal) => handleChange('endDate', isoVal)}
             required
             helperText="Format: DD/MM/YYYY"
@@ -262,26 +278,41 @@ export const ExhibitionEditModal: React.FC<ExhibitionEditModalProps> = ({
               <Calendar className="w-3.5 h-3.5 text-purple-600" />
               Stall Booking Cut-Off Deadline
             </span>
-            {formData.startDate && (
-              <button
-                type="button"
-                onClick={() => {
-                  const autoD = calculateDefaultBookingEndDate(formData.startDate);
-                  handleChange('bookingEndDate', autoD);
-                }}
-                className="text-[10px] font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                title="Reset cut-off to 15 days before start"
-              >
-                Reset to 15 Days Prior
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {formData.startDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const autoD = calculateDefaultBookingEndDate(formData.startDate);
+                    handleChange('bookingEndDate', autoD);
+                  }}
+                  className="text-[10px] font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                  title="Reset cut-off to 15 days before start"
+                >
+                  Reset (15 Days Prior)
+                </button>
+              )}
+              {formData.endDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleChange('bookingEndDate', formData.endDate);
+                  }}
+                  className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-white border border-blue-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                  title="Set cut-off to same day as exhibition end date"
+                >
+                  Same Day as End
+                </button>
+              )}
+            </div>
           </div>
           <DateInput
             label="Booking Closing Date"
             value={formData.bookingEndDate}
+            max={formData.endDate || undefined}
             onChange={(isoVal) => handleChange('bookingEndDate', isoVal)}
             required
-            helperText="Public stall bookings will automatically stop after this date."
+            helperText="Public stall bookings will automatically stop after this date (cannot be after exhibition end date)."
           />
         </div>
 

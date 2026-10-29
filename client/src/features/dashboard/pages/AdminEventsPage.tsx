@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Exhibition } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
-import { CityFilterDropdown } from '../../../components/ui/CityFilterDropdown';
+import { Tooltip } from '../../../components/ui/Tooltip';
 import { formatDisplayDate } from '../../../utils/date';
 import {
   Layers,
@@ -21,6 +21,7 @@ import {
   Loader2,
   Search,
   MapPin,
+  X,
 } from 'lucide-react';
 
 const getStatusConfig = (status: Exhibition['status']) => {
@@ -59,6 +60,7 @@ const getStatusConfig = (status: Exhibition['status']) => {
 
 export const AdminEventsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,12 +68,39 @@ export const AdminEventsPage: React.FC = () => {
   const [exhibitionToDelete, setExhibitionToDelete] = useState<Exhibition | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    title?: string;
+    message: string;
+  } | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  // Capture notifications passed via navigation (e.g. from event builder after create/update)
+  useEffect(() => {
+    const stateNotif = (location.state as any)?.notification;
+    if (stateNotif) {
+      setNotification({
+        type: stateNotif.type || 'success',
+        title: stateNotif.title,
+        message: stateNotif.message || (typeof stateNotif === 'string' ? stateNotif : ''),
+      });
+      // Clear location state so refreshing or soft navigation doesn't replay the notification
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  // Auto-dismiss notification after 7 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [cityFilter, setCityFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -106,14 +135,6 @@ export const AdminEventsPage: React.FC = () => {
     };
   }, [exhibitions]);
 
-  const availableCities = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const e of exhibitions) {
-      if (e.city && e.city.trim()) set.add(e.city.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [exhibitions]);
-
   const filteredExhibitions = React.useMemo(() => {
     return exhibitions.filter((e) => {
       const q = searchQuery.toLowerCase().trim();
@@ -124,7 +145,9 @@ export const AdminEventsPage: React.FC = () => {
         (e.slug && e.slug.toLowerCase().includes(q)) ||
         (e.city && e.city.toLowerCase().includes(q)) ||
         (e.venue && e.venue.toLowerCase().includes(q)) ||
-        (e.spcode && e.spcode.toLowerCase().includes(q));
+        (e.spcode && e.spcode.toLowerCase().includes(q)) ||
+        (e.createdBy?.spcode && e.createdBy.spcode.toLowerCase().includes(q)) ||
+        (e.createdBy?.name && e.createdBy.name.toLowerCase().includes(q));
 
       let matchesStatus = true;
       if (statusFilter === 'PUBLISHED') {
@@ -139,17 +162,13 @@ export const AdminEventsPage: React.FC = () => {
         matchesStatus = true;
       }
 
-      const matchesCity =
-        cityFilter === 'ALL' ||
-        (e.city && e.city.trim().toLowerCase() === cityFilter.trim().toLowerCase());
-
-      return matchesQuery && matchesStatus && matchesCity;
+      return matchesQuery && matchesStatus;
     });
-  }, [exhibitions, searchQuery, statusFilter, cityFilter]);
+  }, [exhibitions, searchQuery, statusFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, cityFilter]);
+  }, [searchQuery, statusFilter]);
 
   const paginatedExhibitions = React.useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -217,7 +236,7 @@ export const AdminEventsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
             <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Exhibitions & Trade Fairs
+            Exhibitions & Floor Plans
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Manage your scheduled B2B trade fairs, interactive floor plan builders, and booking availability statuses.
@@ -249,25 +268,47 @@ export const AdminEventsPage: React.FC = () => {
       {/* Notification Banner */}
       {notification && (
         <div
-          className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
+          className={`p-4 rounded-2xl border flex items-start justify-between shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
             notification.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
-              : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+              ? 'bg-emerald-50/90 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700/80 shadow-emerald-500/5'
+              : 'bg-rose-50/90 dark:bg-rose-950/60 text-rose-900 dark:text-rose-100 border-rose-300 dark:border-rose-700/80 shadow-rose-500/5'
           }`}
         >
-          <div className="flex items-center gap-2">
-            {notification.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-            )}
-            <span className="font-semibold">{notification.message}</span>
+          <div className="flex items-start gap-3">
+            <div
+              className={`p-1.5 rounded-xl shrink-0 mt-0.5 ${
+                notification.type === 'success'
+                  ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <AlertCircle className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              {notification.title && (
+                <h4 className="font-bold text-xs uppercase tracking-wide opacity-90">
+                  {notification.title}
+                </h4>
+              )}
+              <p
+                className={`text-xs font-medium leading-relaxed ${
+                  notification.title ? 'mt-0.5 text-slate-700 dark:text-slate-300' : ''
+                }`}
+              >
+                {notification.message}
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setNotification(null)}
-            className="text-xs font-bold underline hover:opacity-80 ml-4"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ml-4 shrink-0"
+            title="Dismiss message"
           >
-            Dismiss
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -362,14 +403,6 @@ export const AdminEventsPage: React.FC = () => {
 
         {/* Action Tabs & Status Filter */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* City / Location Filter */}
-          <CityFilterDropdown
-            label="City"
-            value={cityFilter}
-            onChange={setCityFilter}
-            cities={availableCities}
-            placeholder="All Cities"
-          />
 
           <button
             onClick={() => setStatusFilter('ALL')}
@@ -453,19 +486,34 @@ export const AdminEventsPage: React.FC = () => {
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                   <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                   <th className="py-3.5 px-4">
-                    <div className="flex items-center gap-1 group relative cursor-help">
-                      <span>Event Title & Slug</span>
-                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-                      {/* Tooltip explanation */}
-                      <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl font-normal normal-case leading-relaxed pointer-events-none">
-                        <strong>What is a Slug?</strong>
-                        <p className="mt-0.5 text-slate-300">
-                          A URL-friendly string used to access the public booking page (e.g. <span className="text-purple-300 font-mono">/events/mediccon-2026</span>) and optimize search ranking.
-                        </p>
+                    <Tooltip
+                      content="What is an Event Slug?"
+                      description={
+                        <span>
+                          A clean URL string used to access the public booking portal (e.g.{' '}
+                          <code className="text-purple-300 font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded">/events/mediccon-2026</code>) and optimize search indexing.
+                        </span>
+                      }
+                      position="top"
+                    >
+                      <div className="inline-flex items-center gap-1.5 cursor-help group text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors select-none">
+                        <span>Event Title & Slug</span>
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" />
                       </div>
-                    </div>
+                    </Tooltip>
                   </th>
-                  <th className="py-3.5 px-4">SP Code</th>
+                  <th className="py-3.5 px-4">
+                    <Tooltip
+                      content="Sales Person (SP) Attribution"
+                      description="The sales allocation code and team member responsible for this exhibition and company registrations."
+                      position="top"
+                    >
+                      <div className="inline-flex items-center gap-1.5 cursor-help group text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors select-none">
+                        <span>SP Code / Name</span>
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" />
+                      </div>
+                    </Tooltip>
+                  </th>
                   <th className="py-3.5 px-4">Venue & Location</th>
                   <th className="py-3.5 px-4">Event Dates</th>
                   <th className="py-3.5 px-4 text-center">Capacity</th>
@@ -510,13 +558,23 @@ export const AdminEventsPage: React.FC = () => {
                   </div>
                 </td>
                 <td className="py-3.5 px-4">
-                  {e.spcode ? (
-                    <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold text-[11px] px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 inline-block">
-                      {e.spcode}
-                    </span>
-                  ) : (
-                    <span className="text-slate-400 dark:text-slate-500 text-xs font-mono">—</span>
-                  )}
+                  <div className="flex flex-col items-start gap-1">
+                    {e.spcode || e.createdBy?.spcode ? (
+                      <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold text-[11px] px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 inline-block shadow-2xs">
+                        {e.spcode || e.createdBy?.spcode}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 dark:text-slate-500 text-xs font-mono">—</span>
+                    )}
+                    {e.createdBy?.name && (
+                      <span
+                        className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate max-w-[130px]"
+                        title={`Created by: ${e.createdBy.name}${e.createdBy.role ? ` (${e.createdBy.role})` : ''}`}
+                      >
+                        {e.createdBy.name}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300">{e.venue}, {e.city}</td>
                 <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
@@ -580,27 +638,31 @@ export const AdminEventsPage: React.FC = () => {
                     onClick={(evt) => evt.stopPropagation()}
                   >
                     {/* Edit Exhibition & Floor Plan Button */}
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/workspace/events/${e.id}/edit`)}
-                      className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700 rounded-lg shadow-2xs transition-all"
-                      title="Edit Exhibition & Floor Plan"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
+                    <Tooltip content="Edit Exhibition & Floor Plan" description="Modify dates, venues, categories, or booth layout" position="top">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/workspace/events/${e.id}/edit`)}
+                        className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700 rounded-lg shadow-2xs transition-all cursor-pointer"
+                        aria-label="Edit Exhibition & Floor Plan"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
 
                     {/* Delete Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteError(null);
-                        setExhibitionToDelete(e);
-                      }}
-                      className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-700 rounded-lg shadow-2xs transition-all"
-                      title="Delete Exhibition"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <Tooltip content="Delete Exhibition" description="Permanently delete this event and its draft floor plan" position="top">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setExhibitionToDelete(e);
+                        }}
+                        className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-700 rounded-lg shadow-2xs transition-all cursor-pointer"
+                        aria-label="Delete Exhibition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>

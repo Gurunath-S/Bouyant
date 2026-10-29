@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CreateExhibitionSchema = z
+export const ExhibitionBaseSchema = z
   .object({
     title: z.string().min(1, 'Title is required'),
     slug: z.string().optional(),
@@ -19,6 +19,7 @@ export const CreateExhibitionSchema = z
     endDate: z.string(),
     bookingEndDate: z.string().optional().nullable().or(z.literal('')),
     bannerUrl: z.string().optional().or(z.literal('')),
+    images: z.array(z.string()).optional().default([]),
     notificationEmails: z.string().optional().nullable().or(z.literal('')),
     totalStalls: z.number().optional(),
     status: z
@@ -33,7 +34,40 @@ export const CreateExhibitionSchema = z
   })
   .passthrough();
 
-export const UpdateExhibitionSchema = CreateExhibitionSchema.partial().passthrough();
+const validateExhibitionPayload = (
+  data: { startDate?: string; endDate?: string; notificationEmails?: string | null },
+  ctx: z.RefinementCtx
+) => {
+  if (data.startDate && data.endDate) {
+    const s = new Date(data.startDate);
+    const e = new Date(data.endDate);
+    if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e <= s) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Exhibition end date & closing time must be strictly after start date & opening time',
+        path: ['endDate'],
+      });
+    }
+  }
+
+  if (data.notificationEmails && data.notificationEmails.trim()) {
+    const emailRegex =
+      /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+    const emails = data.notificationEmails.split(',').map((e) => e.trim()).filter(Boolean);
+    const invalid = emails.filter((e) => !emailRegex.test(e));
+    if (invalid.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Invalid recipient email format: ${invalid.map((e) => `"${e}"`).join(', ')}`,
+        path: ['notificationEmails'],
+      });
+    }
+  }
+};
+
+export const CreateExhibitionSchema = ExhibitionBaseSchema.superRefine(validateExhibitionPayload);
+
+export const UpdateExhibitionSchema = ExhibitionBaseSchema.partial().superRefine(validateExhibitionPayload);
 
 export type CreateExhibitionInput = z.infer<typeof CreateExhibitionSchema>;
 export type UpdateExhibitionInput = z.infer<typeof UpdateExhibitionSchema>;

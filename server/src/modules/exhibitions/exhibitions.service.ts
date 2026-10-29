@@ -112,6 +112,7 @@ export class ExhibitionsService {
 
       return {
         ...exhibition,
+        spcode: exhibition.spcode || exhibition.createdBy?.spcode || null,
         totalStalls,
         bookedStallsCount,
         availableStallsCount,
@@ -154,6 +155,9 @@ export class ExhibitionsService {
               },
             },
           },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true, spcode: true },
         },
       },
     });
@@ -198,6 +202,7 @@ export class ExhibitionsService {
 
     return {
       ...exhibition,
+      spcode: exhibition.spcode || (exhibition as any).createdBy?.spcode || null,
       totalStalls,
       bookedStallsCount,
       availableStallsCount,
@@ -206,9 +211,29 @@ export class ExhibitionsService {
   }
 
   static async createExhibition(input: CreateExhibitionInput, creatorId?: string) {
+    const trimmedTitle = input.title ? input.title.trim() : '';
+    if (!trimmedTitle) {
+      throw ApiError.badRequest('Exhibition event name is required.');
+    }
+
+    // Enforce unique exhibition name
+    const existingByTitle = await prisma.exhibition.findFirst({
+      where: {
+        title: {
+          equals: trimmedTitle,
+          mode: 'insensitive',
+        },
+      },
+    });
+    if (existingByTitle) {
+      throw ApiError.badRequest(
+        `An exhibition with the name "${trimmedTitle}" already exists. Exhibition names must be unique to prevent duplicate entries.`
+      );
+    }
+
     let baseSlug = (input as any).slug
       ? (input as any).slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-      : input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      : trimmedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
     if (!baseSlug) baseSlug = `exhibition-${Date.now().toString().slice(-4)}`;
 
@@ -252,14 +277,24 @@ export class ExhibitionsService {
       }
     }
 
-    // SP code identifies the admin who created the exhibition.
-    if (spcode) {
+    // SP code identifies the admin/staff member who created or was allocated the exhibition.
+    if (spcode && spcode !== 'B003') {
       spcode = String(spcode).toUpperCase().trim();
     } else if (creatorId) {
       const creator = await prisma.user.findUnique({ where: { id: creatorId } });
       if (creator?.spcode) {
         spcode = creator.spcode;
+      } else if (creator?.role === 'SUPERADMIN') {
+        spcode = 'SA01';
+      } else if (creator?.role === 'ADMIN') {
+        spcode = 'AD01';
+      } else if (creator?.role === 'STAFF') {
+        spcode = 'ST01';
       }
+    }
+
+    if (!spcode) {
+      spcode = 'AD01';
     }
 
     // Auto-resolve any event code / edition collision so a newer unique code is always assigned
@@ -307,8 +342,10 @@ export class ExhibitionsService {
         category: input.category || null,
         startDate: startDt,
         endDate: endDt,
-        bookingEndDate: bookingEndDt,
-        bannerUrl: input.bannerUrl || null,
+        bannerUrl: input.bannerUrl || (input.images && input.images[0]) || null,
+        images: Array.isArray(input.images) && input.images.length > 0
+          ? input.images.filter(Boolean)
+          : (input.bannerUrl ? [input.bannerUrl] : []),
         notificationEmails: input.notificationEmails || null,
         totalStalls: Number(input.totalStalls) || 0,
         status: exhibitionStatus as any,
@@ -409,7 +446,27 @@ export class ExhibitionsService {
     const id = exhibition.id;
 
     const cleanUpdateData: any = {};
-    if (input.title !== undefined) cleanUpdateData.title = input.title;
+    if (input.title !== undefined) {
+      const trimmedTitle = input.title.trim();
+      if (!trimmedTitle) {
+        throw ApiError.badRequest('Exhibition event name cannot be empty.');
+      }
+      const existingByTitle = await prisma.exhibition.findFirst({
+        where: {
+          id: { not: id },
+          title: {
+            equals: trimmedTitle,
+            mode: 'insensitive',
+          },
+        },
+      });
+      if (existingByTitle) {
+        throw ApiError.badRequest(
+          `An exhibition with the name "${trimmedTitle}" already exists. Exhibition names must be unique to prevent duplicate entries.`
+        );
+      }
+      cleanUpdateData.title = trimmedTitle;
+    }
     if (input.description !== undefined) cleanUpdateData.description = input.description;
     if (input.venue !== undefined) cleanUpdateData.venue = input.venue;
     if (input.address !== undefined) cleanUpdateData.address = input.address || null;
@@ -427,7 +484,18 @@ export class ExhibitionsService {
     if (input.bookingEndDate !== undefined) {
       cleanUpdateData.bookingEndDate = input.bookingEndDate ? new Date(input.bookingEndDate) : null;
     }
-    if (input.bannerUrl !== undefined) cleanUpdateData.bannerUrl = input.bannerUrl || null;
+    if (input.images !== undefined) {
+      cleanUpdateData.images = Array.isArray(input.images) ? input.images.filter(Boolean) : [];
+      if (!input.bannerUrl && cleanUpdateData.images.length > 0) {
+        cleanUpdateData.bannerUrl = cleanUpdateData.images[0];
+      }
+    }
+    if (input.bannerUrl !== undefined) {
+      cleanUpdateData.bannerUrl = input.bannerUrl || (cleanUpdateData.images?.[0]) || null;
+      if (cleanUpdateData.bannerUrl && cleanUpdateData.images && !cleanUpdateData.images.includes(cleanUpdateData.bannerUrl)) {
+        cleanUpdateData.images = [cleanUpdateData.bannerUrl, ...cleanUpdateData.images];
+      }
+    }
     if (input.notificationEmails !== undefined) {
       cleanUpdateData.notificationEmails = input.notificationEmails || null;
     }

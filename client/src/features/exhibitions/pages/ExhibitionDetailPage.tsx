@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
 import { Exhibition, Stall } from '../../../types';
@@ -18,6 +18,9 @@ import {
   ExternalLink,
   Lock,
   Layers,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { FloorPlanCanvas } from '../../floor-plan/components/FloorPlanCanvas';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
@@ -33,11 +36,24 @@ export const ExhibitionDetailPage: React.FC = () => {
   const { user, isAuthenticated } = useAuthStore();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const fromQuery = searchParams.get('from');
+  const fromReferrer = (location.state as any)?.from || fromQuery;
+  const fromReferrerLabel =
+    (location.state as any)?.fromLabel ||
+    (fromReferrer?.includes('register')
+      ? 'Back to Event Registration Hub'
+      : fromReferrer?.includes('events')
+      ? 'Back to Exhibitions Console'
+      : undefined);
 
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const { selectedStallIds, toggleStallSelection, clearStallSelection: _clearStallSelection } = useFloorPlanStore();
 
   const isBookingClosed = React.useMemo(() => {
@@ -149,6 +165,7 @@ export const ExhibitionDetailPage: React.FC = () => {
   }
 
   useEffect(() => {
+    setActivePhotoIndex(0);
     fetchExhibition();
     fetchCurrentUpcoming();
   }, [slug]);
@@ -163,11 +180,11 @@ export const ExhibitionDetailPage: React.FC = () => {
   }
 
   const getBackConfig = () => {
-    if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN') {
-      return { to: '/workspace/events', label: 'Back to Exhibitions Console' };
+    if (fromReferrer) {
+      return { to: fromReferrer, label: fromReferrerLabel || 'Back to Event Registration Hub' };
     }
-    if (user?.role === 'STAFF') {
-      return { to: '/staff/events', label: 'Back to Staff Events' };
+    if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN' || user?.role === 'STAFF') {
+      return { to: '/workspace/events/register', label: 'Back to Event Registration Hub' };
     }
     return { to: '/exhibitions', label: 'Back to All Exhibitions' };
   };
@@ -210,7 +227,11 @@ export const ExhibitionDetailPage: React.FC = () => {
   const fillPercentage = totalSlots > 0 ? Math.min(100, Math.round((registeredCount / totalSlots) * 100)) : 0;
   const isFull = exhibition.isFull === true || (totalSlots > 0 && availableCount <= 0);
 
-  const bannerImg = exhibition.bannerUrl || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1200&auto=format&fit=crop';
+  const allEventImages = Array.isArray(exhibition.images) && exhibition.images.length > 0
+    ? exhibition.images.filter(Boolean)
+    : (exhibition.bannerUrl ? [exhibition.bannerUrl] : []);
+
+  const currentBannerImg = allEventImages[activePhotoIndex] || exhibition.bannerUrl || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1200&auto=format&fit=crop';
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-[#121B3D] dark:text-slate-100 font-sans selection:bg-[#0E8074] selection:text-white transition-colors duration-200">
@@ -228,25 +249,88 @@ export const ExhibitionDetailPage: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* DETAILS HERO BANNER */}
+      {/* DETAILS HERO BANNER & MULTI-MEDIA CAROUSEL */}
       {/* ========================================================================= */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         <div
-          className="h-64 sm:h-[340px] rounded-2xl sm:rounded-3xl bg-cover bg-center relative overflow-hidden flex items-end shadow-md border border-[#E6EAF0] dark:border-slate-800"
-          style={{ backgroundImage: `url(${bannerImg})` }}
+          className="h-64 sm:h-[360px] rounded-2xl sm:rounded-3xl bg-cover bg-center relative overflow-hidden flex items-end shadow-md border border-[#E6EAF0] dark:border-slate-800 transition-all duration-500"
+          style={{ backgroundImage: `url(${currentBannerImg})` }}
         >
           {/* Banner Dark Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0F294D] via-[#0F294D]/40 to-transparent" />
 
-          <div className="relative z-10 p-5 sm:p-8 text-white space-y-2.5">
-            <span className="bg-[#0E8074] text-white font-bold text-xs px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-md">
-              {exhibition.category || 'Exhibition'}
-            </span>
+          {/* Navigation Arrows when multiple images are uploaded */}
+          {allEventImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivePhotoIndex((prev) => (prev > 0 ? prev - 1 : allEventImages.length - 1));
+                }}
+                className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all z-20 cursor-pointer shadow-md border border-white/20"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivePhotoIndex((prev) => (prev < allEventImages.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all z-20 cursor-pointer shadow-md border border-white/20"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </>
+          )}
+
+          <div className="relative z-10 p-5 sm:p-8 text-white space-y-2.5 w-full">
+            <div className="flex items-center justify-between gap-3">
+              <span className="bg-[#0E8074] text-white font-bold text-xs px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-md">
+                {exhibition.category || 'Exhibition'}
+              </span>
+              {allEventImages.length > 1 && (
+                <span className="px-3 py-1 rounded-full bg-black/50 backdrop-blur-md text-white font-mono text-xs font-bold border border-white/20">
+                  {activePhotoIndex + 1} / {allEventImages.length} Photos
+                </span>
+              )}
+            </div>
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold leading-tight max-w-3xl drop-shadow-md">
               {exhibition.title}
             </h1>
           </div>
         </div>
+
+        {/* Thumbnail Navigation Strip */}
+        {allEventImages.length > 1 && (
+          <div className="flex items-center gap-2.5 overflow-x-auto py-3 scrollbar-thin">
+            {allEventImages.map((img, idx) => {
+              const isSelected = idx === activePhotoIndex;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActivePhotoIndex(idx)}
+                  className={`relative h-14 sm:h-16 w-20 sm:w-24 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shadow-2xs ${
+                    isSelected
+                      ? 'border-[#0E8074] ring-2 ring-[#0E8074]/40 scale-102'
+                      : 'border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100 hover:border-slate-400'
+                  }`}
+                >
+                  <img src={img} alt={`Event photo ${idx + 1}`} className="w-full h-full object-cover" />
+                  {img === exhibition.bannerUrl && (
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.2 bg-[#0E8074] text-[8px] font-bold text-white rounded">
+                      Cover
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -383,6 +467,51 @@ export const ExhibitionDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Section: Event Photos & Media Gallery */}
+          {allEventImages.length > 1 && (
+            <div className="space-y-4 bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-lg font-bold text-[#121B3D] dark:text-slate-100 flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-[#0E8074]" />
+                  <span>Event Photos & Media Gallery ({allEventImages.length})</span>
+                </h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Click any image to view in main banner</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
+                {allEventImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setActivePhotoIndex(idx);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`group relative h-28 sm:h-32 rounded-xl overflow-hidden border cursor-pointer transition-all shadow-2xs ${
+                      idx === activePhotoIndex
+                        ? 'border-[#0E8074] ring-2 ring-[#0E8074]/40'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-[#0E8074]'
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`Event media ${idx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/70 text-white text-[10px] font-bold">
+                        View Photo
+                      </span>
+                    </div>
+                    {img === exhibition.bannerUrl && (
+                      <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-[#0E8074] text-[8px] font-bold text-white rounded shadow-xs">
+                        Cover Banner
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ========================================================================= */}
           {/* OPEN CONTENT SECTIONS (ALL VISIBLE IN OPEN AREA) */}
           {/* ========================================================================= */}
@@ -401,7 +530,8 @@ export const ExhibitionDetailPage: React.FC = () => {
                 </div>
                 {!isBookingClosed && (
                   <Link
-                    to={`/exhibitions/${slug}/book`}
+                    to={`/exhibitions/${slug}/book${fromReferrer ? `?from=${encodeURIComponent(fromReferrer)}` : ''}`}
+                    state={{ from: fromReferrer, fromLabel: fromReferrerLabel }}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1E3FA0] dark:text-blue-400 hover:underline shrink-0"
                   >
                     <span>Full Wizard View</span>
@@ -457,12 +587,19 @@ export const ExhibitionDetailPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        Total Area: {totalArea} Sq.Ft • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
+                        {selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} ({totalArea} Sq.Ft) • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
                       </p>
                     </div>
 
                     <button
-                      onClick={() => navigate(`/exhibitions/${slug}/book?stallIds=${selectedStallIds.join(',')}`)}
+                      onClick={() =>
+                        navigate(
+                          `/exhibitions/${slug}/book?stallIds=${selectedStallIds.join(',')}${
+                            fromReferrer ? `&from=${encodeURIComponent(fromReferrer)}` : ''
+                          }`,
+                          { state: { from: fromReferrer, fromLabel: fromReferrerLabel } }
+                        )
+                      }
                       className="bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-bold text-xs py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-md shrink-0 cursor-pointer"
                     >
                       Book Selected Stalls <ArrowRight className="w-4 h-4 text-[#84CC16]" />
@@ -582,8 +719,11 @@ export const ExhibitionDetailPage: React.FC = () => {
                   <span>Fully Booked</span>
                 </button>
               ) : (
-                <Link to={`/exhibitions/${slug}/book`}>
-                  <button className="w-full bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                <Link
+                  to={`/exhibitions/${slug}/book${fromReferrer ? `?from=${encodeURIComponent(fromReferrer)}` : ''}`}
+                  state={{ from: fromReferrer, fromLabel: fromReferrerLabel }}
+                >
+                  <button className="w-full bg-[#1E3FA0] dark:bg-blue-600 hover:bg-[#152B75] dark:hover:bg-blue-700 text-white font-extrabold text-base py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer">
                     Book Stall
                     <ArrowRight className="w-5 h-5 text-[#84CC16]" />
                   </button>

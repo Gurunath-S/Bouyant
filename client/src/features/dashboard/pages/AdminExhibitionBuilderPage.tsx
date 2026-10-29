@@ -110,7 +110,7 @@ const getInitialBasicInfo = () => ({
   slug: '',
   edition: getMonthEditionCode(''),
   eventCode: '',
-  spcode: 'B003', // Internal admin allocation code
+  spcode: '', // Initialized dynamically to user's assigned SP code
   category: 'Industrial & Automation',
   description: '',
   startDate: '',
@@ -216,6 +216,32 @@ const getUniqueEventShortCode = (
   return `${base}${counter}`;
 };
 
+// Helper to validate individual email format
+const isValidEmailAddress = (email: string): boolean => {
+  const re =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  return re.test(email.trim());
+};
+
+// Helper to validate multiple comma-separated notification email addresses
+const getNotificationEmailValidationError = (emailsStr?: string | null): string | null => {
+  if (!emailsStr || !emailsStr.trim()) return null;
+  const emails = emailsStr
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (emails.length === 0) return null;
+
+  const invalid = emails.filter((e) => !isValidEmailAddress(e));
+  if (invalid.length === 1) {
+    return `Invalid email address format: "${invalid[0]}". Please enter a valid email address (e.g. name@domain.com).`;
+  }
+  if (invalid.length > 1) {
+    return `Invalid email address format: ${invalid.map((e) => `"${e}"`).join(', ')}. Please enter valid email addresses separated by commas.`;
+  }
+  return null;
+};
+
 export const AdminExhibitionBuilderPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -225,8 +251,32 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const isViewMode = location.pathname.endsWith('/view') || new URLSearchParams(location.search).get('mode') === 'view';
   const isEditMode = !!id && !isViewMode;
 
+  const stateFrom = (location.state as any)?.from;
+  const stateFromLabel = (location.state as any)?.fromLabel;
+  const backTarget = stateFrom || '/workspace/events';
+  const backLabel = stateFromLabel || 'Back to Exhibitions Console';
+
   const urlStep = Number(new URLSearchParams(location.search).get('step'));
   const [currentStep, setCurrentStep] = useState<number>(urlStep === 2 ? 2 : 1);
+
+  // Auto-sync logged in user's SP code and email if creating a new exhibition
+  useEffect(() => {
+    if (!id) {
+      setBasicInfo((prev) => {
+        let updated = false;
+        const next = { ...prev };
+        if (user?.spcode && (!prev.spcode || prev.spcode === 'B003')) {
+          next.spcode = user.spcode;
+          updated = true;
+        }
+        if (user?.email && !prev.notificationEmails) {
+          next.notificationEmails = user.email;
+          updated = true;
+        }
+        return updated ? next : prev;
+      });
+    }
+  }, [id, user?.spcode, user?.email]);
 
   useEffect(() => {
     const s = Number(new URLSearchParams(location.search).get('step'));
@@ -300,6 +350,18 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     // 1. Exhibition Event Name
     if (!basicInfo.title || !basicInfo.title.trim()) {
       errors.title = 'Exhibition event name is required';
+    } else {
+      const currentEditingId = id || eventDbId;
+      const titleCollision = existingEvents.find(
+        (e) =>
+          e.id !== currentEditingId &&
+          (!e.slug || e.slug !== currentEditingId) &&
+          e.title &&
+          e.title.trim().toLowerCase() === basicInfo.title.trim().toLowerCase()
+      );
+      if (titleCollision) {
+        errors.title = `An exhibition named '${titleCollision.title}' already exists. Event names must be unique.`;
+      }
     }
 
     // 2. Event Short Code
@@ -355,16 +417,25 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       }
     }
 
+    // 5b. Daily Visiting Hours (Opening & Closing Time)
+    if (basicInfo.startTime && basicInfo.endTime) {
+      if (basicInfo.startTime === basicInfo.endTime) {
+        errors.endTime = 'Daily closing time cannot be the same as opening time';
+      } else if (basicInfo.endTime < basicInfo.startTime) {
+        errors.endTime = 'Daily closing time must be later than opening time';
+      }
+    }
+
     // 6. Booking Closing Date
     if (!basicInfo.bookingEndDate || !basicInfo.bookingEndDate.trim()) {
       errors.bookingEndDate = 'Booking closing date is required';
     } else if (!toDateObj(basicInfo.bookingEndDate)) {
       errors.bookingEndDate = 'Please enter a valid booking closing date (DD/MM/YYYY)';
     } else {
-      const startDt = toDateObj(basicInfo.startDate);
+      const endDt = toDateObj(basicInfo.endDate);
       const bookingEndDt = toDateObj(basicInfo.bookingEndDate);
-      if (startDt && bookingEndDt && bookingEndDt > startDt) {
-        errors.bookingEndDate = 'Booking closing date cannot be after exhibition start date';
+      if (endDt && bookingEndDt && bookingEndDt > endDt) {
+        errors.bookingEndDate = 'Booking closing date cannot be after exhibition end date';
       }
     }
 
@@ -383,6 +454,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       errors.city = 'City is required';
     }
 
+    // 10. Notification Routing Emails (Mandatory)
+    if (!basicInfo.notificationEmails || !basicInfo.notificationEmails.trim()) {
+      errors.notificationEmails = 'Recipient email address is required. Please enter at least one administrator email address.';
+    } else {
+      const notificationEmailsError = getNotificationEmailValidationError(basicInfo.notificationEmails);
+      if (notificationEmailsError) {
+        errors.notificationEmails = notificationEmailsError;
+      }
+    }
+
     setValidationErrors(errors);
 
     const errorKeys = Object.keys(errors);
@@ -393,10 +474,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         'edition',
         'startDate',
         'endDate',
+        'endTime',
         'bookingEndDate',
         'category',
         'venue',
         'city',
+        'notificationEmails',
       ];
       const firstInvalidField = fieldOrder.find((f) => errors[f]);
       if (firstInvalidField) {
@@ -474,7 +557,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           slug: data.slug || '',
           edition: loadedEdition,
           eventCode: loadedEventCode,
-          spcode: (data as any).spcode || 'B003',
+          spcode: (data as any).spcode || user?.spcode || '',
           category: loadedCategory,
           description: data.description || '',
           startDate: startIso,
@@ -487,7 +570,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           city: data.city || '',
           state: data.state || '',
           bannerUrl: data.bannerUrl || '',
-          images: data.bannerUrl ? [data.bannerUrl] : [],
+          images: data.images && data.images.length > 0 ? data.images : (data.bannerUrl ? [data.bannerUrl] : []),
           notificationEmails: (data as any).notificationEmails || '',
           latitude: data.latitude ? Number(data.latitude) : undefined,
           longitude: data.longitude ? Number(data.longitude) : undefined,
@@ -708,6 +791,22 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
   const handlePublishExhibition = async () => {
     if (!validateStep1()) {
       setCurrentStep(1);
+      const currentEditingId = id || eventDbId;
+      const titleCollision = existingEvents.find(
+        (e) =>
+          e.id !== currentEditingId &&
+          (!e.slug || e.slug !== currentEditingId) &&
+          e.title &&
+          e.title.trim().toLowerCase() === basicInfo.title?.trim().toLowerCase()
+      );
+      if (titleCollision) {
+        await showAlert({
+          title: 'Duplicate Exhibition Name',
+          message: `An exhibition named "${titleCollision.title}" already exists. Exhibition event names must be unique to prevent duplicate entries.`,
+          type: 'danger',
+        });
+        return;
+      }
       await showAlert({
         title: 'Mandatory Fields Required',
         message: 'Please complete all required fields marked with an asterisk (*) before publishing.',
@@ -754,7 +853,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           description: basicInfo.description,
           edition: basicInfo.edition,
           eventCode: basicInfo.eventCode,
-          spcode: basicInfo.spcode,
+          spcode: basicInfo.spcode?.trim() || user?.spcode || undefined,
           category: basicInfo.category,
           venue: basicInfo.venue,
           address: basicInfo.address,
@@ -766,6 +865,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+          images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
           notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -802,7 +902,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           description: basicInfo.description,
           edition: basicInfo.edition,
           eventCode: basicInfo.eventCode,
-          spcode: basicInfo.spcode,
+          spcode: basicInfo.spcode?.trim() || user?.spcode || undefined,
           category: basicInfo.category,
           venue: basicInfo.venue,
           address: basicInfo.address,
@@ -814,6 +914,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
           bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+          images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
           notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -850,7 +951,39 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         }
         keysToRemove.forEach((k) => localStorage.removeItem(k));
       } catch (_e) {}
-      navigate('/workspace/events');
+
+      const isUpdating = Boolean(id || eventDbId);
+      const targetTitle = basicInfo.title?.trim() || 'Exhibition';
+      const isPublished = basicInfo.status === 'PUBLISHED';
+
+      const successTitle = isUpdating
+        ? 'Exhibition Updated Successfully'
+        : isPublished
+        ? 'Exhibition Created & Published'
+        : 'Exhibition Draft Saved';
+
+      const successMessage = isUpdating
+        ? `Exhibition "${targetTitle}" and its floor plan layout have been updated successfully.`
+        : isPublished
+        ? `Exhibition "${targetTitle}" has been successfully created and published live with ${stalls.length} stalls.`
+        : `Exhibition "${targetTitle}" has been successfully created as a draft with ${stalls.length} stalls.`;
+
+      // Show immediate confirmation alert dialog
+      await showAlert({
+        title: successTitle,
+        message: successMessage,
+        type: 'success',
+      });
+
+      navigate(backTarget, {
+        state: {
+          notification: {
+            type: 'success',
+            title: successTitle,
+            message: successMessage,
+          },
+        },
+      });
     } catch (err: any) {
       await showAlert({
         title: 'Save Failed',
@@ -904,8 +1037,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               </button>
             ) : (
               <BackButton
-                to="/workspace/events"
-                label="Back to Exhibitions Console"
+                to={backTarget}
+                label={backLabel}
                 variant="ghost"
                 size="xs"
                 className="text-purple-600 dark:text-purple-400 hover:underline mb-1 p-0"
@@ -1204,19 +1337,19 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     {basicInfo.edition || '10'}/{basicInfo.startDate ? new Date(basicInfo.startDate).getFullYear().toString().slice(-2) : '26'}/{basicInfo.eventCode || 'EX'}/01
                   </code>
                   <span className="text-[10px] text-slate-400 italic">
-                    (Edition • Year • Code • Client #)
+                    (Edition • Year • Code • Client No)
                   </span>
                 </div>
               </div>
 
-              {/* Event Short Code & Edition Code Row */}
+              {/* Event Short Code, Edition Code & SP Code Row */}
               <div className="md:col-span-6 flex flex-col justify-between">
-                <div className="grid grid-cols-12 gap-3">
+                <div className="grid grid-cols-12 gap-2.5">
                   {/* Event Short Code */}
-                  <div className="col-span-7 space-y-1.5">
+                  <div className="col-span-4 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label htmlFor="field-eventCode" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Event Short Code <span className="text-rose-500">*</span>
+                        Event Code <span className="text-rose-500">*</span>
                       </label>
                       {!isViewMode && (
                         <button
@@ -1231,7 +1364,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                           className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 transition-colors cursor-pointer"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
-                          <span>{isEventCodeCustom ? 'Reset Auto' : 'Auto-Sync'}</span>
+                          <span>{isEventCodeCustom ? 'Reset' : 'Auto'}</span>
                         </button>
                       )}
                     </div>
@@ -1251,9 +1384,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                             eventCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8),
                           }));
                         }}
-                        placeholder="Auto-generated on title typing"
+                        placeholder="Code"
                         required
-                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-3 py-2 uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
+                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-2.5 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
                           validationErrors.eventCode
                             ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
                             : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
@@ -1264,21 +1397,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{validationErrors.eventCode}</p>
                     )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                      {isViewMode
-                        ? 'Unique event short code • registered in catalog'
-                        : isEventCodeCustom
-                        ? 'Custom short code • click Auto-Sync to re-generate'
-                        : basicInfo.eventCode
-                        ? 'Auto-generated from title'
-                        : 'Type event name above to auto-generate short code'}
+                      {basicInfo.eventCode ? `Short code: ${basicInfo.eventCode}` : 'Auto-generated'}
                     </p>
                   </div>
 
                   {/* Edition Code */}
-                  <div className="col-span-5 space-y-1.5">
+                  <div className="col-span-4 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label htmlFor="field-edition" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Edition Code <span className="text-rose-500">*</span>
+                        Edition <span className="text-rose-500">*</span>
                       </label>
                       {!isViewMode && (
                         <button
@@ -1293,7 +1420,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                           className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors cursor-pointer"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
-                          <span>Sync Month</span>
+                          <span>Month</span>
                         </button>
                       )}
                     </div>
@@ -1313,10 +1440,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                             edition: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4),
                           }));
                         }}
-                        placeholder="e.g. 10"
+                        placeholder="10"
                         maxLength={4}
                         required
-                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-3 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
+                        className={`w-full bg-white dark:bg-slate-900 border rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-2.5 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed ${
                           validationErrors.edition
                             ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
                             : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
@@ -1327,9 +1454,51 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{validationErrors.edition}</p>
                     )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={getMonthNameByEdition(basicInfo.edition) ? `Month of ${getMonthNameByEdition(basicInfo.edition)}` : `Edition ${basicInfo.edition}`}>
-                      {getMonthNameByEdition(basicInfo.edition)
-                        ? `${getMonthNameByEdition(basicInfo.edition)} (${basicInfo.edition}) • ${isEditionCustom ? 'Custom' : 'Matches start date'}`
-                        : `Edition ${basicInfo.edition || 'Current'}`}
+                      {getMonthNameByEdition(basicInfo.edition) ? getMonthNameByEdition(basicInfo.edition) : `Ed. ${basicInfo.edition || 'Current'}`}
+                    </p>
+                  </div>
+
+                  {/* SP Allocation Code */}
+                  <div className="col-span-4 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="field-spcode" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        SP Code <span className="text-slate-400 font-normal">(Staff)</span>
+                      </label>
+                      {!isViewMode && user?.spcode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBasicInfo((prev) => ({ ...prev, spcode: user.spcode || '' }));
+                          }}
+                          title="Sync with your assigned SP Code"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-800 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>My SP</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative rounded-lg shadow-xs">
+                      <input
+                        id="field-spcode"
+                        type="text"
+                        value={basicInfo.spcode}
+                        disabled={isViewMode}
+                        readOnly={isViewMode}
+                        onChange={(e) => {
+                          if (isViewMode) return;
+                          setBasicInfo((prev) => ({
+                            ...prev,
+                            spcode: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 10),
+                          }));
+                        }}
+                        placeholder={user?.spcode || 'AD01'}
+                        maxLength={10}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:ring-purple-600 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 px-2.5 py-2 text-center uppercase transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={user?.name ? `Attributed to ${user.name}` : 'Sales & booking attribution'}>
+                      {user?.name ? `${user.name}` : 'Attribution'}
                     </p>
                   </div>
                 </div>
@@ -1393,9 +1562,18 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       const newBookingEndDate = !isBookingEndDateCustom ? calculateDefaultBookingEndDate(isoVal) : prev.bookingEndDate;
                       if (newEdition) clearValidationError('edition');
                       if (newBookingEndDate) clearValidationError('bookingEndDate');
+
+                      // If current endDate is earlier than new startDate, sync endDate to match startDate
+                      let updatedEndDate = prev.endDate;
+                      if (prev.endDate && isoVal && prev.endDate < isoVal) {
+                        updatedEndDate = isoVal;
+                        clearValidationError('endDate');
+                      }
+
                       return {
                         ...prev,
                         startDate: isoVal,
+                        endDate: updatedEndDate,
                         edition: newEdition,
                         bookingEndDate: newBookingEndDate,
                       };
@@ -1408,12 +1586,29 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                   id="field-endDate"
                   label="Exhibition End Date"
                   value={basicInfo.endDate}
+                  min={basicInfo.startDate}
                   disabled={isViewMode}
                   error={validationErrors.endDate}
                   onChange={(isoVal) => {
                     if (isViewMode) return;
                     clearValidationError('endDate');
-                    setBasicInfo({ ...basicInfo, endDate: isoVal });
+                    if (basicInfo.startDate && isoVal && isoVal < basicInfo.startDate) {
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        endDate: 'Exhibition end date cannot be earlier than start date',
+                      }));
+                    }
+                    setBasicInfo((prev) => {
+                      if (prev.bookingEndDate && isoVal && prev.bookingEndDate > isoVal) {
+                        setValidationErrors((errs) => ({
+                          ...errs,
+                          bookingEndDate: 'Booking closing date cannot be after exhibition end date',
+                        }));
+                      } else {
+                        clearValidationError('bookingEndDate');
+                      }
+                      return { ...prev, endDate: isoVal };
+                    });
                   }}
                   required
                   helperText="Format: DD/MM/YYYY"
@@ -1434,7 +1629,23 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       disabled={isViewMode}
                       onChange={(e) => {
                         if (isViewMode) return;
-                        setBasicInfo({ ...basicInfo, startTime: e.target.value });
+                        const newStartTime = e.target.value;
+                        setBasicInfo((prev) => ({ ...prev, startTime: newStartTime }));
+                        if (newStartTime && basicInfo.endTime) {
+                          if (newStartTime === basicInfo.endTime) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              endTime: 'Daily closing time cannot be the same as opening time',
+                            }));
+                          } else if (basicInfo.endTime < newStartTime) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              endTime: 'Daily closing time must be later than opening time',
+                            }));
+                          } else {
+                            clearValidationError('endTime');
+                          }
+                        }
                       }}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
                     />
@@ -1443,7 +1654,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                 </div>
 
                 {/* Event Time: Closing Time */}
-                <div>
+                <div id="field-endTime">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Daily Closing Time
                   </label>
@@ -1457,12 +1668,38 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       disabled={isViewMode}
                       onChange={(e) => {
                         if (isViewMode) return;
-                        setBasicInfo({ ...basicInfo, endTime: e.target.value });
+                        const newEndTime = e.target.value;
+                        setBasicInfo((prev) => ({ ...prev, endTime: newEndTime }));
+                        if (basicInfo.startTime && newEndTime) {
+                          if (basicInfo.startTime === newEndTime) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              endTime: 'Daily closing time cannot be the same as opening time',
+                            }));
+                          } else if (newEndTime < basicInfo.startTime) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              endTime: 'Daily closing time must be later than opening time',
+                            }));
+                          } else {
+                            clearValidationError('endTime');
+                          }
+                        }
                       }}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                      className={`w-full bg-white dark:bg-slate-900 border ${
+                        validationErrors.endTime
+                          ? 'border-rose-500 focus:ring-rose-500 text-rose-900 dark:text-rose-100'
+                          : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
+                      } rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 pl-8 pr-3 py-2 h-[38px] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed`}
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">Visiting close time</p>
+                  {validationErrors.endTime ? (
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1 font-medium flex items-center gap-1">
+                      {validationErrors.endTime}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1">Visiting close time</p>
+                  )}
                 </div>
               </div>
 
@@ -1479,13 +1716,14 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     <button
                       key={preset.label}
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        clearValidationError('endTime');
                         setBasicInfo((prev) => ({
                           ...prev,
                           startTime: preset.start,
                           endTime: preset.end,
-                        }))
-                      }
+                        }));
+                      }}
                       className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-colors cursor-pointer ${
                         basicInfo.startTime === preset.start && basicInfo.endTime === preset.end
                           ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 font-bold'
@@ -1514,19 +1752,38 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {!isViewMode && basicInfo.startDate && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const autoDate = calculateDefaultBookingEndDate(basicInfo.startDate);
-                        setBasicInfo((prev) => ({ ...prev, bookingEndDate: autoDate }));
-                        setIsBookingEndDateCustom(false);
-                      }}
-                      className="text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
-                      title="Reset booking cut-off date to 15 days prior to event start"
-                    >
-                      Reset to 15 Days Before Start
-                    </button>
+                  {!isViewMode && (
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                      {basicInfo.startDate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const autoDate = calculateDefaultBookingEndDate(basicInfo.startDate);
+                            setBasicInfo((prev) => ({ ...prev, bookingEndDate: autoDate }));
+                            setIsBookingEndDateCustom(false);
+                            clearValidationError('bookingEndDate');
+                          }}
+                          className="text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                          title="Reset booking cut-off date to 15 days prior to event start"
+                        >
+                          Reset to 15 Days Before Start
+                        </button>
+                      )}
+                      {basicInfo.endDate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBasicInfo((prev) => ({ ...prev, bookingEndDate: basicInfo.endDate }));
+                            setIsBookingEndDateCustom(true);
+                            clearValidationError('bookingEndDate');
+                          }}
+                          className="text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-900 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                          title="Set booking closing date to the exhibition end date (same day)"
+                        >
+                          Same Day as Expo End
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1535,17 +1792,33 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     id="field-bookingEndDate"
                     label="Booking Closing Date"
                     value={basicInfo.bookingEndDate}
+                    max={basicInfo.endDate || undefined}
                     disabled={isViewMode}
                     error={validationErrors.bookingEndDate}
                     onChange={(isoVal) => {
                       if (isViewMode) return;
                       clearValidationError('bookingEndDate');
                       setIsBookingEndDateCustom(true);
+                      if (basicInfo.endDate && isoVal && isoVal > basicInfo.endDate) {
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          bookingEndDate: 'Booking closing date cannot be after exhibition end date',
+                        }));
+                      }
                       setBasicInfo((prev) => ({ ...prev, bookingEndDate: isoVal }));
                     }}
                     required
                     helperText={
-                      basicInfo.startDate && basicInfo.bookingEndDate
+                      basicInfo.endDate && basicInfo.bookingEndDate
+                        ? basicInfo.bookingEndDate === basicInfo.endDate
+                          ? 'Closes on final day of exhibition'
+                          : new Date(basicInfo.bookingEndDate).getTime() <= new Date(basicInfo.endDate).getTime()
+                          ? `${Math.round(
+                              (new Date(basicInfo.endDate).getTime() - new Date(basicInfo.bookingEndDate).getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            )} day(s) before exhibition end date`
+                          : 'Must be on or before exhibition end date'
+                        : basicInfo.startDate && basicInfo.bookingEndDate
                         ? `${Math.max(
                             0,
                             Math.round(
@@ -1770,6 +2043,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               }}
               onSyncAddress={(addressData) => {
                 if (isViewMode) return;
+                clearValidationError('venue');
+                clearValidationError('city');
                 setBasicInfo((prev) => ({
                   ...prev,
                   venue: addressData.venue || prev.venue,
@@ -1831,10 +2106,10 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1.5">
+              <div id="field-notificationEmails" className="space-y-1.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Recipient Email Addresses <span className="text-slate-400 font-normal">(Separate multiple emails with commas)</span>
+                    Recipient Email Addresses <span className="text-rose-500 font-bold">*</span> <span className="text-slate-400 font-normal">(Separate multiple emails with commas)</span>
                   </label>
 
                   {/* Quick-Add Logged-in Admin Email Action */}
@@ -1848,6 +2123,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                         if (!currentEmails.includes(user.email)) {
                           const updated = [...currentEmails, user.email].join(', ');
                           setBasicInfo((prev) => ({ ...prev, notificationEmails: updated }));
+                          const err = getNotificationEmailValidationError(updated);
+                          if (!err) {
+                            clearValidationError('notificationEmails');
+                          } else {
+                            setValidationErrors((prev) => ({ ...prev, notificationEmails: err }));
+                          }
                         }
                       }}
                       className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#09539b] dark:text-blue-400 hover:text-[#012970] bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
@@ -1869,12 +2150,41 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     disabled={isViewMode}
                     onChange={(e) => {
                       if (isViewMode) return;
-                      setBasicInfo((prev) => ({ ...prev, notificationEmails: e.target.value }));
+                      const val = e.target.value;
+                      setBasicInfo((prev) => ({ ...prev, notificationEmails: val }));
+                      if (validationErrors.notificationEmails) {
+                        const err = getNotificationEmailValidationError(val);
+                        if (!err) {
+                          clearValidationError('notificationEmails');
+                        } else {
+                          setValidationErrors((prev) => ({ ...prev, notificationEmails: err }));
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      if (isViewMode) return;
+                      const err = getNotificationEmailValidationError(basicInfo.notificationEmails);
+                      if (err) {
+                        setValidationErrors((prev) => ({ ...prev, notificationEmails: err }));
+                      } else {
+                        clearValidationError('notificationEmails');
+                      }
                     }}
                     placeholder="e.g. event-director@buoyant.com, accounts@company.com, admin@expo.org"
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-600 pl-9 pr-3 py-2.5 transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed"
+                    className={`w-full bg-white dark:bg-slate-900 border ${
+                      validationErrors.notificationEmails
+                        ? 'border-rose-500 focus:ring-rose-500 text-rose-900 dark:text-rose-100'
+                        : 'border-slate-300 dark:border-slate-700 focus:ring-purple-600'
+                    } rounded-lg text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 pl-9 pr-3 py-2.5 transition-colors disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-600 dark:disabled:text-slate-400 disabled:cursor-not-allowed`}
                   />
                 </div>
+
+                {validationErrors.notificationEmails && (
+                  <div className="flex items-start gap-2 text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-lg p-2.5 animate-in fade-in duration-150">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                    <span>{validationErrors.notificationEmails}</span>
+                  </div>
+                )}
               </div>
 
               {/* Active Recipient Tags Preview */}
@@ -1888,39 +2198,57 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       .split(',')
                       .map((e) => e.trim())
                       .filter(Boolean)
-                      .map((email, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-[#09539b] dark:text-blue-300 px-2.5 py-1 rounded-md text-[11px] font-semibold font-mono shadow-2xs"
-                        >
-                          <Mail className="w-3 h-3 text-blue-500" />
-                          <span>{email}</span>
-                          {!isViewMode && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const filtered = basicInfo.notificationEmails
-                                  .split(',')
-                                  .map((x) => x.trim())
-                                  .filter((x) => x && x !== email)
-                                  .join(', ');
-                                setBasicInfo((prev) => ({ ...prev, notificationEmails: filtered }));
-                              }}
-                              className="ml-1 text-slate-400 hover:text-rose-600 text-xs font-bold leading-none cursor-pointer"
-                              title="Remove recipient"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      ))}
+                      .map((email, idx) => {
+                        const isValid = isValidEmailAddress(email);
+                        return (
+                          <span
+                            key={idx}
+                            className={`inline-flex items-center gap-1.5 border px-2.5 py-1 rounded-md text-[11px] font-semibold font-mono shadow-2xs ${
+                              isValid
+                                ? 'bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-800 text-[#09539b] dark:text-blue-300'
+                                : 'bg-rose-50 dark:bg-rose-950/70 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300'
+                            }`}
+                          >
+                            <Mail className={`w-3 h-3 ${isValid ? 'text-blue-500' : 'text-rose-500'}`} />
+                            <span>{email}</span>
+                            {!isValid && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-900/60 px-1 py-0.5 rounded text-rose-700 dark:text-rose-200">
+                                Invalid
+                              </span>
+                            )}
+                            {!isViewMode && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const filtered = basicInfo.notificationEmails
+                                    .split(',')
+                                    .map((x) => x.trim())
+                                    .filter((x) => x && x !== email)
+                                    .join(', ');
+                                  setBasicInfo((prev) => ({ ...prev, notificationEmails: filtered }));
+                                  const err = getNotificationEmailValidationError(filtered);
+                                  if (!err) {
+                                    clearValidationError('notificationEmails');
+                                  } else {
+                                    setValidationErrors((prev) => ({ ...prev, notificationEmails: err }));
+                                  }
+                                }}
+                                className="ml-1 text-slate-400 hover:text-rose-600 text-xs font-bold leading-none cursor-pointer"
+                                title="Remove recipient"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
                   </div>
                 </div>
               ) : (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    No specific emails entered. System default: All platform super-administrators and the event creator will receive registration and payment notifications.
+                    Recipient email address is required. Please enter at least one administrator email address to receive booking and stall allocation notifications.
                   </span>
                 </div>
               )}
@@ -2085,6 +2413,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
                     endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
                     bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
+                    images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
                     status: 'DRAFT',
                     totalStalls: savedStalls.length,
                     floorPlans: [
@@ -2292,10 +2621,12 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SP Code (Admin/Staff Allocation)</span>
                       <div>
                         <span className="font-mono font-bold bg-amber-50 border border-amber-300 text-amber-900 px-2.5 py-1 rounded-lg text-xs tracking-wider inline-block">
-                          {basicInfo.spcode || 'B001'}
+                          {basicInfo.spcode || user?.spcode || 'N/A'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500">Staff routing and commercial sales allocation identifier</p>
+                      <p className="text-[11px] text-slate-500">
+                        {user?.name ? `Attributed to ${user.name}` : 'Staff routing and commercial sales allocation identifier'}
+                      </p>
                     </div>
 
                     {/* Edition & Event Code */}
