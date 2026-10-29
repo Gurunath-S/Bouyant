@@ -23,6 +23,7 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { StudioTool, FacilityType } from '../../../../types/floorPlanStudio';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface CanvasToolboxProps {
   activeTool: StudioTool;
@@ -71,76 +72,84 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
     return (
       <aside className="w-14 bg-white border-r border-slate-200 flex flex-col items-center py-3 gap-2 shrink-0 select-none shadow-xs z-20 transition-all">
         {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            title="Expand Toolbox Panel ([)"
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors mb-1"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <Tooltip content="Expand Toolbox" shortcut="[" description="Open the full tools drawer" position="right">
+            <button
+              onClick={onToggleCollapse}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors mb-1 cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
 
         {/* Navigation */}
-        <button
-          onClick={() => {
-            if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
-            onSelectTool('select');
-          }}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-            (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Select & Drag Box (V) — Click item or drag box to select"
-        >
-          <MousePointer className="w-4 h-4" />
-        </button>
-        {onToggleMultiSelectMode && (
+        <Tooltip content="Select & Move Tool" shortcut="V" description="Click item or drag box to select multiple items" position="right">
           <button
-            onClick={onToggleMultiSelectMode}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-              isMultiSelectMode
-                ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-300'
+            onClick={() => {
+              if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
+              onSelectTool('select');
+            }}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+              (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
-            title="Random Multi-Select Pick Mode (M) — Click any stalls anywhere to toggle selection"
           >
-            <CheckSquare className="w-4 h-4" />
+            <MousePointer className="w-4 h-4" />
           </button>
+        </Tooltip>
+
+        {onToggleMultiSelectMode && (
+          <Tooltip content="Multi-Select Pick Mode" shortcut="M" description="Click any stalls anywhere to toggle selection" position="right">
+            <button
+              onClick={onToggleMultiSelectMode}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                isMultiSelectMode
+                  ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-300'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
-        <button
-          onClick={() => onSelectTool('pan')}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-            activeTool === 'pan'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Move Map / Pan (H) — Drag anywhere to move canvas"
-        >
-          <Hand className="w-4 h-4" />
-        </button>
+
+        <Tooltip content="Pan Canvas" shortcut="H" description="Drag anywhere or hold Space to move the map" position="right">
+          <button
+            onClick={() => onSelectTool('pan')}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+              activeTool === 'pan'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Hand className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
         {/* Quick Common Zoom Controls (Available across all tools) */}
         {(onZoomIn || onZoomOut) && (
           <>
             <div className="w-8 h-px bg-slate-200 my-0.5" />
             {onZoomIn && (
-              <button
-                onClick={onZoomIn}
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
-                title="Zoom In (+)"
-              >
-                <ZoomIn className="w-4 h-4 text-blue-600" />
-              </button>
+              <Tooltip content="Zoom In" shortcut="+" description="Increase view magnification" position="right">
+                <button
+                  onClick={onZoomIn}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <ZoomIn className="w-4 h-4 text-blue-600" />
+                </button>
+              </Tooltip>
             )}
             {onZoomOut && (
-              <button
-                onClick={onZoomOut}
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
-                title="Zoom Out (-)"
-              >
-                <ZoomOut className="w-4 h-4 text-blue-600" />
-              </button>
+              <Tooltip content="Zoom Out" shortcut="-" description="Decrease view magnification" position="right">
+                <button
+                  onClick={onZoomOut}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <ZoomOut className="w-4 h-4 text-blue-600" />
+                </button>
+              </Tooltip>
             )}
           </>
         )}
@@ -150,85 +159,92 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         {/* Structures */}
         {!readOnly && (
           <>
-            <button
-              onClick={onAddHall}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 transition-colors"
-              title="+ Hall / Pavilion Container"
-            >
-              <Maximize2 className="w-4 h-4 text-blue-600" />
-            </button>
-            <button
-              onClick={onAddStall}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200 transition-colors"
-              title="+ Single Stall (3×3m Default)"
-            >
-              <Square className="w-4 h-4 text-emerald-600" />
-            </button>
-            {onOpenCustomStallModal && (
+            <Tooltip content="Add Hall / Pavilion" description="Create a hall container with drag-resizing" position="right">
               <button
-                onClick={onOpenCustomStallModal}
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 transition-colors"
-                title="+ Custom Dimension Stall (3×3, 6×3, custom size)"
+                onClick={onAddHall}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 transition-colors cursor-pointer"
               >
-                <Sliders className="w-4 h-4 text-blue-600" />
+                <Maximize2 className="w-4 h-4 text-blue-600" />
               </button>
+            </Tooltip>
+            <Tooltip content="Add Single Stall" description="Quick 1-click spawn standard 3×3m booth" position="right">
+              <button
+                onClick={onAddStall}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Square className="w-4 h-4 text-emerald-600" />
+              </button>
+            </Tooltip>
+            {onOpenCustomStallModal && (
+              <Tooltip content="Custom Size Stall" description="Configure custom width, height, and label" position="right">
+                <button
+                  onClick={onOpenCustomStallModal}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <Sliders className="w-4 h-4 text-blue-600" />
+                </button>
+              </Tooltip>
             )}
-            <button
-              onClick={onOpenStallRowModal}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors"
-              title="+ Stall Row Wizard (Bulk Placement)"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onAddZone}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200 transition-colors"
-              title="+ Custom Zone (VIP / Media)"
-            >
-              <Sliders className="w-4 h-4 text-purple-600" />
-            </button>
+            <Tooltip content="Stall Row Wizard" description="Bulk place aligned stall rows and blocks" position="right">
+              <button
+                onClick={onOpenStallRowModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors cursor-pointer"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Add Text Label" description="Place text label, pillar sign, or marker on floor" position="right">
+              <button
+                onClick={onAddText}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors cursor-pointer"
+              >
+                <Type className="w-4 h-4 text-purple-600" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Add Special Zone" description="Create VIP lounge, media zone, or custom area" position="right">
+              <button
+                onClick={onAddZone}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Sliders className="w-4 h-4 text-purple-600" />
+              </button>
+            </Tooltip>
 
             <div className="w-8 h-px bg-slate-200 my-1" />
 
             {/* Facilities */}
-            <button
-              onClick={() => onAddFacility('entrance')}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-              title="+ Main Entrance"
-            >
-              <DoorOpen className="w-4 h-4 text-emerald-600" />
-            </button>
-            <button
-              onClick={() => onAddFacility('stage')}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-              title="+ Keynote Stage"
-            >
-              <Mic className="w-4 h-4 text-purple-600" />
-            </button>
-            <button
-              onClick={() => onAddFacility('food-court')}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-              title="+ Food Court Plaza"
-            >
-              <Utensils className="w-4 h-4 text-amber-600" />
-            </button>
-            <button
-              onClick={() => onAddFacility('restroom')}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-              title="+ Restrooms"
-            >
-              <Bath className="w-4 h-4 text-sky-600" />
-            </button>
-
-            <div className="w-8 h-px bg-slate-200 my-1" />
-
-            <button
-              onClick={onAddText}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-              title="+ Text Label"
-            >
-              <Type className="w-4 h-4 text-slate-600" />
-            </button>
+            <Tooltip content="Main Entrance" description="Place main visitor entrance gate" position="right">
+              <button
+                onClick={() => onAddFacility('entrance')}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <DoorOpen className="w-4 h-4 text-emerald-600" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Keynote Stage" description="Place keynote stage / presentation platform" position="right">
+              <button
+                onClick={() => onAddFacility('stage')}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Mic className="w-4 h-4 text-purple-600" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Food Court" description="Place dining & food court plaza" position="right">
+              <button
+                onClick={() => onAddFacility('food-court')}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Utensils className="w-4 h-4 text-amber-600" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Restrooms" description="Place restroom facility markers" position="right">
+              <button
+                onClick={() => onAddFacility('restroom')}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Bath className="w-4 h-4 text-sky-600" />
+              </button>
+            </Tooltip>
           </>
         )}
       </aside>
@@ -239,28 +255,30 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
   if (readOnly) {
     return (
       <aside className="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-4 gap-2 shrink-0 select-none shadow-xs z-20">
-        <button
-          onClick={() => onSelectTool('select')}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
-            activeTool === 'select'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Pointer / Select"
-        >
-          <MousePointer className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onSelectTool('pan')}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
-            activeTool === 'pan'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Pan Canvas (Space / Hand)"
-        >
-          <Hand className="w-4 h-4" />
-        </button>
+        <Tooltip content="Pointer / Select" shortcut="V" description="Select items to inspect details" position="right">
+          <button
+            onClick={() => onSelectTool('select')}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+              activeTool === 'select'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <MousePointer className="w-4 h-4" />
+          </button>
+        </Tooltip>
+        <Tooltip content="Pan Canvas" shortcut="H" description="Drag to pan around the floor plan" position="right">
+          <button
+            onClick={() => onSelectTool('pan')}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+              activeTool === 'pan'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Hand className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </aside>
     );
   }
@@ -276,13 +294,14 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
 
         <div className="flex items-center gap-1">
           {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              title="Collapse Toolbox ([)"
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+            <Tooltip content="Collapse Toolbox" shortcut="[" description="Collapse panel into compact icon strip" position="left">
+              <button
+                onClick={onToggleCollapse}
+                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -293,62 +312,66 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           Selection Tools
         </div>
         <div className="grid grid-cols-3 gap-1.5">
-          <button
-            onClick={() => {
-              if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
-              onSelectTool('select');
-            }}
-            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-              (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-            title="Single Select, Move, or Drag-Select Box (V)"
-          >
-            <div className="flex items-center gap-1">
-              <MousePointer className="w-3.5 h-3.5" />
-            </div>
-            <span>Select (V)</span>
-          </button>
-          {onToggleMultiSelectMode ? (
+          <Tooltip content="Select & Move Tool" shortcut="V" description="Click item or drag box to select multiple items" position="top">
             <button
-              onClick={onToggleMultiSelectMode}
+              onClick={() => {
+                if (isMultiSelectMode && onToggleMultiSelectMode) onToggleMultiSelectMode();
+                onSelectTool('select');
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                isMultiSelectMode
-                  ? 'bg-purple-600 text-white shadow-xs ring-2 ring-purple-300'
-                  : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200'
-              }`}
-              title="Multi-Select Mode (M) — Click stalls to add or remove from selection"
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>Multi-Select (M)</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => onSelectTool('marquee')}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                activeTool === 'marquee'
+                (activeTool === 'select' || activeTool === 'marquee') && !isMultiSelectMode
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
-              title="Box Select (M)"
             >
-              <BoxSelect className="w-3.5 h-3.5" />
-              <span>Box Select</span>
+              <div className="flex items-center gap-1">
+                <MousePointer className="w-3.5 h-3.5" />
+              </div>
+              <span>Select (V)</span>
             </button>
+          </Tooltip>
+          {onToggleMultiSelectMode ? (
+            <Tooltip content="Multi-Select Pick Mode" shortcut="M" description="Click stalls anywhere to toggle selection" position="top">
+              <button
+                onClick={onToggleMultiSelectMode}
+                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  isMultiSelectMode
+                    ? 'bg-purple-600 text-white shadow-xs ring-2 ring-purple-300'
+                    : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 border border-slate-200'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Multi-Select (M)</span>
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip content="Box Select" shortcut="M" description="Drag box across canvas to select stalls" position="top">
+              <button
+                onClick={() => onSelectTool('marquee')}
+                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  activeTool === 'marquee'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <BoxSelect className="w-3.5 h-3.5" />
+                <span>Box Select</span>
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => onSelectTool('pan')}
-            className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-              activeTool === 'pan'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-            title="Pan / Move Canvas (H)"
-          >
-            <Hand className="w-3.5 h-3.5" />
-            <span>Pan Canvas (H)</span>
-          </button>
+          <Tooltip content="Pan Canvas" shortcut="H" description="Drag canvas or hold Space to move the map" position="top">
+            <button
+              onClick={() => onSelectTool('pan')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                activeTool === 'pan'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Hand className="w-3.5 h-3.5" />
+              <span>Pan Canvas (H)</span>
+            </button>
+          </Tooltip>
         </div>
         <p className="text-[10px] text-slate-400 leading-tight pt-0.5">
           {isMultiSelectMode
@@ -360,24 +383,26 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
         {(onZoomIn || onZoomOut) && (
           <div className="grid grid-cols-2 gap-1 mt-2 pt-2 border-t border-slate-100">
             {onZoomIn && (
-              <button
-                onClick={onZoomIn}
-                type="button"
-                className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
-                title="Zoom In (+)"
-              >
-                <ZoomIn className="w-3.5 h-3.5 text-blue-600" /> Zoom In (+)
-              </button>
+              <Tooltip content="Zoom In" shortcut="+" description="Increase view magnification" position="top">
+                <button
+                  onClick={onZoomIn}
+                  type="button"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
+                >
+                  <ZoomIn className="w-3.5 h-3.5 text-blue-600" /> Zoom In (+)
+                </button>
+              </Tooltip>
             )}
             {onZoomOut && (
-              <button
-                onClick={onZoomOut}
-                type="button"
-                className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
-                title="Zoom Out (-)"
-              >
-                <ZoomOut className="w-3.5 h-3.5 text-blue-600" /> Zoom Out (-)
-              </button>
+              <Tooltip content="Zoom Out" shortcut="-" description="Decrease view magnification" position="top">
+                <button
+                  onClick={onZoomOut}
+                  type="button"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all active:scale-95 cursor-pointer"
+                >
+                  <ZoomOut className="w-3.5 h-3.5 text-blue-600" /> Zoom Out (-)
+                </button>
+              </Tooltip>
             )}
           </div>
         )}
@@ -386,65 +411,86 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
       {/* Structure Tools */}
       <div className="p-3 border-b border-slate-100 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-          Halls & Stalls
+          Halls, Stalls & Labels
         </div>
 
-        <button
-          onClick={onAddHall}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-blue-50/60 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"
-          title="+ Add Hall / Pavilion (e.g. Hall A, Hall B) with freehand drag-resizing"
-        >
-          <span className="flex items-center gap-2">
-            <Maximize2 className="w-3.5 h-3.5 text-blue-600" /> + Add Hall / Zone
-          </span>
-          <span className="text-[10px] text-blue-600 font-bold">Hall A, B</span>
-        </button>
-
-        <button
-          onClick={onAddStall}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50/60 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
-          title="Quick 1-click spawn standard 3×3m stall"
-        >
-          <span className="flex items-center gap-2">
-            <Square className="w-3.5 h-3.5 text-emerald-600" /> + Add Stall (3×3m)
-          </span>
-          <span className="text-[10px] text-slate-500 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded">3×3m</span>
-        </button>
-
-        {onOpenCustomStallModal && (
+        <Tooltip content="Add Hall / Pavilion" description="Create a hall container with freehand drag-resizing" position="right">
           <button
-            onClick={onOpenCustomStallModal}
+            onClick={onAddHall}
             className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-blue-50/60 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs cursor-pointer"
-            title="Create stall with custom dimensions (3×3, 6×3, custom meters/feet) and custom label"
           >
             <span className="flex items-center gap-2">
-              <Sliders className="w-3.5 h-3.5 text-blue-600" /> + Custom Size Stall
+              <Maximize2 className="w-3.5 h-3.5 text-blue-600" /> + Add Hall / Zone
             </span>
-            <span className="text-[10px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">3×3, 6×3...</span>
+            <span className="text-[10px] text-blue-600 font-bold">Hall A, B</span>
           </button>
+        </Tooltip>
+
+        <Tooltip content="Add Single Stall" description="Quick 1-click spawn standard 3×3m booth" position="right">
+          <button
+            onClick={onAddStall}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50/60 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Square className="w-3.5 h-3.5 text-emerald-600" /> + Add Stall (3×3m)
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded">3×3m</span>
+          </button>
+        </Tooltip>
+
+        {onOpenCustomStallModal && (
+          <Tooltip content="Custom Size Stall" description="Create stall with custom width, height, and label" position="right">
+            <button
+              onClick={onOpenCustomStallModal}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-blue-50/60 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Sliders className="w-3.5 h-3.5 text-blue-600" /> + Custom Size Stall
+              </span>
+              <span className="text-[10px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">3×3, 6×3...</span>
+            </button>
+          </Tooltip>
         )}
 
-        <button
-          onClick={onOpenStallRowModal}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-xs transition-all"
-        >
-          <span className="flex items-center gap-2">
-            <LayoutGrid className="w-3.5 h-3.5" /> + Add Stall Row
-          </span>
-          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded text-white">
-            Fast Row
-          </span>
-        </button>
+        <Tooltip content="Stall Row Wizard" description="Bulk place aligned stall rows and blocks with auto-numbering" position="right">
+          <button
+            onClick={onOpenStallRowModal}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-xs transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <LayoutGrid className="w-3.5 h-3.5" /> + Add Stall Row
+            </span>
+            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded text-white">
+              Fast Row
+            </span>
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={onAddZone}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-purple-50/60 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-2xs"
-        >
-          <span className="flex items-center gap-2">
-            <Sliders className="w-3.5 h-3.5 text-purple-600" /> + Special Area (VIP / Stage)
-          </span>
-          <span className="text-[10px] text-slate-400">VIP / Media</span>
-        </button>
+        <Tooltip content="Add Text Label" description="Place text label, pillar sign, or marker on floor" position="right">
+          <button
+            onClick={onAddText}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-purple-700 bg-purple-50/70 hover:bg-purple-100/90 border border-purple-200 hover:border-purple-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Type className="w-3.5 h-3.5 text-purple-600" /> + Add Text Label
+            </span>
+            <span className="text-[10px] text-purple-700 font-bold bg-white border border-purple-200 px-1.5 py-0.5 rounded">
+              Text / Sign
+            </span>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Add Special Zone" description="Create VIP lounge, media zone, or custom area" position="right">
+          <button
+            onClick={onAddZone}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-purple-50/60 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Sliders className="w-3.5 h-3.5 text-purple-600" /> + Special Area (VIP / Stage)
+            </span>
+            <span className="text-[10px] text-slate-400">VIP / Media</span>
+          </button>
+        </Tooltip>
       </div>
 
       {/* Facilities & Amenities */}
@@ -455,84 +501,86 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           </span>
           <button
             onClick={() => setShowFacilitiesMenu(!showFacilitiesMenu)}
-            className="text-[10px] font-bold text-blue-600"
+            className="text-[10px] font-bold text-blue-600 cursor-pointer"
+            title={showFacilitiesMenu ? 'Collapse amenities list' : 'Expand full amenities list'}
           >
             {showFacilitiesMenu ? 'Collapse' : 'Expand'}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">
-          <button
-            onClick={() => onAddFacility('entrance')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-          >
-            <DoorOpen className="w-3 h-3 text-emerald-600" /> Main Entry
-          </button>
-          <button
-            onClick={() => onAddFacility('exit')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-          >
-            <DoorClosed className="w-3 h-3 text-rose-600" /> Emergency Exit
-          </button>
-          <button
-            onClick={() => onAddFacility('registration')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-          >
-            <ClipboardList className="w-3 h-3 text-blue-600" /> Registration
-          </button>
-          <button
-            onClick={() => onAddFacility('stage')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-          >
-            <Mic className="w-3 h-3 text-purple-600" /> Keynote Stage
-          </button>
+          <Tooltip content="Main Entrance" description="Place main visitor entrance gate marker" position="top">
+            <button
+              onClick={() => onAddFacility('entrance')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            >
+              <DoorOpen className="w-3 h-3 text-emerald-600" /> Main Entry
+            </button>
+          </Tooltip>
+          <Tooltip content="Emergency Exit" description="Place emergency exit door marker" position="top">
+            <button
+              onClick={() => onAddFacility('exit')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            >
+              <DoorClosed className="w-3 h-3 text-rose-600" /> Emergency Exit
+            </button>
+          </Tooltip>
+          <Tooltip content="Registration Desk" description="Place attendee check-in and badges desk" position="top">
+            <button
+              onClick={() => onAddFacility('registration')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            >
+              <ClipboardList className="w-3 h-3 text-blue-600" /> Registration
+            </button>
+          </Tooltip>
+          <Tooltip content="Keynote Stage" description="Place presentation stage or podium platform" position="top">
+            <button
+              onClick={() => onAddFacility('stage')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            >
+              <Mic className="w-3 h-3 text-purple-600" /> Keynote Stage
+            </button>
+          </Tooltip>
         </div>
 
         {showFacilitiesMenu && (
           <div className="grid grid-cols-2 gap-1.5 pt-1 animate-in fade-in">
-            <button
-              onClick={() => onAddFacility('food-court')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <Utensils className="w-3 h-3 text-amber-600" /> Food Court
-            </button>
-            <button
-              onClick={() => onAddFacility('dining')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <Coffee className="w-3 h-3 text-amber-700" /> Dining / Café
-            </button>
-            <button
-              onClick={() => onAddFacility('restroom')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <Bath className="w-3 h-3 text-sky-600" /> Restroom
-            </button>
-            <button
-              onClick={() => onAddFacility('shutter')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <Sliders className="w-3 h-3 text-slate-600" /> Shutter Gate
-            </button>
+            <Tooltip content="Food Court" description="Place food court plaza and stalls" position="top">
+              <button
+                onClick={() => onAddFacility('food-court')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Utensils className="w-3 h-3 text-amber-600" /> Food Court
+              </button>
+            </Tooltip>
+            <Tooltip content="Dining / Café" description="Place dining seating and coffee bar" position="top">
+              <button
+                onClick={() => onAddFacility('dining')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Coffee className="w-3 h-3 text-amber-700" /> Dining / Café
+              </button>
+            </Tooltip>
+            <Tooltip content="Restrooms" description="Place public restroom facilities" position="top">
+              <button
+                onClick={() => onAddFacility('restroom')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Bath className="w-3 h-3 text-sky-600" /> Restroom
+              </button>
+            </Tooltip>
+            <Tooltip content="Shutter Gate" description="Place security / delivery shutter gate" position="top">
+              <button
+                onClick={() => onAddFacility('shutter')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                <Sliders className="w-3 h-3 text-slate-600" /> Shutter Gate
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>
 
-      {/* Annotations */}
-      <div className="p-3 space-y-1.5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-          Annotations & Labels
-        </div>
-        <button
-          onClick={onAddText}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-all shadow-2xs"
-        >
-          <span className="flex items-center gap-2">
-            <Type className="w-3.5 h-3.5 text-slate-600" /> + Text Label
-          </span>
-          <span className="text-[10px] text-slate-400">Notice</span>
-        </button>
-      </div>
     </aside>
   );
 };

@@ -345,7 +345,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
               {isDuplicateNumber ? (
                 <span className="text-[11px] text-red-600 font-bold mt-1 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  Stall #{stallNumber.trim()} already exists. Please choose a unique number.
+                  Stall No: {stallNumber.trim()} already exists. Please choose a unique number.
                 </span>
               ) : (
                 <span className="text-[10px] text-slate-400 mt-0.5 block">

@@ -44,6 +44,7 @@ import { CreateCustomStallModal } from './CreateCustomStallModal';
 import { uploadService } from '../../../../services/upload/uploadService';
 import { showConfirm, showAlert } from '../../../../stores/dialogStore';
 import { getFacilityIconKey, renderFacilitySvgIcon } from '../../utils/facilityIconRenderer';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface GenericVisualStudioProps {
   exhibitionTitle: string;
@@ -375,6 +376,43 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     isRemovePick?: boolean;
   } | null>(null);
   const hasDraggedItemRef = useRef<boolean>(false);
+
+  // Position Lock for Booked Stalls (Prevents accidental movement unless explicitly unlocked)
+  const [unlockedBookedStallIds, setUnlockedBookedStallIds] = useState<Set<string>>(new Set());
+  const isLockedDragAttemptRef = useRef<{ stallNumber: string; startPos: { x: number; y: number } } | null>(null);
+
+  const isStallPositionLocked = useCallback(
+    (stall?: DraftStallItem | null) => {
+      if (!stall) return false;
+      return isStallBookedOrHeld(stall) && !unlockedBookedStallIds.has(stall.id);
+    },
+    [unlockedBookedStallIds]
+  );
+
+  const handleRequestUnlockStall = useCallback(async (stallId: string, stallNumber: string) => {
+    const confirmed = await showConfirm({
+      title: `Relocate Booked Stall #${stallNumber}?`,
+      message: `Stall #${stallNumber} is already confirmed or reserved by an exhibitor. Relocating or resizing it will alter its venue coordinates and physical booth location on the floor plan. Do you want to unlock it for deliberate relocation?`,
+      type: 'warning',
+      confirmText: 'Unlock for Relocation',
+      cancelText: 'Keep Locked',
+    });
+    if (confirmed) {
+      setUnlockedBookedStallIds((prev) => {
+        const next = new Set(prev);
+        next.add(stallId);
+        return next;
+      });
+    }
+  }, []);
+
+  const handleRelockStall = useCallback((stallId: string) => {
+    setUnlockedBookedStallIds((prev) => {
+      const next = new Set(prev);
+      next.delete(stallId);
+      return next;
+    });
+  }, []);
 
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
@@ -1398,26 +1436,20 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     rows.forEach((row, rowIndex) => {
       row.sort((a, b) => a.xPosition - b.xPosition);
 
-      let rowY = row[0].yPosition;
+      let rowY = snapToGrid ? snapCoord(row[0].yPosition) : Math.round(row[0].yPosition);
       if (rowIndex > 0 && prevRowEndY !== null) {
         if (Math.abs(row[0].yPosition - prevRowEndY) <= 30) {
           rowY = prevRowEndY;
         }
       }
 
-      let currentX = row[0].xPosition;
+      let currentX = snapToGrid ? snapCoord(row[0].xPosition) : Math.round(row[0].xPosition);
       let maxH = 0;
 
-      row.forEach((stall, idx) => {
+      row.forEach((stall) => {
         maxH = Math.max(maxH, stall.height);
-        if (idx === 0) {
-          currentX = stall.xPosition + stall.width;
-          posUpdates.set(stall.id, { x: stall.xPosition, y: rowY });
-        } else {
-          const newX = snapCoord(currentX);
-          posUpdates.set(stall.id, { x: newX, y: rowY });
-          currentX = newX + stall.width;
-        }
+        posUpdates.set(stall.id, { x: currentX, y: rowY });
+        currentX += stall.width;
       });
 
       prevRowEndY = rowY + maxH;
@@ -1441,32 +1473,60 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const targetStalls = stalls.filter((s) => selectedStallIds.includes(s.id));
     if (targetStalls.length < 2) return;
 
-    let targetCoord = 0;
-    if (alignment === 'left') targetCoord = Math.min(...targetStalls.map((s) => s.xPosition));
-    else if (alignment === 'right') targetCoord = Math.max(...targetStalls.map((s) => s.xPosition + s.width));
-    else if (alignment === 'top') targetCoord = Math.min(...targetStalls.map((s) => s.yPosition));
-    else if (alignment === 'bottom') targetCoord = Math.max(...targetStalls.map((s) => s.yPosition + s.height));
+    const lockedInTarget = targetStalls.filter((s) => isStallPositionLocked(s));
+    if (lockedInTarget.length > 0) {
+      showAlert({
+        title: 'Protected Booked Stall in Selection',
+        message: `Cannot auto-align: Stall #${lockedInTarget[0].stallNumber} is booked and locked. Unlock it in the right panel to permit alignment shifts.`,
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 1. Determine reference alignment line across selected stalls
+    let rawTargetCoord = 0;
+    if (alignment === 'left') rawTargetCoord = Math.min(...targetStalls.map((s) => s.xPosition));
+    else if (alignment === 'right') rawTargetCoord = Math.max(...targetStalls.map((s) => s.xPosition + s.width));
+    else if (alignment === 'top') rawTargetCoord = Math.min(...targetStalls.map((s) => s.yPosition));
+    else if (alignment === 'bottom') rawTargetCoord = Math.max(...targetStalls.map((s) => s.yPosition + s.height));
     else if (alignment === 'center') {
       const minX = Math.min(...targetStalls.map((s) => s.xPosition));
       const maxX = Math.max(...targetStalls.map((s) => s.xPosition + s.width));
-      targetCoord = (minX + maxX) / 2;
+      rawTargetCoord = (minX + maxX) / 2;
     } else if (alignment === 'middle') {
       const minY = Math.min(...targetStalls.map((s) => s.yPosition));
       const maxY = Math.max(...targetStalls.map((s) => s.yPosition + s.height));
-      targetCoord = (minY + maxY) / 2;
+      rawTargetCoord = (minY + maxY) / 2;
     }
 
+    // 2. Snap the target reference coordinate once so all items align to the same snapped guideline
+    const targetCoord = snapToGrid ? snapCoord(rawTargetCoord) : Math.round(rawTargetCoord);
+
+    // 3. Align all stalls relative to the unified snapped reference line
     const nextStalls = stalls.map((s) => {
       if (!selectedStallIds.includes(s.id)) return s;
       let newX = s.xPosition;
       let newY = s.yPosition;
-      if (alignment === 'left') newX = targetCoord;
-      else if (alignment === 'right') newX = targetCoord - s.width;
-      else if (alignment === 'top') newY = targetCoord;
-      else if (alignment === 'bottom') newY = targetCoord - s.height;
-      else if (alignment === 'center') newX = targetCoord - s.width / 2;
-      else if (alignment === 'middle') newY = targetCoord - s.height / 2;
-      return { ...s, xPosition: snapCoord(newX), yPosition: snapCoord(newY) };
+
+      if (alignment === 'left') {
+        newX = targetCoord;
+      } else if (alignment === 'right') {
+        newX = targetCoord - s.width;
+      } else if (alignment === 'center') {
+        newX = Math.round(targetCoord - s.width / 2);
+      } else if (alignment === 'top') {
+        newY = targetCoord;
+      } else if (alignment === 'bottom') {
+        newY = targetCoord - s.height;
+      } else if (alignment === 'middle') {
+        newY = Math.round(targetCoord - s.height / 2);
+      }
+
+      return {
+        ...s,
+        xPosition: Math.max(0, Math.min(canvasWidth - s.width, newX)),
+        yPosition: Math.max(0, Math.min(canvasHeight - s.height, newY)),
+      };
     });
 
     setStalls(nextStalls);
@@ -1479,17 +1539,30 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const targetStalls = stalls.filter((s) => selectedStallIds.includes(s.id));
     if (targetStalls.length < 3) return;
 
+    const lockedInTarget = targetStalls.filter((s) => isStallPositionLocked(s));
+    if (lockedInTarget.length > 0) {
+      showAlert({
+        title: 'Protected Booked Stall in Selection',
+        message: `Cannot auto-distribute: Stall #${lockedInTarget[0].stallNumber} is booked and locked. Unlock it in the right panel to permit distribution shifts.`,
+        type: 'warning',
+      });
+      return;
+    }
+
     if (direction === 'horizontal') {
       const sorted = [...targetStalls].sort((a, b) => a.xPosition - b.xPosition);
       const first = sorted[0];
       const last = sorted[sorted.length - 1];
-      const totalDist = last.xPosition - first.xPosition;
+      const startX = snapToGrid ? snapCoord(first.xPosition) : first.xPosition;
+      const endX = snapToGrid ? snapCoord(last.xPosition) : last.xPosition;
+      const totalDist = endX - startX;
       const step = totalDist / (sorted.length - 1);
 
       const nextStalls = stalls.map((s) => {
         const idx = sorted.findIndex((st) => st.id === s.id);
         if (idx === -1) return s;
-        return { ...s, xPosition: snapCoord(first.xPosition + idx * step) };
+        const newX = Math.round(startX + idx * step);
+        return { ...s, xPosition: Math.max(0, Math.min(canvasWidth - s.width, newX)) };
       });
       setStalls(nextStalls);
       pushHistory(halls, facilities, annotations, nextStalls);
@@ -1497,13 +1570,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       const sorted = [...targetStalls].sort((a, b) => a.yPosition - b.yPosition);
       const first = sorted[0];
       const last = sorted[sorted.length - 1];
-      const totalDist = last.yPosition - first.yPosition;
+      const startY = snapToGrid ? snapCoord(first.yPosition) : first.yPosition;
+      const endY = snapToGrid ? snapCoord(last.yPosition) : last.yPosition;
+      const totalDist = endY - startY;
       const step = totalDist / (sorted.length - 1);
 
       const nextStalls = stalls.map((s) => {
         const idx = sorted.findIndex((st) => st.id === s.id);
         if (idx === -1) return s;
-        return { ...s, yPosition: snapCoord(first.yPosition + idx * step) };
+        const newY = Math.round(startY + idx * step);
+        return { ...s, yPosition: Math.max(0, Math.min(canvasHeight - s.height, newY)) };
       });
       setStalls(nextStalls);
       pushHistory(halls, facilities, annotations, nextStalls);
@@ -1549,13 +1625,14 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               }
             }
 
+            const shiftX = snapToGrid ? snapCoord(c * (orig.width + 10)) : Math.round(c * (orig.width + 10));
             const cloned: DraftStallItem = {
               ...orig,
               id: `stall-${Date.now()}-${c}-${Math.random().toString(36).substr(2, 4)}`,
               stallNumber: nextStallNum,
               name: `Stall ${nextStallNum}`,
-              xPosition: snapCoord(orig.xPosition + c * (orig.width + 10)),
-              yPosition: snapCoord(orig.yPosition),
+              xPosition: orig.xPosition + shiftX,
+              yPosition: orig.yPosition,
               status: 'AVAILABLE',
             };
             newStallsToAdd.push(cloned);
@@ -1699,6 +1776,22 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       hasDraggedItemRef.current = false;
       if (isReadOnly) return;
 
+      // Check if any stalls in activeRefs are booked & position-locked
+      const lockedStallsInPick = activeRefs
+        .filter((r) => r.type === 'stall')
+        .map((r) => stalls.find((s) => s.id === r.id))
+        .filter((s): s is (typeof stalls)[0] => Boolean(s && isStallPositionLocked(s)));
+
+      if (lockedStallsInPick.length > 0) {
+        isLockedDragAttemptRef.current = {
+          stallNumber: lockedStallsInPick.map((s) => s.stallNumber).join(', '),
+          startPos: { x: pt.x, y: pt.y },
+        };
+        setIsDraggingObj(false);
+        setDragItemInitialCoords([]);
+        return;
+      }
+
       setIsDraggingObj(true);
       setDragStartPos({ x: pt.x, y: pt.y });
 
@@ -1734,6 +1827,22 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     }
 
     if (isReadOnly) return;
+
+    // Check if any stalls in activeRefs are booked & position-locked
+    const lockedStallsInNormal = activeRefs
+      .filter((r) => r.type === 'stall')
+      .map((r) => stalls.find((s) => s.id === r.id))
+      .filter((s): s is (typeof stalls)[0] => Boolean(s && isStallPositionLocked(s)));
+
+    if (lockedStallsInNormal.length > 0) {
+      isLockedDragAttemptRef.current = {
+        stallNumber: lockedStallsInNormal.map((s) => s.stallNumber).join(', '),
+        startPos: { x: pt.x, y: pt.y },
+      };
+      setIsDraggingObj(false);
+      setDragItemInitialCoords([]);
+      return;
+    }
 
     // Start object drag
     setIsDraggingObj(true);
@@ -1774,6 +1883,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     e.stopPropagation();
     e.preventDefault();
     if (isReadOnly) return;
+
+    if (type === 'stall') {
+      const targetStall = stalls.find((s) => s.id === id);
+      if (targetStall && isStallPositionLocked(targetStall)) {
+        showAlert({
+          title: 'Stall Locked',
+          message: `Stall #${targetStall.stallNumber} is booked and locked against accidental changes. Click "Unlock to Relocate" in the right panel to resize.`,
+          type: 'info',
+        });
+        return;
+      }
+    }
 
     setIsResizing(true);
     setResizeHandle(handle);
@@ -1898,8 +2019,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             }
             if (neighborMap.has(s.id)) {
               const orig = neighborMap.get(s.id)!;
-              const nx = resizeHandle.includes('e') ? snapCoord(orig.origX + deltaW) : s.xPosition;
-              const ny = resizeHandle.includes('s') ? snapCoord(orig.origY + deltaH) : s.yPosition;
+              const nx = resizeHandle.includes('e') ? Math.round(orig.origX + deltaW) : s.xPosition;
+              const ny = resizeHandle.includes('s') ? Math.round(orig.origY + deltaH) : s.yPosition;
               return { ...s, xPosition: nx, yPosition: ny };
             }
             return s;
@@ -1943,6 +2064,21 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       return;
     }
 
+    // 1.5. Intercept attempt to drag locked booked stalls
+    if (isLockedDragAttemptRef.current) {
+      const dx = pt.x - isLockedDragAttemptRef.current.startPos.x;
+      const dy = pt.y - isLockedDragAttemptRef.current.startPos.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        const stallNum = isLockedDragAttemptRef.current.stallNumber;
+        isLockedDragAttemptRef.current = null;
+        showAlert({
+          title: 'Stall Position Locked',
+          message: `Stall #${stallNum} is booked by an exhibitor and locked against accidental relocation. Click "Unlock to Relocate" in the right panel to move this booth.`,
+          type: 'info',
+        });
+      }
+    }
+
     // 2. Dragging object(s) active
     if (isDraggingObj && dragItemInitialCoords.length > 0) {
       const rawDx = pt.x - dragStartPos.x;
@@ -1951,14 +2087,26 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         hasDraggedItemRef.current = true;
       }
 
+      // Compute unified movement delta
+      // When dragging multiple items with snap enabled, applying snapCoord independently
+      // to each item destroys their relative alignment and flushness.
+      // Instead, we snap the movement delta using the primary anchor item.
+      const anchor = dragItemInitialCoords[0];
+      const snappedDx = snapToGrid
+        ? snapCoord(anchor.x + rawDx) - anchor.x
+        : Math.round(rawDx);
+      const snappedDy = snapToGrid
+        ? snapCoord(anchor.y + rawDy) - anchor.y
+        : Math.round(rawDy);
+
       const stallUpdates: Record<string, { x: number; y: number }> = {};
       const hallUpdates: Record<string, { x: number; y: number }> = {};
       const facUpdates: Record<string, { x: number; y: number }> = {};
       const annUpdates: Record<string, { x: number; y: number }> = {};
 
       dragItemInitialCoords.forEach((init) => {
-        const nx = snapToGrid ? snapCoord(init.x + rawDx) : Math.round(init.x + rawDx);
-        const ny = snapToGrid ? snapCoord(init.y + rawDy) : Math.round(init.y + rawDy);
+        const nx = Math.max(0, Math.min(canvasWidth - 10, init.x + snappedDx));
+        const ny = Math.max(0, Math.min(canvasHeight - 10, init.y + snappedDy));
         if (init.type === 'stall') stallUpdates[init.id] = { x: nx, y: ny };
         else if (init.type === 'hall') hallUpdates[init.id] = { x: nx, y: ny };
         else if (init.type === 'facility') facUpdates[init.id] = { x: nx, y: ny };
@@ -1996,6 +2144,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
   // Canvas Mouse Up
   const handleCanvasMouseUp = () => {
+    isLockedDragAttemptRef.current = null;
     if (isPanning) {
       setIsPanning(false);
     }
@@ -2296,20 +2445,21 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       }`}
     >
       {/* Studio Top Control Header */}
-      <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-slate-800 shadow-xs z-30 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-slate-800 shadow-xs z-30 shrink-0">        <div className="flex items-center gap-3">
           {onBack && (
-            <button
-              onClick={() => {
-                if (isFullscreen) {
-                  setIsFullscreen(false);
-                }
-                onBack();
-              }}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
+            <Tooltip content="Back to Event" description="Return to exhibition details and management" position="bottom">
+              <button
+                onClick={() => {
+                  if (isFullscreen) {
+                    setIsFullscreen(false);
+                  }
+                  onBack();
+                }}
+                className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+            </Tooltip>
           )}
 
           <div className="h-4 w-px bg-slate-200" />
@@ -2317,15 +2467,6 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-extrabold text-slate-900">{exhibitionTitle}</h2>
-              <span
-                className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${
-                  isFullscreen
-                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                    : 'bg-blue-50 text-blue-700 border border-blue-200'
-                }`}
-              >
-                {isFullscreen ? 'Full Screen Studio' : 'Floor Plan Designer'}
-              </span>
             </div>
             {!isFullscreen && (
               <p className="text-[10px] text-slate-500">
@@ -2338,135 +2479,149 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {/* Background Blueprint Image Modal Trigger */}
-          <button
-            onClick={() => setIsBgModalOpen(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-              backgroundImageUrl
-                ? 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-            <span>{backgroundImageUrl ? 'Blueprint Settings' : 'Upload Blueprint'}</span>
-          </button>
+          <Tooltip content="Blueprint Settings" description="Upload or configure floor plan blueprint tracing image" position="bottom">
+            <button
+              onClick={() => setIsBgModalOpen(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                backgroundImageUrl
+                  ? 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+              <span>{backgroundImageUrl ? 'Blueprint Settings' : 'Upload Blueprint'}</span>
+            </button>
+          </Tooltip>
 
           {/* Direct Compare Blueprint Toggle (Exact Same Position) */}
           {backgroundImageUrl && (
-            <button
-              type="button"
-              onClick={() => setShowBlueprint((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                showBlueprint
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300'
-              }`}
-              title="Compare Blueprint in Exact Same Position (Shortcut: B)"
-            >
-              <Layers className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{showBlueprint ? 'Blueprint: Shown' : 'Blueprint: Hidden'}</span>
-            </button>
+            <Tooltip content="Toggle Blueprint" shortcut="B" description="Show/hide blueprint comparison overlay in exact position" position="bottom">
+              <button
+                type="button"
+                onClick={() => setShowBlueprint((prev) => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                  showBlueprint
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{showBlueprint ? 'Blueprint: Shown' : 'Blueprint: Hidden'}</span>
+              </button>
+            </Tooltip>
           )}
 
           {/* Blueprint X-Ray Inspect Mode (100% sharp blueprint + translucent stalls) */}
           {backgroundImageUrl && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsBlueprintInspectMode((prev) => !prev);
-                setShowBlueprint(true);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                isBlueprintInspectMode
-                  ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
-              }`}
-              title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>{isBlueprintInspectMode ? 'Overlay View: ON' : 'Blueprint Overlay'}</span>
-            </button>
+            <Tooltip content="X-Ray Compare" shortcut="X" description="100% blueprint clarity & translucent stalls for alignment inspection" position="bottom">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBlueprintInspectMode((prev) => !prev);
+                  setShowBlueprint(true);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                  isBlueprintInspectMode
+                    ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>{isBlueprintInspectMode ? 'Overlay View: ON' : 'Blueprint Overlay'}</span>
+              </button>
+            </Tooltip>
           )}
 
           {/* Multi-Select Random Pick Mode Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsMultiSelectMode((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-              isMultiSelectMode
-                ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
-            }`}
-            title="Random Multi-Select Pick Mode: Click any stalls randomly anywhere to toggle in/out of selection (Shortcut: M)"
-          >
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span>{isMultiSelectMode ? 'Multi-Select: ON' : 'Multi-Select'}</span>
-          </button>
+          <Tooltip content="Multi-Select Mode" shortcut="M" description="Click stalls anywhere to add or remove them from selection" position="bottom">
+            <button
+              type="button"
+              onClick={() => setIsMultiSelectMode((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                isMultiSelectMode
+                  ? 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700 shadow-xs ring-2 ring-purple-300'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+              }`}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{isMultiSelectMode ? 'Multi-Select: ON' : 'Multi-Select'}</span>
+            </button>
+          </Tooltip>
 
           {/* Mode Switch: Edit vs Preview */}
-          <button
-            onClick={() => setIsReadOnly(!isReadOnly)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              isReadOnly
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-            }`}
-          >
-            {isReadOnly ? <Pencil className="w-3.5 h-3.5 text-amber-700" /> : <Eye className="w-3.5 h-3.5 text-slate-600" />}
-            {isReadOnly ? 'Switch to Edit' : 'Preview Floor Plan'}
-          </button>
+          <Tooltip content={isReadOnly ? 'Switch to Edit' : 'Preview Floor Plan'} description={isReadOnly ? 'Return to editing floor plan layout' : 'Preview floor plan layout from exhibitor perspective'} position="bottom">
+            <button
+              onClick={() => setIsReadOnly(!isReadOnly)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                isReadOnly
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              {isReadOnly ? <Pencil className="w-3.5 h-3.5 text-amber-700" /> : <Eye className="w-3.5 h-3.5 text-slate-600" />}
+              <span>{isReadOnly ? 'Switch to Edit' : 'Preview Floor Plan'}</span>
+            </button>
+          </Tooltip>
 
           {/* Fullscreen Toggle (Clean symbol with tooltip, covers full screen) */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className={`p-2 rounded-lg transition-all cursor-pointer border ${
-              isFullscreen
-                ? 'bg-blue-600 text-white border-blue-700 shadow-xs hover:bg-blue-700'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200'
-            }`}
-            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Cover Full Screen'}
-          >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-          </button>
+          <Tooltip content={isFullscreen ? 'Exit Full Screen' : 'Full Screen'} shortcut="Esc" description={isFullscreen ? 'Exit full screen view' : 'Maximize floor plan designer to full screen'} position="bottom">
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className={`p-2 rounded-lg transition-all cursor-pointer border ${
+                isFullscreen
+                  ? 'bg-blue-600 text-white border-blue-700 shadow-xs hover:bg-blue-700'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200'
+              }`}
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            </button>
+          </Tooltip>
 
           {/* Undo / Redo */}
           {!isReadOnly && (
             <div className="flex items-center border-l border-slate-200 pl-2 ml-1 gap-1">
-              <button
-                onClick={handleUndo}
-                disabled={historyIndex <= 0}
-                className={`p-2 rounded-lg transition-colors ${
-                  historyIndex <= 0
-                    ? 'text-slate-300 cursor-not-allowed'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Undo2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleRedo}
-                disabled={historyIndex >= history.length - 1}
-                className={`p-2 rounded-lg transition-colors ${
-                  historyIndex >= history.length - 1
-                    ? 'text-slate-300 cursor-not-allowed'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Redo2 className="w-4 h-4" />
-              </button>
+              <Tooltip content="Undo" shortcut="Ctrl+Z" description="Revert last floor plan change" position="bottom">
+                <button
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                    historyIndex <= 0
+                      ? 'text-slate-300 cursor-not-allowed'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Undo2 className="w-4 h-4" />
+                </button>
+              </Tooltip>
+              <Tooltip content="Redo" shortcut="Ctrl+Y" description="Reapply reverted change" position="bottom">
+                <button
+                  onClick={handleRedo}
+                  disabled={historyIndex >= history.length - 1}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                    historyIndex >= history.length - 1
+                      ? 'text-slate-300 cursor-not-allowed'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Redo2 className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
           )}
 
           {/* Save Action */}
           {!isReadOnly && (
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="ml-2 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
-            >
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              <span>Save Floor Plan</span>
-            </button>
+            <Tooltip content="Save Floor Plan" description="Save layout changes and booth placements to database" position="bottom">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="ml-2 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
+              >
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span>Save Floor Plan</span>
+              </button>
+            </Tooltip>
           )}
         </div>
       </header>
@@ -2658,104 +2813,111 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 {/* Direct Bulk Block / Unblock Quick Action Buttons */}
                 {selectedRefs.filter((r) => r.type === 'stall').length > 0 && !isReadOnly && (
                   <>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBulkUpdateStalls({ status: 'BLOCKED' });
-                      }}
-                      className="h-8 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-bold border border-rose-500/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs"
-                      title="Block all selected stalls (Prevents public booking)"
-                    >
-                      <Ban className="w-3.5 h-3.5 shrink-0" />
-                      <span>Block</span>
-                    </button>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBulkUpdateStalls({ status: 'AVAILABLE' });
-                      }}
-                      className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold border border-emerald-500/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs"
-                      title="Make all selected stalls available for public booking"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Make Available</span>
-                    </button>
+                    <Tooltip content="Block Stalls" description="Prevent exhibitors from booking selected stalls" position="top">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBulkUpdateStalls({ status: 'BLOCKED' });
+                        }}
+                        className="h-8 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-bold border border-rose-500/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs"
+                      >
+                        <Ban className="w-3.5 h-3.5 shrink-0" />
+                        <span>Block</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Make Available" description="Open selected stalls for public booking" position="top">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBulkUpdateStalls({ status: 'AVAILABLE' });
+                        }}
+                        className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold border border-emerald-500/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Make Available</span>
+                      </button>
+                    </Tooltip>
                     <div className="h-4 w-px bg-slate-700 shrink-0 mx-0.5" />
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBulkResizeStalls({ deltaPx: -10, keepFlush: true });
-                      }}
-                      className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-rose-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                      title="Quick Reduce: Shrink all selected stalls by 0.5m (−10px)"
-                    >
-                      <Minimize2 className="w-3.5 h-3.5 text-rose-400" />
-                      <span>−0.5m</span>
-                    </button>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBulkResizeStalls({ deltaPx: 10, keepFlush: true });
-                      }}
-                      className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                      title="Quick Scale: Expand all selected stalls by 0.5m (+10px)"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>+0.5m</span>
-                    </button>
+                    <Tooltip content="Quick Shrink" description="Decrease dimensions by 0.5m (−10px)" position="top">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBulkResizeStalls({ deltaPx: -10, keepFlush: true });
+                        }}
+                        className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-rose-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        <Minimize2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>−0.5m</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Quick Expand" description="Increase dimensions by 0.5m (+10px)" position="top">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBulkResizeStalls({ deltaPx: 10, keepFlush: true });
+                        }}
+                        className="h-8 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>+0.5m</span>
+                      </button>
+                    </Tooltip>
                     <div className="h-4 w-px bg-slate-700 shrink-0 mx-0.5" />
                   </>
                 )}
 
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedRefs(stalls.map((s) => ({ type: 'stall', id: s.id })));
-                  }}
-                  className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-blue-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                  title="Select all stalls across the canvas"
-                >
-                  Select All ({stalls.length})
-                </button>
-
-                {selectedRefs.length > 0 && (
+                <Tooltip content="Select All Stalls" description="Select all stalls across the floor plan" position="top">
                   <button
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedRefs([]);
+                      setSelectedRefs(stalls.map((s) => ({ type: 'stall', id: s.id })));
                     }}
-                    className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                    title="Clear current selection"
+                    className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-blue-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
                   >
-                    Clear
+                    Select All ({stalls.length})
                   </button>
+                </Tooltip>
+
+                {selectedRefs.length > 0 && (
+                  <Tooltip content="Clear Selection" shortcut="Esc" description="Deselect all currently chosen stalls" position="top">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRefs([]);
+                      }}
+                      className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      Clear
+                    </button>
+                  </Tooltip>
                 )}
 
                 {isMultiSelectMode && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMultiSelectMode(false);
-                    }}
-                    className="h-8 px-3.5 rounded-lg bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-bold flex items-center justify-center transition-all cursor-pointer whitespace-nowrap ml-1 shadow-xs"
-                    title="Exit Multi-Select Mode (Shortcut: V)"
-                  >
-                    Done (V)
-                  </button>
+                  <Tooltip content="Exit Multi-Select" shortcut="V" description="Return to default pointer and selection tool" position="top">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMultiSelectMode(false);
+                      }}
+                      className="h-8 px-3.5 rounded-lg bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-bold flex items-center justify-center transition-all cursor-pointer whitespace-nowrap ml-1 shadow-xs"
+                    >
+                      Done (V)
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -3596,7 +3758,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               <g id="annotations-layer" opacity={isBlueprintInspectMode ? 0.25 : 1} className="transition-opacity duration-200">
                 {annotations.map((ann) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'annotation' && r.id === ann.id);
-                  const color = isSelected ? '#2563eb' : ann.color || '#475569';
+                  const color = ann.color || '#475569';
                   const fontSize = ann.fontSize || 12;
                   const fontWeight = ann.fontWeight || 'bold';
                   const mode = ann.displayMode || 'text-only';
@@ -4044,8 +4206,34 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         </text>
                       )}
 
-                      {/* Resize Handles (Only when single stall is selected) */}
-                      {isSelected && selectedRefs.length === 1 && !isReadOnly && (
+                      {/* Position Lock / Relocation Badge for Booked Stalls */}
+                      {isStallBookedOrHeld(stall) && (
+                        <g
+                          transform={`translate(${stall.xPosition + stall.width - 15}, ${stall.yPosition + 4})`}
+                          className="pointer-events-none select-none"
+                        >
+                          {isStallPositionLocked(stall) ? (
+                            <>
+                              <rect width="11" height="11" rx="2.5" fill="#f59e0b" fillOpacity="0.9" />
+                              <path
+                                d="M4 4.5V3.5C4 2.67 4.67 2 5.5 2C6.33 2 7 2.67 7 3.5V4.5H7.5C7.78 4.5 8 4.72 8 5V7.5C8 7.78 7.78 8 7.5 8H3.5C3.22 8 3 7.78 3 7.5V5C3 4.72 3.22 4.5 3.5 4.5H4ZM4.7 4.5H6.3V3.5C6.3 3.06 5.94 2.7 5.5 2.7C5.06 2.7 4.7 3.06 4.7 3.5V4.5Z"
+                                fill="#ffffff"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <rect width="11" height="11" rx="2.5" fill="#e11d48" fillOpacity="0.95" />
+                              <path
+                                d="M7 4V3.5C7 2.67 6.33 2 5.5 2C4.67 2 4 2.67 4 3.5H4.7C4.7 3.06 5.06 2.7 5.5 2.7C5.94 2.7 6.3 3.06 6.3 3.5V4.5H3.5C3.22 4.5 3 4.72 3 5V7.5C3 7.78 3.22 8 3.5 8H7.5C7.78 8 8 7.78 8 7.5V5C8 4.72 7.78 4.5 7.5 4.5H7V4Z"
+                                fill="#ffffff"
+                              />
+                            </>
+                          )}
+                        </g>
+                      )}
+
+                      {/* Resize Handles (Only when single stall is selected and not locked) */}
+                      {isSelected && selectedRefs.length === 1 && !isReadOnly && !isStallPositionLocked(stall) && (
                         <>
                           <rect
                             x={stall.xPosition + stall.width - 5}
@@ -4110,120 +4298,138 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           {/* Common Floating Canvas Zoom & Map Navigation Controller HUD */}
           <div className="absolute bottom-4 right-4 z-30 flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-lg border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 gap-1 text-slate-700 dark:text-slate-200 select-none">
             {/* Quick Map Pan Mode Toggle */}
-            <button
-              type="button"
-              onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeTool === 'pan'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-              }`}
-              title="Toggle Map Move Mode (H / Space+Drag / Right-Click Drag)"
-            >
-              <Hand className="w-3.5 h-3.5" />
-              <span>{activeTool === 'pan' ? 'Pan Tool ON' : 'Pan Canvas'}</span>
-            </button>
+            <Tooltip content={activeTool === 'pan' ? 'Pan Mode Active' : 'Pan Canvas'} shortcut="H" description="Click & drag or hold Space to move canvas" position="top">
+              <button
+                type="button"
+                onClick={() => setActiveTool(activeTool === 'pan' ? 'select' : 'pan')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTool === 'pan'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                }`}
+                aria-label="Pan Canvas"
+              >
+                <Hand className="w-3.5 h-3.5" />
+                <span>{activeTool === 'pan' ? 'Pan Tool ON' : 'Pan Canvas'}</span>
+              </button>
+            </Tooltip>
 
             {/* Quick Multi-Select Mode Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsMultiSelectMode((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                isMultiSelectMode
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-              }`}
-              title="Toggle Multi-Select Mode: Click stalls anywhere to add or remove from selection (Shortcut: M)"
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>{isMultiSelectMode ? 'Multi-Select ON' : 'Multi-Select'}</span>
-            </button>
+            <Tooltip content="Multi-Select Mode" shortcut="M" description="Click stalls to add or remove from batch selection" position="top">
+              <button
+                type="button"
+                onClick={() => setIsMultiSelectMode((prev) => !prev)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  isMultiSelectMode
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                }`}
+                aria-label="Toggle Multi-Select Mode"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>{isMultiSelectMode ? 'Multi-Select ON' : 'Multi-Select'}</span>
+              </button>
+            </Tooltip>
 
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
-            <button
-              type="button"
-              onClick={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
-              title="Zoom Out (-)"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
+            <Tooltip content="Zoom Out" shortcut="-" description="Decrease canvas magnification" position="top">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((prev) => Math.max(25, prev - 10))}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
+                aria-label="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+            </Tooltip>
 
-            <button
-              type="button"
-              onClick={() => setZoomLevel(100)}
-              className="px-2 py-1 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors min-w-[54px] text-center cursor-pointer"
-              title="Click to reset zoom to 100% (Ctrl+0)"
-            >
-              {zoomLevel}%
-            </button>
+            <Tooltip content="Reset Zoom (100%)" shortcut="Ctrl+0" description="Reset zoom level to 1:1 scale" position="top">
+              <button
+                type="button"
+                onClick={() => setZoomLevel(100)}
+                className="px-2 py-1 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors min-w-[54px] text-center cursor-pointer"
+                aria-label="Reset Zoom"
+              >
+                {zoomLevel}%
+              </button>
+            </Tooltip>
 
-            <button
-              type="button"
-              onClick={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
-              title="Zoom In (+)"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
+            <Tooltip content="Zoom In" shortcut="+" description="Increase canvas magnification" position="top">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((prev) => Math.min(200, prev + 10))}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
+                aria-label="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+            </Tooltip>
 
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
-            <button
-              type="button"
-              onClick={handleFitToScreen}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
-              title="Fit Floor Plan to Screen (F)"
-            >
-              <Focus className="w-4 h-4" />
-            </button>
+            <Tooltip content="Fit to Screen" shortcut="F" description="Scale and center entire floor plan on screen" position="top">
+              <button
+                type="button"
+                onClick={handleFitToScreen}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
+                aria-label="Fit Floor Plan to Screen"
+              >
+                <Focus className="w-4 h-4" />
+              </button>
+            </Tooltip>
 
-            <button
-              type="button"
-              onClick={() => {
-                setPanOffset({ x: 0, y: 0 });
-                setZoomLevel(100);
-              }}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
-              title="Reset Map Position & Zoom"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            <Tooltip content="Reset View" description="Reset pan position (0,0) and zoom to 100%" position="top">
+              <button
+                type="button"
+                onClick={() => {
+                  setPanOffset({ x: 0, y: 0 });
+                  setZoomLevel(100);
+                }}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors active:scale-95 cursor-pointer"
+                aria-label="Reset Map Position and Zoom"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </Tooltip>
 
             {/* Quick Compare Blueprint Button (Same Position) */}
             {backgroundImageUrl && (
               <>
                 <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
-                <button
-                  type="button"
-                  onClick={() => setShowBlueprint((prev) => !prev)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    showBlueprint
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                  }`}
-                  title="Compare Blueprint in Same Position (Shortcut: B)"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>{showBlueprint ? 'Blueprint ON' : 'Compare Blueprint'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsBlueprintInspectMode((prev) => !prev);
-                    setShowBlueprint(true);
-                  }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    isBlueprintInspectMode
-                      ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                  }`}
-                  title="X-Ray Compare: Blueprint 100% clarity & Stalls translucent for alignment inspection (Shortcut: X)"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>{isBlueprintInspectMode ? 'X-Ray ON' : 'X-Ray Compare'}</span>
-                </button>
+                <Tooltip content={showBlueprint ? 'Hide Blueprint' : 'Compare Blueprint'} shortcut="B" description="Toggle blueprint comparison overlay in place" position="top">
+                  <button
+                    type="button"
+                    onClick={() => setShowBlueprint((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      showBlueprint
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                    }`}
+                    aria-label="Toggle Blueprint"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>{showBlueprint ? 'Blueprint ON' : 'Compare Blueprint'}</span>
+                  </button>
+                </Tooltip>
+                <Tooltip content={isBlueprintInspectMode ? 'X-Ray Active' : 'X-Ray Compare'} shortcut="X" description="100% blueprint clarity & translucent stalls for alignment" position="top">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBlueprintInspectMode((prev) => !prev);
+                      setShowBlueprint(true);
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isBlueprintInspectMode
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                    }`}
+                    aria-label="X-Ray Compare"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{isBlueprintInspectMode ? 'X-Ray ON' : 'X-Ray Compare'}</span>
+                  </button>
+                </Tooltip>
               </>
             )}
           </div>
@@ -4255,6 +4461,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             readOnly={isReadOnly}
             isCollapsed={isRightCollapsed}
             onToggleCollapse={() => setIsRightCollapsed(!isRightCollapsed)}
+            unlockedBookedStallIds={unlockedBookedStallIds}
+            onUnlockStall={handleRequestUnlockStall}
+            onRelockStall={handleRelockStall}
           />
         )}
       </div>

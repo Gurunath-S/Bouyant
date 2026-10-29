@@ -779,9 +779,13 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 ? 'cursor-pointer hover:opacity-85'
                 : 'cursor-not-allowed opacity-90';
 
+              const dimText = stall.actualWidth && stall.actualHeight
+                ? `${stall.actualWidth}m × ${stall.actualHeight}m`
+                : `${(stall.width / 20).toFixed(1)}m × ${(stall.height / 20).toFixed(1)}m`;
+
               const titleText = isUnavailable
                 ? `Stall ${stall.stallNumber} • Booked`
-                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${Math.round(stall.areaSqFt || (stall.width * stall.height) / 100)} sqft`;
+                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${dimText} (${Math.round(stall.areaSqFt || (stall.width * stall.height) / 100)} sqft)`;
 
               return (
                 <g

@@ -44,6 +44,8 @@ export class FloorPlansService {
         category?: any;
         price: number | string;
         areaSqFt?: number;
+        actualWidth?: number;
+        actualHeight?: number;
         width: number;
         height: number;
         xPosition: number;
@@ -171,7 +173,7 @@ export class FloorPlansService {
           for (let i = 0; i < stalls.length; i++) {
             const num = (stalls[i].stallNumber || '').trim();
             if (!num) {
-              throw ApiError.badRequest(`Stall #${i + 1} is missing a stall identifier.`);
+              throw ApiError.badRequest(`Stall No: ${i + 1} is missing a stall identifier.`);
             }
             const upper = num.toUpperCase();
             if (seenNumbers.has(upper)) {
@@ -230,9 +232,19 @@ export class FloorPlansService {
             const status = (validStatuses.includes(rawStat) ? rawStat : 'AVAILABLE') as any;
 
             const price = Number(s.price) || 50000;
-            const areaSqFt = s.areaSqFt ? Number(s.areaSqFt) : Math.round((Number(s.width || 60) * Number(s.height || 60)) / 100);
             const width = Number(s.width) || 60;
             const height = Number(s.height) || 60;
+            const actualWidth = s.actualWidth !== undefined
+              ? Number(s.actualWidth)
+              : validatedLayoutData?.stallPhysicalDimensions?.[stallNum]?.width !== undefined
+                ? Number(validatedLayoutData.stallPhysicalDimensions[stallNum].width)
+                : Number((width / 20).toFixed(1));
+            const actualHeight = s.actualHeight !== undefined
+              ? Number(s.actualHeight)
+              : validatedLayoutData?.stallPhysicalDimensions?.[stallNum]?.height !== undefined
+                ? Number(validatedLayoutData.stallPhysicalDimensions[stallNum].height)
+                : Number((height / 20).toFixed(1));
+            const areaSqFt = s.areaSqFt ? Number(s.areaSqFt) : Math.round(actualWidth * actualHeight * 10.764);
             const xPosition = Number(s.xPosition) || 0;
             const yPosition = Number(s.yPosition) || 0;
 
@@ -253,6 +265,8 @@ export class FloorPlansService {
                   category,
                   price,
                   areaSqFt,
+                  actualWidth,
+                  actualHeight,
                   width,
                   height,
                   xPosition,
@@ -269,6 +283,8 @@ export class FloorPlansService {
                   category,
                   price,
                   areaSqFt,
+                  actualWidth,
+                  actualHeight,
                   width,
                   height,
                   xPosition,

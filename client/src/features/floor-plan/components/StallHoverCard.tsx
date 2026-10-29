@@ -67,16 +67,20 @@ export const StallHoverCard: React.FC<StallHoverCardProps> = ({ stall, onClose, 
             <Sliders className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Size & Dimensions:
           </span>
           <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
-            {stall.name && stall.name !== `Stall ${stall.stallNumber}`
+            {stall.actualWidth && stall.actualHeight
+              ? `${stall.actualWidth}m × ${stall.actualHeight}m`
+              : stall.name && stall.name !== `Stall ${stall.stallNumber}`
               ? stall.name
-              : `${(stall.width / 20).toFixed(1)}×${(stall.height / 20).toFixed(1)}m`}
+              : `${(stall.width / 20).toFixed(1)}m × ${(stall.height / 20).toFixed(1)}m`}
           </span>
         </div>
         <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
           <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
             <Maximize2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Physical Area:
           </span>
-          <span className="font-bold text-slate-900 dark:text-slate-100">{Math.round(stall.areaSqFt)} Sq.Ft</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100">
+            {Math.round(stall.areaSqFt)} Sq.Ft ({Math.round(stall.areaSqFt / 10.764)} m²)
+          </span>
         </div>
         <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
           <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">

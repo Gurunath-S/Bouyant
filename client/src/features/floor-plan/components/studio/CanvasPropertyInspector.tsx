@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Trash2,
   Copy,
@@ -6,6 +6,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
   Maximize,
   Maximize2,
   Minimize2,
@@ -30,6 +33,7 @@ import {
   Zap,
   Star,
   Lock,
+  Unlock,
   AlertCircle,
 } from 'lucide-react';
 import { StallCategory, StallStatus } from '../../../../types';
@@ -42,6 +46,7 @@ import {
   SelectedItemReference,
   isStallBookedOrHeld,
 } from '../../../../types/floorPlanStudio';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface CanvasPropertyInspectorProps {
   selectedRefs: SelectedItemReference[];
@@ -75,7 +80,75 @@ interface CanvasPropertyInspectorProps {
   readOnly?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  unlockedBookedStallIds?: Set<string>;
+  onUnlockStall?: (stallId: string, stallNumber: string) => void;
+  onRelockStall?: (stallId: string) => void;
 }
+
+interface InspectorNumericInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  step?: string | number;
+  disabled?: boolean;
+  className?: string;
+  placeholder?: string;
+}
+
+const InspectorNumericInput: React.FC<InspectorNumericInputProps> = ({
+  value,
+  onChange,
+  min,
+  max,
+  step = 'any',
+  disabled,
+  className,
+  placeholder,
+}) => {
+  const [text, setText] = useState<string>(() => (value !== undefined && !isNaN(value) ? String(value) : ''));
+
+  useEffect(() => {
+    setText(value !== undefined && !isNaN(value) ? String(value) : '');
+  }, [value]);
+
+  return (
+    <input
+      type="number"
+      step={step}
+      min={min}
+      max={max}
+      disabled={disabled}
+      className={className}
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        const str = e.target.value;
+        setText(str);
+        if (str !== '') {
+          const num = Number(str);
+          if (!isNaN(num)) {
+            onChange(num);
+          }
+        }
+      }}
+      onBlur={() => {
+        if (text === '' || isNaN(Number(text))) {
+          const fallback = min !== undefined ? min : 0;
+          setText(String(fallback));
+          onChange(fallback);
+        } else {
+          let num = Number(text);
+          if (min !== undefined && num < min) num = min;
+          if (max !== undefined && num > max) num = max;
+          setText(String(num));
+          onChange(num);
+        }
+      }}
+      onWheel={(e) => e.currentTarget.blur()}
+    />
+  );
+};
 
 export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = ({
   selectedRefs,
@@ -101,6 +174,9 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
   readOnly = false,
   isCollapsed = false,
   onToggleCollapse,
+  unlockedBookedStallIds,
+  onUnlockStall,
+  onRelockStall,
 }) => {
   const pxPerMeter = 20;
   const [bulkKeepFlush, setBulkKeepFlush] = useState<boolean>(true);
@@ -112,13 +188,15 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
       <aside className="w-12 bg-white border-l border-slate-200 flex flex-col items-center py-3 shrink-0 select-none shadow-xs z-20 transition-all justify-between">
         <div className="flex flex-col items-center gap-3 w-full">
           {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              title="Expand Property Inspector (])"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+            <Tooltip content="Expand Inspector" shortcut="]" description="Expand right inspector panel" position="left">
+              <button
+                onClick={onToggleCollapse}
+                aria-label="Expand Property Inspector"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </Tooltip>
           )}
           <div className="w-6 h-px bg-slate-200" />
           <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold tracking-wider uppercase text-slate-500 select-none py-2 flex items-center gap-1.5">
@@ -167,27 +245,35 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && (
-              <button
-                onClick={allSelectedAreBookedStalls ? undefined : onDeleteSelected}
-                disabled={allSelectedAreBookedStalls}
-                className={`text-xs font-bold flex items-center gap-1 ${
-                  allSelectedAreBookedStalls
-                    ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
-                    : 'text-rose-600 hover:text-rose-700 cursor-pointer'
-                }`}
-                title={allSelectedAreBookedStalls ? 'Cannot delete: Selected stalls are booked/held' : 'Delete unbooked elements'}
+              <Tooltip
+                content={allSelectedAreBookedStalls ? 'Protected from Deletion' : 'Delete Unbooked Selected'}
+                description={allSelectedAreBookedStalls ? 'Booked or held stalls cannot be removed' : 'Remove all selected unbooked elements from floor plan'}
+                position="bottom"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+                <button
+                  onClick={allSelectedAreBookedStalls ? undefined : onDeleteSelected}
+                  disabled={allSelectedAreBookedStalls}
+                  className={`text-xs font-bold flex items-center gap-1 ${
+                    allSelectedAreBookedStalls
+                      ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50'
+                      : 'text-rose-600 hover:text-rose-700 cursor-pointer'
+                  }`}
+                  aria-label="Delete Selected Elements"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </Tooltip>
             )}
             {onToggleCollapse && (
-              <button
-                onClick={onToggleCollapse}
-                title="Collapse Inspector (])"
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  aria-label="Collapse Inspector"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -247,15 +333,17 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           {/* Quick Duplicate */}
           {!readOnly && (
             <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => onDuplicateSelected(1)}
-                className="w-full py-2 px-3 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
-                title="Duplicate selected items"
-              >
-                <Copy className="w-3.5 h-3.5 text-slate-600" />
-                <span>Duplicate Selected</span>
-              </button>
+              <Tooltip content="Duplicate Selected" shortcut="Ctrl+D" description="Create a clone of all selected items" position="top">
+                <button
+                  type="button"
+                  onClick={() => onDuplicateSelected(1)}
+                  className="w-full py-2 px-3 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                  aria-label="Duplicate selected items"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Duplicate Selected</span>
+                </button>
+              </Tooltip>
             </div>
           )}
 
@@ -266,44 +354,84 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 Alignment & Distribution
               </span>
               <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  onClick={() => onAlignStalls('left')}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700"
-                  title="Align Left"
-                >
-                  <AlignLeft className="w-3.5 h-3.5" /> Left
-                </button>
-                <button
-                  onClick={() => onAlignStalls('center')}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700"
-                  title="Align Center"
-                >
-                  <AlignCenter className="w-3.5 h-3.5" /> Center
-                </button>
-                <button
-                  onClick={() => onAlignStalls('right')}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700"
-                  title="Align Right"
-                >
-                  <AlignRight className="w-3.5 h-3.5" /> Right
-                </button>
+                <Tooltip content="Align Left" description="Align left edges of all selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('left')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Left"
+                  >
+                    <AlignLeft className="w-3.5 h-3.5" /> Left
+                  </button>
+                </Tooltip>
+                <Tooltip content="Align Center" description="Align horizontal centers of selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('center')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Center"
+                  >
+                    <AlignCenter className="w-3.5 h-3.5" /> Center
+                  </button>
+                </Tooltip>
+                <Tooltip content="Align Right" description="Align right edges of all selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('right')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Right"
+                  >
+                    <AlignRight className="w-3.5 h-3.5" /> Right
+                  </button>
+                </Tooltip>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <Tooltip content="Align Top" description="Align top edges of all selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('top')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Top"
+                  >
+                    <AlignStartVertical className="w-3.5 h-3.5" /> Top
+                  </button>
+                </Tooltip>
+                <Tooltip content="Align Middle" description="Align vertical centers of selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('middle')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Middle"
+                  >
+                    <AlignCenterVertical className="w-3.5 h-3.5" /> Middle
+                  </button>
+                </Tooltip>
+                <Tooltip content="Align Bottom" description="Align bottom edges of all selected stalls" position="top">
+                  <button
+                    onClick={() => onAlignStalls('bottom')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-slate-700 transition-colors cursor-pointer"
+                    aria-label="Align Bottom"
+                  >
+                    <AlignEndVertical className="w-3.5 h-3.5" /> Bottom
+                  </button>
+                </Tooltip>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 pt-1">
-                <button
-                  onClick={() => onDistributeStalls('horizontal')}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
-                  title="Make horizontal spacing between stalls equal"
-                >
-                  Even Spacing ↔
-                </button>
-                <button
-                  onClick={() => onDistributeStalls('vertical')}
-                  className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
-                  title="Make vertical spacing between stalls equal"
-                >
-                  Even Spacing ↕
-                </button>
+                <Tooltip content="Distribute Horizontally" description="Evenly space stalls along the horizontal axis" position="top">
+                  <button
+                    onClick={() => onDistributeStalls('horizontal')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer"
+                    aria-label="Distribute Horizontally"
+                  >
+                    Even Spacing ↔
+                  </button>
+                </Tooltip>
+                <Tooltip content="Distribute Vertically" description="Evenly space stalls along the vertical axis" position="top">
+                  <button
+                    onClick={() => onDistributeStalls('vertical')}
+                    className="p-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer"
+                    aria-label="Distribute Vertically"
+                  >
+                    Even Spacing ↕
+                  </button>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -332,15 +460,17 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   </span>
                 </label>
                 {onPackFlushStalls && (
-                  <button
-                    type="button"
-                    onClick={() => onPackFlushStalls()}
-                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
-                    title="Snap stalls together tightly edge-to-edge"
-                  >
-                    <Layers className="w-3 h-3" />
-                    <span>Snap Now</span>
-                  </button>
+                  <Tooltip content="Snap Flush" description="Align and pack stalls tightly edge-to-edge without gaps" position="left">
+                    <button
+                      type="button"
+                      onClick={() => onPackFlushStalls()}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1"
+                      aria-label="Snap stalls together tightly edge-to-edge"
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Snap Now</span>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
 
@@ -353,24 +483,28 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <span className="text-[10px] text-slate-400 font-mono">±0.5m</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onBulkResizeStalls({ deltaPx: -10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-3 bg-white hover:bg-rose-50 hover:border-rose-300 border border-slate-200 text-rose-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
-                    title="Quick Reduce: Shrink both Width & Depth by 0.5m (−10px)"
-                  >
-                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>−0.5m Both</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onBulkResizeStalls({ deltaPx: 10, keepFlush: bulkKeepFlush })}
-                    className="py-1.5 px-3 bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-emerald-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
-                    title="Quick Scale: Expand both Width & Depth by 0.5m (+10px)"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+0.5m Both</span>
-                  </button>
+                  <Tooltip content="Quick Reduce Both" description="Shrink both Width & Depth by 0.5m (−10px)" position="top">
+                    <button
+                      type="button"
+                      onClick={() => onBulkResizeStalls({ deltaPx: -10, keepFlush: bulkKeepFlush })}
+                      className="py-1.5 px-3 bg-white hover:bg-rose-50 hover:border-rose-300 border border-slate-200 text-rose-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
+                      aria-label="Shrink both Width and Depth by 0.5m"
+                    >
+                      <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>−0.5m Both</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Quick Scale Both" description="Expand both Width & Depth by 0.5m (+10px)" position="top">
+                    <button
+                      type="button"
+                      onClick={() => onBulkResizeStalls({ deltaPx: 10, keepFlush: bulkKeepFlush })}
+                      className="py-1.5 px-3 bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-emerald-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
+                      aria-label="Expand both Width and Depth by 0.5m"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>+0.5m Both</span>
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -384,44 +518,52 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <div className="space-y-1">
                     <span className="text-[9px] font-semibold text-slate-500 block text-center">Width</span>
                     <div className="grid grid-cols-2 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onBulkResizeStalls({ deltaW: -10, keepFlush: bulkKeepFlush })}
-                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
-                        title="Reduce width by 0.5m"
-                      >
-                        <span>−0.5</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onBulkResizeStalls({ deltaW: 10, keepFlush: bulkKeepFlush })}
-                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
-                        title="Expand width by 0.5m"
-                      >
-                        <span>+0.5</span>
-                      </button>
+                      <Tooltip content="Width -0.5m" description="Reduce stall width by 0.5m (-10px)" position="top">
+                        <button
+                          type="button"
+                          onClick={() => onBulkResizeStalls({ deltaW: -10, keepFlush: bulkKeepFlush })}
+                          className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                          aria-label="Reduce width by 0.5m"
+                        >
+                          <span>−0.5</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Width +0.5m" description="Expand stall width by 0.5m (+10px)" position="top">
+                        <button
+                          type="button"
+                          onClick={() => onBulkResizeStalls({ deltaW: 10, keepFlush: bulkKeepFlush })}
+                          className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                          aria-label="Expand width by 0.5m"
+                        >
+                          <span>+0.5</span>
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                   {/* Depth Nudge */}
                   <div className="space-y-1">
                     <span className="text-[9px] font-semibold text-slate-500 block text-center">Depth</span>
                     <div className="grid grid-cols-2 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onBulkResizeStalls({ deltaH: -10, keepFlush: bulkKeepFlush })}
-                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
-                        title="Reduce depth by 0.5m"
-                      >
-                        <span>−0.5</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onBulkResizeStalls({ deltaH: 10, keepFlush: bulkKeepFlush })}
-                        className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
-                        title="Expand depth by 0.5m"
-                      >
-                        <span>+0.5</span>
-                      </button>
+                      <Tooltip content="Depth -0.5m" description="Reduce stall depth by 0.5m (-10px)" position="top">
+                        <button
+                          type="button"
+                          onClick={() => onBulkResizeStalls({ deltaH: -10, keepFlush: bulkKeepFlush })}
+                          className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                          aria-label="Reduce depth by 0.5m"
+                        >
+                          <span>−0.5</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Depth +0.5m" description="Expand stall depth by 0.5m (+10px)" position="top">
+                        <button
+                          type="button"
+                          onClick={() => onBulkResizeStalls({ deltaH: 10, keepFlush: bulkKeepFlush })}
+                          className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[11px] flex items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                          aria-label="Expand depth by 0.5m"
+                        >
+                          <span>+0.5</span>
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
@@ -439,15 +581,16 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                     { label: '4×3m', w: 80, h: 60 },
                     { label: '2×2m', w: 40, h: 40 },
                   ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => onBulkResizeStalls({ width: preset.w, height: preset.h, keepFlush: bulkKeepFlush })}
-                      className="py-1 px-1 bg-white hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-slate-700 hover:text-blue-700 font-mono font-bold rounded-md text-[10px] transition-colors cursor-pointer text-center"
-                      title={`Set all selected stalls to ${preset.label}`}
-                    >
-                      {preset.label}
-                    </button>
+                    <Tooltip key={preset.label} content={`Preset ${preset.label}`} description={`Resize all selected stalls to ${preset.label}`} position="top">
+                      <button
+                        type="button"
+                        onClick={() => onBulkResizeStalls({ width: preset.w, height: preset.h, keepFlush: bulkKeepFlush })}
+                        className="w-full py-1 px-1 bg-white hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-slate-700 hover:text-blue-700 font-mono font-bold rounded-md text-[10px] transition-colors cursor-pointer text-center"
+                        aria-label={`Set all selected stalls to ${preset.label}`}
+                      >
+                        {preset.label}
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -693,6 +836,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     if (!stall) return null;
 
     const isBooked = isStallBookedOrHeld(stall);
+    const isPositionLocked = isBooked && !(unlockedBookedStallIds && unlockedBookedStallIds.has(stall.id));
     const widthMeters = Number((stall.width / pxPerMeter).toFixed(1));
     const depthMeters = Number((stall.height / pxPerMeter).toFixed(1));
     const areaSqMeters = Number((widthMeters * depthMeters).toFixed(1));
@@ -703,55 +847,121 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           <div className="flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${isBooked ? 'bg-amber-500' : 'bg-emerald-600'}`} />
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 font-mono">
-              Stall #{stall.stallNumber}
+              Stall No: {stall.stallNumber}
             </h3>
             {isBooked && (
-              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                <Lock className="w-2.5 h-2.5" /> Booked
-              </span>
+              isPositionLocked ? (
+                <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-amber-200 dark:border-amber-800">
+                  <Lock className="w-2.5 h-2.5" /> Locked
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-rose-300 dark:border-rose-800 animate-pulse">
+                  <Unlock className="w-2.5 h-2.5" /> Relocating
+                </span>
+              )
             )}
           </div>
           <div className="flex items-center gap-1.5">
             {!readOnly && (
               <>
-                <button
-                  onClick={() => onDuplicateSelected(1)}
-                  className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded"
-                  title="Duplicate (Ctrl+D)"
+                <Tooltip content="Duplicate Stall" shortcut="Ctrl+D" description="Duplicate this stall next to the current position" position="bottom">
+                  <button
+                    onClick={() => onDuplicateSelected(1)}
+                    className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded cursor-pointer"
+                    aria-label="Duplicate Stall"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  content={isBooked ? 'Protected from Deletion' : 'Delete Stall'}
+                  shortcut="Del"
+                  description={isBooked ? 'Cannot delete: Stall is booked or held by customer' : 'Remove this stall from the floor plan'}
+                  position="bottom"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={isBooked ? undefined : onDeleteSelected}
-                  disabled={isBooked}
-                  className={`p-1 rounded transition-colors ${
-                    isBooked
-                      ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
-                      : 'text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer'
-                  }`}
-                  title={isBooked ? 'Cannot delete: Stall is booked/reserved by a customer' : 'Delete Stall'}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                  <button
+                    onClick={isBooked ? undefined : onDeleteSelected}
+                    disabled={isBooked}
+                    className={`p-1 rounded transition-colors ${
+                      isBooked
+                        ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-40'
+                        : 'text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer'
+                    }`}
+                    aria-label="Delete Stall"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
               </>
             )}
             {onToggleCollapse && (
-              <button
-                onClick={onToggleCollapse}
-                title="Collapse Inspector (])"
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  aria-label="Collapse Inspector"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>
 
         <div className="p-4 space-y-4">
           {isBooked && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-xs font-semibold">
-              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Stall booked by customer. Deletion is locked to protect reservations.</span>
+            <div
+              className={`p-3 rounded-xl border text-xs space-y-2 transition-all ${
+                isPositionLocked
+                  ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200'
+                  : 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-700 text-rose-900 dark:text-rose-200 shadow-xs'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-bold">
+                  {isPositionLocked ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span>Position Locked (Booked)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
+                      <span className="text-rose-700 dark:text-rose-300">Relocation Mode Active</span>
+                    </>
+                  )}
+                </span>
+                {!readOnly && (
+                  isPositionLocked ? (
+                    <Tooltip content="Unlock Stall" description="Enable moving or resizing this booked stall on the canvas" position="left">
+                      <button
+                        type="button"
+                        onClick={() => onUnlockStall?.(stall.id, stall.stallNumber)}
+                        className="text-[11px] font-bold px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                        aria-label="Unlock this booth for deliberate relocation"
+                      >
+                        <Unlock className="w-3 h-3" /> Unlock to Relocate
+                      </button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip content="Lock Position" description="Lock coordinates and prevent accidental movements" position="left">
+                      <button
+                        type="button"
+                        onClick={() => onRelockStall?.(stall.id)}
+                        className="text-[11px] font-bold px-2 py-1 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                        aria-label="Lock position back to prevent accidental changes"
+                      >
+                        <Lock className="w-3 h-3" /> Re-lock Position
+                      </button>
+                    </Tooltip>
+                  )
+                )}
+              </div>
+              <p className="text-[11px] leading-relaxed opacity-90">
+                {isPositionLocked
+                  ? 'This stall is reserved or confirmed by a customer. Position, dimensions, and coordinates are locked to protect the reservation from accidental movement.'
+                  : 'Caution: Relocation mode is active. You may now reposition or resize this stall on the canvas. Be sure to re-lock it when finished and notify the exhibitor of any changes.'}
+              </p>
             </div>
           )}
           {/* 1. Stall Name / Number */}
@@ -791,7 +1001,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 />
                 {isDuplicate && (
                   <p className="text-[11px] text-rose-600 font-medium">
-                    Stall #{stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
+                    Stall No: {stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
                   </p>
                 )}
               </div>
@@ -828,42 +1038,38 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                       Width (m)
                     </label>
-                    <input
-                      type="number"
-                      disabled={readOnly}
+                    <InspectorNumericInput
+                      disabled={readOnly || isPositionLocked}
                       step="0.5"
-                      min="0.5"
+                      min={0.1}
                       value={actualW}
-                      onChange={(e) => {
-                        const w = Math.max(0.1, Number(e.target.value));
+                      onChange={(w) => {
                         onUpdateStall(stall.id, {
                           actualWidth: w,
                           actualDimensions: `${w}m × ${actualH}m`,
                           areaSqFt: Math.round(w * actualH * 10.764),
                         });
                       }}
-                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                       Height (m)
                     </label>
-                    <input
-                      type="number"
-                      disabled={readOnly}
+                    <InspectorNumericInput
+                      disabled={readOnly || isPositionLocked}
                       step="0.5"
-                      min="0.5"
+                      min={0.1}
                       value={actualH}
-                      onChange={(e) => {
-                        const h = Math.max(0.1, Number(e.target.value));
+                      onChange={(h) => {
                         onUpdateStall(stall.id, {
                           actualHeight: h,
                           actualDimensions: `${actualW}m × ${h}m`,
                           areaSqFt: Math.round(actualW * h * 10.764),
                         });
                       }}
-                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -904,14 +1110,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </label>
             <div className="relative">
               <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">₹</span>
-              <input
-                type="number"
+              <InspectorNumericInput
                 disabled={readOnly}
                 step="1000"
-                min="0"
+                min={0}
                 value={stall.price}
-                onChange={(e) => onUpdateStall(stall.id, { price: Math.max(0, Number(e.target.value)) })}
-                onWheel={(e) => e.currentTarget.blur()}
+                onChange={(p) => onUpdateStall(stall.id, { price: p })}
                 className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
@@ -970,34 +1174,30 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Canvas Width (px)
                 </label>
-                <input
-                  type="number"
-                  disabled={readOnly}
+                <InspectorNumericInput
+                  disabled={readOnly || isPositionLocked}
                   step="5"
-                  min="20"
+                  min={20}
                   value={Math.round(stall.width)}
-                  onChange={(e) => {
-                    const newW = Math.max(20, Math.round(Number(e.target.value)));
-                    onUpdateStall(stall.id, { width: newW }, { pushNeighbors: singlePushNeighbors });
+                  onChange={(newW) => {
+                    onUpdateStall(stall.id, { width: Math.round(newW) }, { pushNeighbors: singlePushNeighbors });
                   }}
-                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Canvas Height (px)
                 </label>
-                <input
-                  type="number"
-                  disabled={readOnly}
+                <InspectorNumericInput
+                  disabled={readOnly || isPositionLocked}
                   step="5"
-                  min="20"
+                  min={20}
                   value={Math.round(stall.height)}
-                  onChange={(e) => {
-                    const newH = Math.max(20, Math.round(Number(e.target.value)));
-                    onUpdateStall(stall.id, { height: newH }, { pushNeighbors: singlePushNeighbors });
+                  onChange={(newH) => {
+                    onUpdateStall(stall.id, { height: Math.round(newH) }, { pushNeighbors: singlePushNeighbors });
                   }}
-                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -1007,9 +1207,10 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
+                  disabled={readOnly || isPositionLocked}
                   checked={singlePushNeighbors}
                   onChange={(e) => setSinglePushNeighbors(e.target.checked)}
-                  className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                  className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer disabled:cursor-not-allowed"
                 />
                 <span className="text-[11px] font-bold text-blue-900">
                   Push / Pull Row (No Gaps)
@@ -1019,66 +1220,74 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
 
             {/* Quick Dimension Nudges */}
             <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-200/60">
-              <button
-                type="button"
-                disabled={readOnly || stall.width <= 20}
-                onClick={() =>
-                  onUpdateStall(
-                    stall.id,
-                    { width: Math.max(20, stall.width - 10) },
-                    { pushNeighbors: singlePushNeighbors }
-                  )
-                }
-                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                title="Shrink canvas width by 10px"
-              >
-                <Minimize2 className="w-3 h-3 text-rose-600" /> −10px W
-              </button>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() =>
-                  onUpdateStall(
-                    stall.id,
-                    { width: stall.width + 10 },
-                    { pushNeighbors: singlePushNeighbors }
-                  )
-                }
-                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                title="Expand canvas width by 10px"
-              >
-                <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px W
-              </button>
-              <button
-                type="button"
-                disabled={readOnly || stall.height <= 20}
-                onClick={() =>
-                  onUpdateStall(
-                    stall.id,
-                    { height: Math.max(20, stall.height - 10) },
-                    { pushNeighbors: singlePushNeighbors }
-                  )
-                }
-                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                title="Shrink canvas height by 10px"
-              >
-                <Minimize2 className="w-3 h-3 text-rose-600" /> −10px H
-              </button>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() =>
-                  onUpdateStall(
-                    stall.id,
-                    { height: stall.height + 10 },
-                    { pushNeighbors: singlePushNeighbors }
-                  )
-                }
-                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                title="Expand canvas height by 10px"
-              >
-                <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px H
-              </button>
+              <Tooltip content="Shrink Width" description="Decrease visual canvas width by 10px" position="top">
+                <button
+                  type="button"
+                  disabled={readOnly || isPositionLocked || stall.width <= 20}
+                  onClick={() =>
+                    onUpdateStall(
+                      stall.id,
+                      { width: Math.max(20, stall.width - 10) },
+                      { pushNeighbors: singlePushNeighbors }
+                    )
+                  }
+                  className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  aria-label="Shrink canvas width by 10px"
+                >
+                  <Minimize2 className="w-3 h-3 text-rose-600" /> −10px W
+                </button>
+              </Tooltip>
+              <Tooltip content="Expand Width" description="Increase visual canvas width by 10px" position="top">
+                <button
+                  type="button"
+                  disabled={readOnly || isPositionLocked}
+                  onClick={() =>
+                    onUpdateStall(
+                      stall.id,
+                      { width: stall.width + 10 },
+                      { pushNeighbors: singlePushNeighbors }
+                    )
+                  }
+                  className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  aria-label="Expand canvas width by 10px"
+                >
+                  <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px W
+                </button>
+              </Tooltip>
+              <Tooltip content="Shrink Height" description="Decrease visual canvas height by 10px" position="top">
+                <button
+                  type="button"
+                  disabled={readOnly || isPositionLocked || stall.height <= 20}
+                  onClick={() =>
+                    onUpdateStall(
+                      stall.id,
+                      { height: Math.max(20, stall.height - 10) },
+                      { pushNeighbors: singlePushNeighbors }
+                    )
+                  }
+                  className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  aria-label="Shrink canvas height by 10px"
+                >
+                  <Minimize2 className="w-3 h-3 text-rose-600" /> −10px H
+                </button>
+              </Tooltip>
+              <Tooltip content="Expand Height" description="Increase visual canvas height by 10px" position="top">
+                <button
+                  type="button"
+                  disabled={readOnly || isPositionLocked}
+                  onClick={() =>
+                    onUpdateStall(
+                      stall.id,
+                      { height: stall.height + 10 },
+                      { pushNeighbors: singlePushNeighbors }
+                    )
+                  }
+                  className="w-full py-1 px-1.5 bg-white hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  aria-label="Expand canvas height by 10px"
+                >
+                  <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px H
+                </button>
+              </Tooltip>
             </div>
             <p className="text-[10px] text-slate-400 leading-tight">
               Controls visual rendered size on canvas. Does not overwrite actual physical dimensions.
@@ -1093,14 +1302,17 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 Custom Stall Color
               </label>
               {stall.color && (
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => onUpdateStall(stall.id, { color: undefined })}
-                  className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <RotateCcw className="w-2.5 h-2.5" /> Reset Default
-                </button>
+                <Tooltip content="Reset Color" description="Restore standard category theme color" position="left">
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => onUpdateStall(stall.id, { color: undefined })}
+                    className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    aria-label="Reset Default Color"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" /> Reset Default
+                  </button>
+                </Tooltip>
               )}
             </div>
 
@@ -1198,12 +1410,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 {[0, 90, 180, 270].map((deg) => (
                   <button
                     key={deg}
-                    disabled={readOnly}
+                    disabled={readOnly || isPositionLocked}
                     onClick={() => onUpdateStall(stall.id, { rotation: deg })}
                     className={`px-2 py-1 text-[10px] font-bold rounded ${
                       (stall.rotation || 0) === deg
                         ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed'
                     }`}
                   >
                     {deg}°
@@ -1213,20 +1425,37 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500 font-mono">
-              <div>X: {Math.round(stall.xPosition)}px</div>
-              <div>Y: {Math.round(stall.yPosition)}px</div>
+              <div className="flex items-center gap-1">
+                <span>X: {Math.round(stall.xPosition)}px</span>
+                {isPositionLocked && (
+                  <span title="Position locked">
+                    <Lock className="w-2.5 h-2.5 text-amber-500" />
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <span>Y: {Math.round(stall.yPosition)}px</span>
+                {isPositionLocked && (
+                  <span title="Position locked">
+                    <Lock className="w-2.5 h-2.5 text-amber-500" />
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Action buttons */}
           {!readOnly && (
             <div className="pt-2 flex flex-col gap-2">
-              <button
-                onClick={() => onDuplicateSelected(1)}
-                className="w-full py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5" /> Duplicate Next Stall
-              </button>
+              <Tooltip content="Duplicate Next Stall" shortcut="Ctrl+D" description="Duplicate stall and align it right next to this one" position="top">
+                <button
+                  onClick={() => onDuplicateSelected(1)}
+                  className="w-full py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  aria-label="Duplicate Next Stall"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Duplicate Next Stall
+                </button>
+              </Tooltip>
             </div>
           )}
         </div>
@@ -1254,21 +1483,26 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && (
-              <button
-                onClick={onDeleteSelected}
-                className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete Hall
-              </button>
+              <Tooltip content="Delete Hall" shortcut="Del" description="Remove this hall and boundaries from canvas" position="bottom">
+                <button
+                  onClick={onDeleteSelected}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                  aria-label="Delete Hall"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Hall
+                </button>
+              </Tooltip>
             )}
             {onToggleCollapse && (
-              <button
-                onClick={onToggleCollapse}
-                title="Collapse Inspector (])"
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  aria-label="Collapse Inspector"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -1415,13 +1649,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">
                   Width (m)
                 </label>
-                <input
-                  type="number"
+                <InspectorNumericInput
                   disabled={readOnly}
                   step="1"
-                  min="10"
+                  min={5}
                   value={widthMeters}
-                  onChange={(e) => onUpdateHall(hall.id, { width: Math.max(10, Number(e.target.value)) * pxPerMeter })}
+                  onChange={(val) => onUpdateHall(hall.id, { width: val * pxPerMeter })}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
                 />
               </div>
@@ -1429,13 +1662,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">
                   Height (m)
                 </label>
-                <input
-                  type="number"
+                <InspectorNumericInput
                   disabled={readOnly}
                   step="1"
-                  min="10"
+                  min={5}
                   value={heightMeters}
-                  onChange={(e) => onUpdateHall(hall.id, { height: Math.max(10, Number(e.target.value)) * pxPerMeter })}
+                  onChange={(val) => onUpdateHall(hall.id, { height: val * pxPerMeter })}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
                 />
               </div>
@@ -1496,21 +1728,26 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && (
-              <button
-                onClick={onDeleteSelected}
-                className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+              <Tooltip content="Delete Facility" shortcut="Del" description="Remove this amenity/facility marker from canvas" position="bottom">
+                <button
+                  onClick={onDeleteSelected}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                  aria-label="Delete Facility"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </Tooltip>
             )}
             {onToggleCollapse && (
-              <button
-                onClick={onToggleCollapse}
-                title="Collapse Inspector (])"
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  aria-label="Collapse Inspector"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -1642,13 +1879,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                     onChange={(e) => onUpdateFacility(fac.id, { iconSize: Number(e.target.value) })}
                     className="flex-1 accent-amber-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
                   />
-                  <input
-                    type="number"
+                  <InspectorNumericInput
                     disabled={readOnly}
-                    min="12"
-                    max="64"
+                    min={12}
+                    max={64}
+                    step={1}
                     value={fac.iconSize || 24}
-                    onChange={(e) => onUpdateFacility(fac.id, { iconSize: Math.max(12, Math.min(64, Number(e.target.value))) })}
+                    onChange={(size) => onUpdateFacility(fac.id, { iconSize: size })}
                     className="w-14 px-1.5 py-1 text-xs border border-slate-300 rounded-lg font-mono text-center bg-white"
                   />
                 </div>
@@ -1661,13 +1898,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Font Size (px)
                 </label>
-                <input
-                  type="number"
+                <InspectorNumericInput
                   disabled={readOnly}
-                  min="8"
-                  max="28"
+                  min={8}
+                  max={28}
+                  step={1}
                   value={fac.fontSize || 10}
-                  onChange={(e) => onUpdateFacility(fac.id, { fontSize: Number(e.target.value) })}
+                  onChange={(size) => onUpdateFacility(fac.id, { fontSize: size })}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
                 />
               </div>
@@ -1708,16 +1945,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                   Width (m)
                 </label>
-                <input
-                  type="number"
+                <InspectorNumericInput
                   disabled={readOnly}
                   step="0.5"
-                  min="0.5"
+                  min={0.5}
                   value={Number((fac.width / pxPerMeter).toFixed(1))}
-                  onChange={(e) => {
-                    const m = Math.max(0.5, Number(e.target.value));
-                    onUpdateFacility(fac.id, { width: Math.round(m * pxPerMeter) });
-                  }}
+                  onChange={(m) => onUpdateFacility(fac.id, { width: Math.round(m * pxPerMeter) })}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-bold bg-white"
                 />
               </div>
@@ -1725,16 +1958,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                   Depth / Height (m)
                 </label>
-                <input
-                  type="number"
+                <InspectorNumericInput
                   disabled={readOnly}
                   step="0.5"
-                  min="0.5"
+                  min={0.5}
                   value={Number((fac.height / pxPerMeter).toFixed(1))}
-                  onChange={(e) => {
-                    const m = Math.max(0.5, Number(e.target.value));
-                    onUpdateFacility(fac.id, { height: Math.round(m * pxPerMeter) });
-                  }}
+                  onChange={(m) => onUpdateFacility(fac.id, { height: Math.round(m * pxPerMeter) })}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-bold bg-white"
                 />
               </div>
@@ -1780,21 +2009,26 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </h3>
           <div className="flex items-center gap-2">
             {!readOnly && (
-              <button
-                onClick={onDeleteSelected}
-                className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+              <Tooltip content="Delete Text Label" shortcut="Del" description="Remove this text label from canvas" position="bottom">
+                <button
+                  onClick={onDeleteSelected}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                  aria-label="Delete Text Label"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </Tooltip>
             )}
             {onToggleCollapse && (
-              <button
-                onClick={onToggleCollapse}
-                title="Collapse Inspector (])"
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                  aria-label="Collapse Inspector"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -1919,21 +2153,56 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Text & Icon Color
-              </label>
-              <div className="flex gap-2">
-                {['#475569', '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed'].map((c) => (
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Text & Icon Color
+                </label>
+                <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
+                  {ann.color || '#475569'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { hex: '#475569', label: 'Slate' },
+                  { hex: '#0f172a', label: 'Dark Navy' },
+                  { hex: '#2563eb', label: 'Blue' },
+                  { hex: '#059669', label: 'Emerald' },
+                  { hex: '#d97706', label: 'Amber' },
+                  { hex: '#dc2626', label: 'Crimson' },
+                  { hex: '#7c3aed', label: 'Purple' },
+                  { hex: '#db2777', label: 'Rose Pink' },
+                ].map((c) => (
                   <button
-                    key={c}
+                    key={c.hex}
                     type="button"
-                    onClick={() => onUpdateAnnotation(ann.id, { color: c })}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full transition-transform ${
-                      (ann.color || '#475569') === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : 'opacity-80'
+                    title={c.label}
+                    disabled={readOnly}
+                    onClick={() => onUpdateAnnotation(ann.id, { color: c.hex })}
+                    style={{ backgroundColor: c.hex }}
+                    className={`w-6 h-6 rounded-full transition-transform cursor-pointer shadow-2xs ${
+                      (ann.color || '#475569').toLowerCase() === c.hex.toLowerCase()
+                        ? 'ring-2 ring-offset-2 ring-purple-600 scale-110'
+                        : 'opacity-85 hover:scale-105'
                     }`}
                   />
                 ))}
+                {/* Native Custom Color Picker */}
+                <div
+                  className="relative w-6 h-6 rounded-full overflow-hidden border border-slate-300 shadow-2xs cursor-pointer ml-1"
+                  title="Choose Custom Color"
+                >
+                  <input
+                    type="color"
+                    disabled={readOnly}
+                    value={ann.color || '#475569'}
+                    onChange={(e) => onUpdateAnnotation(ann.id, { color: e.target.value })}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div
+                    className="w-full h-full"
+                    style={{ backgroundColor: ann.color || '#475569' }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1960,13 +2229,15 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
           </p>
         </div>
         {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            title="Collapse Inspector (])"
-            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <Tooltip content="Collapse Inspector" shortcut="]" description="Collapse right panel to compact icon strip" position="bottom">
+            <button
+              onClick={onToggleCollapse}
+              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+              aria-label="Collapse Inspector"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
       </div>
 
