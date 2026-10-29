@@ -38,8 +38,20 @@ export const BookingWizardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const location = useLocation();
-  const fromReferrer = (location.state as any)?.from;
-  const fromReferrerLabel = (location.state as any)?.fromLabel;
+  const fromQuery = searchParams.get('from');
+  const fromReferrer =
+    (location.state as any)?.from ||
+    fromQuery ||
+    (user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role) ? '/workspace/events/register' : undefined);
+  const fromReferrerLabel =
+    (location.state as any)?.fromLabel ||
+    (fromReferrer?.includes('register')
+      ? 'Event Registration Hub'
+      : fromReferrer?.includes('companies')
+      ? 'Exhibitors Directory'
+      : fromReferrer?.includes('events')
+      ? 'Manage Exhibitions'
+      : undefined);
   const preselectedCompany = (location.state as any)?.preselectedCompany;
   const preselectedCompanyId = (location.state as any)?.preselectedCompanyId;
 
@@ -531,10 +543,15 @@ export const BookingWizardPage: React.FC = () => {
       const tokens = res.tokens;
       const tempPass = res.temporaryPassword;
 
-      if (createdComp && createdComp.id) {
-        if (createdComp.regNo) setAssignedRegNo(createdComp.regNo);
-        setCompanies((prev) => [...prev.filter((c) => c.id !== createdComp.id), createdComp]);
-        setSelectedCompany(createdComp);
+      const compWithUser = {
+        ...createdComp,
+        username: createdUser?.username || data.username || (createdComp as any)?.username,
+      };
+
+      if (compWithUser && compWithUser.id) {
+        if (compWithUser.regNo) setAssignedRegNo(compWithUser.regNo);
+        setCompanies((prev) => [...prev.filter((c) => c.id !== compWithUser.id), compWithUser]);
+        setSelectedCompany(compWithUser);
 
 	        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
 	        if (createdUser && !isPrivileged) {

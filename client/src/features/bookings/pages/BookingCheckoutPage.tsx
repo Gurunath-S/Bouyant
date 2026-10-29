@@ -203,7 +203,9 @@ export const BookingCheckoutPage: React.FC = () => {
               </div>
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
                 <p className="text-slate-400 font-medium">Physical Dimensions</p>
-                <p className="text-sm font-bold text-slate-900 mt-0.5">{stall.areaSqFt} Sq.Ft</p>
+                <p className="text-sm font-bold text-slate-900 mt-0.5">
+                  {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m (${stall.areaSqFt} Sq.Ft)` : `${stall.areaSqFt} Sq.Ft`}
+                </p>
               </div>
             </div>
           </div>

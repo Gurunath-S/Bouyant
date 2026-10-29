@@ -740,7 +740,10 @@ export class CompaniesService {
           }
 
           return {
-            company,
+            company: {
+              ...company,
+              username: user?.username || requestedUsername,
+            },
             user,
             temporaryPassword,
             targetExpo,
@@ -909,6 +912,7 @@ export class CompaniesService {
                 spcode: true,
                 status: true,
                 bannerUrl: true,
+                images: true,
               },
             },
             stalls: {

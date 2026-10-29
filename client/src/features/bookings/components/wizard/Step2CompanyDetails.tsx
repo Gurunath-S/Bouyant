@@ -329,11 +329,13 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
         const normEmail = (currentEmail || selectedCompany.email || '').trim().toLowerCase();
         const normPhone = (currentMobile || selectedCompany.mobile || '').replace(/\D/g, '').slice(-10);
 
-        if (normEmail === compEmail && normPhone === compPhone) {
+        if (compUser) {
           setValue('username', compUser, { shouldValidate: true });
           setUsernameStatus('available');
-          setUsernameMessage(`Existing exhibitor account recognized (${compUser}). You can continue directly as a guest.`);
-          wasRecognizedRef.current = true;
+          setUsernameMessage(`Exhibitor account username: ${compUser}`);
+          if (normEmail === compEmail && normPhone === compPhone) {
+            wasRecognizedRef.current = true;
+          }
         } else {
           const suggested = generateSuggestedUsername(currentContactPerson || '', selectedCompany.name || '');
           if (suggested && suggested.length >= 3) {
@@ -865,12 +867,14 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     setIsAddingNewCompany(true);
     setIsChangingCompany(false);
 
+    const compUsername = (comp as any).username || getValues('username') || watchedUsername || '';
+
     reset({
       name: comp.name || '',
       category: comp.industry || 'General Exhibitor',
       industry: comp.industry || 'General Exhibitor',
       designation: (comp as any).designation || '',
-      username: (comp as any).username || '',
+      username: compUsername,
       contactPerson: comp.contactPerson || '',
       mobile: comp.mobile || '',
       email: comp.email || '',
@@ -884,6 +888,12 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       tanNumber: comp.tanNumber || '',
       website: comp.website || '',
     });
+
+    if (compUsername) {
+      setValue('username', compUsername, { shouldValidate: true });
+      setUsernameStatus('available');
+      setUsernameMessage('Preserved portal username');
+    }
 
     if (comp.gstNumber) {
       setGstVerificationSuccess(true);
@@ -902,7 +912,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {selectedStalls.length > 0 ? (
               <>
-                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({Math.round(selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
+                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} • {Math.round(selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
               </>
             ) : null}
             Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.
@@ -1020,7 +1030,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 <div>
                   <span className="text-slate-400 block text-[10px]">Registration No</span>
                   <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">
@@ -1045,6 +1055,15 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                     {selectedCompany.email}
                   </span>
                 </div>
+                {((selectedCompany as any).username || watchedUsername) && (
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Portal Username</span>
+                    <span className="font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                      <AtSign className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      {((selectedCompany as any).username || watchedUsername)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {selectedCompany.address && (
@@ -1081,10 +1100,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-[11px] font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 font-bold">
                         {c.companyCode}
                       </span>
+                      {((c as any).username || (selectedCompany?.id === c.id && watchedUsername)) && (
+                        <span className="text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <AtSign className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                          {((c as any).username || watchedUsername)}
+                        </span>
+                      )}
                       {c.city && (
                         <span className="text-[11px] text-slate-400">
                           {c.city}, {c.state}
@@ -1102,6 +1127,14 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                     </p>
                     <p><span className="font-semibold text-slate-500 dark:text-slate-400">GSTIN:</span> {c.gstNumber || 'N/A'}</p>
                     <p><span className="font-semibold text-slate-500 dark:text-slate-400">Contact:</span> {c.contactPerson} ({c.email})</p>
+                    {((c as any).username || (selectedCompany?.id === c.id && watchedUsername)) && (
+                      <p>
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Portal Username:</span>{' '}
+                        <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                          @{((c as any).username || watchedUsername)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">

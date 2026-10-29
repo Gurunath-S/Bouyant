@@ -56,7 +56,7 @@ export const MyBookingsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BookmarkCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            My Stall Bookings
+            My Bookings
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Complete record of your reserved exhibition stalls, payment verification status, and tax invoices.

@@ -617,7 +617,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
               <div className="w-48">
                 <input
                   type="text"
-                  placeholder="Filter stall #..."
+                  placeholder="Filter stall No..."
                   value={stallSearch}
                   onChange={(e) => setStallSearch(e.target.value)}
                   className="w-full px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
@@ -655,7 +655,9 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                             <Check className="w-2.5 h-2.5" />
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-mono">{s.areaSqFt || 9} m²</span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {s.actualWidth && s.actualHeight ? `${s.actualWidth}×${s.actualHeight}m` : `${s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} m²`}
+                          </span>
                         )}
                       </div>
                       <div className="mt-2">

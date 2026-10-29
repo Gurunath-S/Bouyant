@@ -96,7 +96,7 @@ export const CompanyProfilePage: React.FC = () => {
       <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          Exhibitor Corporate Profile
+          My Company Profile
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Manage your official corporate entity details, GST/PAN tax identifiers, and contact information for exhibition bookings and invoices.

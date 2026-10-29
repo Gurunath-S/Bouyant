@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Company, Exhibition } from '../../../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
-import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDate } from '../../../utils/date';
 import {
@@ -15,7 +14,6 @@ import {
   Filter,
   CalendarPlus,
   Layers,
-  BookmarkCheck,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -23,10 +21,14 @@ import {
   MapPin,
   AlertCircle,
   X,
+  Phone,
+  Mail,
+  User,
+  Globe,
+  CalendarOff,
 } from 'lucide-react';
 
 export const AdminCompaniesPage: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -45,9 +47,7 @@ export const AdminCompaniesPage: React.FC = () => {
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>(searchParams.get('exhibitionId') || '');
   const [activeTab, setActiveTab] = useState<'ALL' | 'PAID' | 'NOT_PAID'>('ALL');
 
-  // Modals state
-  const [registerModalCompany, setRegisterModalCompany] = useState<Company | null>(null);
-  const [targetExhibitionId, setTargetExhibitionId] = useState<string>('');
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -151,7 +151,7 @@ export const AdminCompaniesPage: React.FC = () => {
 
     if (hasPaidFull) {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0 whitespace-nowrap">
           Paid
         </span>
       );
@@ -165,29 +165,17 @@ export const AdminCompaniesPage: React.FC = () => {
 
     if (hasPartial) {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0 whitespace-nowrap">
           Partially Paid
         </span>
       );
     }
 
     return (
-      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+      <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0 whitespace-nowrap">
         Payment Pending
       </span>
     );
-  };
-
-  const handleRegisterCompanyToEvent = () => {
-    if (!registerModalCompany || !targetExhibitionId) return;
-    const targetExpo = exhibitions.find((e) => e.id === targetExhibitionId);
-    if (!targetExpo) return;
-
-    // Navigate to the exhibition booking wizard with company context
-    navigate(`/exhibitions/${targetExpo.slug}/book`, {
-      state: { from: '/workspace/companies', fromLabel: 'Exhibitors Directory', adminBooking: true },
-    });
-
   };
 
   return (
@@ -197,10 +185,10 @@ export const AdminCompaniesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
             <Building2 className="w-6 h-6 text-purple-600" />
-            Exhibitor Directory & Registered Events
+            Exhibitor Directory
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Browse exhibitor corporate profiles, filter by registered exhibitions, track stall reservations, or register companies to events.
+            Browse exhibitor corporate profiles, filter by registered exhibitions, track stall reservations, and view financial payment history.
           </p>
         </div>
 
@@ -399,13 +387,13 @@ export const AdminCompaniesPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 uppercase tracking-wider text-[11px] font-bold">
                 <th className="w-12 py-3.5 px-3 text-center">S.No</th>
-                <th className="py-3.5 px-4 min-w-[200px]">Corporate Entity Name</th>
+                <th className="py-3.5 px-4 min-w-[220px]">Corporate Entity Name</th>
                 <th className="py-3.5 px-4 min-w-[150px]">Contact Person</th>
-                <th className="py-3.5 px-4 min-w-[170px]">Contact Info & Tax ID</th>
-                <th className="py-3.5 px-4 min-w-[260px]">Registered Event(s) & Stalls</th>
-                <th className="py-3.5 px-4 text-center min-w-[150px]">Actions</th>
+                <th className="py-3.5 px-4 min-w-[180px]">Contact Info & Tax ID</th>
+                <th className="py-3.5 px-4 min-w-[340px]">Registered Event(s) & Stalls</th>
+                <th className="py-3.5 px-4 text-center min-w-[120px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -443,85 +431,105 @@ export const AdminCompaniesPage: React.FC = () => {
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       {/* S.No */}
-                      <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                      <td className="w-12 py-4 px-3 text-center align-top font-mono font-bold text-slate-400 text-xs">
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Entity Name & Code */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between gap-2">
+                      <td className="py-4 px-4 align-top space-y-2">
+                        <div className="flex items-center justify-between gap-2">
                           <Link
                             to={`/workspace/companies/${c.id}`}
-                            className="truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                            className="font-bold text-slate-900 dark:text-slate-100 text-sm hover:text-purple-600 dark:hover:text-purple-400 transition-colors leading-snug break-words"
                           >
                             {c.name}
                           </Link>
                           {getCustomerStatusBadge(companyBookings)}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Link
                             to={`/workspace/companies/${c.id}`}
                             className="font-mono text-[10px] text-slate-600 dark:text-slate-400 hover:text-purple-600 bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 px-1.5 py-0.5 rounded transition-colors"
+                            title="Company Code"
                           >
                             {c.companyCode}
                           </Link>
                           {c.regNo && (
-                            <span className="font-mono text-[10px] text-purple-600 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded font-bold">
+                            <span
+                              className="font-mono text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 border border-purple-200/60 dark:border-purple-900/40 px-1.5 py-0.5 rounded font-semibold"
+                              title="Registration Number"
+                            >
                               Reg: {c.regNo}
                             </span>
                           )}
                           {c.spcode && (
-                            <span className="font-mono text-[10px] text-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded">
+                            <span
+                              className="font-mono text-[10px] text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/60 dark:border-indigo-900/40 px-1.5 py-0.5 rounded font-medium"
+                              title="Salesperson Code"
+                            >
                               SP: {c.spcode}
                             </span>
                           )}
                         </div>
                         {c.website && (
-                          <a
-                            href={c.website.startsWith('http') ? c.website : `https://${c.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-purple-600 hover:underline mt-1"
-                          >
-                            <span>Website</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+                          <div>
+                            <a
+                              href={c.website.startsWith('http') ? c.website : `https://${c.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-purple-600 hover:text-purple-700 dark:text-purple-400 font-medium hover:underline"
+                            >
+                              <Globe className="w-3 h-3 text-purple-500 shrink-0" />
+                              <span className="truncate max-w-[180px]">
+                                {c.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                              </span>
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-70" />
+                            </a>
+                          </div>
                         )}
                       </td>
 
                       {/* Contact Person */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
-                          {c.contactPerson}
+                      <td className="py-4 px-4 align-top space-y-1">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{c.contactPerson || '—'}</span>
                         </div>
                         {c.designation && (
-                          <div className="text-[11px] text-slate-500">{c.designation}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 pl-5">{c.designation}</div>
                         )}
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {c.industry || 'General Industry'}
-                        </span>
+                        <div className="pl-5 pt-0.5">
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                            {c.industry || 'General Industry'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Contact Info & Tax ID */}
-                      <td className="py-3.5 px-4 space-y-1">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                          {c.mobile || '—'}
+                      <td className="py-4 px-4 align-top space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                          <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{c.mobile || '—'}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate max-w-[160px]">
-                          {c.email || '—'}
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 break-all">
+                          <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{c.email || '—'}</span>
                         </div>
-                        <div className="text-[11px] text-slate-400">
-                          {[c.city, c.state].filter(Boolean).join(', ') || '—'}
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{[c.city, c.state].filter(Boolean).join(', ') || '—'}</span>
                         </div>
                         {c.gstNumber && (
-                          <div className="font-mono text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded inline-block">
-                            GSTIN: {c.gstNumber}
+                          <div className="pt-0.5">
+                            <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded inline-block">
+                              GSTIN: {c.gstNumber}
+                            </span>
                           </div>
                         )}
                       </td>
 
                       {/* Registered Event(s) & Stalls */}
-                      <td className="py-3.5 px-4 min-w-[280px] max-w-[360px]">
+                      <td className="py-4 px-4 align-top min-w-[340px]">
                         {isRegistered ? (
                           <div className="space-y-2">
                             {/* Primary / Latest Booking Card */}
@@ -533,20 +541,22 @@ export const AdminCompaniesPage: React.FC = () => {
                               return (
                                 <div
                                   key={b.id}
-                                  className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-xs space-y-1.5"
+                                  className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 text-xs space-y-2 shadow-2xs"
                                 >
                                   {/* Exhibition Title & Status */}
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 min-w-0">
-                                      <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                      <span className="truncate max-w-[150px]" title={b.exhibition?.title}>
-                                        {b.exhibition?.title || 'Exhibition Event'}
-                                      </span>
-                                      {b.exhibition?.edition && (
-                                        <span className="font-mono text-[10px] px-1 bg-purple-200 dark:bg-purple-900 rounded font-semibold shrink-0">
-                                          Ed. {b.exhibition.edition}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-1.5 min-w-0">
+                                      <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
+                                      <div className="min-w-0">
+                                        <span className="break-words font-bold text-slate-900 dark:text-slate-100 text-xs leading-snug">
+                                          {b.exhibition?.title || 'Exhibition Event'}
                                         </span>
-                                      )}
+                                        {b.exhibition?.edition && (
+                                          <span className="ml-1.5 font-mono text-[9px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded font-bold uppercase inline-block align-middle">
+                                            Ed. {b.exhibition.edition}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                       {getStatusBadge(b.status)}
@@ -554,10 +564,18 @@ export const AdminCompaniesPage: React.FC = () => {
                                     </div>
                                   </div>
 
+                                  {/* Venue & City */}
+                                  {(b.exhibition?.city || b.exhibition?.venue) && (
+                                    <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 pl-5">
+                                      <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                      <span>{[b.exhibition.city, b.exhibition.venue].filter(Boolean).join(' • ')}</span>
+                                    </div>
+                                  )}
+
                                   {/* Stalls Allocated & Value */}
-                                  <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
+                                  <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 gap-2 flex-wrap pt-1.5 border-t border-purple-100/80 dark:border-purple-900/30">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-slate-400 font-medium">Stalls:</span>
+                                      <span className="text-slate-400 font-medium text-[10px] uppercase tracking-wider">Stalls:</span>
                                       {stallsList.length > 0 ? (
                                         stallsList.map((sn) => (
                                           <span
@@ -568,20 +586,27 @@ export const AdminCompaniesPage: React.FC = () => {
                                           </span>
                                         ))
                                       ) : (
-                                        <span className="text-slate-400 italic">Unallocated</span>
+                                        <span className="text-slate-400 italic text-[10px]">Unallocated</span>
                                       )}
                                     </div>
 
                                     {b.grandTotal && (
-                                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                      <span className="font-mono font-black text-slate-900 dark:text-slate-100 text-xs shrink-0">
                                         ₹{Number(b.grandTotal).toLocaleString()} INR
                                       </span>
                                     )}
                                   </div>
 
-                                  {/* Booking Reference */}
-                                  <div className="text-[10px] text-slate-400 font-mono">
-                                    Ref: {b.bookingReference}
+                                  {/* Booking Reference & Balance Due */}
+                                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                                    <span>
+                                      Ref: <strong className="text-slate-600 dark:text-slate-300 font-semibold">{b.bookingReference}</strong>
+                                    </span>
+                                    {b.balanceAmount && Number(b.balanceAmount) > 0 && (
+                                      <span className="text-amber-600 dark:text-amber-400 font-bold font-sans">
+                                        Due: ₹{Number(b.balanceAmount).toLocaleString()}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -591,7 +616,7 @@ export const AdminCompaniesPage: React.FC = () => {
                             {companyBookings.length > 1 && (
                               <Link
                                 to={`/workspace/companies/${c.id}`}
-                                className="w-full py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-purple-950/50 border border-slate-200 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-800 text-[11px] font-bold text-slate-700 hover:text-purple-700 dark:text-slate-300 dark:hover:text-purple-300 transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
+                                className="w-full py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-purple-950/50 border border-slate-200 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-800 text-[11px] font-bold text-slate-700 hover:text-purple-700 dark:text-slate-300 dark:hover:text-purple-300 transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
                                 title={`Click to view all ${companyBookings.length} event registrations for ${c.name}`}
                               >
                                 <span className="flex items-center gap-1.5">
@@ -616,35 +641,24 @@ export const AdminCompaniesPage: React.FC = () => {
                             )}
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-slate-400 text-xs py-2">
-                            <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-                            <span className="font-medium text-slate-500 dark:text-slate-400">No Event Registrations</span>
+                          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 text-xs">
+                            <CalendarOff className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="font-medium">No Event Registrations</span>
                           </div>
                         )}
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="py-4 px-4 align-top text-center">
+                        <div className="flex items-center justify-center">
                           <Link
                             to={`/workspace/companies/${c.id}`}
                             title="View Complete Event Registration History & Company Profile"
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-600 border border-slate-200 hover:border-purple-200 transition-colors inline-flex items-center justify-center cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-purple-950/50 dark:hover:text-purple-300 border border-slate-200 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-800 font-bold text-xs transition-colors cursor-pointer shadow-2xs"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                            <span>View Profile</span>
                           </Link>
-
-                          <button
-                            onClick={() => {
-                              setRegisterModalCompany(c);
-                              setTargetExhibitionId(exhibitions[0]?.id || '');
-                            }}
-                            title="Register / Book this Company to an Event"
-                            className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <CalendarPlus className="w-3.5 h-3.5" />
-                            <span>Register</span>
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -670,80 +684,6 @@ export const AdminCompaniesPage: React.FC = () => {
 
 
 
-      {/* Modal 2: Register Company to Exhibition Event */}
-      {registerModalCompany && (
-        <Modal
-          isOpen={!!registerModalCompany}
-          onClose={() => setRegisterModalCompany(null)}
-          title={`Register Company to Event: ${registerModalCompany.name}`}
-          maxWidth="md"
-        >
-          <div className="p-6 space-y-5">
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Select an active exhibition from the platform catalog to register{' '}
-              <strong>"{registerModalCompany.name}"</strong> and allocate stall reservations.
-            </p>
-
-            {/* Exhibition Select */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Target Exhibition Event *
-              </label>
-              <select
-                value={targetExhibitionId}
-                onChange={(e) => setTargetExhibitionId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
-              >
-                {exhibitions.map((expo) => (
-                  <option key={expo.id} value={expo.id}>
-                    {expo.title} {expo.edition ? `(Ed. ${expo.edition})` : ''} - {expo.city}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Selected Expo Preview */}
-            {targetExhibitionId && (() => {
-              const selected = exhibitions.find((e) => e.id === targetExhibitionId);
-              if (!selected) return null;
-              return (
-                <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
-                  <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                    <BookmarkCheck className="w-3.5 h-3.5 text-purple-600" />
-                    <span>{selected.title}</span>
-                  </div>
-                  <div className="text-[11px] text-purple-700 dark:text-purple-300">
-                    Venue: {selected.venue}, {selected.city}
-                  </div>
-                  <div className="text-[10px] text-slate-500">
-                    Dates: {formatDisplayDate(selected.startDate)} to {formatDisplayDate(selected.endDate)}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setRegisterModalCompany(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleRegisterCompanyToEvent}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-                leftIcon={<CalendarPlus className="w-4 h-4" />}
-              >
-                Open Floor Plan Booking Wizard
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };

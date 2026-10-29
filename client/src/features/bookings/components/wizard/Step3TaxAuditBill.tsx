@@ -340,7 +340,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                         </span>
                       </div>
                       <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                        Modular Shell Scheme • {Math.round(stall.areaSqFt)} Sq.Ft ({Math.round(stall.areaSqFt / 10.764)} Sq.Mtr)
+                        Modular Shell Scheme • {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m • ` : ''}{Math.round(stall.areaSqFt)} Sq.Ft ({Math.round(stall.areaSqFt / 10.764)} Sq.Mtr)
                       </span>
                     </div>
                   </div>

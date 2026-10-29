@@ -274,13 +274,13 @@ export const AdminCompanyDetailPage: React.FC = () => {
     if (activeBookings.length === 0) {
       if (allBookings.length > 0) {
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-extrabold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap">
             All Cancelled
           </span>
         );
       }
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
           No Bookings
         </span>
       );
@@ -294,7 +294,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
     );
     if (hasPaidFull) {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
           Paid Full
         </span>
       );
@@ -304,13 +304,13 @@ export const AdminCompanyDetailPage: React.FC = () => {
     );
     if (hasPartial) {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
           Partially Paid
         </span>
       );
     }
     return (
-      <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap">
         Payment Pending
       </span>
     );
@@ -891,17 +891,19 @@ export const AdminCompanyDetailPage: React.FC = () => {
                         </td>
 
                         {/* Event Details */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="truncate max-w-[200px]" title={b.exhibition?.title}>
-                              {b.exhibition?.title || 'Exhibition'}
-                            </span>
-                            {b.exhibition?.edition && (
-                              <span className="font-mono text-[10px] px-1 bg-purple-100 dark:bg-purple-950 rounded font-semibold shrink-0">
-                                Ed. {b.exhibition.edition}
+                        <td className="py-3.5 px-4 min-w-[240px]">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-start gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <span className="break-words">
+                                {b.exhibition?.title || 'Exhibition'}
                               </span>
-                            )}
+                              {b.exhibition?.edition && (
+                                <span className="ml-1.5 font-mono text-[10px] px-1.5 py-0.2 bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-200 rounded font-semibold inline-block">
+                                  Ed. {b.exhibition.edition}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                             <MapPin className="w-3 h-3 text-slate-400" />
@@ -1141,10 +1143,10 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                             className="flex items-center justify-between text-[11px]"
                                           >
                                             <span className="font-mono font-bold text-purple-800 dark:text-purple-300">
-                                              Stall #{bs.stall?.stallNumber || 'N/A'} ({bs.stall?.category || 'STANDARD'})
+                                              Stall No:{bs.stall?.stallNumber || 'N/A'} ({bs.stall?.category || 'STANDARD'})
                                             </span>
                                             <span className="text-slate-500 font-mono">
-                                              {bs.stall?.areaSqFt ? `${bs.stall.areaSqFt} sq.ft` : ''} • ₹{Number(bs.price || bs.stall?.price || 0).toLocaleString()}
+                                              {bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m (${bs.stall.areaSqFt} sq.ft)` : bs.stall?.areaSqFt ? `${bs.stall.areaSqFt} sq.ft` : ''} • ₹{Number(bs.price || bs.stall?.price || 0).toLocaleString()}
                                             </span>
                                           </div>
                                         ))}

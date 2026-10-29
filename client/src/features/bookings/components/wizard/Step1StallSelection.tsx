@@ -69,7 +69,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
                 key={c.stallId}
                 className="flex items-center gap-2 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/60 border border-rose-300 dark:border-rose-700 rounded-lg text-rose-900 dark:text-rose-100 font-mono font-bold"
               >
-                <span>Stall #{c.stallNumber} — No longer available</span>
+                <span>Stall No:{c.stallNumber} — No longer available</span>
                 <button
                   onClick={() => removeStallFromSelection(c.stallId)}
                   className="p-1 hover:bg-rose-200 dark:hover:bg-rose-800 rounded-md text-rose-700 dark:text-rose-300 transition-colors cursor-pointer"
@@ -137,7 +137,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               setBlockedNotice('');
               toggleStallSelection(s);
             } else {
-              setBlockedNotice(`Stall #${s.stallNumber} is already booked.`);
+              setBlockedNotice(`Stall No:${s.stallNumber} is already booked.`);
             }
           }}
         />
@@ -174,7 +174,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-blue-200 font-medium">
-              Combined Area: <b className="text-white">{Math.round(selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
+              Stall Dimensions: <b className="text-white font-mono">{selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')}</b> • Combined Area: <b className="text-white">{Math.round(selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
             </p>
           </div>
 

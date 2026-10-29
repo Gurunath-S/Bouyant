@@ -1236,6 +1236,7 @@ static async createBooking(
     let userId: string | undefined;
     let bookedByUserId: string | undefined;
     let bookingSource: string | undefined;
+    let staffSpcode: string | undefined;
 
     if (pageOrOptions && typeof pageOrOptions === 'object') {
       rawPage = pageOrOptions.page;
@@ -1249,6 +1250,7 @@ static async createBooking(
       userId = pageOrOptions.userId;
       bookedByUserId = pageOrOptions.bookedByUserId;
       bookingSource = pageOrOptions.bookingSource;
+      staffSpcode = pageOrOptions.staffSpcode;
     } else {
       rawPage = pageOrOptions || 1;
       rawLimit = limitArg || 20;
@@ -1267,7 +1269,12 @@ static async createBooking(
       andConditions.push({ paymentStatus: paymentStatus as any });
     }
     if (hasBalanceOnly === true || hasBalanceOnly === 'true') {
-      andConditions.push({ balanceAmount: { gt: 0 }, status: { not: 'CANCELLED' } });
+      andConditions.push({
+        balanceAmount: { gt: 0 },
+        paidAmount: { gt: 0 },
+        paymentStatus: { not: 'UNPAID' },
+        status: { notIn: ['CANCELLED', 'EXPIRED'] },
+      });
     }
     if (exhibitionId && exhibitionId !== 'ALL') {
       andConditions.push({ exhibitionId });
@@ -1276,11 +1283,29 @@ static async createBooking(
       andConditions.push({ company: { users: { some: { id: userId } } } });
     }
     if (bookedByUserId && bookedByUserId !== 'ALL') {
+      const userOrConditions: Prisma.BookingWhereInput[] = [
+        { bookedByUserId },
+        { AND: [{ bookedByUserId: null }, { userId: bookedByUserId }] },
+      ];
+      if (staffSpcode && staffSpcode.trim()) {
+        const code = staffSpcode.trim();
+        userOrConditions.push(
+          {
+            bookedByUserId: null,
+            userId: null,
+            company: { spcode: { equals: code, mode: 'insensitive' } },
+            NOT: { bookingSource: { in: ['ADMIN_DIRECT', 'SUPERADMIN_MANUAL'] } },
+          },
+          {
+            bookedByUserId: null,
+            userId: null,
+            payments: { some: { paymentMethod: { contains: code, mode: 'insensitive' } } },
+            NOT: { bookingSource: { in: ['ADMIN_DIRECT', 'SUPERADMIN_MANUAL'] } },
+          }
+        );
+      }
       andConditions.push({
-        OR: [
-          { bookedByUserId },
-          { AND: [{ bookedByUserId: null }, { userId: bookedByUserId }] },
-        ],
+        OR: userOrConditions,
       });
     }
     if (bookingSource && bookingSource !== 'ALL') {
@@ -1314,16 +1339,23 @@ static async createBooking(
         });
       } else if (registeredByRole === 'STAFF') {
         // STAFF-registered: explicit bookedByUser role or STAFF_ASSISTED, or legacy staff attribution
+        // Strictly exclude bookings made directly by ADMIN or SUPERADMIN
         andConditions.push({
-          OR: [
-            { bookingSource: 'STAFF_ASSISTED' },
-            { bookedByUser: { role: 'STAFF' } },
-            { user: { role: 'STAFF' } },
-            { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
-            { company: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
-            { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
-            { exhibition: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
-            { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
+          AND: [
+            { NOT: { bookingSource: { in: ['ADMIN_DIRECT', 'SUPERADMIN_MANUAL'] } } },
+            { NOT: { bookedByUser: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } },
+            {
+              OR: [
+                { bookingSource: 'STAFF_ASSISTED' },
+                { bookedByUser: { role: 'STAFF' } },
+                { user: { role: 'STAFF' } },
+                { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+                { company: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
+                { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
+                { exhibition: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
+                { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
+              ],
+            },
           ],
         });
       } else {
@@ -1351,7 +1383,7 @@ static async createBooking(
 
     const where: Prisma.BookingWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
 
-    const [bookings, total, aggregate] = await Promise.all([
+    const [bookings, total, aggregate, totalStallsCount] = await Promise.all([
       prisma.booking.findMany({
         where,
         skip,
@@ -1415,11 +1447,13 @@ static async createBooking(
         },
       }),
       prisma.booking.count({ where }),
-      prisma.booking.aggregate({ where, _sum: { grandTotal: true, paidAmount: true } }),
+      prisma.booking.aggregate({ where, _sum: { grandTotal: true, paidAmount: true, balanceAmount: true } }),
+      prisma.bookingStall.count({ where: { booking: where } }),
     ]);
 
     const totalValue = Number(aggregate._sum.grandTotal || 0);
     const totalPaidValue = Number(aggregate._sum.paidAmount || 0);
+    const totalBalanceValue = Number(aggregate._sum.balanceAmount || 0);
 
     return {
       bookings,
@@ -1430,6 +1464,8 @@ static async createBooking(
         totalPages: Math.ceil(total / limit),
         totalValue,
         totalPaidValue,
+        totalBalanceValue,
+        totalStallsCount,
       },
     };
   }

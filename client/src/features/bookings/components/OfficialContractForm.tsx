@@ -143,8 +143,9 @@ export const OfficialContractForm: React.FC<OfficialContractFormProps> = ({
                     <td className="p-3 w-12 text-center font-mono font-bold text-slate-400">{idx + 1}</td>
                     <td className="p-3 font-mono font-black text-[#09539b] dark:text-blue-400">Stall {s.stallNumber}</td>
                     <td className="p-3 font-bold text-slate-700 dark:text-slate-300">{hName}</td>
-                    <td className="p-3 font-semibold text-emerald-700 dark:text-emerald-400">Shell Scheme (Modular)</td>
-                    <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">{s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} Sqm</td>
+                    <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m (${s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} Sqm)` : `${s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} Sqm`}
+                    </td>
                     <td className="p-3 font-mono text-slate-700 dark:text-slate-300">₹{rSqm.toLocaleString()} / Sqm</td>
                     <td className="p-3 font-mono text-slate-700 dark:text-slate-300">₹{bRental.toLocaleString()}</td>
                     <td className="p-3 font-mono text-slate-700 dark:text-slate-300">₹{tAmount.toLocaleString()}</td>
