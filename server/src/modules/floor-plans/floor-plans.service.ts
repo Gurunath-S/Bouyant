@@ -104,6 +104,25 @@ export class FloorPlansService {
         });
       }
 
+      // Validate stallPhysicalDimensions map if provided
+      if (parsedLayout.stallPhysicalDimensions && typeof parsedLayout.stallPhysicalDimensions === 'object') {
+        const validatedDims: Record<string, { width: number; height: number; unit?: string }> = {};
+        for (const [key, dim] of Object.entries(parsedLayout.stallPhysicalDimensions)) {
+          if (dim && typeof dim === 'object') {
+            const w = Number((dim as any).width);
+            const h = Number((dim as any).height);
+            if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+              validatedDims[key] = {
+                width: Math.round(w * 100) / 100,
+                height: Math.round(h * 100) / 100,
+                unit: (dim as any).unit || 'm',
+              };
+            }
+          }
+        }
+        parsedLayout.stallPhysicalDimensions = validatedDims;
+      }
+
       validatedLayoutData = parsedLayout;
     }
 
@@ -220,6 +239,13 @@ export class FloorPlansService {
             const existingByNum = existingMap.get(stallNum.toUpperCase());
 
             if (existingByNum) {
+              const isExistingBookedOrHeld =
+                (existingByNum.bookingStalls && existingByNum.bookingStalls.length > 0) ||
+                ['BOOKED_CONFIRMED', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS', 'TEMPORARILY_HELD'].includes(existingByNum.status) ||
+                Boolean((existingByNum as any).heldByUserId);
+
+              const resolvedStatus = isExistingBookedOrHeld ? existingByNum.status : status;
+
               await tx.stall.update({
                 where: { id: existingByNum.id },
                 data: {
@@ -231,7 +257,7 @@ export class FloorPlansService {
                   height,
                   xPosition,
                   yPosition,
-                  status: existingByNum.status === 'BOOKED_CONFIRMED' && status === 'AVAILABLE' ? 'BOOKED_CONFIRMED' : status,
+                  status: resolvedStatus,
                 },
               });
             } else {

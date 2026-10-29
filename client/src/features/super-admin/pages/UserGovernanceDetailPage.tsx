@@ -48,6 +48,7 @@ import {
   Users,
   LayoutDashboard,
   UserPlus,
+  Search,
 } from 'lucide-react';
 import { getUserEffectivePageAccess } from '../../../config/pageAccess';
 import { useAuthStore } from '../../../stores/authStore';
@@ -170,6 +171,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
     phone: '',
     spcode: '',
   });
+  const [bookingSearchQuery, setBookingSearchQuery] = useState('');
 
   const generateRandomPassword = () => {
     const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
@@ -469,6 +471,34 @@ export const UserGovernanceDetailPage: React.FC = () => {
     }
   };
 
+  const bookings = React.useMemo(() => {
+    const raw = user?.attributedBookings || [];
+    if (!user) return [];
+    return raw.filter((b: any) => {
+      if (b.bookedByUserId) {
+        return b.bookedByUserId === user.id;
+      }
+      if (b.userId) {
+        return b.userId === user.id;
+      }
+      return true;
+    });
+  }, [user]);
+
+  const filteredBookings = React.useMemo(() => {
+    if (!bookingSearchQuery.trim()) return bookings;
+    const q = bookingSearchQuery.toLowerCase().trim();
+    return bookings.filter(
+      (b: any) =>
+        b.bookingReference?.toLowerCase().includes(q) ||
+        b.company?.name?.toLowerCase().includes(q) ||
+        b.exhibition?.title?.toLowerCase().includes(q) ||
+        b.contactPerson?.toLowerCase().includes(q) ||
+        b.bookedByUser?.name?.toLowerCase().includes(q) ||
+        b.stalls?.some((s: any) => s.stall?.stallNumber?.toLowerCase().includes(q))
+    );
+  }, [bookings, bookingSearchQuery]);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto space-y-6 py-6">
@@ -509,7 +539,6 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const publishedExhibitions = exhibitions.filter((e) => e.status === 'PUBLISHED');
   const totalStallsInEvents = exhibitions.reduce((sum, e) => sum + (e.totalStalls || 0), 0);
 
-  const bookings = user.attributedBookings || [];
   const paidBookings = bookings.filter(
     (b) => b.paymentStatus === 'PAID_FULL' || b.paymentStatus === 'PAID' || Number(b.paidAmount || 0) > 0
   );
@@ -521,6 +550,21 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
   const heldStalls = user.heldStalls || [];
   const effectivePages = getUserEffectivePageAccess(user);
+
+  const getSourceBadge = (source?: string) => {
+    switch (source) {
+      case 'CLIENT_DIRECT':
+        return { label: 'Client Direct', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800' };
+      case 'STAFF_ASSISTED':
+        return { label: 'Staff Assisted', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300 border-orange-200 dark:border-orange-800' };
+      case 'ADMIN_DIRECT':
+        return { label: 'Admin Direct', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800' };
+      case 'SUPERADMIN_MANUAL':
+        return { label: 'SuperAdmin', cls: 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border-rose-200 dark:border-rose-800' };
+      default:
+        return { label: 'Direct', cls: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700' };
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 py-4">
@@ -964,35 +1008,59 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {bookings.slice(0, 4).map((bk) => (
-                    <div
-                      key={bk.id}
-                      className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
-                            {bk.bookingReference}
-                          </span>
-                          <PaymentStatusBadge status={bk.paymentStatus} />
-                        </div>
-                        <h5 className="font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">
-                          {bk.company?.name || 'Client Exhibitor'}
-                        </h5>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          Event: {bk.exhibition?.title || 'Exhibition'} • Stalls:{' '}
-                          {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
-                        </p>
-                      </div>
+                  {bookings.slice(0, 5).map((bk) => {
+                    const badge = getSourceBadge(bk.bookingSource);
+                    const grandTotal = Number(bk.grandTotal || 0);
+                    const paid = Number(bk.paidAmount || 0);
+                    const balance = Number(bk.balanceAmount ?? (grandTotal - paid));
+                    const bookedByName = bk.bookedByUser?.name || bk.user?.name || user.name;
+                    const bookedByRole = bk.bookedByUser?.role || bk.user?.role || user.role;
+                    const bookedBySpcode = bk.bookedByUser?.spcode || bk.user?.spcode || user.spcode;
 
-                      <div className="text-right shrink-0">
-                        <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
-                          ₹{Number(bk.grandTotal || 0).toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-[10px] text-slate-400">{formatDisplayDate(bk.createdAt)}</span>
+                    return (
+                      <div
+                        key={bk.id}
+                        className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                              {bk.bookingReference}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                            <PaymentStatusBadge status={bk.paymentStatus} />
+                          </div>
+                          <h5 className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                            {bk.company?.name || 'Client Exhibitor'}
+                          </h5>
+                          <p className="text-[11px] text-slate-400">
+                            Event: {bk.exhibition?.title || 'Exhibition'} • Stalls:{' '}
+                            {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            Booked by: <span className="font-semibold text-purple-700 dark:text-purple-300">{bookedByName}</span> ({bookedByRole}{bookedBySpcode ? ` • ${bookedBySpcode}` : ''})
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
+                            ₹{grandTotal.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
+                            Paid: ₹{paid.toLocaleString('en-IN')}
+                          </span>
+                          {balance > 0 && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
+                              Due: ₹{balance.toLocaleString('en-IN')}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">{formatDisplayDate(bk.createdAt)}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1094,7 +1162,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
       {/* TAB 3: ATTRIBUTED BOOKINGS & SALES */}
       {activeTab === 'bookings' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
               <h3 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-indigo-600" />
@@ -1104,67 +1172,157 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 Total of {bookings.length} reservations with ₹{totalBookedValue.toLocaleString('en-IN')} aggregate value.
               </p>
             </div>
+
+            {bookings.length > 0 && (
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Filter by ref, exhibitor, event, stall..."
+                  value={bookingSearchQuery}
+                  onChange={(e) => setBookingSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
+                />
+              </div>
+            )}
           </div>
 
           {bookings.length === 0 ? (
             <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
               No sales or bookings records registered under this user account or SP Code.
             </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+              <p>No bookings match "{bookingSearchQuery}".</p>
+              <button
+                type="button"
+                onClick={() => setBookingSearchQuery('')}
+                className="text-xs text-purple-600 font-bold hover:underline"
+              >
+                Clear Filter
+              </button>
+            </div>
           ) : (
             <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="w-12 px-4 py-3 text-center">S.No</th>
-                    <th className="px-4 py-3">Booking Ref</th>
-                    <th className="px-4 py-3">Exhibitor Company</th>
-                    <th className="px-4 py-3">Event</th>
-                    <th className="px-4 py-3">Stalls</th>
-                    <th className="px-4 py-3">Grand Total</th>
-                    <th className="px-4 py-3">Payment Status</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3 text-right">Invoice</th>
+                    <th className="w-10 px-3 py-3 text-center">#</th>
+                    <th className="px-3.5 py-3">Booking Ref</th>
+                    <th className="px-3.5 py-3">Channel</th>
+                    <th className="px-3.5 py-3">Booked By</th>
+                    <th className="px-3.5 py-3">Exhibitor Company</th>
+                    <th className="px-3.5 py-3">Event & Venue</th>
+                    <th className="px-3.5 py-3">Allocated Stalls</th>
+                    <th className="px-3.5 py-3">Status & Payment</th>
+                    <th className="px-3.5 py-3 text-right">Value & Balance</th>
+                    <th className="px-3.5 py-3">Date</th>
+                    <th className="px-3.5 py-3 text-center">Invoice</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {bookings.map((bk, idx) => (
-                    <tr key={bk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                      <td className="w-12 px-4 py-3.5 text-center font-mono font-bold text-slate-400">
-                        {idx + 1}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono font-bold text-blue-700 dark:text-blue-300">
-                        {bk.bookingReference}
-                      </td>
-                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-slate-100">
-                        {bk.company?.name || 'Direct Exhibitor'}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 truncate max-w-xs">
-                        {bk.exhibition?.title || 'Exhibition'}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono font-semibold">
-                        {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono font-bold text-slate-900 dark:text-slate-100">
-                        ₹{Number(bk.grandTotal || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <PaymentStatusBadge status={bk.paymentStatus} />
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-400">
-                        {formatDisplayDate(bk.createdAt)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadInvoicePdf(bk.id, bk.bookingReference)}
-                          className="text-xs py-1 px-2.5"
-                        >
-                          PDF
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredBookings.map((bk, idx) => {
+                    const badge = getSourceBadge(bk.bookingSource);
+                    const grandTotal = Number(bk.grandTotal || 0);
+                    const paid = Number(bk.paidAmount || 0);
+                    const balance = Number(bk.balanceAmount ?? (grandTotal - paid));
+                    const bookedByName = bk.bookedByUser?.name || bk.user?.name || user.name;
+                    const bookedByRole = bk.bookedByUser?.role || bk.user?.role || user.role;
+                    const bookedBySpcode = bk.bookedByUser?.spcode || bk.user?.spcode || user.spcode;
+
+                    return (
+                      <tr key={bk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="w-10 px-3 py-3.5 text-center font-mono font-bold text-slate-400">
+                          {idx + 1}
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-mono font-bold text-blue-700 dark:text-blue-300 block">
+                            {bk.bookingReference}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ID: {bk.id.slice(-6)}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-semibold text-xs text-purple-700 dark:text-purple-300 block">
+                            {bookedByName}
+                          </span>
+                          <span className="font-mono text-[10px] text-slate-400">
+                            {bookedByRole}
+                            {bookedBySpcode && ` • ${bookedBySpcode}`}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                            {bk.company?.name || 'Direct Exhibitor'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[150px]">
+                            {bk.contactPerson || bk.company?.contactPerson || '—'}
+                            {bk.company?.city && ` • ${bk.company.city}`}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="text-slate-700 dark:text-slate-200 font-semibold block truncate max-w-[160px]">
+                            {bk.exhibition?.title || 'Exhibition'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[160px]">
+                            {bk.exhibition?.city || bk.exhibition?.venue || 'Venue'}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 block">
+                            {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {bk.stalls?.length || 0} Stall{(bk.stalls?.length || 0) === 1 ? '' : 's'}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <div className="space-y-1">
+                            <PaymentStatusBadge status={bk.paymentStatus} />
+                            {bk.status && (
+                              <span className="text-[10px] font-mono block text-slate-400 uppercase">
+                                {bk.status}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3.5 py-3.5 text-right">
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100 block">
+                            ₹{grandTotal.toLocaleString('en-IN')}
+                          </span>
+                          <div className="text-[10px]">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                              Paid: ₹{paid.toLocaleString('en-IN')}
+                            </span>
+                            {balance > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400 font-bold block">
+                                Due: ₹{balance.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3.5 py-3.5 text-slate-400 font-mono text-[11px]">
+                          {formatDisplayDate(bk.createdAt)}
+                        </td>
+                        <td className="px-3.5 py-3.5 text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadInvoicePdf(bk.id, bk.bookingReference)}
+                            className="text-xs py-1 px-2.5 font-bold"
+                          >
+                            PDF
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

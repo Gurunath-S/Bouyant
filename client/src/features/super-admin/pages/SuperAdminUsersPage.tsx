@@ -1653,15 +1653,21 @@ export const SuperAdminUsersPage: React.FC = () => {
             )}
 
             {/* TAB 5: Activity History */}
-            {detailsSection === 'activity' && (
+            {detailsSection === 'activity' && (() => {
+              const attributedList = (viewDetailsUser.attributedBookings || []).filter((bk: any) => {
+                if (bk.bookedByUserId) return bk.bookedByUserId === viewDetailsUser.id;
+                if (bk.userId) return bk.userId === viewDetailsUser.id;
+                return true;
+              });
+              return (
               <div className="space-y-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                 {/* 1. Attributed Bookings */}
                 <div>
                   <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5 mb-2">
                     <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-                    Sales & Bookings Attributed ({viewDetailsUser.attributedBookings?.length || 0})
+                    Sales & Bookings Attributed ({attributedList.length})
                   </h4>
-                  {!viewDetailsUser.attributedBookings || viewDetailsUser.attributedBookings.length === 0 ? (
+                  {attributedList.length === 0 ? (
                     <p className="text-[11px] text-slate-400 italic p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
                       No sales or bookings attributed to this account.
                     </p>
@@ -1678,7 +1684,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {viewDetailsUser.attributedBookings.map((bk: any, idx: number) => (
+                          {attributedList.map((bk: any, idx: number) => (
                             <tr key={bk.id} className="hover:bg-slate-50/50">
                               <td className="w-10 px-2.5 py-2 text-center font-mono text-slate-400 font-bold">
                                 {idx + 1}
@@ -1743,7 +1749,8 @@ export const SuperAdminUsersPage: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
               <Button variant="secondary" size="sm" onClick={handleCloseDetails}>

@@ -73,6 +73,11 @@ export class BookingsController {
     const registeredByRole = req.query.registeredByRole as string;
     const exhibitionId = req.query.exhibitionId as string;
     const userId = req.query.userId as string;
+    let bookedByUserId = req.query.bookedByUserId as string;
+    if (bookedByUserId === 'me' && req.user?.userId) {
+      bookedByUserId = req.user.userId;
+    }
+    const bookingSource = req.query.bookingSource as string;
 
     const result = await BookingsService.listAllBookings({
       page,
@@ -84,7 +89,8 @@ export class BookingsController {
       registeredByRole,
       exhibitionId,
       userId,
-      actingUser: req.user,
+      bookedByUserId,
+      bookingSource,
     });
     return sendResponse({
       res,

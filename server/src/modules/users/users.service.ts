@@ -306,40 +306,78 @@ export class UsersService {
     let companyBookings: any[] = [];
     let heldStalls: any[] = [];
 
-    // Fetch attributed bookings based on SP Code or User ID
-    if (user.spcode) {
-      attributedBookings = await prisma.booking.findMany({
-        where: {
-          OR: [
-            { company: { users: { some: { id: user.id } } } },
-            { company: { spcode: user.spcode } },
-            { exhibition: { spcode: user.spcode } },
-          ],
+    // Fetch bookings directly attributed to this user as creator/actor (bookedByUserId) or client owner (userId)
+    const attributedOrConditions: any[] = [
+      { bookedByUserId: user.id },
+      { userId: user.id },
+    ];
+
+    // Fallback for legacy unassigned bookings where bookedByUserId was not recorded (null)
+    if (user.spcode && user.spcode.trim()) {
+      const code = user.spcode.trim();
+      attributedOrConditions.push(
+        {
+          bookedByUserId: null,
+          userId: null,
+          company: { spcode: { equals: code, mode: 'insensitive' } },
         },
-        take: 20,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          bookingReference: true,
-          status: true,
-          paymentStatus: true,
-          grandTotal: true,
-          paidAmount: true,
-          createdAt: true,
-          company: {
-            select: { name: true, spcode: true },
-          },
-          exhibition: {
-            select: { title: true, edition: true, eventCode: true, spcode: true },
-          },
-          stalls: {
-            select: {
-              stall: { select: { stallNumber: true } },
-            },
-          },
-        },
-      });
+        {
+          bookedByUserId: null,
+          userId: null,
+          payments: { some: { paymentMethod: { contains: code, mode: 'insensitive' } } },
+        }
+      );
     }
+
+    attributedBookings = await prisma.booking.findMany({
+      where: {
+        OR: attributedOrConditions,
+      },
+      take: 200,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        bookingReference: true,
+        status: true,
+        paymentStatus: true,
+        grandTotal: true,
+        paidAmount: true,
+        balanceAmount: true,
+        totalAmount: true,
+        discountAmount: true,
+        discountType: true,
+        bookingSource: true,
+        bookedByUserId: true,
+        contactPerson: true,
+        contactEmail: true,
+        contactPhone: true,
+        createdAt: true,
+        bookedByUser: {
+          select: { id: true, name: true, email: true, role: true, spcode: true },
+        },
+        user: {
+          select: { id: true, name: true, email: true, role: true, spcode: true },
+        },
+        company: {
+          select: { id: true, name: true, spcode: true, city: true, contactPerson: true, mobile: true, email: true },
+        },
+        exhibition: {
+          select: { id: true, title: true, edition: true, eventCode: true, spcode: true, venue: true, city: true, startDate: true, endDate: true },
+        },
+        stalls: {
+          select: {
+            price: true,
+            stall: { select: { id: true, stallNumber: true, category: true, areaSqFt: true } },
+          },
+        },
+        payments: {
+          select: { id: true, paymentReference: true, status: true, amount: true, provider: true, paymentMethod: true, paidAt: true },
+        },
+        invoices: {
+          select: { id: true, invoiceNumber: true, status: true },
+        },
+      },
+    });
 
     // If client has a company, fetch bookings of their company
     if (user.companyId) {

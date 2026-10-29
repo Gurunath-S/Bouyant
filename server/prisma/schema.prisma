@@ -55,6 +55,13 @@ enum BookingPaymentStatus {
   REFUNDED
 }
 
+enum BookingSource {
+  CLIENT_DIRECT
+  STAFF_ASSISTED
+  ADMIN_DIRECT
+  SUPERADMIN_MANUAL
+}
+
 
 enum PaymentStatus {
   PENDING
@@ -95,7 +102,8 @@ model User {
   company            Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   notifications      Notification[]
   createdExhibitions Exhibition[]   @relation("CreatedExhibitions")
-  bookings           Booking[]
+  bookings           Booking[]      @relation("ClientBookings")
+  createdBookings    Booking[]      @relation("CreatedBookings")
 
   @@index([email])
   @@index([companyId])
@@ -252,7 +260,12 @@ model Booking {
 
   // Authenticated Booking User Owner
   userId           String?
-  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user             User?         @relation("ClientBookings", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Direct Actor / Attributed Creator (The user who physically placed/assisted this booking)
+  bookedByUserId   String?
+  bookedByUser     User?         @relation("CreatedBookings", fields: [bookedByUserId], references: [id], onDelete: SetNull)
+  bookingSource    BookingSource @default(CLIENT_DIRECT)
 
   company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   exhibition       Exhibition    @relation(fields: [exhibitionId], references: [id], onDelete: Restrict)
@@ -264,6 +277,8 @@ model Booking {
   @@index([bookingReference])
   @@index([companyId])
   @@index([userId])
+  @@index([bookedByUserId])
+  @@index([bookingSource])
   @@index([status])
   @@index([paymentStatus])
   @@index([exhibitionId, status])

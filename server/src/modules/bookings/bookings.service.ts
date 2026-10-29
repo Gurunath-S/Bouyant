@@ -1,7 +1,7 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
 import { CreateBookingInput } from './bookings.schemas.js';
-import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus } from '@prisma/client';
+import { StallStatus, BookingStatus, PaymentStatus, BookingPaymentStatus, BookingSource } from '@prisma/client';
 import { Prisma,Stall} from '@prisma/client';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { razorpay } from '../../config/razorpay.js';
@@ -498,6 +498,18 @@ static async createBooking(
       ? new Date(`${input.paymentReminderDate}T00:00:00.000Z`)
       : null;
 
+  // Determine exact actor attribution and booking channel
+  let bookingSource: BookingSource = BookingSource.CLIENT_DIRECT;
+  if (user?.role === 'SUPERADMIN') {
+    bookingSource = BookingSource.SUPERADMIN_MANUAL;
+  } else if (user?.role === 'ADMIN') {
+    bookingSource = BookingSource.ADMIN_DIRECT;
+  } else if (user?.role === 'STAFF') {
+    bookingSource = BookingSource.STAFF_ASSISTED;
+  }
+
+  const bookedByUserId = user?.userId || null;
+
   if (isDirectConfirm) {
     const adminBookingRef = `BKG-2026-${crypto
       .randomUUID()
@@ -535,6 +547,8 @@ static async createBooking(
             companyId: input.companyId,
             exhibitionId: exhibition.id,
             userId: bookingUserId,
+            bookedByUserId,
+            bookingSource,
             contactPerson: snapshotContactPerson,
             contactEmail: snapshotContactEmail,
             contactPhone: snapshotContactPhone,
@@ -567,20 +581,21 @@ static async createBooking(
             exhibition: true,
             company: true,
             user: {
-              select: { id: true, name: true, email: true, role: true },
+              select: { id: true, name: true, email: true, role: true, spcode: true },
+            },
+            bookedByUser: {
+              select: { id: true, name: true, email: true, role: true, spcode: true },
             },
           },
         });
 
         // 4. Create offline/admin/staff payment record (no Razorpay)
         const isStaff = user?.role === 'STAFF';
-        const userSpcode = user?.spcode || (user?.userId ? (await prisma.user.findUnique({ where: { id: user.userId }, select: { spcode: true } }))?.spcode : null);
-        const attributionTag = userSpcode ? ` [${userSpcode}]` : (user?.userId ? ` [ID:${user.userId.slice(-6)}]` : '');
-        const defaultMethod = isStaff ? `OFFLINE_STAFF_DIRECT${attributionTag}` : `ADMIN_DIRECT_ALLOCATION${attributionTag}`;
+        const defaultMethod = isStaff ? 'OFFLINE_STAFF_DIRECT' : 'ADMIN_DIRECT_ALLOCATION';
         const paymentProvider = isStaff ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
         const paymentMethod = isStaff
-          ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? `${input.paymentMethod}${attributionTag}` : `OFFLINE_STAFF_DIRECT${attributionTag}`)
-          : (input.paymentMethod ? `${input.paymentMethod}${attributionTag}` : defaultMethod);
+          ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? input.paymentMethod : 'OFFLINE_STAFF_DIRECT')
+          : (input.paymentMethod || defaultMethod);
 
         const paymentRef = generateReference('PAY', 10, false);
         const payment = await tx.payment.create({
@@ -803,6 +818,8 @@ static async createBooking(
               companyId: input.companyId,
               exhibitionId: exhibition.id,
               userId: bookingUserId,
+              bookedByUserId,
+              bookingSource,
 
               // Representative/Contact Details Snapshot (Phase 2.3)
               contactPerson: snapshotContactPerson,
@@ -845,7 +862,10 @@ static async createBooking(
               exhibition: true,
               company: true,
               user: {
-                select: { id: true, name: true, email: true, role: true },
+                select: { id: true, name: true, email: true, role: true, spcode: true },
+              },
+              bookedByUser: {
+                select: { id: true, name: true, email: true, role: true, spcode: true },
               },
             },
           });
@@ -1214,6 +1234,8 @@ static async createBooking(
     let registeredByRole: string | undefined;
     let exhibitionId: string | undefined;
     let userId: string | undefined;
+    let bookedByUserId: string | undefined;
+    let bookingSource: string | undefined;
 
     if (pageOrOptions && typeof pageOrOptions === 'object') {
       rawPage = pageOrOptions.page;
@@ -1225,6 +1247,8 @@ static async createBooking(
       registeredByRole = pageOrOptions.registeredByRole;
       exhibitionId = pageOrOptions.exhibitionId;
       userId = pageOrOptions.userId;
+      bookedByUserId = pageOrOptions.bookedByUserId;
+      bookingSource = pageOrOptions.bookingSource;
     } else {
       rawPage = pageOrOptions || 1;
       rawLimit = limitArg || 20;
@@ -1232,8 +1256,6 @@ static async createBooking(
       registeredByRole = registeredByRoleArg;
       exhibitionId = exhibitionIdArg;
     }
-
-    const actingUser = (pageOrOptions && typeof pageOrOptions === 'object') ? pageOrOptions.actingUser : undefined;
 
     const { page, limit, skip } = normalizePagination(rawPage, rawLimit, 20, 100);
     const andConditions: Prisma.BookingWhereInput[] = [];
@@ -1253,28 +1275,24 @@ static async createBooking(
     if (userId && userId !== 'ALL') {
       andConditions.push({ company: { users: { some: { id: userId } } } });
     }
+    if (bookedByUserId && bookedByUserId !== 'ALL') {
+      andConditions.push({
+        OR: [
+          { bookedByUserId },
+          { AND: [{ bookedByUserId: null }, { userId: bookedByUserId }] },
+        ],
+      });
+    }
+    if (bookingSource && bookingSource !== 'ALL') {
+      andConditions.push({ bookingSource: bookingSource as any });
+    }
     if (registeredByRole && registeredByRole !== 'ALL') {
-      if (registeredByRole === 'MY') {
-        const myUserId = actingUser?.userId;
-        const mySpcode = actingUser?.spcode;
-        const myEmail = actingUser?.email?.toLowerCase();
-
+      if (registeredByRole === 'ADMIN') {
+        // ADMIN-registered: explicit bookedByUser role or bookingSource, or legacy attribution
         andConditions.push({
           OR: [
-            ...(myUserId ? [{ userId: myUserId }] : []),
-            ...(myUserId ? [{ exhibition: { createdByUserId: myUserId } }] : []),
-            ...(mySpcode ? [{ company: { spcode: { equals: mySpcode, mode: 'insensitive' as const } } }] : []),
-            ...(mySpcode ? [{ exhibition: { spcode: { equals: mySpcode, mode: 'insensitive' as const } } }] : []),
-            ...(mySpcode ? [{ payments: { some: { paymentMethod: { contains: mySpcode, mode: 'insensitive' as const } } } }] : []),
-            ...(myUserId ? [{ payments: { some: { paymentMethod: { contains: myUserId.slice(-6), mode: 'insensitive' as const } } } }] : []),
-            ...(myEmail ? [{ contactEmail: { equals: myEmail, mode: 'insensitive' as const } }] : []),
-          ],
-        });
-      } else if (registeredByRole === 'ADMIN') {
-        // ADMIN-registered: either explicitly attributed to admin/superadmin,
-        // or offline admin payment / AD/SA spcode, or administrative allocation not originating from staff
-        andConditions.push({
-          OR: [
+            { bookingSource: { in: ['ADMIN_DIRECT', 'SUPERADMIN_MANUAL'] } },
+            { bookedByUser: { role: { in: ['ADMIN', 'SUPERADMIN'] } } },
             { user: { role: { in: ['ADMIN', 'SUPERADMIN'] } } },
             { company: { users: { some: { role: { in: ['ADMIN', 'SUPERADMIN'] } } } } },
             { payments: { some: { OR: [{ provider: 'OFFLINE_ADMIN' }, { paymentMethod: { contains: 'ADMIN', mode: 'insensitive' } }] } } },
@@ -1284,19 +1302,22 @@ static async createBooking(
             { exhibition: { spcode: { startsWith: 'SA', mode: 'insensitive' } } },
             {
               AND: [
+                { NOT: { bookingSource: 'STAFF_ASSISTED' } },
+                { NOT: { bookedByUser: { role: 'STAFF' } } },
                 { NOT: { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } } },
                 { NOT: { user: { role: 'STAFF' } } },
                 { NOT: { company: { spcode: { startsWith: 'SP', mode: 'insensitive' } } } },
+                { NOT: { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } } },
               ],
             },
           ],
         });
       } else if (registeredByRole === 'STAFF') {
-        // STAFF-registered: either the booking was created by a STAFF user,
-        // or attribution is tracked via company.spcode (ST.. or SP..) or exhibition.spcode,
-        // or payment recorded via staff direct allocation
+        // STAFF-registered: explicit bookedByUser role or STAFF_ASSISTED, or legacy staff attribution
         andConditions.push({
           OR: [
+            { bookingSource: 'STAFF_ASSISTED' },
+            { bookedByUser: { role: 'STAFF' } },
             { user: { role: 'STAFF' } },
             { company: { spcode: { startsWith: 'ST', mode: 'insensitive' } } },
             { company: { spcode: { startsWith: 'SP', mode: 'insensitive' } } },
@@ -1308,6 +1329,7 @@ static async createBooking(
       } else {
         andConditions.push({
           OR: [
+            { bookedByUser: { role: registeredByRole as any } },
             { user: { role: registeredByRole as any } },
             { company: { users: { some: { role: registeredByRole as any } } } },
           ],
@@ -1348,8 +1370,6 @@ static async createBooking(
               venue: true,
               startDate: true,
               endDate: true,
-              spcode: true,
-              createdByUserId: true,
             },
           },
           company: {
@@ -1362,10 +1382,18 @@ static async createBooking(
               email: true,
               city: true,
               gstNumber: true,
-              spcode: true,
             },
           },
           user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              spcode: true,
+            },
+          },
+          bookedByUser: {
             select: {
               id: true,
               name: true,
@@ -1379,7 +1407,6 @@ static async createBooking(
               status: true,
               paymentReference: true,
               provider: true,
-              paymentMethod: true,
               amount: true,
               paidAt: true,
             },

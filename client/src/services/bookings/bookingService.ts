@@ -97,6 +97,8 @@ export const bookingService = {
     registeredByRole?: string;
     exhibitionId?: string;
     userId?: string;
+    bookedByUserId?: string;
+    bookingSource?: string;
   }) => {
     const res: any = await apiClient.get('/bookings', { params });
     return res;

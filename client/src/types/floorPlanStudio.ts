@@ -82,6 +82,7 @@ export interface FloorPlanLayoutData {
   facilities: FacilityObject[];
   annotations: AnnotationObject[];
   stallColors?: Record<string, string>; // Maps stallNumber or stallId -> hex color
+  stallPhysicalDimensions?: Record<string, { width: number; height: number; unit?: string }>; // Physical dimensions (e.g. 3m × 3m)
   backgroundImageUrl?: string;
   backgroundOpacity?: number;
 }
@@ -93,13 +94,16 @@ export interface DraftStallItem {
   category: StallCategory;
   price: number;
   areaSqFt: number;
-  width: number; // in pixels (e.g. 60px = 3m)
-  height: number; // in pixels (e.g. 60px = 3m)
+  width: number; // in pixels (UI Display Size on canvas)
+  height: number; // in pixels (UI Display Size on canvas)
   xPosition: number;
   yPosition: number;
   status: StallStatus;
   rotation?: number; // 0, 90, 180, 270
   color?: string; // Optional custom color in hex format (e.g. #3b82f6)
+  actualWidth?: number; // Real-world physical width in meters (e.g. 3)
+  actualHeight?: number; // Real-world physical height in meters (e.g. 3)
+  actualDimensions?: string; // Formatted dimension string (e.g. "3m × 3m")
 }
 
 export type StudioTool =

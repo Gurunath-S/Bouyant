@@ -124,7 +124,7 @@ interface Step2CompanyDetailsProps {
   companies: Company[];
   selectedCompany: Company | null;
   assignedRegNo: string;
-  onSelectCompany: (company: Company) => void;
+  onSelectCompany: (company: Company | null) => void;
   onSubmitCompanyForm: (data: CompanyFormData) => Promise<void>;
   onBack: () => void;
   onCancel?: () => void;
@@ -819,10 +819,10 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   };
 
   const handleRegisterNewCompany = () => {
-    onSelectCompany(null as any);
     setIsEditingExistingCompany(false);
     setIsAddingNewCompany(true);
     setIsChangingCompany(false);
+    onSelectCompany(null);
 
     reset({
       name: '',
@@ -830,9 +830,9 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       industry: '',
       designation: '',
       username: '',
-      contactPerson: user?.name || '',
-      mobile: user?.phone || '',
-      email: user?.email || '',
+      contactPerson: isClientUser ? (user?.name || '') : '',
+      mobile: isClientUser ? (user?.phone || '') : '',
+      email: isClientUser ? (user?.email || '') : '',
       pinCode: '',
       address: '',
       city: '',

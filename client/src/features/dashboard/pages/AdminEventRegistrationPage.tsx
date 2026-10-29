@@ -37,9 +37,15 @@ import {
 export const AdminEventRegistrationPage: React.FC = () => {
   const { user } = useAuthStore();
   const isStaff = user?.role === 'STAFF';
+  const isAdmin = user?.role === 'ADMIN';
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
+  const canToggleDesk = isAdmin || isSuperAdmin;
 
   // Tab State: 'EVENTS' (Display All Events) vs 'ADMIN_DATA' (Registered Data Separately)
   const [activeTab, setActiveTab] = useState<'EVENTS' | 'ADMIN_DATA'>('EVENTS');
+
+  // Desk Scope: 'MY_DESK' shows only current user's bookings, 'TEAM_DESK' shows all (Admin/SuperAdmin only)
+  const [deskScope, setDeskScope] = useState<'MY_DESK' | 'TEAM_DESK'>('MY_DESK');
 
   // Exhibitions & Bookings Data
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
@@ -106,14 +112,24 @@ export const AdminEventRegistrationPage: React.FC = () => {
     }
   }
 
-  async function fetchRegisteredBookings(filterRole?: string, balanceOnly?: boolean) {
+  async function fetchRegisteredBookings(filterRole?: string, balanceOnly?: boolean, scope?: 'MY_DESK' | 'TEAM_DESK') {
     try {
       setLoadingBookings(true);
-      const effectiveRole = isStaff ? 'STAFF' : (filterRole ?? registrarFilter);
+      const effectiveScope = scope ?? deskScope;
       const params: any = { limit: 200 };
-      if (effectiveRole !== 'ALL') {
-        params.registeredByRole = effectiveRole;
+
+      // Personal desk: always filter by current user's own bookings
+      // Staff is always locked to personal desk
+      if (isStaff || effectiveScope === 'MY_DESK') {
+        params.bookedByUserId = 'me';
+      } else {
+        // Team desk (Admin/SuperAdmin): optionally filter by registrar role
+        const effectiveRole = filterRole ?? registrarFilter;
+        if (effectiveRole !== 'ALL') {
+          params.registeredByRole = effectiveRole;
+        }
       }
+
       if (balanceOnly ?? balanceOnlyFilter) {
         params.hasBalanceOnly = true;
       }
@@ -136,15 +152,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
   // Ensure role-specific data refreshes as soon as authenticated user identity resolves
   useEffect(() => {
     if (user?.role) {
-      const defaultRole = user.role === 'STAFF' ? 'STAFF' : 'ALL';
-      setRegistrarFilter(defaultRole);
-      fetchRegisteredBookings(defaultRole);
+      setDeskScope('MY_DESK');
+      fetchRegisteredBookings(undefined, undefined, 'MY_DESK');
     }
   }, [user?.role]);
 
   useEffect(() => {
     fetchExhibitions();
-    fetchRegisteredBookings(isStaff ? 'STAFF' : 'ALL', false);
+    fetchRegisteredBookings(undefined, false, 'MY_DESK');
 
     const onFocus = () => {
       fetchExhibitions();
@@ -156,7 +171,13 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
   const handleRefreshAll = () => {
     fetchExhibitions();
-    fetchRegisteredBookings(isStaff ? 'STAFF' : registrarFilter);
+    fetchRegisteredBookings();
+  };
+
+  const handleDeskScopeChange = (newScope: 'MY_DESK' | 'TEAM_DESK') => {
+    setDeskScope(newScope);
+    setBookingPage(1);
+    fetchRegisteredBookings(undefined, undefined, newScope);
   };
 
   const handleRegistrationSuccess = (newBooking: any) => {
@@ -183,7 +204,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
       });
     }
     fetchExhibitions();
-    fetchRegisteredBookings(isStaff ? 'STAFF' : registrarFilter);
+    fetchRegisteredBookings(undefined, undefined, deskScope);
     setActiveTab('ADMIN_DATA');
     setTimeout(() => setSuccessBanner(null), 8000);
   };
@@ -281,6 +302,20 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const totalAdminRegistrations = adminBookings.length;
   const totalAdminValue = adminBookings.reduce((sum, b) => sum + (Number(b.grandTotal) || 0), 0);
 
+  // Readable desk scope label
+  const deskLabel = deskScope === 'MY_DESK' ? 'My Registrations' : 'All Team Registrations';
+
+  // Booking source display helper
+  const getSourceBadge = (source?: string) => {
+    switch (source) {
+      case 'CLIENT_DIRECT': return { label: 'Client Direct', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800' };
+      case 'STAFF_ASSISTED': return { label: 'Staff Assisted', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300 border-orange-200 dark:border-orange-800' };
+      case 'ADMIN_DIRECT': return { label: 'Admin Direct', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800' };
+      case 'SUPERADMIN_MANUAL': return { label: 'SuperAdmin', cls: 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border-rose-200 dark:border-rose-800' };
+      default: return { label: 'Unknown', cls: 'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700' };
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Back to Dashboard */}
@@ -303,7 +338,11 @@ export const AdminEventRegistrationPage: React.FC = () => {
                 Event Registration Hub
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Browse exhibitions, register exhibitors to events with direct stall allocation, and audit administration data. <strong className="text-purple-600 dark:text-purple-400">Bookings are strictly open for the current upcoming event alone.</strong>
+                Your personal workspace for exhibitor registrations, stall allocation, and booking operations.
+                {deskScope === 'MY_DESK'
+                  ? <strong className="text-purple-600 dark:text-purple-400"> Showing your own registrations only.</strong>
+                  : <strong className="text-indigo-600 dark:text-indigo-400"> Showing all team registrations.</strong>
+                }
               </p>
             </div>
           </div>
@@ -366,50 +405,30 @@ export const AdminEventRegistrationPage: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-              {registrarFilter === 'MY'
-                ? 'My Registrations'
-                : isStaff
-                ? 'Staff Registrations'
-                : 'Direct Registrations'}
+              {deskScope === 'MY_DESK' ? 'My Registrations' : 'Team Registrations'}
             </span>
-            {isStaff || registrarFilter === 'MY' ? (
-              <Users className="w-4 h-4 text-indigo-500" />
-            ) : (
-              <ShieldCheck className="w-4 h-4 text-indigo-500" />
-            )}
+            {deskScope === 'MY_DESK' ? <Users className="w-4 h-4 text-indigo-500" /> : <ShieldCheck className="w-4 h-4 text-indigo-500" />}
           </div>
           <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-2">
             {totalAdminRegistrations}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-            {registrarFilter === 'MY'
-              ? `Work by ${user?.name || 'you'}`
-              : isStaff
-              ? 'My assisted registrations'
-              : 'Admin & staff registrations'}
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {deskScope === 'MY_DESK' ? 'Bookings you personally created' : 'All team bookings'}
           </p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-              {registrarFilter === 'MY'
-                ? 'My Booking Value'
-                : isStaff
-                ? 'Staff Allocation Value'
-                : 'Allocation Value'}
+              {deskScope === 'MY_DESK' ? 'My Revenue' : 'Total Revenue'}
             </span>
             <TrendingUp className="w-4 h-4 text-purple-500" />
           </div>
           <p className="text-2xl font-black text-purple-700 dark:text-purple-300 font-mono mt-2 truncate">
             ₹{totalAdminValue.toLocaleString()}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-            {registrarFilter === 'MY'
-              ? 'Revenue generated by you'
-              : isStaff
-              ? 'Revenue generated by you'
-              : 'Total booked revenue'}
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {deskScope === 'MY_DESK' ? 'Revenue from your bookings' : 'Revenue from all team bookings'}
           </p>
         </div>
       </div>
@@ -464,8 +483,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
-          {isStaff ? <Users className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-          <span>{isStaff ? 'My Registered Exhibitors' : 'Registered Exhibitor Data'}</span>
+          <Users className="w-4 h-4" />
+          <span>{deskScope === 'MY_DESK' ? 'My Registrations' : 'Team Registrations'}</span>
           <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-[10px] font-mono font-bold">
             {adminBookings.length}
           </span>
@@ -771,7 +790,41 @@ export const AdminEventRegistrationPage: React.FC = () => {
       {/* TAB 2: REGISTERED DATA DISPLAY (ADMIN & STAFF) */}
       {activeTab === 'ADMIN_DATA' && (
         <div className="space-y-4">
-          {/* Filters for Admin & Staff Registered Data */}
+          {/* Desk Scope Toggle (Admin/SuperAdmin only) */}
+          {canToggleDesk && (
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Desk View:</span>
+              <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => handleDeskScopeChange('MY_DESK')}
+                  className={`px-4 py-1.5 text-xs font-bold transition-all ${
+                    deskScope === 'MY_DESK'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  My Desk
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeskScopeChange('TEAM_DESK')}
+                  className={`px-4 py-1.5 text-xs font-bold transition-all ${
+                    deskScope === 'TEAM_DESK'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  Team Desk
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-400 ml-1">
+                {deskScope === 'MY_DESK' ? 'Only bookings you created' : 'All team members\' bookings'}
+              </span>
+            </div>
+          )}
+
+          {/* Filters for Registered Data */}
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -785,33 +838,25 @@ export const AdminEventRegistrationPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-slate-500 shrink-0">Registrar:</label>
-                <select
-                  value={registrarFilter}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setRegistrarFilter(val);
-                    fetchRegisteredBookings(val);
-                  }}
-                  className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200"
-                >
-                  {isStaff ? (
-                    <>
-                      <option value="STAFF">All Staff Registrations</option>
-                      <option value="MY">Registered by Me (My Work)</option>
-                      <option value="ALL">All Exhibitors</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="ALL">All Exhibitors</option>
-                      <option value="MY">Registered by Me (My Work)</option>
-                      <option value="ADMIN">Admin Registrations</option>
-                      <option value="STAFF">Staff Registrations</option>
-                    </>
-                  )}
-                </select>
-              </div>
+              {/* Show registrar filter only in Team Desk mode */}
+              {canToggleDesk && deskScope === 'TEAM_DESK' && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 shrink-0">Registrar:</label>
+                  <select
+                    value={registrarFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRegistrarFilter(val);
+                      fetchRegisteredBookings(val, undefined, 'TEAM_DESK');
+                    }}
+                    className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="ALL">All Registrars</option>
+                    <option value="ADMIN">Admin Registered</option>
+                    <option value="STAFF">Staff Registered</option>
+                  </select>
+                </div>
+              )}
 
               <CityFilterDropdown
                 label="City"
@@ -886,7 +931,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
                       <th className="py-3.5 px-4">Allocated Stalls</th>
                       <th className="py-3.5 px-4">Status & Payment</th>
                       <th className="py-3.5 px-4 text-right">Value & Balance</th>
-                      <th className="py-3.5 px-4">Registrar</th>
+                      <th className="py-3.5 px-4">Booked By</th>
+                      <th className="py-3.5 px-4">Channel</th>
                       <th className="py-3.5 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
@@ -967,41 +1013,22 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </td>
 
                         <td className="py-3.5 px-4">
+                          <span className="font-semibold text-xs text-purple-700 dark:text-purple-300 block">
+                            {b.bookedByUser?.name || b.user?.name || 'System'}
+                          </span>
+                          <span className="font-mono text-[10px] text-slate-400">
+                            {b.bookedByUser?.role || b.user?.role || '—'}
+                            {(b.bookedByUser?.spcode || b.user?.spcode) && ` • ${b.bookedByUser?.spcode || b.user?.spcode}`}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
                           {(() => {
-                            const isMyBooking = Boolean(
-                              (user?.id && (b.userId === user.id || b.exhibition?.createdByUserId === user.id)) ||
-                              (user?.spcode && (
-                                b.company?.spcode?.toUpperCase() === user.spcode.toUpperCase() ||
-                                b.exhibition?.spcode?.toUpperCase() === user.spcode.toUpperCase() ||
-                                b.payments?.some((p) => p.paymentMethod?.toUpperCase().includes(user.spcode!.toUpperCase()))
-                              )) ||
-                              (user?.email && b.contactEmail?.toLowerCase() === user.email.toLowerCase())
-                            );
-
-                            const registrarTag =
-                              b.company?.spcode ||
-                              b.exhibition?.spcode ||
-                              (b as any).user?.spcode ||
-                              (b as any).user?.role ||
-                              (isStaff ? 'STAFF' : 'ADMIN');
-
+                            const badge = getSourceBadge(b.bookingSource);
                             return (
-                              <div>
-                                <span
-                                  className={`font-semibold text-xs block ${
-                                    isMyBooking
-                                      ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
-                                      : 'text-purple-700 dark:text-purple-300'
-                                  }`}
-                                >
-                                  {isMyBooking
-                                    ? `You (${user?.name || 'My Account'})`
-                                    : (b as any).user?.name || (isStaff ? 'Staff Colleague' : 'Administrator')}
-                                </span>
-                                <span className="font-mono text-[10px] text-slate-400 block truncate max-w-[130px]">
-                                  {isMyBooking ? `Attributed: ${user?.spcode || 'Personal'}` : registrarTag}
-                                </span>
-                              </div>
+                              <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border ${badge.cls}`}>
+                                {badge.label}
+                              </span>
                             );
                           })()}
                         </td>

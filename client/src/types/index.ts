@@ -129,6 +129,10 @@ export interface Stall {
   status: StallStatus;
   heldUntil?: string | null;
   heldByUserId?: string | null;
+  color?: string;
+  actualWidth?: number;
+  actualHeight?: number;
+  actualDimensions?: string;
 }
 
 export interface BookingStall {
@@ -162,6 +166,9 @@ export interface Booking {
   invoice?: Invoice;
   invoices?: Invoice[];
   user?: Partial<User>;
+  bookedByUserId?: string | null;
+  bookedByUser?: Partial<User> | null;
+  bookingSource?: 'CLIENT_DIRECT' | 'STAFF_ASSISTED' | 'ADMIN_DIRECT' | 'SUPERADMIN_MANUAL';
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;

@@ -34,25 +34,25 @@ export const CreateBookingSchema = z.object({
   confirmDirectly: z.boolean().optional().default(false),
 
   // Optional payment method label recorded on the offline payment record
-  paymentMethod: z.string().optional(),
+  paymentMethod: z.string().nullable().optional(),
 
   // Internal booking notes (admin use)
-  notes: z.string().optional(),
+  notes: z.string().nullable().optional(),
 
   // Optional booking representative contact snapshot (Phase 2.3)
-  contactPerson: z.string().trim().optional(),
-  contactEmail: z.union([z.string().email().trim().toLowerCase(), z.literal('')]).optional(),
-  contactPhone: z.string().trim().optional(),
+  contactPerson: z.string().trim().nullable().optional(),
+  contactEmail: z.union([z.string().email().trim().toLowerCase(), z.literal(''), z.null()]).optional(),
+  contactPhone: z.string().trim().nullable().optional(),
 
   // Optional billing/legal snapshot override (Phase 2.3)
-  billingName: z.string().trim().optional(),
-  billingGst: z.string().trim().toUpperCase().optional(),
-  billingPan: z.string().trim().toUpperCase().optional(),
-  billingAddress: z.string().trim().optional(),
-  billingCity: z.string().trim().optional(),
-  billingState: z.string().trim().optional(),
-  billingPinCode: z.string().trim().optional(),
-  billingCountry: z.string().trim().optional(),
+  billingName: z.string().trim().nullable().optional(),
+  billingGst: z.string().trim().toUpperCase().nullable().optional(),
+  billingPan: z.string().trim().toUpperCase().nullable().optional(),
+  billingAddress: z.string().trim().nullable().optional(),
+  billingCity: z.string().trim().nullable().optional(),
+  billingState: z.string().trim().nullable().optional(),
+  billingPinCode: z.string().trim().nullable().optional(),
+  billingCountry: z.string().trim().nullable().optional(),
   paymentReminderDate: z
     .string()
     .regex(
@@ -66,6 +66,7 @@ export const CreateBookingSchema = z.object({
         date.toISOString().slice(0, 10) === value
       );
     }, 'Invalid payment reminder date')
+    .nullable()
     .optional(),
 });
 

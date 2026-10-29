@@ -536,7 +536,8 @@ export const BookingWizardPage: React.FC = () => {
         setCompanies((prev) => [...prev.filter((c) => c.id !== createdComp.id), createdComp]);
         setSelectedCompany(createdComp);
 
-	        if (createdUser) {
+	        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
+	        if (createdUser && !isPrivileged) {
             const authenticatedUser = {
               id: createdUser.id,
               email: createdUser.email,
@@ -996,7 +997,11 @@ export const BookingWizardPage: React.FC = () => {
           assignedRegNo={assignedRegNo}
           onSelectCompany={(c) => {
             setSelectedCompany(c);
-            if (c.regNo) setAssignedRegNo(c.regNo);
+            if (c?.regNo) {
+              setAssignedRegNo(c.regNo);
+            } else if (!c) {
+              setAssignedRegNo('');
+            }
           }}
           onSubmitCompanyForm={onSubmitCompanyForm}
           onBack={handleInitiateBackToStep1}

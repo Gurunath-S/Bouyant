@@ -218,10 +218,28 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [stalls, setStalls] = useState<DraftStallItem[]>(() => {
     const rawStalls = initialStalls || [];
     const colorsMap = initialLayoutData?.stallColors || {};
-    return rawStalls.map((s) => ({
-      ...s,
-      color: s.color || colorsMap[s.stallNumber] || colorsMap[s.id] || undefined,
-    }));
+    const physMap = initialLayoutData?.stallPhysicalDimensions || {};
+    return rawStalls.map((s) => {
+      const phys = physMap[s.stallNumber] || physMap[s.id];
+      const defaultActualW =
+        s.actualWidth !== undefined
+          ? s.actualWidth
+          : phys?.width !== undefined
+          ? Number(phys.width)
+          : Number(((s.width || 60) / pxPerMeter).toFixed(1));
+      const defaultActualH =
+        s.actualHeight !== undefined
+          ? s.actualHeight
+          : phys?.height !== undefined
+          ? Number(phys.height)
+          : Number(((s.height || 60) / pxPerMeter).toFixed(1));
+      return {
+        ...s,
+        color: s.color || colorsMap[s.stallNumber] || colorsMap[s.id] || undefined,
+        actualWidth: defaultActualW,
+        actualHeight: defaultActualH,
+      };
+    });
   });
 
   // Canvas Size Reduction (Only available when canvas has been increased beyond base dimensions)
@@ -2152,10 +2170,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       }
 
       const stallColors: Record<string, string> = { ...(initialLayoutData?.stallColors || {}) };
+      const stallPhysicalDimensions: Record<string, { width: number; height: number; unit?: string }> = {
+        ...(initialLayoutData?.stallPhysicalDimensions || {}),
+      };
       stalls.forEach((s) => {
         if (s.color) {
           stallColors[s.stallNumber] = s.color;
           stallColors[s.id] = s.color;
+        }
+        if (s.actualWidth !== undefined && s.actualHeight !== undefined) {
+          const entry = { width: Number(s.actualWidth), height: Number(s.actualHeight), unit: 'm' };
+          stallPhysicalDimensions[s.stallNumber] = entry;
+          stallPhysicalDimensions[s.id] = entry;
         }
       });
       const layoutData: FloorPlanLayoutData = {
@@ -2167,6 +2193,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         facilities,
         annotations,
         stallColors,
+        stallPhysicalDimensions,
         backgroundImageUrl: finalBlueprintUrl,
         backgroundOpacity,
       };

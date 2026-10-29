@@ -754,7 +754,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <span>Stall booked by customer. Deletion is locked to protect reservations.</span>
             </div>
           )}
-          {/* Stall Number */}
+          {/* 1. Stall Name */}
           {(() => {
             const isDuplicate = Boolean(
               stall.stallNumber &&
@@ -763,10 +763,10 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               )
             );
             return (
-              <div>
-                <div className="flex items-center justify-between mb-1">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
-                    Stall Identifier / Number
+                    Stall Name
                   </label>
                   {isDuplicate && (
                     <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
@@ -777,16 +777,25 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <input
                   type="text"
                   disabled={readOnly}
-                  value={stall.stallNumber}
-                  onChange={(e) => onUpdateStall(stall.id, { stallNumber: e.target.value.toUpperCase() })}
-                  className={`w-full px-3 py-2 text-sm border rounded-lg font-mono font-bold uppercase focus:ring-2 ${
-                    isDuplicate
-                      ? 'border-rose-400 bg-rose-50 text-rose-900 focus:ring-rose-400 focus:border-rose-500'
-                      : 'border-slate-300 focus:ring-blue-500'
-                  }`}
+                  value={stall.name || `Stall ${stall.stallNumber}`}
+                  onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
+                  placeholder="e.g. Stall A-101, VIP Suite"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 bg-white"
                 />
+                <div className="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
+                  <span>Stall Code / Identifier:</span>
+                  <input
+                    type="text"
+                    disabled={readOnly}
+                    value={stall.stallNumber}
+                    onChange={(e) => onUpdateStall(stall.id, { stallNumber: e.target.value.toUpperCase().trim() })}
+                    className={`font-mono font-bold text-right uppercase border-b border-dashed px-1 focus:outline-none bg-transparent ${
+                      isDuplicate ? 'border-rose-500 text-rose-700' : 'border-slate-300 text-slate-700 focus:border-blue-500'
+                    }`}
+                  />
+                </div>
                 {isDuplicate && (
-                  <p className="mt-1 text-[11px] text-rose-600 font-medium">
+                  <p className="text-[11px] text-rose-600 font-medium">
                     Stall #{stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
                   </p>
                 )}
@@ -794,7 +803,88 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             );
           })()}
 
-          {/* Category */}
+          {/* 2. Actual Stall Dimensions: Width × Height (for example, 3m × 3m) */}
+          {(() => {
+            const actualW =
+              stall.actualWidth !== undefined
+                ? stall.actualWidth
+                : Number(((stall.width || 60) / pxPerMeter).toFixed(1));
+            const actualH =
+              stall.actualHeight !== undefined
+                ? stall.actualHeight
+                : Number(((stall.height || 60) / pxPerMeter).toFixed(1));
+            const actualAreaSqM = Number((actualW * actualH).toFixed(1));
+            const actualAreaSqFt = Math.round(actualW * actualH * 10.764);
+
+            return (
+              <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-blue-600" />
+                    Actual Stall Dimensions
+                  </label>
+                  <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                    {actualW}m × {actualH}m
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Width (m)
+                    </label>
+                    <input
+                      type="number"
+                      disabled={readOnly}
+                      step="0.5"
+                      min="0.5"
+                      value={actualW}
+                      onChange={(e) => {
+                        const w = Math.max(0.1, Number(e.target.value));
+                        onUpdateStall(stall.id, {
+                          actualWidth: w,
+                          actualDimensions: `${w}m × ${actualH}m`,
+                          areaSqFt: Math.round(w * actualH * 10.764),
+                        });
+                      }}
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Height (m)
+                    </label>
+                    <input
+                      type="number"
+                      disabled={readOnly}
+                      step="0.5"
+                      min="0.5"
+                      value={actualH}
+                      onChange={(e) => {
+                        const h = Math.max(0.1, Number(e.target.value));
+                        onUpdateStall(stall.id, {
+                          actualHeight: h,
+                          actualDimensions: `${actualW}m × ${h}m`,
+                          areaSqFt: Math.round(actualW * h * 10.764),
+                        });
+                      }}
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-200/60 font-mono">
+                  <span>Footprint: {actualW}m × {actualH}m</span>
+                  <span>{actualAreaSqFt} sq.ft ({actualAreaSqM} m²)</span>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  Informational physical dimensions. Does not modify canvas pixel size, coordinates, or layout reflow.
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* 3. Category */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Category
@@ -803,7 +893,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               disabled={readOnly}
               value={stall.category}
               onChange={(e) => onUpdateStall(stall.id, { category: e.target.value as StallCategory })}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-medium bg-white"
             >
               <option value="STANDARD">Standard</option>
               <option value="PREMIUM">Premium</option>
@@ -812,12 +902,200 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             </select>
           </div>
 
-          {/* Custom Stall Color Selection */}
+          {/* 4. Price */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Price (₹ INR)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">₹</span>
+              <input
+                type="number"
+                disabled={readOnly}
+                step="1000"
+                min="0"
+                value={stall.price}
+                onChange={(e) => onUpdateStall(stall.id, { price: Math.max(0, Number(e.target.value)) })}
+                onWheel={(e) => e.currentTarget.blur()}
+                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+          </div>
+
+          {/* 5. Availability Status */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Availability Status
+              </label>
+              {isBooked && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5" /> Locked
+                </span>
+              )}
+            </div>
+            <select
+              disabled={readOnly || isBooked}
+              value={stall.status}
+              onChange={(e) => onUpdateStall(stall.id, { status: e.target.value as StallStatus })}
+              className={`w-full px-3 py-2 text-xs border rounded-lg font-medium ${
+                isBooked
+                  ? 'bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed'
+                  : 'bg-white border-slate-300 text-slate-900'
+              }`}
+            >
+              <option value="AVAILABLE">Available for Public Booking</option>
+              <option value="BLOCKED">Blocked / Reserved by Admin</option>
+              <option value="BOOKED_CONFIRMED">Booked Confirmed</option>
+              {stall.status === 'PAYMENT_PENDING' && <option value="PAYMENT_PENDING">Payment Pending</option>}
+              {stall.status === 'TEMPORARILY_HELD' && <option value="TEMPORARILY_HELD">Temporarily Held</option>}
+              {stall.status === 'BOOKING_IN_PROGRESS' && <option value="BOOKING_IN_PROGRESS">Booking in Progress</option>}
+            </select>
+            {isBooked && (
+              <p className="mt-1 text-[10px] text-amber-700 font-medium">
+                Locked by customer reservation rule. Editor cannot override booked/held status.
+              </p>
+            )}
+          </div>
+
+          {/* 6. UI Display Size: Canvas Width × Canvas Height in pixels */}
+          <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                UI Display Size (Pixels)
+              </label>
+              <span className="text-[10px] font-mono font-bold text-slate-700 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                {Math.round(stall.width)}px × {Math.round(stall.height)}px
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Canvas Width (px)
+                </label>
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  step="5"
+                  min="20"
+                  value={Math.round(stall.width)}
+                  onChange={(e) => {
+                    const newW = Math.max(20, Math.round(Number(e.target.value)));
+                    onUpdateStall(stall.id, { width: newW }, { pushNeighbors: singlePushNeighbors });
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Canvas Height (px)
+                </label>
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  step="5"
+                  min="20"
+                  value={Math.round(stall.height)}
+                  onChange={(e) => {
+                    const newH = Math.max(20, Math.round(Number(e.target.value)));
+                    onUpdateStall(stall.id, { height: newH }, { pushNeighbors: singlePushNeighbors });
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Keep Flush / Push Adjacent Stalls Toggle */}
+            <div className="flex items-center justify-between p-2 bg-blue-50/70 border border-blue-200/80 rounded-lg">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={singlePushNeighbors}
+                  onChange={(e) => setSinglePushNeighbors(e.target.checked)}
+                  className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-blue-900">
+                  Push / Pull Row (No Gaps)
+                </span>
+              </label>
+            </div>
+
+            {/* Quick Dimension Nudges */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-200/60">
+              <button
+                type="button"
+                disabled={readOnly || stall.width <= 20}
+                onClick={() =>
+                  onUpdateStall(
+                    stall.id,
+                    { width: Math.max(20, stall.width - 10) },
+                    { pushNeighbors: singlePushNeighbors }
+                  )
+                }
+                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Shrink canvas width by 10px"
+              >
+                <Minimize2 className="w-3 h-3 text-rose-600" /> −10px W
+              </button>
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() =>
+                  onUpdateStall(
+                    stall.id,
+                    { width: stall.width + 10 },
+                    { pushNeighbors: singlePushNeighbors }
+                  )
+                }
+                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Expand canvas width by 10px"
+              >
+                <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px W
+              </button>
+              <button
+                type="button"
+                disabled={readOnly || stall.height <= 20}
+                onClick={() =>
+                  onUpdateStall(
+                    stall.id,
+                    { height: Math.max(20, stall.height - 10) },
+                    { pushNeighbors: singlePushNeighbors }
+                  )
+                }
+                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Shrink canvas height by 10px"
+              >
+                <Minimize2 className="w-3 h-3 text-rose-600" /> −10px H
+              </button>
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() =>
+                  onUpdateStall(
+                    stall.id,
+                    { height: stall.height + 10 },
+                    { pushNeighbors: singlePushNeighbors }
+                  )
+                }
+                className="py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Expand canvas height by 10px"
+              >
+                <Maximize2 className="w-3 h-3 text-emerald-600" /> +10px H
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-tight">
+              Controls visual rendered size on canvas. Does not overwrite actual physical dimensions.
+            </p>
+          </div>
+
+          {/* 7. Custom Stall Color */}
           <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Palette className="w-3.5 h-3.5 text-blue-600" />
-                Stall Accent Color
+                Custom Stall Color
               </label>
               {stall.color && (
                 <button
@@ -868,7 +1146,16 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <input
                   type="color"
                   disabled={readOnly}
-                  value={stall.color || (stall.category === 'PREMIUM' ? '#059669' : stall.category === 'CORNER' ? '#d97706' : stall.category === 'ISLAND' ? '#7c3aed' : '#2563eb')}
+                  value={
+                    stall.color ||
+                    (stall.category === 'PREMIUM'
+                      ? '#059669'
+                      : stall.category === 'CORNER'
+                      ? '#d97706'
+                      : stall.category === 'ISLAND'
+                      ? '#7c3aed'
+                      : '#2563eb')
+                  }
                   onChange={(e) => onUpdateStall(stall.id, { color: e.target.value })}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   title="Pick custom color"
@@ -876,7 +1163,15 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <div
                   className="w-full h-full rounded-lg"
                   style={{
-                    backgroundColor: stall.color || (stall.category === 'PREMIUM' ? '#059669' : stall.category === 'CORNER' ? '#d97706' : stall.category === 'ISLAND' ? '#7c3aed' : '#2563eb'),
+                    backgroundColor:
+                      stall.color ||
+                      (stall.category === 'PREMIUM'
+                        ? '#059669'
+                        : stall.category === 'CORNER'
+                        ? '#d97706'
+                        : stall.category === 'ISLAND'
+                        ? '#7c3aed'
+                        : '#2563eb'),
                   }}
                 />
               </div>
@@ -895,235 +1190,6 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 />
               </div>
             </div>
-          </div>
-
-          {/* Dimensions & Push Row Controls */}
-          <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                Dimensions & Row Reflow
-              </span>
-            </div>
-
-            {/* Keep Flush / Push Adjacent Stalls Toggle */}
-            <div className="flex items-center justify-between p-2 bg-blue-50/70 border border-blue-200/80 rounded-lg">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={singlePushNeighbors}
-                  onChange={(e) => setSinglePushNeighbors(e.target.checked)}
-                  className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
-                />
-                <span className="text-[11px] font-bold text-blue-900">
-                  Push / Pull Row (No Gaps)
-                </span>
-              </label>
-            </div>
-
-            {/* Booth Display Label (Printed on Canvas) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-slate-700">
-                  Booth Display Label (On Canvas)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateStall(stall.id, { name: `${widthMeters}×${depthMeters}m` });
-                  }}
-                  className="text-[10px] text-blue-600 hover:underline cursor-pointer"
-                  title="Reset label to match physical width × depth"
-                >
-                  Auto ({widthMeters}×{depthMeters}m)
-                </button>
-              </div>
-              <input
-                type="text"
-                disabled={readOnly}
-                value={stall.name || ''}
-                onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
-                placeholder="e.g. 3×3m, 6×3m, VIP Suite"
-                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
-                Visual text printed on booth badge. Physical footprint is set by Width & Depth below.
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Width (m)
-                </label>
-                <input
-                  type="number"
-                  disabled={readOnly}
-                  step="0.5"
-                  min="1"
-                  value={widthMeters}
-                  onChange={(e) => {
-                    const wm = Math.max(1, Number(e.target.value));
-                    const newW = wm * pxPerMeter;
-                    const newAreaSqFt = Math.round(wm * depthMeters * 10.764);
-                    onUpdateStall(
-                      stall.id,
-                      { width: newW, areaSqFt: newAreaSqFt },
-                      { pushNeighbors: singlePushNeighbors }
-                    );
-                  }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-bold bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Depth (m)
-                </label>
-                <input
-                  type="number"
-                  disabled={readOnly}
-                  step="0.5"
-                  min="1"
-                  value={depthMeters}
-                  onChange={(e) => {
-                    const dm = Math.max(1, Number(e.target.value));
-                    const newH = dm * pxPerMeter;
-                    const newAreaSqFt = Math.round(widthMeters * dm * 10.764);
-                    onUpdateStall(
-                      stall.id,
-                      { height: newH, areaSqFt: newAreaSqFt },
-                      { pushNeighbors: singlePushNeighbors }
-                    );
-                  }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-bold bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Quick Dimension Nudges */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-200/80">
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Quick Dimension Nudges
-              </span>
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={readOnly || widthMeters <= 1}
-                    onClick={() => {
-                      const newW = Math.max(20, stall.width - 10);
-                      const newWm = newW / pxPerMeter;
-                      const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
-                      onUpdateStall(
-                        stall.id,
-                        { width: newW, areaSqFt: newAreaSqFt },
-                        { pushNeighbors: singlePushNeighbors }
-                      );
-                    }}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Shrink stall width by 0.5m (−10px) and pull row neighbors closer"
-                  >
-                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>−0.5m Width</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => {
-                      const newW = stall.width + 10;
-                      const newWm = newW / pxPerMeter;
-                      const newAreaSqFt = Math.round(newWm * depthMeters * 10.764);
-                      onUpdateStall(
-                        stall.id,
-                        { width: newW, areaSqFt: newAreaSqFt },
-                        { pushNeighbors: singlePushNeighbors }
-                      );
-                    }}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Expand stall width by 0.5m (+10px) and push row neighbors right"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+0.5m Width</span>
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={readOnly || depthMeters <= 1}
-                    onClick={() => {
-                      const newH = Math.max(20, stall.height - 10);
-                      const newHm = newH / pxPerMeter;
-                      const newAreaSqFt = Math.round(widthMeters * newHm * 10.764);
-                      onUpdateStall(
-                        stall.id,
-                        { height: newH, areaSqFt: newAreaSqFt },
-                        { pushNeighbors: singlePushNeighbors }
-                      );
-                    }}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Shrink stall depth by 0.5m (−10px)"
-                  >
-                    <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>−0.5m Depth</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => {
-                      const newH = stall.height + 10;
-                      const newHm = newH / pxPerMeter;
-                      const newAreaSqFt = Math.round(widthMeters * newHm * 10.764);
-                      onUpdateStall(
-                        stall.id,
-                        { height: newH, areaSqFt: newAreaSqFt },
-                        { pushNeighbors: singlePushNeighbors }
-                      );
-                    }}
-                    className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                    title="Expand stall depth by 0.5m (+10px)"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+0.5m Depth</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Rental Price */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Rental Price (₹ INR)
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">₹</span>
-              <input
-                type="number"
-                disabled={readOnly}
-                step="1000"
-                min="0"
-                value={stall.price}
-                onChange={(e) => onUpdateStall(stall.id, { price: Math.max(0, Number(e.target.value)) })}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Booking Availability Status
-            </label>
-            <select
-              disabled={readOnly}
-              value={stall.status}
-              onChange={(e) => onUpdateStall(stall.id, { status: e.target.value as StallStatus })}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-medium"
-            >
-              <option value="AVAILABLE">Available for Public Booking</option>
-              <option value="BLOCKED">Blocked / Reserved by Admin</option>
-              <option value="BOOKED_CONFIRMED">Booked Confirmed</option>
-            </select>
           </div>
 
           {/* Rotation & Position */}
