@@ -1282,8 +1282,8 @@ export const UserGovernanceDetailPage: React.FC = () => {
                             {bk.stalls?.length || 0} Stall{(bk.stalls?.length || 0) === 1 ? '' : 's'}
                           </span>
                         </td>
-                        <td className="px-3.5 py-3.5">
-                          <div className="space-y-1">
+                        <td className="px-3.5 py-3.5 align-middle">
+                          <div className="flex flex-col gap-1 items-start justify-center">
                             <PaymentStatusBadge status={bk.paymentStatus} />
                             {bk.status && (
                               <span className="text-[10px] font-mono block text-slate-400 uppercase">

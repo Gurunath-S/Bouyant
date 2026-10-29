@@ -48,6 +48,8 @@ export interface InvoicePdfData {
     stallNumber: string;
     category: string;
     areaSqFt?: number;
+    actualWidth?: number;
+    actualHeight?: number;
     name: string | null;
     amount: number;
   }[];
@@ -59,6 +61,7 @@ export interface InvoicePdfData {
   grandTotal: number;
  
   amountInWords?: string;
+  taxAmountInWords?: string;
  
   bankDetails?: {
     bankName: string;
@@ -282,6 +285,8 @@ export class InvoicePdfService {
       stallNumber: bs.stall?.stallNumber || bs.stallId || 'A14',
       category: bs.stall?.category || 'PREMIUM',
       areaSqFt: bs.stall?.areaSqFt ?? 100,
+      actualWidth: bs.stall?.actualWidth,
+      actualHeight: bs.stall?.actualHeight,
       name: bs.stall?.name || '',
       amount: Number(bs.price || bs.stall?.price || 0),
     }));
@@ -336,6 +341,7 @@ export class InvoicePdfService {
       totalTax: taxAmt,
       grandTotal: totalGrand,
       amountInWords: numberToIndianWords(totalGrand),
+      taxAmountInWords: numberToIndianWords(taxAmt),
       bankDetails: {
         bankName: 'THE FEDERAL BANK LTD',
         accountName: 'BUOYANT MEDIA',
@@ -368,7 +374,10 @@ export class InvoicePdfService {
   static buildDocDefinition(data: InvoicePdfData): any {
  
     const stallDetailsText = data.stalls
-      .map((s) => `${s.stallNumber} (${s.category.toUpperCase()}) ${s.name || ''}`.trim())
+      .map((s) => {
+        const dim = s.actualWidth && s.actualHeight ? ` [${s.actualWidth}m × ${s.actualHeight}m]` : '';
+        return `${s.stallNumber} (${s.category.toUpperCase()})${dim} ${s.name || ''}`.trim();
+      })
       .join(', ');
  
     const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
@@ -533,7 +542,7 @@ export class InvoicePdfService {
                             { text: '1', alignment: 'right', border: [false, false, true, false] },
                             {
                               stack: [
-                                { text: `STALL NO:${stallDetailsText}`, bold: true },
+                                { text: `STALL NO: ${stallDetailsText}`, bold: true },
                                 {
                                   text: `${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),`,
                                   bold: true,
@@ -752,7 +761,7 @@ export class InvoicePdfService {
                             {
                               text: [
                                 { text: 'Tax Amount (in words) : ' },
-                                { text: data.amountInWords || numberToIndianWords(data.totalTax), bold: true },
+                                { text: data.taxAmountInWords || numberToIndianWords(data.totalTax), bold: true },
                               ],
                               border: [false, false, false, true],
                               margin: [6, 4, 6, 4],

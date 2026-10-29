@@ -22,40 +22,11 @@ export class ReportsService {
    * Helper: Builds standard Prisma where clause for bookings based on role and filters.
    */
   private static async buildBookingWhereClause(
-    role: string,
-    userId: string,
+    _role: string,
+    _userId: string,
     filters: ReportFilters = {}
   ): Promise<{ bookingWhere: Prisma.BookingWhereInput; userSpcode?: string | null }> {
     const bookingWhere: Prisma.BookingWhereInput = {};
-
-    let userSpcode: string | null = null;
-    if (role === UserRole.STAFF) {
-      const userRecord = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { spcode: true },
-      });
-      userSpcode = userRecord?.spcode || null;
-
-      // Staff sees bookings registered by staff, attributed to their SPCode, or in their exhibitions
-      bookingWhere.OR = [
-        { user: { role: 'STAFF' } },
-        { user: { id: userId } },
-        { exhibition: { createdByUserId: userId } },
-        { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
-        ...(userSpcode
-          ? [
-              { company: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
-              { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-              { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
-              { exhibition: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
-            ]
-          : [
-              { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-              { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
-              { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-            ]),
-      ];
-    }
 
     // Exhibition scope
     if (filters.exhibitionId && filters.exhibitionId.toUpperCase() !== 'ALL') {
@@ -85,17 +56,16 @@ export class ReportsService {
       bookingWhere.paymentStatus = filters.paymentStatus as any;
     }
 
-    return { bookingWhere, userSpcode };
+    return { bookingWhere, userSpcode: null };
   }
 
   /**
    * Comprehensive Overview & KPI Metrics
    */
   static async getOverview(role: string, userId: string, filters: ReportFilters = {}) {
-    const isStaff = role === UserRole.STAFF;
     const isEventScoped = !!(filters.exhibitionId && filters.exhibitionId.toUpperCase() !== 'ALL');
 
-    const { bookingWhere, userSpcode } = await this.buildBookingWhereClause(role, userId, filters);
+    const { bookingWhere } = await this.buildBookingWhereClause(role, userId, filters);
 
     // If event-scoped, verify exhibition exists
     let scopedExhibition: any = null;
@@ -121,131 +91,7 @@ export class ReportsService {
       }
     }
 
-    // 1. STAFF OPERATIONAL OVERVIEW (Strictly operational, zero platform financial exposure)
-    if (isStaff) {
-      const staffExhibitionWhere: Prisma.ExhibitionWhereInput = {
-        OR: [
-          { createdByUserId: userId },
-          ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
-          {
-            bookings: {
-              some: {
-                OR: [
-                  { user: { role: 'STAFF' } },
-                  { user: { id: userId } },
-                  { payments: { some: { OR: [{ provider: 'OFFLINE_STAFF' }, { paymentMethod: { contains: 'STAFF', mode: 'insensitive' } }] } } },
-                  ...(userSpcode
-                    ? [
-                        { company: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
-                        { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-                        { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
-                        { exhibition: { spcode: { equals: userSpcode, mode: 'insensitive' as const } } },
-                      ]
-                    : [
-                        { company: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-                        { company: { spcode: { startsWith: 'SP', mode: 'insensitive' as const } } },
-                        { exhibition: { spcode: { startsWith: 'ST', mode: 'insensitive' as const } } },
-                      ]),
-                ],
-              },
-            },
-          },
-        ],
-      };
-
-      if (isEventScoped) {
-        staffExhibitionWhere.id = filters.exhibitionId;
-      }
-
-      const [staffExhibitions, upcomingExhibitions, totalEventsCount, bookings] = await Promise.all([
-        prisma.exhibition.findMany({
-          where: staffExhibitionWhere,
-          include: {
-            _count: { select: { bookings: true } },
-            floorPlans: {
-              include: {
-                stalls: {
-                  select: { id: true, status: true },
-                },
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.exhibition.count({
-          where: {
-            status: 'PUBLISHED',
-            endDate: { gte: new Date() },
-          },
-        }),
-        prisma.exhibition.count({ where: staffExhibitionWhere }),
-        prisma.booking.findMany({
-          where: bookingWhere,
-          select: {
-            id: true,
-            bookingReference: true,
-            status: true,
-            paymentStatus: true,
-            createdAt: true,
-            company: { select: { name: true, contactPerson: true } },
-            exhibition: { select: { title: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        }),
-      ]);
-
-      const allStalls = staffExhibitions.flatMap((e) => e.floorPlans.flatMap((fp) => fp.stalls));
-      const totalStalls = allStalls.length > 0 ? allStalls.length : staffExhibitions.reduce((sum, e) => sum + (e.totalStalls || 0), 0);
-      const occupiedStalls = allStalls.filter((s) => s.status === 'BOOKED_CONFIRMED').length;
-      const occupancyRate = totalStalls > 0 ? Math.round((occupiedStalls / totalStalls) * 100) : 0;
-
-      return {
-        roleScope: 'STAFF',
-        eventScoped: isEventScoped,
-        exhibition: scopedExhibition
-          ? {
-              id: scopedExhibition.id,
-              title: scopedExhibition.title,
-              edition: scopedExhibition.edition,
-              eventCode: scopedExhibition.eventCode,
-              status: scopedExhibition.status,
-              venue: scopedExhibition.venue,
-              city: scopedExhibition.city,
-              startDate: scopedExhibition.startDate,
-              endDate: scopedExhibition.endDate,
-              createdBy: scopedExhibition.createdBy,
-            }
-          : undefined,
-        totalEventsRegistered: staffExhibitions.length,
-        platformTotalEvents: totalEventsCount,
-        upcomingEvents: upcomingExhibitions,
-        totalStallsInRegisteredEvents: totalStalls,
-        totalStalls,
-        occupiedStalls,
-        occupancyRate,
-        totalBookings: bookings.length,
-        recentBookings: bookings,
-        registeredEvents: staffExhibitions.map((e) => ({
-          id: e.id,
-          title: e.title,
-          slug: e.slug,
-          status: e.status,
-          venue: e.venue,
-          city: e.city,
-          startDate: e.startDate,
-          endDate: e.endDate,
-          edition: e.edition,
-          eventCode: e.eventCode,
-          spcode: e.spcode,
-          totalStalls: e.totalStalls,
-          bookingsCount: e._count.bookings,
-          createdAt: e.createdAt,
-        })),
-      };
-    }
-
-    // 2. ADMIN & SUPERADMIN EXECUTIVE & FINANCIAL OVERVIEW
+    // EXECUTIVE & FINANCIAL OVERVIEW (Accessible to all authorized report viewers)
     const [
       bookings,
       exhibitionsCount,
@@ -527,23 +373,8 @@ export class ReportsService {
   /**
    * Detailed Exhibitions Comparison & Directory Report
    */
-  static async getExhibitionsReport(role: string, userId: string) {
-    const isStaff = role === UserRole.STAFF;
-    let where: Prisma.ExhibitionWhereInput = {};
-
-    if (isStaff) {
-      const userRecord = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { spcode: true },
-      });
-      const userSpcode = userRecord?.spcode || null;
-      where = {
-        OR: [
-          { createdByUserId: userId },
-          ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
-        ],
-      };
-    }
+  static async getExhibitionsReport(_role: string, _userId: string) {
+    const where: Prisma.ExhibitionWhereInput = {};
 
     const exhibitions = await prisma.exhibition.findMany({
       where,
@@ -629,9 +460,9 @@ export class ReportsService {
         occupancyRate,
         bookingsCount: expo._count.bookings,
         activeBookingsCount: activeBookings.length,
-        totalBookingValue: isStaff ? 0 : totalBookingValue,
-        revenueCollected: isStaff ? 0 : revenueCollected,
-        outstandingBalance: isStaff ? 0 : outstandingBalance,
+        totalBookingValue,
+        revenueCollected,
+        outstandingBalance,
       };
     });
   }
@@ -639,28 +470,13 @@ export class ReportsService {
   /**
    * Stall Occupancy & Category Breakdown Report
    */
-  static async getStallOccupancyReport(role: string, userId: string, filters: ReportFilters = {}) {
-    const isStaff = role === UserRole.STAFF;
+  static async getStallOccupancyReport(_role: string, _userId: string, filters: ReportFilters = {}) {
     const isEventScoped = !!(filters.exhibitionId && filters.exhibitionId.toUpperCase() !== 'ALL');
 
     const stallWhere: Prisma.StallWhereInput = {};
 
     if (isEventScoped) {
       stallWhere.floorPlan = { exhibitionId: filters.exhibitionId };
-    } else if (isStaff) {
-      const userRecord = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { spcode: true },
-      });
-      const userSpcode = userRecord?.spcode || null;
-      stallWhere.floorPlan = {
-        exhibition: {
-          OR: [
-            { createdByUserId: userId },
-            ...(userSpcode ? [{ spcode: { equals: userSpcode, mode: 'insensitive' as const } }] : []),
-          ],
-        },
-      };
     }
 
     const stalls = await prisma.stall.findMany({

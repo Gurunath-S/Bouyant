@@ -213,18 +213,15 @@ export const ReportsPage: React.FC = () => {
 
   // Page Header Titles
   const getPageTitle = () => {
-    if (isSuperAdmin) return 'Platform Executive Reporting Center';
-    if (isAdmin) return 'Exhibition Business & Financial Reports';
-    if (isStaff) return 'Operational Event Reports & Activity';
-    return 'Exhibition Reporting Center';
+    if (isSuperAdmin) return 'Platform Reports';
+    if (isAdmin) return 'Business Reports';
+    return 'Operational Reports';
   };
 
   const getPageSubtitle = () => {
     if (isSuperAdmin)
       return 'Authoritative platform gross revenues, verified cash collections, outstanding receivables, and occupancy rates.';
-    if (isAdmin)
-      return 'Event performance, payment collection audit, category sales breakdown, and operational reconciliation.';
-    return 'Field operations directory, stall allocation logs, and attributed event schedules.';
+    return 'Event performance, payment collection audit, category sales breakdown, and operational reconciliation.';
   };
 
   return (
@@ -337,48 +334,44 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* 3. Booking Status Filter */}
-          {!isStaff && (
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
-                Booking Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  syncUrlParams({ status: e.target.value });
-                }}
-                className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
-              >
-                <option value="ALL">All Booking Statuses</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="PENDING_PAYMENT">Pending Payment</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-          )}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
+              Booking Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                syncUrlParams({ status: e.target.value });
+              }}
+              className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
+            >
+              <option value="ALL">All Booking Statuses</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="PENDING_PAYMENT">Pending Payment</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
 
           {/* 4. Payment Status Filter */}
-          {!isStaff && (
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
-                Payment Status
-              </label>
-              <select
-                value={paymentStatusFilter}
-                onChange={(e) => {
-                  setPaymentStatusFilter(e.target.value);
-                  syncUrlParams({ paymentStatus: e.target.value });
-                }}
-                className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
-              >
-                <option value="ALL">All Payment Statuses</option>
-                <option value="PAID_FULL">Fully Paid</option>
-                <option value="PARTIALLY_PAID">Partially Paid</option>
-                <option value="UNPAID">Unpaid</option>
-              </select>
-            </div>
-          )}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
+              Payment Status
+            </label>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => {
+                setPaymentStatusFilter(e.target.value);
+                syncUrlParams({ paymentStatus: e.target.value });
+              }}
+              className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
+            >
+              <option value="ALL">All Payment Statuses</option>
+              <option value="PAID_FULL">Fully Paid</option>
+              <option value="PARTIALLY_PAID">Partially Paid</option>
+              <option value="UNPAID">Unpaid</option>
+            </select>
+          </div>
         </div>
 
         {/* Custom Date Range Row (Shown when dates are custom) */}
@@ -390,31 +383,63 @@ export const ReportsPage: React.FC = () => {
             <input
               type="date"
               value={startDate}
+              max={endDate || undefined}
               onChange={(e) => {
-                setStartDate(e.target.value);
+                const newStart = e.target.value;
+                setStartDate(newStart);
                 setDatePreset('CUSTOM');
-                syncUrlParams({ startDate: e.target.value, datePreset: 'CUSTOM' });
+                let newEnd = endDate;
+                if (endDate && newStart && endDate < newStart) {
+                  newEnd = newStart;
+                  setEndDate(newStart);
+                }
+                syncUrlParams({ startDate: newStart, endDate: newEnd || null, datePreset: 'CUSTOM' });
               }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="From Date"
+              title="Report start date"
             />
-            <span className="text-slate-400">to</span>
+            <span className="text-slate-400 font-medium">to</span>
             <input
               type="date"
               value={endDate}
+              min={startDate || undefined}
               onChange={(e) => {
-                setEndDate(e.target.value);
+                const newEnd = e.target.value;
+                setEndDate(newEnd);
                 setDatePreset('CUSTOM');
-                syncUrlParams({ endDate: e.target.value, datePreset: 'CUSTOM' });
+                let newStart = startDate;
+                if (startDate && newEnd && newEnd < startDate) {
+                  newStart = newEnd;
+                  setStartDate(newEnd);
+                }
+                syncUrlParams({ startDate: newStart || null, endDate: newEnd, datePreset: 'CUSTOM' });
               }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="To Date"
+              title="Report end date (cannot be earlier than start date)"
             />
           </div>
           {startDate && endDate && (
-            <span className="text-[11px] font-mono font-semibold text-purple-600 dark:text-purple-400">
-              Active: {startDate} ➔ {endDate}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono font-semibold text-purple-600 dark:text-purple-400">
+                Active: {startDate} ➔ {endDate}
+              </span>
+              {startDate !== endDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEndDate(startDate);
+                    setDatePreset('CUSTOM');
+                    syncUrlParams({ startDate, endDate: startDate, datePreset: 'CUSTOM' });
+                  }}
+                  className="text-[10px] text-purple-700 dark:text-purple-300 hover:underline cursor-pointer"
+                  title="Filter for this single day"
+                >
+                  (Single Day)
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -496,249 +521,195 @@ export const ReportsPage: React.FC = () => {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* PHASE 3: COMPACT KPI SUMMARY CARDS */}
-              {!isStaff ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Total Booking Value */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Total Booking Value
-                      </p>
-                      <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                        <IndianRupee className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100 mt-2">
-                      {fmt(overview?.totalBookingValue)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Booking Value */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Total Booking Value
                     </p>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
-                      Gross active commitments (incl. GST)
-                    </span>
-                  </div>
-
-                  {/* Actual Payments Received */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Actual Payments Received
-                      </p>
-                      <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </div>
+                    <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                      <IndianRupee className="w-4 h-4" />
                     </div>
-                    <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
-                      {fmt(overview?.actualPaymentsReceived)}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2">
-                      <TrendingUp className="w-3.5 h-3.5" /> Realized verified cash
-                    </span>
                   </div>
-
-                  {/* Outstanding Balance */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Outstanding Balance
-                      </p>
-                      <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-2">
-                      {fmt(overview?.outstandingBalance)}
-                    </p>
-                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-2 block">
-                      Pending collection due
-                    </span>
-                  </div>
-
-                  {/* Stall Occupancy Rate */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Stall Occupancy
-                      </p>
-                      <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                        <Building className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black font-mono text-purple-600 dark:text-purple-400 mt-2">
-                      {overview?.occupancyRate || 0}%
-                    </p>
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
-                      {overview?.occupiedStalls || 0} / {overview?.totalStalls || 0} Stalls Reserved
-                    </span>
-                  </div>
+                  <p className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100 mt-2">
+                    {fmt(overview?.totalBookingValue)}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+                    Gross active commitments (incl. GST)
+                  </span>
                 </div>
-              ) : (
-                /* STAFF OPERATIONAL KPI CARDS */
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">My Registered Events</p>
-                      <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-                        <Layers className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                      {overview?.totalEventsRegistered || 0}
-                    </p>
-                    <span className="text-[11px] font-semibold text-emerald-600 mt-2 block">
-                      Attributed to SP: {user?.spcode || 'N/A'}
-                    </span>
-                  </div>
 
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Upcoming Expos</p>
-                      <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
-                        <Calendar className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                      {overview?.upcomingEvents || 0}
+                {/* Actual Payments Received */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Actual Payments Received
                     </p>
-                    <span className="text-[11px] font-semibold text-slate-500 mt-2 block">
-                      Active future schedules
-                    </span>
-                  </div>
-
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stalls In Scope</p>
-                      <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
-                        <Building className="w-4 h-4" />
-                      </div>
+                    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">
-                      {overview?.totalStallsInRegisteredEvents || 0}
-                    </p>
-                    <span className="text-[11px] font-semibold text-purple-600 mt-2 block">
-                      {overview?.occupancyRate || 0}% Occupied
-                    </span>
                   </div>
+                  <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
+                    {fmt(overview?.actualPaymentsReceived)}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2">
+                    <TrendingUp className="w-3.5 h-3.5" /> Realized verified cash
+                  </span>
                 </div>
-              )}
 
-              {/* SECONDARY ROW: BOOKINGS & ENTITY VOLUMES */}
-              {!isStaff && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-500 uppercase">Confirmed Bookings</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                        {overview?.confirmedBookings || 0}{' '}
-                        <span className="text-xs font-medium text-slate-400">/ {overview?.totalBookings || 0} Total</span>
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600">
-                      <BookmarkCheck className="w-4 h-4" />
+                {/* Outstanding Balance */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Outstanding Balance
+                    </p>
+                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                      <Clock className="w-4 h-4" />
                     </div>
                   </div>
+                  <p className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-2">
+                    {fmt(overview?.outstandingBalance)}
+                  </p>
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-2 block">
+                    Pending collection due
+                  </span>
+                </div>
 
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-500 uppercase">Participating Exhibitors</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                        {overview?.participatingCompaniesCount || overview?.totalExhibitors || 0}
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600">
+                {/* Stall Occupancy Rate */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Stall Occupancy
+                    </p>
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                       <Building className="w-4 h-4" />
                     </div>
                   </div>
+                  <p className="text-2xl font-black font-mono text-purple-600 dark:text-purple-400 mt-2">
+                    {overview?.occupancyRate || 0}%
+                  </p>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2 block">
+                    {overview?.occupiedStalls || 0} / {overview?.totalStalls || 0} Stalls Reserved
+                  </span>
+                </div>
+              </div>
 
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-500 uppercase">
-                        {isEventScoped ? 'Event Schedule' : 'Published Exhibitions'}
-                      </p>
-                      <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                        {isEventScoped ? 'Active Scope' : `${overview?.publishedExhibitions || 0} Portfolios`}
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600">
-                      <Layers className="w-4 h-4" />
-                    </div>
+              {/* SECONDARY ROW: BOOKINGS & ENTITY VOLUMES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">Confirmed Bookings</p>
+                    <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
+                      {overview?.confirmedBookings || 0}{' '}
+                      <span className="text-xs font-medium text-slate-400">/ {overview?.totalBookings || 0} Total</span>
+                    </p>
                   </div>
-
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-500 uppercase">Invoices Issued</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                        {overview?.financialSummary?.invoiceMetrics?.invoicesCount || 0} Bills
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600">
-                      <FileText className="w-4 h-4" />
-                    </div>
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600">
+                    <BookmarkCheck className="w-4 h-4" />
                   </div>
                 </div>
-              )}
+
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">Participating Exhibitors</p>
+                    <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
+                      {overview?.participatingCompaniesCount || overview?.totalExhibitors || 0}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600">
+                    <Building className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">
+                      {isEventScoped ? 'Event Schedule' : 'Published Exhibitions'}
+                    </p>
+                    <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
+                      {isEventScoped ? 'Active Scope' : `${overview?.publishedExhibitions || 0} Portfolios`}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">Invoices Issued</p>
+                    <p className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
+                      {overview?.financialSummary?.invoiceMetrics?.invoicesCount || 0} Bills
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
 
               {/* CASH COLLECTION PROGRESS BAR */}
-              {!isStaff && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                        <CreditCard className="w-4 h-4 text-purple-600" />
-                        Revenue Realization & Collection Efficiency
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Verified payments collected vs outstanding receivable balance.
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      {(() => {
-                        const total = Number(overview?.totalBookingValue || 0);
-                        const paid = Number(overview?.actualPaymentsReceived || 0);
-                        const rate = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
-                        return (
-                          <span className="font-mono text-sm font-black text-purple-600 dark:text-purple-400">
-                            {rate}% Collected
-                          </span>
-                        );
-                      })()}
-                    </div>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-purple-600" />
+                      Revenue Realization & Collection Efficiency
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Verified payments collected vs outstanding receivable balance.
+                    </p>
                   </div>
-
-                  {(() => {
-                    const total = Number(overview?.totalBookingValue || 0);
-                    const paid = Number(overview?.actualPaymentsReceived || 0);
-                    const due = Number(overview?.outstandingBalance || 0);
-                    const paidPct = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
-                    const duePct = total > 0 ? Math.min(100 - paidPct, (due / total) * 100) : 0;
-
-                    return (
-                      <div className="space-y-2">
-                        <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
-                          <div
-                            className="bg-emerald-500 h-full transition-all"
-                            style={{ width: `${paidPct}%` }}
-                            title={`Collected: ${fmt(paid)}`}
-                          />
-                          <div
-                            className="bg-amber-400 h-full transition-all"
-                            style={{ width: `${duePct}%` }}
-                            title={`Outstanding Due: ${fmt(due)}`}
-                          />
-                        </div>
-                        <div className="flex justify-between items-center text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                          <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            Collected: {fmt(paid)} ({paidPct.toFixed(1)}%)
-                          </span>
-                          <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                            Outstanding: {fmt(due)} ({duePct.toFixed(1)}%)
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <div className="text-right">
+                    {(() => {
+                      const total = Number(overview?.totalBookingValue || 0);
+                      const paid = Number(overview?.actualPaymentsReceived || 0);
+                      const rate = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+                      return (
+                        <span className="font-mono text-sm font-black text-purple-600 dark:text-purple-400">
+                          {rate}% Collected
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
-              )}
+
+                {(() => {
+                  const total = Number(overview?.totalBookingValue || 0);
+                  const paid = Number(overview?.actualPaymentsReceived || 0);
+                  const due = Number(overview?.outstandingBalance || 0);
+                  const paidPct = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+                  const duePct = total > 0 ? Math.min(100 - paidPct, (due / total) * 100) : 0;
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                        <div
+                          className="bg-emerald-500 h-full transition-all"
+                          style={{ width: `${paidPct}%` }}
+                          title={`Collected: ${fmt(paid)}`}
+                        />
+                        <div
+                          className="bg-amber-400 h-full transition-all"
+                          style={{ width: `${duePct}%` }}
+                          title={`Outstanding Due: ${fmt(due)}`}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                          Collected: {fmt(paid)} ({paidPct.toFixed(1)}%)
+                        </span>
+                        <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                          Outstanding: {fmt(due)} ({duePct.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
 
               {/* RECENT BOOKINGS PREVIEW TABLE */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
