@@ -754,7 +754,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <span>Stall booked by customer. Deletion is locked to protect reservations.</span>
             </div>
           )}
-          {/* 1. Stall Name */}
+          {/* 1. Stall Name / Number */}
           {(() => {
             const isDuplicate = Boolean(
               stall.stallNumber &&
@@ -766,7 +766,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
-                    Stall Name
+                    Stall Name / Number
                   </label>
                   {isDuplicate && (
                     <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
@@ -777,23 +777,18 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <input
                   type="text"
                   disabled={readOnly}
-                  value={stall.name || `Stall ${stall.stallNumber}`}
-                  onChange={(e) => onUpdateStall(stall.id, { name: e.target.value })}
-                  placeholder="e.g. Stall A-101, VIP Suite"
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 bg-white"
+                  value={stall.stallNumber || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    onUpdateStall(stall.id, { stallNumber: val, name: val });
+                  }}
+                  placeholder="e.g. TECH-C06, A-101"
+                  className={`w-full px-3 py-2 text-sm border rounded-lg font-mono font-bold uppercase focus:ring-2 ${
+                    isDuplicate
+                      ? 'border-rose-400 bg-rose-50 text-rose-900 focus:ring-rose-400 focus:border-rose-500'
+                      : 'border-slate-300 focus:ring-blue-500 bg-white text-slate-900'
+                  }`}
                 />
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
-                  <span>Stall Code / Identifier:</span>
-                  <input
-                    type="text"
-                    disabled={readOnly}
-                    value={stall.stallNumber}
-                    onChange={(e) => onUpdateStall(stall.id, { stallNumber: e.target.value.toUpperCase().trim() })}
-                    className={`font-mono font-bold text-right uppercase border-b border-dashed px-1 focus:outline-none bg-transparent ${
-                      isDuplicate ? 'border-rose-500 text-rose-700' : 'border-slate-300 text-slate-700 focus:border-blue-500'
-                    }`}
-                  />
-                </div>
                 {isDuplicate && (
                   <p className="text-[11px] text-rose-600 font-medium">
                     Stall #{stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
