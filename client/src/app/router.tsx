@@ -202,11 +202,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'staff/events',
-        element: (
-          <ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPERADMIN']} requiredPage="events_floorplans">
-            <StaffEventsPage />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/workspace/events" replace />,
       },
 
       // Unified Role-Scoped Reports Route

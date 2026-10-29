@@ -10,16 +10,34 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: !!localStorage.getItem('accessToken'),
-  isLoading: false,
+const getCachedUser = (): User | null => {
+  try {
+    const raw = localStorage.getItem('buoyant_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
-  setUser: (user) =>
+export const useAuthStore = create<AuthState>((set) => ({
+  user: getCachedUser(),
+  isAuthenticated: !!localStorage.getItem('accessToken'),
+  isLoading: !getCachedUser() && !!localStorage.getItem('accessToken'),
+
+  setUser: (user) => {
+    try {
+      if (user) {
+        localStorage.setItem('buoyant_user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('buoyant_user');
+      }
+    } catch {}
     set({
       user,
       isAuthenticated: !!user,
-    }),
+      isLoading: false,
+    });
+  },
 
   setTokens: (accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken);
@@ -38,9 +56,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Ignore network/server errors during logout
     }
 
-    // 2. Clear all authentication tokens
+    // 2. Clear all authentication tokens and cached user
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('buoyant_user');
     localStorage.removeItem('client_dashboard_last_seen');
 
     // 3. Purge user-specific drafts and studio autosaves

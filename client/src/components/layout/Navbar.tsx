@@ -26,7 +26,8 @@ export const Navbar: React.FC = () => {
   };
 
   const getRoleLabel = () => {
-    switch (user?.role) {
+    if (!user) return '';
+    switch (user.role) {
       case 'SUPERADMIN':
         return 'Platform Super Admin';
       case 'ADMIN':
@@ -34,8 +35,9 @@ export const Navbar: React.FC = () => {
       case 'STAFF':
         return 'Operations Staff';
       case 'CLIENT':
+        return user.company?.name || 'Exhibitor Client';
       default:
-        return user?.company?.name || 'Exhibitor Client';
+        return user.company?.name || 'User';
     }
   };
 
@@ -48,8 +50,9 @@ export const Navbar: React.FC = () => {
       case 'STAFF':
         return 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
       case 'CLIENT':
-      default:
         return 'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700';
+      default:
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
     }
   };
 

@@ -20,7 +20,8 @@ export const App: React.FC = () => {
         .getMe()
         .then((user) => setUser(user))
         .catch(() => {
-          // Token expired or invalid
+          // Token expired or invalid - clear user state
+          useAuthStore.getState().logout();
         });
     }
   }, [isAuthenticated, setUser]);

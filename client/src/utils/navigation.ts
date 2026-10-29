@@ -18,9 +18,8 @@ export const getEventsConsoleUrl = (role?: UserRole | string): string => {
   switch (role) {
     case 'SUPERADMIN':
     case 'ADMIN':
-      return '/workspace/events';
     case 'STAFF':
-      return '/staff/events';
+      return '/workspace/events';
     case 'CLIENT':
     default:
       return '/exhibitions';

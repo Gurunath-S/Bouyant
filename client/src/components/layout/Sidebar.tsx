@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { hasPageAccess } from '../../config/pageAccess';
 import {
@@ -22,12 +22,13 @@ import {
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
+  const location = useLocation();
   const role = user?.role;
 
   const isSuperAdmin = role === 'SUPERADMIN';
   const isAdmin = role === 'ADMIN';
   const isStaff = role === 'STAFF';
-  const isClient = role === 'CLIENT' || !role;
+  const isClient = role === 'CLIENT';
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
@@ -78,10 +79,10 @@ export const Sidebar: React.FC = () => {
     },
     {
       pageId: 'events_floorplans',
-      to: isStaff ? '/staff/events' : '/workspace/events',
-      label: isStaff ? 'Exhibitions & Events' : 'Exhibitions & Floor Plans',
+      to: '/workspace/events',
+      label: 'Exhibitions & Floor Plans',
       icon: Layers,
-      end: !isStaff,
+      end: false,
     },
     {
       pageId: 'companies',
@@ -113,10 +114,12 @@ export const Sidebar: React.FC = () => {
   const activeInternalLinks = internalCatalog.filter((item) => hasPageAccess(user, item.pageId));
 
   const getWorkspaceTitle = () => {
+    if (!user) return 'Workspace';
     if (isSuperAdmin) return 'Super Admin Hub';
     if (isAdmin) return 'Admin Workspace';
     if (isStaff) return 'Staff Operations';
-    return 'Exhibitor Portal';
+    if (isClient) return 'Exhibitor Portal';
+    return 'Workspace';
   };
 
   const getWorkspaceSubtitle = () => {
@@ -201,38 +204,51 @@ export const Sidebar: React.FC = () => {
 
       {/* Nav Links Container */}
       <div className="flex-1 p-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
+        {/* Loading Skeleton if user profile is being fetched */}
+        {!user && (
+          <div className="space-y-2 py-2 px-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-9 rounded-xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"
+              />
+            ))}
+          </div>
+        )}
+
         {/* INTERNAL TEAM NAVIGATION (SUPERADMIN / ADMIN / STAFF) */}
-        {!isClient &&
+        {user && !isClient &&
           activeInternalLinks.map((link) => {
             const Icon = link.icon;
+            // Prevent /workspace/events from matching when navigating to /workspace/events/register
+            const isExplicitlyActive =
+              link.to === '/workspace/events'
+                ? location.pathname.startsWith('/workspace/events') &&
+                  !location.pathname.startsWith('/workspace/events/register')
+                : link.end
+                ? location.pathname === link.to
+                : location.pathname.startsWith(link.to);
+
+            const style = getRoleNavStyle(isExplicitlyActive);
+
             return (
               <NavLink
                 key={link.to}
                 to={link.to}
                 end={link.end}
                 title={isCollapsed ? link.label : undefined}
-                className={({ isActive }) => {
-                  const style = getRoleNavStyle(isActive);
-                  return `flex items-center rounded-xl text-xs font-semibold transition-all ${
-                    isCollapsed ? 'justify-center p-2.5 mx-auto' : 'gap-3 px-3 py-2.5'
-                  } ${style.link}`;
-                }}
+                className={`flex items-center rounded-xl text-xs font-semibold transition-all ${
+                  isCollapsed ? 'justify-center p-2.5 mx-auto' : 'gap-3 px-3 py-2.5'
+                } ${style.link}`}
               >
-                {({ isActive }) => {
-                  const style = getRoleNavStyle(isActive);
-                  return (
-                    <>
-                      <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} ${style.icon} shrink-0`} />
-                      {!isCollapsed && <span className="truncate">{link.label}</span>}
-                    </>
-                  );
-                }}
+                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} ${style.icon} shrink-0`} />
+                {!isCollapsed && <span className="truncate">{link.label}</span>}
               </NavLink>
             );
           })}
 
         {/* CLIENT / EXHIBITOR NAVIGATION */}
-        {isClient &&
+        {user && isClient &&
           clientLinks.map((link) => {
             const Icon = link.icon;
             return (
