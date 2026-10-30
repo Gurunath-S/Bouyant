@@ -727,6 +727,8 @@ private static async createInvoice(
           payment: currentPayment,
           paymentAmount,
           finalBalance,
+          newPaidAmount,
+          isInitialPayment: booking.paymentStatus === 'UNPAID',
           invoice: invoice,
         },
       };
@@ -738,36 +740,15 @@ private static async createInvoice(
 
   // OUT OF BAND SIDE-EFFECTS (AFTER DB TRANSACTION COMMITS)
   if (result.emailData) {
-    const { booking, payment,invoice, paymentAmount, finalBalance } = result.emailData;
+    const { booking, payment, invoice, paymentAmount, finalBalance, newPaidAmount, isInitialPayment } = result.emailData;
     setImmediate(async () => {
       try {
-        // let invoice = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
-
-        // Auto-create invoice if missing for this payment
-        // if (!invoice) {
-        //   try {
-        //     const invoiceNum = generateReference('INV', 6);
-        //     const total = Number(booking.totalAmount || 0);
-        //     const tax = Number(booking.taxAmount || 0);
-        //     const grand = Number(booking.grandTotal || total + tax);
-
-        //     invoice = await prisma.invoice.create({
-        //       data: {
-        //         invoiceNumber: invoiceNum,
-        //         bookingId: booking.id,
-        //         paymentId: payment.id,
-        //         companyId: booking.companyId,
-        //         totalAmount: new Prisma.Decimal(total),
-        //         taxAmount: new Prisma.Decimal(tax),
-        //         grandTotal: new Prisma.Decimal(grand),
-        //         status: 'PAID',
-        //         issueDate: new Date(),
-        //       },
-        //     });
-        //   } catch (invErr: any) {
-        //     console.error('⚠️ [INVOICE CREATION FAILED]:', invErr?.message || invErr);
-        //   }
-        // }
+        const grandTotalNum = Number(booking.grandTotal || 0);
+        const cumulativePaidNum = newPaidAmount ? newPaidAmount.toNumber() : Number(booking.paidAmount || 0) + paymentAmount.toNumber();
+        const calculatedPercentage = grandTotalNum > 0
+          ? Math.min(100, Math.round((cumulativePaidNum / grandTotalNum) * 100))
+          : 100;
+        const isBalancePayment = !isInitialPayment;
 
         const invoiceNumber = invoice?.invoiceNumber || `INV-${booking.bookingReference}`;
 
@@ -802,9 +783,12 @@ private static async createInvoice(
           exhibitionTitle: booking.exhibition.title,
           stalls,
           invoiceNumber,
-          paymentPercentage: (payment as any).paymentPercentage || 100,
+          paymentPercentage: calculatedPercentage,
           paymentAmount: paymentAmount.toNumber(),
+          totalPaidAmount: cumulativePaidNum,
+          grandTotal: grandTotalNum,
           remainingBalance: finalBalance.toNumber(),
+          isBalancePayment,
           paymentDate: payment.paidAt || new Date(),
           paymentReference: payment.paymentReference,
           userName: displayUsername,
@@ -856,10 +840,10 @@ private static async createInvoice(
                 price: s.price ? Number(s.price) : undefined,
               })),
               invoiceNumber,
-              paymentPercentage: (payment as any).paymentPercentage || 100,
+              paymentPercentage: calculatedPercentage,
               paymentAmount: paymentAmount.toNumber(),
               remainingBalance: finalBalance.toNumber(),
-              grandTotal: Number(booking.grandTotal || 0),
+              grandTotal: grandTotalNum,
               paymentMethod: payment.paymentMethod || 'Online Gateway',
               paymentDate: payment.paidAt || new Date(),
               paymentReference: payment.paymentReference,

@@ -20,26 +20,26 @@ const CATEGORY_STYLES: Record<
   STANDARD: {
     label: 'Standard',
     dotBg: 'bg-blue-600',
-    swatchBorder: 'border-blue-600',
-    swatchBg: 'bg-blue-50 dark:bg-blue-950/60',
+    swatchBorder: 'border-blue-700',
+    swatchBg: 'bg-blue-100 dark:bg-blue-950/80',
   },
   PREMIUM: {
     label: 'Premium',
     dotBg: 'bg-emerald-600',
-    swatchBorder: 'border-emerald-600',
-    swatchBg: 'bg-emerald-50 dark:bg-emerald-950/60',
+    swatchBorder: 'border-emerald-700',
+    swatchBg: 'bg-emerald-100 dark:bg-emerald-950/80',
   },
   CORNER: {
     label: 'Corner',
     dotBg: 'bg-amber-500',
-    swatchBorder: 'border-amber-500',
-    swatchBg: 'bg-amber-50 dark:bg-amber-950/60',
+    swatchBorder: 'border-amber-600',
+    swatchBg: 'bg-amber-100 dark:bg-amber-950/80',
   },
   ISLAND: {
     label: 'Island',
     dotBg: 'bg-purple-600',
-    swatchBorder: 'border-purple-600',
-    swatchBg: 'bg-purple-50 dark:bg-purple-950/60',
+    swatchBorder: 'border-purple-700',
+    swatchBg: 'bg-purple-100 dark:bg-purple-950/80',
   },
 };
 

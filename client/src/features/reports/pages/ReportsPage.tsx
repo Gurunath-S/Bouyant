@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from '../../../stores/authStore';
 import { formatDisplayDate } from '../../../utils/date';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 import {
   BarChart3,
   TrendingUp,
@@ -293,21 +294,19 @@ export const ReportsPage: React.FC = () => {
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Exhibition Scope
             </label>
-            <select
-              value={selectedExhibitionId}
-              onChange={(e) => {
-                setSelectedExhibitionId(e.target.value);
-                syncUrlParams({ exhibitionId: e.target.value });
+            <EventSelectorDropdown
+              events={exhibitions}
+              selectedEventId={selectedExhibitionId}
+              onSelectEvent={(eventId) => {
+                setSelectedExhibitionId(eventId);
+                syncUrlParams({ exhibitionId: eventId });
               }}
-              className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 outline-none cursor-pointer"
-            >
-              <option value="ALL">All Exhibitions & Portfolios (Combined)</option>
-              {exhibitions.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.title} ({ex.eventCode || 'EX'}-{ex.edition || '01'})
-                </option>
-              ))}
-            </select>
+              allowAllOption={true}
+              allOptionLabel={`All Exhibitions (${exhibitions.length})`}
+              align="left"
+              className="w-full"
+              buttonClassName="w-full"
+            />
           </div>
 
           {/* 2. Date Range Presets */}

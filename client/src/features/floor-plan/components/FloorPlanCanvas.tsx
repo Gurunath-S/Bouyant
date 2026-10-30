@@ -184,20 +184,22 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
     if (isConflicting) {
       return {
-        fill: isDark ? '#7f1d1d' : '#fef2f2',
+        fill: isDark ? '#7f1d1d' : '#fee2e2',
         stroke: '#dc2626',
         strokeWidth: 3,
-        textColor: isDark ? '#fca5a5' : '#991b1b',
+        textColor: isDark ? '#ffffff' : '#991b1b',
+        accentColor: '#ef4444',
         strokeDasharray: 'none',
       };
     }
 
     if (myHeld && stall.status !== 'BOOKED_CONFIRMED' && stall.status !== 'BLOCKED') {
       return {
-        fill: isDark ? '#1e3a8a' : '#dbeafe',
-        stroke: '#2563eb',
+        fill: isDark ? '#1e3a8a' : '#bfdbfe',
+        stroke: '#1d4ed8',
         strokeWidth: 3,
-        textColor: isDark ? '#93c5fd' : '#1d4ed8',
+        textColor: isDark ? '#ffffff' : '#1e3a8a',
+        accentColor: '#2563eb',
         strokeDasharray: 'none',
       };
     }
@@ -207,8 +209,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       return {
         fill: isDark ? '#450a0a' : '#fee2e2',
         stroke: isDark ? '#ef4444' : '#dc2626',
-        strokeWidth: 1.5,
+        strokeWidth: 2,
         textColor: isDark ? '#fca5a5' : '#991b1b',
+        accentColor: '#dc2626',
         strokeDasharray: 'none',
       };
     }
@@ -221,43 +224,48 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           layoutData?.stallColors?.[stall.id];
         if (customStallColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(customStallColor)) {
           return {
-            fill: isDark ? `${customStallColor}33` : `${customStallColor}18`,
+            fill: isDark ? `${customStallColor}44` : `${customStallColor}28`,
             stroke: customStallColor,
-            strokeWidth: 1.5,
-            textColor: isDark ? '#ffffff' : customStallColor,
+            strokeWidth: 2,
+            textColor: isDark ? '#ffffff' : '#0f172a',
+            accentColor: customStallColor,
             strokeDasharray: 'none',
           };
         }
         if (stall.category === 'PREMIUM') {
           return {
-            fill: isDark ? '#064e3b' : '#f0fdf4',
-            stroke: '#059669',
-            strokeWidth: 1.5,
-            textColor: isDark ? '#a7f3d0' : '#064e3b',
+            fill: isDark ? '#064e3b' : '#dcfce7',
+            stroke: isDark ? '#34d399' : '#047857',
+            strokeWidth: 2,
+            textColor: isDark ? '#ffffff' : '#064e3b',
+            accentColor: '#059669',
             strokeDasharray: 'none',
           };
         } else if (stall.category === 'CORNER') {
           return {
-            fill: isDark ? '#451a03' : '#fffbeb',
-            stroke: '#d97706',
-            strokeWidth: 1.5,
-            textColor: isDark ? '#fde68a' : '#78350f',
+            fill: isDark ? '#78350f' : '#fef3c7',
+            stroke: isDark ? '#fbbf24' : '#b45309',
+            strokeWidth: 2,
+            textColor: isDark ? '#ffffff' : '#78350f',
+            accentColor: '#d97706',
             strokeDasharray: 'none',
           };
         } else if (stall.category === 'ISLAND') {
           return {
-            fill: isDark ? '#3b0764' : '#faf5ff',
-            stroke: '#7c3aed',
-            strokeWidth: 1.5,
-            textColor: isDark ? '#ddd6fe' : '#4c1d95',
+            fill: isDark ? '#581c87' : '#f3e8ff',
+            stroke: isDark ? '#c084fc' : '#6d28d9',
+            strokeWidth: 2,
+            textColor: isDark ? '#ffffff' : '#4c1d95',
+            accentColor: '#7c3aed',
             strokeDasharray: 'none',
           };
         }
         return {
-          fill: isDark ? '#1e293b' : '#f8fafc',
-          stroke: '#2563eb',
-          strokeWidth: 1.5,
-          textColor: isDark ? '#93c5fd' : '#1e3a8a',
+          fill: isDark ? '#1e3a8a' : '#dbeafe',
+          stroke: isDark ? '#60a5fa' : '#1d4ed8',
+          strokeWidth: 2,
+          textColor: isDark ? '#ffffff' : '#1e3a8a',
+          accentColor: '#2563eb',
           strokeDasharray: 'none',
         };
       }
@@ -266,10 +274,11 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       case 'BOOKING_IN_PROGRESS':
         // If it got here and wasn't inProgressOther, it means it is held by current user
         return {
-          fill: isDark ? '#1e3a8a' : '#dbeafe',
-          stroke: '#2563eb',
-          strokeWidth: 2,
-          textColor: isDark ? '#93c5fd' : '#1d4ed8',
+          fill: isDark ? '#1e3a8a' : '#bfdbfe',
+          stroke: '#1d4ed8',
+          strokeWidth: 2.5,
+          textColor: isDark ? '#ffffff' : '#1e3a8a',
+          accentColor: '#2563eb',
           strokeDasharray: 'none',
         };
       case 'BOOKED_CONFIRMED':
@@ -277,16 +286,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         return {
           fill: isDark ? '#450a0a' : '#fee2e2',
           stroke: isDark ? '#ef4444' : '#dc2626',
-          strokeWidth: 1.5,
+          strokeWidth: 2,
           textColor: isDark ? '#fca5a5' : '#991b1b',
+          accentColor: '#dc2626',
           strokeDasharray: 'none',
         };
       default:
         return {
-          fill: isDark ? '#0f172a' : '#f8fafc',
-          stroke: isDark ? '#334155' : '#cbd5e1',
-          strokeWidth: 1,
+          fill: isDark ? '#1e293b' : '#f1f5f9',
+          stroke: isDark ? '#475569' : '#94a3b8',
+          strokeWidth: 2,
           textColor: isDark ? '#94a3b8' : '#475569',
+          accentColor: '#64748b',
           strokeDasharray: 'none',
         };
     }
@@ -511,26 +522,41 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           {/* Dynamic Halls / Pavilions */}
           <g id="halls-layer">
             {hallsList.map((hall) => {
-              const strokeColor = hall.color || (isDark ? '#3b82f6' : '#2563eb');
+              const strokeColor = hall.color || (isDark ? '#3b82f6' : '#1d4ed8');
 
               return (
                 <g key={hall.id}>
+                  {/* Outer hall floor surface with distinct contrast against canvas white */}
                   <rect
                     x={hall.x}
                     y={hall.y}
                     width={hall.width}
                     height={hall.height}
-                    rx="12"
-                    fill={isDark ? '#0f172a' : '#f8fafc'}
+                    rx="14"
+                    fill={hall.fillColor || (isDark ? '#0f172a' : '#f1f5f9')}
+                    fillOpacity={hall.fillOpacity !== undefined ? hall.fillOpacity : 1}
                     stroke={strokeColor}
-                    strokeWidth="1.5"
-                    strokeDasharray="6 6"
+                    strokeWidth="2.5"
+                    strokeDasharray="none"
                   />
-                  {/* Hall Name Header */}
+                  {/* Subtle architectural inner perimeter boundary */}
+                  <rect
+                    x={hall.x + 3}
+                    y={hall.y + 3}
+                    width={Math.max(0, hall.width - 6)}
+                    height={Math.max(0, hall.height - 6)}
+                    rx="11"
+                    fill="none"
+                    stroke={strokeColor}
+                    strokeWidth="1"
+                    strokeDasharray="6 4"
+                    opacity={isDark ? '0.35' : '0.25'}
+                  />
+                  {/* Hall Name Header Banner */}
                   {(() => {
                     const pos = hall.namePosition || 'top-left';
                     const fontSize = hall.fontSize || 12;
-                    const bannerHeight = Math.max(26, fontSize + 14);
+                    const bannerHeight = Math.max(28, fontSize + 14);
                     const bannerWidth = Math.min(
                       Math.max(120, hall.name.length * (fontSize * 0.65) + 36),
                       hall.width - 24
@@ -586,16 +612,16 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                           height={bannerHeight}
                           rx="6"
                           fill={strokeColor}
-                          fillOpacity={isDark ? '0.2' : '0.1'}
+                          fillOpacity={isDark ? '0.9' : '0.95'}
                           stroke={strokeColor}
-                          strokeWidth="1"
+                          strokeWidth="1.5"
                         />
                         <text
                           x={bx + bannerWidth / 2}
                           y={by + bannerHeight / 2 + 1}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          fill={strokeColor}
+                          fill="#ffffff"
                           fontSize={fontSize}
                           fontWeight="800"
                           letterSpacing="0.05em"
@@ -803,12 +829,23 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     y={stall.yPosition}
                     width={stall.width}
                     height={stall.height}
-                    rx="5"
+                    rx="6"
                     fill={styles.fill}
                     stroke={styles.stroke}
                     strokeWidth={styles.strokeWidth}
                     strokeDasharray={styles.strokeDasharray || 'none'}
                     className="transition-colors"
+                  />
+
+                  {/* Top Category Accent Line */}
+                  <rect
+                    x={stall.xPosition + 2}
+                    y={stall.yPosition + 2}
+                    width={Math.max(0, stall.width - 4)}
+                    height={Math.min(4, Math.max(2.5, stall.height * 0.08))}
+                    rx="2"
+                    fill={styles.accentColor || styles.stroke}
+                    className="pointer-events-none opacity-90"
                   />
 
                   {/* Clean Centered Stall Number (Adaptive font size & automatic row alignment) */}

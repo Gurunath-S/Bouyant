@@ -13,6 +13,7 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDateTime } from '../../../utils/date';
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -159,21 +160,14 @@ export const AdminBookingsPage: React.FC = () => {
 
           {/* Select Filters */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <select
-                value={exhibitionFilter}
-                onChange={(e) => setExhibitionFilter(e.target.value)}
-                className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
-              >
-                <option value="ALL">All Exhibitions</option>
-                {exhibitions.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.title} ({ex.eventCode || 'EX'}-{ex.edition || '01'})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <EventSelectorDropdown
+              events={exhibitions}
+              selectedEventId={exhibitionFilter}
+              onSelectEvent={(eventId) => setExhibitionFilter(eventId)}
+              allowAllOption={true}
+              allOptionLabel={`All Exhibitions (${exhibitions.length})`}
+              align="left"
+            />
 
             {/* Booking Status Filter (Active statuses only) */}
             <select

@@ -1692,6 +1692,111 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
               ))}
             </div>
           </div>
+
+          {/* Hall Interior Color (Blueprint Contrast) */}
+          <div className="pt-3 border-t border-slate-200/80 space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Interior Floor Color
+                </label>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {hall.fillColor || 'Default Contrast'}
+                </span>
+              </div>
+              
+              {/* Presets Grid */}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'White', color: '#ffffff', border: 'border-slate-300' },
+                  { label: 'Blue', color: '#eff6ff', border: 'border-blue-200' },
+                  { label: 'Purple', color: '#f5f3ff', border: 'border-purple-200' },
+                  { label: 'Green', color: '#ecfdf5', border: 'border-emerald-200' },
+                  { label: 'Amber', color: '#fffbeb', border: 'border-amber-200' },
+                  { label: 'Slate', color: '#f1f5f9', border: 'border-slate-300' },
+                  { label: 'Rose', color: '#fff1f2', border: 'border-rose-200' },
+                  { label: 'Cyan', color: '#ecfeff', border: 'border-cyan-200' },
+                ].map((item) => {
+                  const isActive = (hall.fillColor || '#ffffff') === item.color;
+                  return (
+                    <button
+                      key={item.color}
+                      type="button"
+                      onClick={() => onUpdateHall(hall.id, { fillColor: item.color })}
+                      style={{ backgroundColor: item.color }}
+                      className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-lg border text-[10px] font-semibold text-slate-700 transition-all shadow-2xs ${
+                        item.border
+                      } ${
+                        isActive
+                          ? 'ring-2 ring-purple-600 scale-105 font-bold shadow-xs'
+                          : 'hover:scale-102 hover:border-slate-400'
+                      }`}
+                      title={`Set interior fill to ${item.label}`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full border border-slate-400/30 mb-0.5" style={{ backgroundColor: item.color }} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Hex Color Picker */}
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="color"
+                  value={hall.fillColor && hall.fillColor.startsWith('#') ? hall.fillColor : '#ffffff'}
+                  onChange={(e) => onUpdateHall(hall.id, { fillColor: e.target.value })}
+                  className="w-7 h-7 rounded border border-slate-300 cursor-pointer p-0.5 shrink-0"
+                  title="Pick custom interior color"
+                />
+                <input
+                  type="text"
+                  placeholder="#ffffff"
+                  value={hall.fillColor || ''}
+                  onChange={(e) => onUpdateHall(hall.id, { fillColor: e.target.value })}
+                  className="flex-1 px-2.5 py-1 text-xs font-mono rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-600 uppercase"
+                />
+                {hall.fillColor && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateHall(hall.id, { fillColor: undefined })}
+                    className="text-[10px] text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Interior Fill Opacity Slider */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Fill Opacity (Blueprint Contrast)
+                </label>
+                <span className="text-[11px] font-mono font-bold text-purple-700">
+                  {Math.round((hall.fillOpacity !== undefined ? hall.fillOpacity : 0.75) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={hall.fillOpacity !== undefined ? hall.fillOpacity : 0.75}
+                onChange={(e) => onUpdateHall(hall.id, { fillOpacity: Number(e.target.value) })}
+                className="w-full accent-purple-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-medium">
+                <span>10% (Transparent)</span>
+                <span>50% (Balanced)</span>
+                <span>100% (Solid)</span>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-tight mt-1.5 bg-blue-50/70 border border-blue-200/60 p-2 rounded-lg">
+                💡 When a blueprint image is in the background, a 60%–85% interior fill ensures the hall interior and booth borders stand out clearly over the blueprint lines.
+              </p>
+            </div>
+          </div>
         </div>
       </aside>
     );

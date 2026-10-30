@@ -321,27 +321,42 @@ export const AdminDashboardPage: React.FC = () => {
                       filteredPublishedExhibitions.map((e) => {
                         const isSelected = selectedExhibitionId === e.id;
                         return (
-                          <button
+                          <div
                             key={e.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedExhibitionId(e.id);
-                              setIsEventMenuOpen(false);
-                            }}
-                            className={`w-full text-left p-2 rounded-xl text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                            className={`w-full p-2 rounded-xl text-xs transition-colors flex items-center justify-between gap-2 ${
                               isSelected
                                 ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 font-bold border border-purple-200 dark:border-purple-800'
                                 : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 font-medium'
                             }`}
                           >
-                            <div className="truncate">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedExhibitionId(e.id);
+                                setIsEventMenuOpen(false);
+                              }}
+                              className="flex-1 text-left truncate cursor-pointer"
+                            >
                               <span className="block truncate font-semibold">{e.title}</span>
                               <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate">
                                 {e.city || 'India'} {e.eventCode ? `• ${e.eventCode}` : ''}
                               </span>
+                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Link
+                                to={`/workspace/events/${e.id}/edit`}
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setIsEventMenuOpen(false);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-100/50 dark:hover:bg-purple-900/40 transition-colors"
+                                title="Open Floor Plan Studio directly"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </Link>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
                             </div>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
-                          </button>
+                          </div>
                         );
                       })
                     )}
@@ -376,21 +391,29 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              {/* Event Cover Image */}
-              <div className="w-full sm:w-56 h-36 shrink-0 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 shadow-xs">
+              {/* Event Cover Image - Direct link to Floor Plan Studio */}
+              <Link
+                to={`/workspace/events/${currentUpcomingEvent.id}/edit`}
+                className="w-full sm:w-56 h-36 shrink-0 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 shadow-xs relative group cursor-pointer block"
+                title="Open Floor Plan Studio directly"
+              >
                 <img
                   src={
                     currentUpcomingEvent.bannerUrl ||
                     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=600&auto=format&fit=crop'
                   }
                   alt={currentUpcomingEvent.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=600&auto=format&fit=crop';
                   }}
                 />
-              </div>
+                <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs backdrop-blur-2xs">
+                  <Layers className="w-4 h-4" />
+                  <span>Open Floor Plan</span>
+                </div>
+              </Link>
 
               {/* Event Info Breakdown */}
               <div className="space-y-2">
@@ -407,9 +430,16 @@ export const AdminDashboardPage: React.FC = () => {
                   </span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-snug">
-                  {currentUpcomingEvent.title}
-                </h2>
+                <Link
+                  to={`/workspace/events/${currentUpcomingEvent.id}/edit`}
+                  className="group block"
+                  title="Open Floor Plan Studio directly"
+                >
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex items-center gap-2">
+                    <span>{currentUpcomingEvent.title}</span>
+                    <ArrowUpRight className="w-5 h-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </h2>
+                </Link>
 
                 <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex-wrap font-medium">
                   <span className="flex items-center gap-1.5">
@@ -424,16 +454,16 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Button */}
-            <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
-              <Link to={`/exhibitions/${currentUpcomingEvent.slug || currentUpcomingEvent.id}/book`}>
+            {/* Direct Navigation Action Button */}
+            <div className="flex items-center shrink-0 self-start sm:self-auto">
+              <Link to={`/workspace/events/${currentUpcomingEvent.id}/edit`}>
                 <Button
-                  variant="outline"
+                  variant="primary"
                   size="sm"
-                  leftIcon={<BookmarkCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
-                  className="bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors shadow-xs"
+                  rightIcon={<ArrowUpRight className="w-4 h-4" />}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors shadow-xs"
                 >
-                  Book Stall for Exhibitor
+                  Manage This Event
                 </Button>
               </Link>
             </div>

@@ -9,7 +9,7 @@ import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
-import { numberToIndianWords } from '../../../utils/numberToWords';
+import { InvoicePdfModal } from '../../invoices/components/InvoicePdfModal';
 import { useAuthStore } from '../../../stores/authStore';
 
 export const AdminPaymentsPage: React.FC = () => {
@@ -232,8 +232,14 @@ export const AdminPaymentsPage: React.FC = () => {
       taxAmount,
       taxableAmount,
       cgstAmount,
-      sgstAmount,
-      idForDownload: item.id || item.invoiceId || booking?.id || item.bookingId,
+      idForDownload:
+        item.invoice?.id ||
+        item.invoices?.[0]?.id ||
+        booking?.invoices?.[0]?.id ||
+        booking?.id ||
+        item.id ||
+        item.invoiceId ||
+        item.bookingId,
     };
   };
 
@@ -660,216 +666,13 @@ export const AdminPaymentsPage: React.FC = () => {
         </div>
       )}
 
-      {/* SELECTED BILL OR INVOICE INSPECTION MODAL */}
-      {selectedBillOrInvoice && modalData && (
-        <Modal
-          isOpen={!!selectedBillOrInvoice}
-          onClose={() => setSelectedBillOrInvoice(null)}
-          title={`Tax Invoice & Bill: ${modalData.invoiceNumber}`}
-          maxWidth="2xl"
-        >
-          <div className="space-y-5">
-            {/* Action Bar inside Modal */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  OFFICIAL GST TAX INVOICE
-                </span>
-                <span className="font-mono text-xs text-slate-500">
-                  Ref: {modalData.invoiceNumber}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={isModalDownloading}
-                  onClick={async () => {
-                    setIsModalDownloading(true);
-                    try {
-                      await downloadInvoicePdf(modalData.idForDownload, `Invoice-${modalData.invoiceNumber}.pdf`);
-                    } finally {
-                      setIsModalDownloading(false);
-                    }
-                  }}
-                  leftIcon={
-                    isModalDownloading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )
-                  }
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
-                >
-                  {isModalDownloading ? 'Generating PDF...' : 'Download PDF (.pdf)'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Printable Tally Layout Box */}
-            <div className="bg-white text-black border-[1.5px] border-black text-[11px] leading-tight select-none shadow-md rounded">
-              {/* Header Box */}
-              <div className="grid grid-cols-2 border-b-[1.5px] border-black">
-                {/* Supplier Info */}
-                <div className="p-3 border-r-[1.5px] border-black space-y-0.5">
-                  <div className="font-bold text-sm">BUOYANT MEDIA</div>
-                  <div>NO 57A, 2ND FLOOR,</div>
-                  <div>RAMASAMY STREET, KK PUDUR,</div>
-                  <div>NSR ROAD, CBE-641038</div>
-                  <div>MOBILE : 9500288222</div>
-                  <div>GSTIN : 33ACXPH4512M1ZA</div>
-                  <div>State Name : Tamil Nadu, Code : 33</div>
-                </div>
-
-                {/* Invoice Meta */}
-                <div className="grid grid-cols-2">
-                  <div className="p-3 border-r border-black">
-                    <div className="text-[10px] text-slate-600">Invoice No.</div>
-                    <div className="font-bold underline text-xs mt-1">{modalData.invoiceNumber}</div>
-                  </div>
-                  <div className="p-3">
-                    <div className="text-[10px] text-slate-600">Dated</div>
-                    <div className="font-bold text-xs mt-1">{formatDisplayDate(modalData.issueDate)}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Buyer (Bill To) Box */}
-              <div className="p-3 border-b-[1.5px] border-black space-y-0.5">
-                <div className="text-[10px] text-slate-600">Buyer (Bill To)</div>
-                <div className="font-bold text-xs uppercase">{modalData.company?.name || 'REGISTERED EXHIBITOR'}</div>
-                <div className="uppercase">{modalData.company?.address || 'CORPORATE ADDRESS ON FILE'}</div>
-                <div className="uppercase">{modalData.company?.city || 'INDIA'}</div>
-                <div>GSTIN/UIN : {modalData.company?.gstNumber || 'UNREGISTERED'}</div>
-                <div>State Name : {modalData.company?.state || 'Tamil Nadu'}</div>
-              </div>
-
-              {/* Items Table */}
-              <div className="border-b-[1.5px] border-black">
-                <div className="grid grid-cols-12 border-b-[1.5px] border-black text-center text-[10px] font-bold py-1 bg-slate-50">
-                  <div className="col-span-1 border-r border-black">Sl<br />No</div>
-                  <div className="col-span-5 border-r border-black">Description of Goods / Services</div>
-                  <div className="col-span-2 border-r border-black">HSN/SAC</div>
-                  <div className="col-span-1 border-r border-black">Quantity</div>
-                  <div className="col-span-1 border-r border-black">Per</div>
-                  <div className="col-span-2">Amount (INR)</div>
-                </div>
-
-                <div className="grid grid-cols-12 min-h-[160px]">
-                  {/* Sl No */}
-                  <div className="col-span-1 border-r border-black p-2 text-right font-mono">1</div>
-
-                  {/* Description */}
-                  <div className="col-span-5 border-r border-black p-2 space-y-0.5 leading-snug">
-                    <div className="font-bold uppercase">
-                      STALL NO: {modalData.stalls?.map((bs: any) => bs.stall?.stallNumber).join(', ') || modalData.primaryStall.stallNumber} ({modalData.primaryStall.category || 'PREMIUM'})
-                    </div>
-                    {modalData.stalls && modalData.stalls.length > 0 && modalData.stalls.some((bs: any) => bs.stall?.actualWidth && bs.stall?.actualHeight) && (
-                      <div className="text-[11px] font-mono font-bold text-slate-700">
-                        SIZE: {modalData.stalls.map((bs: any) => `${bs.stall?.stallNumber || ''}: ${bs.stall?.actualWidth}m × ${bs.stall?.actualHeight}m`).join(', ')}
-                      </div>
-                    )}
-                    <div className="font-bold">{modalData.totalQty} SQFT</div>
-                    <div className="font-bold mt-1 uppercase">{modalData.exhibition?.title || 'EXPO EXHIBITION'}</div>
-                    <div className="text-[10px]">
-                      VENUE: {modalData.exhibition?.venue || 'TRADE CENTRE'}, {modalData.exhibition?.city || 'COIMBATORE'}
-                    </div>
-
-                    <div className="pt-6 text-right italic font-bold pr-2 space-y-0.5 text-[10px]">
-                      <div>OUTPUT CGST (9%)</div>
-                      <div>OUTPUT SGST (9%)</div>
-                    </div>
-                  </div>
-
-                  {/* HSN/SAC */}
-                  <div className="col-span-2 border-r border-black p-2 text-center font-mono">9983</div>
-
-                  {/* Quantity */}
-                  <div className="col-span-1 border-r border-black p-2 text-right font-bold">{modalData.totalQty}</div>
-
-                  {/* Per */}
-                  <div className="col-span-1 border-r border-black p-2 text-center">SQFT</div>
-
-                  {/* Amount */}
-                  <div className="col-span-2 p-0 flex flex-col justify-between">
-                    <div className="p-2 text-right font-mono font-bold">
-                      {modalData.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="border-t border-black p-2 text-right font-mono text-[10px] space-y-1">
-                      <div>{modalData.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                      <div className="font-bold">{modalData.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                      <div className="font-bold">{modalData.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Total Row */}
-                <div className="grid grid-cols-12 border-t-[1.5px] border-black font-bold p-1 bg-slate-50">
-                  <div className="col-span-8 border-r border-black text-right pr-2">Total</div>
-                  <div className="col-span-1 border-r border-black text-right pr-1">{modalData.totalQty}</div>
-                  <div className="col-span-1 border-r border-black text-center">-</div>
-                  <div className="col-span-2 text-right pr-1 font-bold text-xs font-mono">
-                    ₹{modalData.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Amount in Words */}
-              <div className="p-2 border-b-[1.5px] border-black flex items-center justify-between">
-                <div>
-                  <span className="text-[9.5px] text-slate-600 block">Amount Chargeable (in words):</span>
-                  <span className="font-bold">{numberToIndianWords(modalData.grandTotal)}</span>
-                </div>
-                <div className="italic text-[10px] text-slate-500">E. & O.E</div>
-              </div>
-
-              {/* Bank Details Footer */}
-              <div className="grid grid-cols-2 text-[10px] p-2 bg-slate-50/50">
-                <div className="border-r border-black pr-2 space-y-1">
-                  <div className="font-bold">Payment Note:</div>
-                  <div>All payments should be made by cheque or draft, account payee only in favor of Buoyant Media.</div>
-                </div>
-                <div className="pl-3 space-y-0.5">
-                  <div><span className="font-bold">BANK</span> : THE FEDERAL BANK LTD</div>
-                  <div><span className="font-bold">A/C NO</span> : 18020200001046</div>
-                  <div><span className="font-bold">IFSC CODE</span> : FDRL0001802 (SAIBABA COLONY)</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="primary"
-                size="md"
-                disabled={isModalDownloading}
-                onClick={async () => {
-                  setIsModalDownloading(true);
-                  try {
-                    await downloadInvoicePdf(modalData.idForDownload, `Invoice-${modalData.invoiceNumber}.pdf`);
-                  } finally {
-                    setIsModalDownloading(false);
-                  }
-                }}
-                leftIcon={
-                  isModalDownloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )
-                }
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
-              >
-                {isModalDownloading ? 'Generating Official PDF...' : 'Download PDF Document (.pdf)'}
-              </Button>
-              <Button variant="outline" size="md" onClick={() => setSelectedBillOrInvoice(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* AUTHENTIC TAX INVOICE & BILL VIEWER MODAL (100% IDENTICAL TO DOWNLOADED PDF) */}
+      <InvoicePdfModal
+        isOpen={!!selectedBillOrInvoice}
+        onClose={() => setSelectedBillOrInvoice(null)}
+        targetIdOrReference={modalData?.idForDownload || null}
+        invoiceNumber={modalData?.invoiceNumber}
+      />
 
       {/* Delete Payment Confirmation Modal (Super Admin) */}
       <Modal

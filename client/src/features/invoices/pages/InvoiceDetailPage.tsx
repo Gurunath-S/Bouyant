@@ -4,7 +4,8 @@ import { apiClient } from '../../../services/api/apiClient';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { useAuthStore } from '../../../stores/authStore';
-import { FileText, RefreshCw } from 'lucide-react';
+import { FileText, RefreshCw, Download, ExternalLink, Printer } from 'lucide-react';
+import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 
 interface Invoice {
   id: string;
@@ -219,29 +220,67 @@ export const InvoiceDetailPage: React.FC = () => {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       {/* Header and actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
         <BackButton
           to={backConfig.to}
           label={backConfig.label}
         />
 
+        <div className="flex items-center gap-2">
+          {pdfUrl && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const printWin = window.open(pdfUrl, '_blank');
+                  printWin?.addEventListener('load', () => printWin.print());
+                }}
+                leftIcon={<Printer className="h-4 w-4 text-slate-600 dark:text-slate-400" />}
+              >
+                Print
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(pdfUrl, '_blank')}
+                leftIcon={<ExternalLink className="h-4 w-4 text-slate-600 dark:text-slate-400" />}
+              >
+                Full Page
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => downloadInvoicePdf(id!, `Invoice-${invoice.invoiceNumber || id}.pdf`)}
+                leftIcon={<Download className="h-4 w-4 text-white" />}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+              >
+                Download PDF (.pdf)
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* PDF viewer */}
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div
+        className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white shadow-sm w-full"
+        style={{ height: '85vh', minHeight: '650px', width: '100%' }}
+      >
         {pdfLoading || !pdfUrl ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 text-slate-500">
-            <FileText className="h-8 w-8" />
+          <div className="flex min-h-[650px] h-full flex-col items-center justify-center gap-3 text-slate-500">
+            <FileText className="h-8 w-8 text-purple-600 animate-pulse" />
 
-            <p className="text-sm">
-              Preparing invoice PDF...
+            <p className="text-sm font-medium">
+              Preparing official tax invoice PDF...
             </p>
           </div>
         ) : (
           <iframe
-            src={pdfUrl}
+            src={`${pdfUrl}#toolbar=1&view=FitH`}
             title={`Invoice ${invoice.invoiceNumber || ''}`}
-            className="h-[85vh] min-h-[500px] w-full"
+            className="w-full border-0 bg-white"
+            style={{ width: '100%', height: '100%', minHeight: '650px', display: 'block' }}
           />
         )}
       </div>

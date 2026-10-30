@@ -201,9 +201,16 @@ export const SuperAdminDashboardPage: React.FC = () => {
                   </span>
                 )}
               </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
-                {data.exhibition.title}
-              </h2>
+              <Link
+                to={`/workspace/events/${data.exhibition.id}/edit`}
+                className="group inline-flex items-center gap-2 mt-1"
+                title="Open Floor Plan Studio directly"
+              >
+                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  {data.exhibition.title}
+                </h2>
+                <ArrowUpRight className="w-5 h-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Link>
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-400 mt-2 font-medium">
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-purple-600" />
@@ -222,10 +229,15 @@ export const SuperAdminDashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link to="/workspace/events">
-                <Button variant="outline" size="sm" rightIcon={<ArrowUpRight className="w-3.5 h-3.5" />}>
-                  Floor Plan & Stalls
+            <div className="flex items-center shrink-0">
+              <Link to={`/workspace/events/${data.exhibition.id}/edit`}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  rightIcon={<ArrowUpRight className="w-3.5 h-3.5" />}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs text-xs"
+                >
+                  Manage This Event
                 </Button>
               </Link>
             </div>

@@ -22,6 +22,7 @@ import {
   Power,
   RefreshCw,
   Eye,
+  EyeOff,
   Phone,
   Mail,
   Layers,
@@ -174,8 +175,23 @@ export const SuperAdminUsersPage: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [resetUsername, setResetUsername] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [allExistingUsers, setAllExistingUsers] = useState<Array<{ id?: string; username?: string | null; email?: string | null }>>([]);
+
+  const loadExistingUsersForValidation = useCallback(async () => {
+    try {
+      const res = await userService.getUsers({});
+      const list = Array.isArray(res) ? res : res?.data || [];
+      if (list && list.length > 0) {
+        setAllExistingUsers(list.map((u: any) => ({ id: u.id, username: u.username, email: u.email })));
+      }
+    } catch {
+      // ignore, fall back to current users state
+    }
+  }, []);
 
   // Dedicated in-modal error states so error messages appear directly inside the modal popup
   const [createModalError, setCreateModalError] = useState<string | null>(null);
@@ -252,7 +268,8 @@ export const SuperAdminUsersPage: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    loadExistingUsersForValidation();
+  }, [fetchEvents, loadExistingUsersForValidation]);
 
   useEffect(() => {
     fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage, pageSize);
@@ -300,6 +317,7 @@ export const SuperAdminUsersPage: React.FC = () => {
   };
 
   const handleOpenCreate = (initialRole: 'SUPERADMIN' | 'ADMIN' | 'STAFF' = 'ADMIN') => {
+    loadExistingUsersForValidation();
     const safeRole = !isSuperAdmin && initialRole === 'SUPERADMIN' ? 'ADMIN' : initialRole;
     setCreateUserRole(safeRole);
     setCreateUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[safeRole] || [])]);
@@ -314,6 +332,7 @@ export const SuperAdminUsersPage: React.FC = () => {
     });
     setCreateModalError(null);
     setCreateFieldErrors({});
+    setShowCreatePassword(false);
     setFeedbackMsg(null);
     setCreateModalOpen(true);
   };
@@ -336,6 +355,54 @@ export const SuperAdminUsersPage: React.FC = () => {
     });
   };
 
+  const validateCreateField = (field: string, value: string): string | undefined => {
+    const trimmed = value?.trim() || '';
+    switch (field) {
+      case 'name':
+        if (!trimmed) return 'Full name is required';
+        if (trimmed.length < 2) return 'Full name must be at least 2 characters';
+        if (!/^[a-zA-Z\s.'-]+$/.test(trimmed)) return 'Name can only contain letters, spaces, and hyphens';
+        return undefined;
+      case 'email': {
+        if (!trimmed) return 'Corporate email address is required';
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmed)) return 'Please enter a valid corporate email address';
+        const isTaken = (allExistingUsers.length > 0 ? allExistingUsers : users).some(
+          (u) => u.email && u.email.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (isTaken) return 'An account with this email address already exists';
+        return undefined;
+      }
+      case 'username': {
+        if (!trimmed) return 'Portal username is required';
+        if (trimmed.length < 3) return 'Username must be at least 3 characters';
+        if (!/^[a-zA-Z0-9_.-]+$/.test(trimmed)) return 'Username can only contain letters, numbers, underscores, and hyphens';
+        const isTaken = (allExistingUsers.length > 0 ? allExistingUsers : users).some(
+          (u) => u.username && u.username.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (isTaken) return 'This username is already taken by an existing user';
+        return undefined;
+      }
+      case 'phone': {
+        const digits = value?.replace(/\D/g, '') || '';
+        if (!digits) return 'Phone number is required';
+        if (digits.length !== 10) return 'Phone number must be exactly 10 digits';
+        return undefined;
+      }
+      case 'spcode':
+        if (!trimmed) return 'SP Code is required';
+        if (trimmed.length < 2) return 'SP Code must be at least 2 characters';
+        if (!/^[A-Z0-9_-]+$/i.test(trimmed)) return 'SP Code can only contain letters, numbers, and hyphens';
+        return undefined;
+      case 'password':
+        if (!value) return 'Initial password is required';
+        if (value.length < 8) return 'Password must be at least 8 characters long';
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateModalError(null);
@@ -356,40 +423,23 @@ export const SuperAdminUsersPage: React.FC = () => {
     const trimmedPhone = createForm.phone?.trim() || '';
     const trimmedSpcode = createForm.spcode?.trim().toUpperCase() || '';
 
-    if (!trimmedName || trimmedName.length < 2) {
-      errors.name = 'Full name is required (minimum 2 characters)';
-    }
+    const nameErr = validateCreateField('name', trimmedName);
+    if (nameErr) errors.name = nameErr;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!trimmedEmail) {
-      errors.email = 'Email address is required';
-    } else if (!emailRegex.test(trimmedEmail)) {
-      errors.email = 'Please enter a valid email address';
-    }
+    const emailErr = validateCreateField('email', trimmedEmail);
+    if (emailErr) errors.email = emailErr;
 
-    if (!trimmedUsername) {
-      errors.username = 'Portal username is required';
-    } else if (trimmedUsername.length < 3) {
-      errors.username = 'Portal username must be at least 3 characters';
-    } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedUsername)) {
-      errors.username = 'Username can only contain letters, numbers, underscores, and hyphens';
-    }
+    const usernameErr = validateCreateField('username', trimmedUsername);
+    if (usernameErr) errors.username = usernameErr;
 
-    if (!password || password.length < 8) {
-      errors.password = 'Initial password must be at least 8 characters long';
-    }
+    const phoneErr = validateCreateField('phone', trimmedPhone);
+    if (phoneErr) errors.phone = phoneErr;
 
-    if (!trimmedPhone) {
-      errors.phone = 'Phone number is required';
-    } else if (trimmedPhone.length < 7) {
-      errors.phone = 'Phone number must be at least 7 digits';
-    }
+    const spcodeErr = validateCreateField('spcode', trimmedSpcode);
+    if (spcodeErr) errors.spcode = spcodeErr;
 
-    if (!trimmedSpcode) {
-      errors.spcode = 'SP Code is required';
-    } else if (trimmedSpcode.length < 2) {
-      errors.spcode = 'SP Code must be at least 2 characters long';
-    }
+    const passwordErr = validateCreateField('password', password);
+    if (passwordErr) errors.password = passwordErr;
 
     if (createUserPages.length === 0) {
       errors.pageAccess = 'At least one page access permission must be granted';
@@ -398,11 +448,11 @@ export const SuperAdminUsersPage: React.FC = () => {
     if (Object.keys(errors).length > 0) {
       const missingLabels: string[] = [];
       if (errors.name) missingLabels.push('Full Name');
-      if (errors.email) missingLabels.push('Email Address');
+      if (errors.email) missingLabels.push('Corporate Email');
       if (errors.username) missingLabels.push('Portal Username');
-      if (errors.password) missingLabels.push('Initial Password');
       if (errors.phone) missingLabels.push('Phone Number');
       if (errors.spcode) missingLabels.push('SP Code');
+      if (errors.password) missingLabels.push('Initial Password');
       if (errors.pageAccess) missingLabels.push('Page Access Rights');
 
       setCreateFieldErrors(errors);
@@ -431,9 +481,18 @@ export const SuperAdminUsersPage: React.FC = () => {
       setCreateModalError(null);
       setCreateFieldErrors({});
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
+      loadExistingUsersForValidation();
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to create user. Please check credentials.';
       setCreateModalError(errMsg);
+      const lower = errMsg.toLowerCase();
+      if (lower.includes('email')) {
+        setCreateFieldErrors((prev) => ({ ...prev, email: errMsg }));
+      } else if (lower.includes('username')) {
+        setCreateFieldErrors((prev) => ({ ...prev, username: errMsg }));
+      } else if (lower.includes('sp code')) {
+        setCreateFieldErrors((prev) => ({ ...prev, spcode: errMsg }));
+      }
     } finally {
       setActionLoading(false);
     }
@@ -573,8 +632,22 @@ export const SuperAdminUsersPage: React.FC = () => {
 
     if (!trimmedPhone) {
       errors.phone = 'Phone number is required';
-    } else if (trimmedPhone.length < 7) {
-      errors.phone = 'Phone number must be at least 7 digits';
+    } else if (trimmedPhone.replace(/\D/g, '').length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits';
+    }
+
+    const isUsernameTaken = (allExistingUsers.length > 0 ? allExistingUsers : users).some(
+      (u: any) => u.id !== editUser.id && u.username && u.username.toLowerCase() === trimmedUsername.toLowerCase()
+    );
+    if (isUsernameTaken) {
+      errors.username = 'This username is already taken by another user';
+    }
+
+    const isEmailTaken = (allExistingUsers.length > 0 ? allExistingUsers : users).some(
+      (u: any) => u.id !== editUser.id && u.email && u.email.toLowerCase() === trimmedEmail.toLowerCase()
+    );
+    if (isEmailTaken) {
+      errors.email = 'An account with this email address already exists';
     }
 
     if (!trimmedSpcode) {
@@ -621,9 +694,18 @@ export const SuperAdminUsersPage: React.FC = () => {
       setEditModalError(null);
       setEditFieldErrors({});
       await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
+      loadExistingUsersForValidation();
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user.';
       setEditModalError(errMsg);
+      const lower = errMsg.toLowerCase();
+      if (lower.includes('email')) {
+        setEditFieldErrors((prev) => ({ ...prev, email: errMsg }));
+      } else if (lower.includes('username')) {
+        setEditFieldErrors((prev) => ({ ...prev, username: errMsg }));
+      } else if (lower.includes('sp code')) {
+        setEditFieldErrors((prev) => ({ ...prev, spcode: errMsg }));
+      }
     } finally {
       setActionLoading(false);
     }
@@ -804,46 +886,6 @@ export const SuperAdminUsersPage: React.FC = () => {
 
       {/* 2. Filters & Governance Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-4">
-        {/* Top Filter Controls: Event Scope Selector */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-purple-600 shrink-0" />
-            <label
-              htmlFor="users-event-filter"
-              className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0"
-            >
-              Event Scope:
-            </label>
-            <select
-              id="users-event-filter"
-              value={selectedEventId}
-              onChange={(e) => handleEventFilterChange(e.target.value)}
-              disabled={loadingEvents}
-              className="text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-purple-500/40 cursor-pointer"
-            >
-              <option value="ALL">All Events (Platform-Wide Directory)</option>
-              {publishedEvents.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.title} {ev.edition ? `(Edition ${ev.edition})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedEventId !== 'ALL' && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                Displaying users associated with selected event (Platform administrators preserved)
-              </span>
-              <button
-                onClick={() => handleEventFilterChange('ALL')}
-                className="text-xs font-bold underline text-slate-500 hover:text-slate-800"
-              >
-                Clear
-              </button>
-            </div>
-          )}
-        </div>
 
         {/* Secondary Filter Controls: Role Tabs, Status Filter, Search Input */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -1768,11 +1810,12 @@ export const SuperAdminUsersPage: React.FC = () => {
           setCreateModalOpen(false);
           setCreateModalError(null);
           setCreateFieldErrors({});
+          setShowCreatePassword(false);
         }}
         title="Add New Platform User"
-        maxWidth="5xl"
+        maxWidth="7xl"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs max-h-[84vh] overflow-y-auto pr-1">
+        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs sm:text-[13px] max-h-[86vh] overflow-y-auto pr-1">
           {/* In-Modal Alert Banner */}
           {createModalError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
@@ -1793,21 +1836,21 @@ export const SuperAdminUsersPage: React.FC = () => {
           )}
 
           {/* Horizontal 2-Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* LEFT COLUMN: Role & Profile Fields (5 cols) */}
-            <div className="lg:col-span-5 space-y-3">
+            <div className="lg:col-span-5 space-y-4">
               {/* Role Selection */}
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   User Role *
                 </label>
-                <div className={`grid gap-2 ${allowedCreateRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div className={`grid gap-2.5 ${allowedCreateRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   {allowedCreateRoles.map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => handleCreateRoleChange(r)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
                         createUserRole === r
                           ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
                           : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
@@ -1815,15 +1858,15 @@ export const SuperAdminUsersPage: React.FC = () => {
                     >
                       <div className="flex items-center gap-1.5 font-bold">
                         {r === 'SUPERADMIN' ? (
-                          <Shield className="w-3.5 h-3.5 text-amber-500" />
+                          <Shield className="w-4 h-4 text-amber-500" />
                         ) : r === 'ADMIN' ? (
-                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                          <ShieldCheck className="w-4 h-4 text-purple-500" />
                         ) : (
-                          <Users className="w-3.5 h-3.5 text-emerald-500" />
+                          <Users className="w-4 h-4 text-emerald-500" />
                         )}
-                        <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+                        <span className="text-xs sm:text-[13px]">{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate font-normal">
                         {r === 'SUPERADMIN' ? 'Full Control' : r === 'ADMIN' ? 'Events & Stalls' : 'Operations'}
                       </p>
                     </button>
@@ -1831,7 +1874,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
                 {createUserRole === 'SUPERADMIN' ? (
                   <p>
                     <strong>Super Admin:</strong> Full platform authority. Granted access to all 8 areas by default including User Governance and Reports.
@@ -1857,9 +1900,17 @@ export const SuperAdminUsersPage: React.FC = () => {
                     placeholder="e.g. John Doe"
                     value={createForm.name}
                     error={createFieldErrors.name}
+                    onBlur={() => {
+                      const err = validateCreateField('name', createForm.name);
+                      setCreateFieldErrors((prev) => ({ ...prev, name: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, name: e.target.value });
-                      if (createFieldErrors.name) setCreateFieldErrors((prev) => ({ ...prev, name: undefined }));
+                      const val = e.target.value;
+                      setCreateForm((prev) => ({ ...prev, name: val }));
+                      if (createFieldErrors.name) {
+                        const err = validateCreateField('name', val);
+                        setCreateFieldErrors((prev) => ({ ...prev, name: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
                   />
@@ -1874,9 +1925,17 @@ export const SuperAdminUsersPage: React.FC = () => {
                     placeholder="name@buoyantmedia.com"
                     value={createForm.email}
                     error={createFieldErrors.email}
+                    onBlur={() => {
+                      const err = validateCreateField('email', createForm.email);
+                      setCreateFieldErrors((prev) => ({ ...prev, email: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, email: e.target.value });
-                      if (createFieldErrors.email) setCreateFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      const val = e.target.value;
+                      setCreateForm((prev) => ({ ...prev, email: val }));
+                      if (createFieldErrors.email) {
+                        const err = validateCreateField('email', val);
+                        setCreateFieldErrors((prev) => ({ ...prev, email: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
                   />
@@ -1893,13 +1952,21 @@ export const SuperAdminUsersPage: React.FC = () => {
                     placeholder="e.g. john_buoyant"
                     value={createForm.username || ''}
                     error={createFieldErrors.username}
+                    onBlur={() => {
+                      const err = validateCreateField('username', createForm.username || '');
+                      setCreateFieldErrors((prev) => ({ ...prev, username: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, username: e.target.value });
-                      if (createFieldErrors.username) setCreateFieldErrors((prev) => ({ ...prev, username: undefined }));
+                      const val = e.target.value;
+                      setCreateForm((prev) => ({ ...prev, username: val }));
+                      if (createFieldErrors.username) {
+                        const err = validateCreateField('username', val);
+                        setCreateFieldErrors((prev) => ({ ...prev, username: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
                   />
-                  <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Primary login identifier (must be unique)</p>
                 </div>
 
                 <div>
@@ -1907,16 +1974,27 @@ export const SuperAdminUsersPage: React.FC = () => {
                     Phone Number *
                   </label>
                   <Input
-                    type="text"
-                    placeholder="+91 98765 43210"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={createForm.phone || ''}
                     error={createFieldErrors.phone}
+                    onBlur={() => {
+                      const err = validateCreateField('phone', createForm.phone || '');
+                      setCreateFieldErrors((prev) => ({ ...prev, phone: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, phone: e.target.value });
-                      if (createFieldErrors.phone) setCreateFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setCreateForm((prev) => ({ ...prev, phone: digitsOnly }));
+                      if (createFieldErrors.phone) {
+                        const err = validateCreateField('phone', digitsOnly);
+                        setCreateFieldErrors((prev) => ({ ...prev, phone: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
                   />
+                  <p className="text-[10px] text-slate-400 mt-0.5">10 digits only</p>
                 </div>
               </div>
 
@@ -1930,9 +2008,17 @@ export const SuperAdminUsersPage: React.FC = () => {
                     placeholder={createUserRole === 'ADMIN' ? 'e.g. B005' : 'e.g. ST05'}
                     value={createForm.spcode || ''}
                     error={createFieldErrors.spcode}
+                    onBlur={() => {
+                      const err = validateCreateField('spcode', createForm.spcode || '');
+                      setCreateFieldErrors((prev) => ({ ...prev, spcode: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, spcode: e.target.value.toUpperCase() });
-                      if (createFieldErrors.spcode) setCreateFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                      const val = e.target.value.toUpperCase();
+                      setCreateForm((prev) => ({ ...prev, spcode: val }));
+                      if (createFieldErrors.spcode) {
+                        const err = validateCreateField('spcode', val);
+                        setCreateFieldErrors((prev) => ({ ...prev, spcode: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
                   />
@@ -1943,15 +2029,34 @@ export const SuperAdminUsersPage: React.FC = () => {
                     Initial Password *
                   </label>
                   <Input
-                    type="password"
+                    type={showCreatePassword ? 'text' : 'password'}
                     placeholder="••••••••••••"
                     value={createForm.password}
                     error={createFieldErrors.password}
+                    onBlur={() => {
+                      const err = validateCreateField('password', createForm.password);
+                      setCreateFieldErrors((prev) => ({ ...prev, password: err }));
+                    }}
                     onChange={(e) => {
-                      setCreateForm({ ...createForm, password: e.target.value });
-                      if (createFieldErrors.password) setCreateFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      const val = e.target.value;
+                      setCreateForm((prev) => ({ ...prev, password: val }));
+                      if (createFieldErrors.password) {
+                        const err = validateCreateField('password', val);
+                        setCreateFieldErrors((prev) => ({ ...prev, password: err }));
+                      }
                       if (createModalError) setCreateModalError(null);
                     }}
+                    rightIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowCreatePassword((prev) => !prev)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        title={showCreatePassword ? 'Hide password' : 'Show password'}
+                        tabIndex={-1}
+                      >
+                        {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">Min 8 characters</p>
                 </div>
@@ -1959,34 +2064,34 @@ export const SuperAdminUsersPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Granular Page Access Rights (7 cols, 2-column grid with clean images/icons) */}
-            <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+            <div className="lg:col-span-7 flex flex-col space-y-3.5 bg-slate-50/70 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-700">
                 <div>
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs sm:text-[13px]">
                       Page Permissions *
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                       {createUserPages.length}/{PAGE_ACCESS_ITEMS.length}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-slate-400 mt-0.5">
                     Select granted platform areas. At least one permission required.
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setCreateUserPages([...DEFAULT_ROLE_PAGE_ACCESS[createUserRole]])}
-                    className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
                   >
                     Reset
                   </button>
                   <button
                     type="button"
                     onClick={() => setCreateUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
-                    className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
+                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
                   >
                     All
                   </button>
@@ -1994,14 +2099,14 @@ export const SuperAdminUsersPage: React.FC = () => {
               </div>
 
               {createFieldErrors.pageAccess && (
-                <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{createFieldErrors.pageAccess}</span>
                 </div>
               )}
 
               {/* 2-Column Permissions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[490px] overflow-y-auto pr-1">
                 {PAGE_ACCESS_ITEMS.map((page) => {
                   const isSelected = createUserPages.includes(page.id);
                   const config = PAGE_ICON_CONFIG[page.id] || {
@@ -2016,7 +2121,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     <div
                       key={page.id}
                       onClick={() => handleToggleCreatePage(page.id)}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2.5 select-none group hover:shadow-xs ${
                         isSelected
                           ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
                           : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
@@ -2098,9 +2203,9 @@ export const SuperAdminUsersPage: React.FC = () => {
           setEditFieldErrors({});
         }}
         title={`Edit User: ${editUser?.name}`}
-        maxWidth="5xl"
+        maxWidth="7xl"
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[82vh] overflow-y-auto pr-1">
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs sm:text-[13px] max-h-[86vh] overflow-y-auto pr-1">
           {/* In-Modal Alert Banner */}
           {editModalError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2.5 shadow-xs animate-fadeIn">
@@ -2121,9 +2226,9 @@ export const SuperAdminUsersPage: React.FC = () => {
           )}
 
           {/* Horizontal 2-Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
             {/* LEFT COLUMN: Role & Profile Fields (5 cols) */}
-            <div className="lg:col-span-5 space-y-3">
+            <div className="lg:col-span-5 space-y-3.5">
               {/* Role Selection */}
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2135,7 +2240,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                       key={r}
                       type="button"
                       onClick={() => handleEditRoleChange(r)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                      className={`p-3 rounded-xl border text-left transition-all ${
                         editUserRole === r
                           ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
                           : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
@@ -2217,16 +2322,20 @@ export const SuperAdminUsersPage: React.FC = () => {
                     Phone Number *
                   </label>
                   <Input
-                    type="text"
-                    placeholder="+91 98765 43210"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={editForm.phone || ''}
                     error={editFieldErrors.phone}
                     onChange={(e) => {
-                      setEditForm({ ...editForm, phone: e.target.value });
+                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setEditForm((prev) => ({ ...prev, phone: digitsOnly }));
                       if (editFieldErrors.phone) setEditFieldErrors((prev) => ({ ...prev, phone: undefined }));
                       if (editModalError) setEditModalError(null);
                     }}
                   />
+                  <p className="text-[10px] text-slate-400 mt-0.5">10 digits only</p>
                 </div>
               </div>
 
@@ -2249,34 +2358,34 @@ export const SuperAdminUsersPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Granular Page Access Rights (7 cols, 2-column grid with clean images/icons) */}
-            <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+            <div className="lg:col-span-7 flex flex-col space-y-3.5 bg-slate-50/70 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-700">
                 <div>
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs sm:text-[13px]">
                       Page Permissions *
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                       {editUserPages.length}/{PAGE_ACCESS_ITEMS.length}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-slate-400 mt-0.5">
                     Select granted platform areas. At least one permission required.
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
-                    className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
                   >
                     Reset
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
-                    className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
+                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
                   >
                     All
                   </button>
@@ -2284,14 +2393,14 @@ export const SuperAdminUsersPage: React.FC = () => {
               </div>
 
               {editFieldErrors.pageAccess && (
-                <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{editFieldErrors.pageAccess}</span>
                 </div>
               )}
 
               {/* 2-Column Permissions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[490px] overflow-y-auto pr-1">
                 {PAGE_ACCESS_ITEMS.map((page) => {
                   const isSelected = editUserPages.includes(page.id);
                   const config = PAGE_ICON_CONFIG[page.id] || {
@@ -2306,7 +2415,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     <div
                       key={page.id}
                       onClick={() => handleToggleEditPage(page.id)}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2.5 select-none group hover:shadow-xs ${
                         isSelected
                           ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
                           : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
@@ -2544,7 +2653,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 title={showResetPassword ? 'Hide password' : 'Show password'}
               >
-                <Eye className="w-4 h-4" />
+                {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>

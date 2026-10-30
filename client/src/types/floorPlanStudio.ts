@@ -23,6 +23,8 @@ export interface HallZone {
   width: number;
   height: number;
   color?: string;
+  fillColor?: string;
+  fillOpacity?: number;
   namePosition?: HallNamePosition;
   fontSize?: number;
   fontWeight?: 'normal' | 'semibold' | 'bold' | 'black';

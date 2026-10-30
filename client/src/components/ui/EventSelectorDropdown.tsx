@@ -20,6 +20,7 @@ export interface EventSelectorDropdownProps {
   searchPlaceholder?: string;
   align?: 'left' | 'right';
   className?: string;
+  buttonClassName?: string;
 }
 
 export const EventSelectorDropdown: React.FC<EventSelectorDropdownProps> = ({
@@ -32,6 +33,7 @@ export const EventSelectorDropdown: React.FC<EventSelectorDropdownProps> = ({
   searchPlaceholder = 'Search published events...',
   align = 'right',
   className = '',
+  buttonClassName = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,11 +72,15 @@ export const EventSelectorDropdown: React.FC<EventSelectorDropdownProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800/80 text-purple-900 dark:text-purple-200 rounded-xl shadow-xs hover:border-purple-300 dark:hover:border-purple-700 transition-all flex items-center gap-2 max-w-[280px] sm:max-w-[320px] truncate cursor-pointer"
+        className={`px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800/80 text-purple-900 dark:text-purple-200 rounded-xl shadow-xs hover:border-purple-300 dark:hover:border-purple-700 transition-all flex items-center justify-between gap-2 cursor-pointer ${
+          buttonClassName || 'max-w-[280px] sm:max-w-[320px]'
+        }`}
         title="Click to search and switch active exhibition event"
       >
-        <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-        <span className="truncate">{displayTitle}</span>
+        <div className="flex items-center gap-2 truncate">
+          <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+          <span className="truncate">{displayTitle}</span>
+        </div>
         <ChevronDown
           className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 transition-transform duration-150 ${
             isOpen ? 'rotate-180' : ''

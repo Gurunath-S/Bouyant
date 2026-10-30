@@ -92,6 +92,8 @@ export const StaffDashboardPage: React.FC = () => {
     }
   }, [user?.id, selectedExhibitionId]);
 
+  const activeExhibition = exhibitions.find((e) => e.id === selectedExhibitionId);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -125,7 +127,7 @@ export const StaffDashboardPage: React.FC = () => {
       </div>
 
       {/* Performance Filter by Exhibition */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 border border-purple-200 dark:border-purple-800">
             <Filter className="w-4 h-4" />
@@ -140,7 +142,7 @@ export const StaffDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <EventSelectorDropdown
             events={exhibitions}
             selectedEventId={selectedExhibitionId}
@@ -157,6 +159,20 @@ export const StaffDashboardPage: React.FC = () => {
             >
               Reset
             </button>
+          )}
+          {activeExhibition && (
+            <div className="flex items-center shrink-0">
+              <Link to={`/workspace/events/${activeExhibition.id}/view`}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
+                >
+                  Manage This Event
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </div>

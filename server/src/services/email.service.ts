@@ -119,7 +119,10 @@ export interface BookingConfirmationEmailPayload {
   invoiceNumber: string;
   paymentPercentage: number;
   paymentAmount: number;
+  totalPaidAmount?: number;
+  grandTotal?: number;
   remainingBalance: number;
+  isBalancePayment?: boolean;
   paymentDate: Date | string;
   paymentReference: string;
   userName?: string | null;
@@ -218,9 +221,27 @@ export class EmailService {
 
   static async sendBookingConfirmationEmail(payload: BookingConfirmationEmailPayload) {
     const isPartialPayment = payload.remainingBalance > 0;
-    const paymentText = isPartialPayment
-      ? `Partial Payment - ${payload.paymentPercentage}%`
-      : 'Full Payment';
+    const isBalancePayment = Boolean(payload.isBalancePayment);
+
+    const emailSubject = isBalancePayment
+      ? (isPartialPayment
+          ? `Payment Received (Balance Pending) - ${payload.bookingReference}`
+          : `Payment Received (Fully Settled) - ${payload.bookingReference}`)
+      : (isPartialPayment
+          ? `Booking Confirmed (Advance Payment) - ${payload.bookingReference}`
+          : `Booking Confirmed - ${payload.bookingReference}`);
+
+    const headerTitle = isBalancePayment
+      ? (isPartialPayment ? 'Payment Received 💳' : 'Payment Received — Fully Settled 🎉')
+      : 'Booking Confirmed 🎉';
+
+    const paymentText = isBalancePayment
+      ? (isPartialPayment
+          ? `Partial Balance Payment (${payload.paymentPercentage}% Paid)`
+          : 'Balance Settled (100% Paid)')
+      : (isPartialPayment
+          ? `Advance Payment (${payload.paymentPercentage}% Paid)`
+          : 'Full Payment (100%)');
 
     const loginUrl = `${resolveClientOrigin()}/login`;
     const safeLoginUrl = escapeHtml(loginUrl);
@@ -228,6 +249,12 @@ export class EmailService {
     const safeCompanyName = escapeHtml(payload.companyName);
     const safeExhibitionTitle = escapeHtml(payload.exhibitionTitle);
     const safeBookingReference = escapeHtml(payload.bookingReference);
+
+    const introText = isBalancePayment
+      ? (isPartialPayment
+          ? `We have successfully received your installment/balance payment of <strong>₹${this.formatINR(payload.paymentAmount)}</strong> towards booking <strong>${safeBookingReference}</strong> for <strong>${safeExhibitionTitle}</strong>. Your updated payment summary and remaining balance are detailed below.`
+          : `We have successfully received your final balance payment of <strong>₹${this.formatINR(payload.paymentAmount)}</strong> towards booking <strong>${safeBookingReference}</strong> for <strong>${safeExhibitionTitle}</strong>. Your booking is now <strong>fully settled and confirmed</strong>.`)
+      : `Thank you for reserving stall(s) at <strong>${safeExhibitionTitle}</strong>. Your payment has been successfully processed and your reservation is confirmed.`;
 
     const html = `
       <!DOCTYPE html>
@@ -246,7 +273,7 @@ export class EmailService {
         <body style="margin:0; padding:0; background:#f4f6f9; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
           <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
             <div class="mobile-header" style="background:#012970; padding:28px 32px; color:#ffffff;">
-              <h1 style="margin:0; font-size:22px; font-weight:800; tracking-tight: -0.5px;">Booking Confirmed 🎉</h1>
+              <h1 style="margin:0; font-size:22px; font-weight:800; tracking-tight: -0.5px;">${headerTitle}</h1>
               <p style="margin:6px 0 0; color:#93c5fd; font-size:14px; font-weight:500;">${safeExhibitionTitle}</p>
             </div>
 
@@ -255,13 +282,14 @@ export class EmailService {
                 Dear <strong>${safeToName}</strong>,
               </p>
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 24px;">
-                Thank you for reserving stall(s) at <strong>${safeExhibitionTitle}</strong>.
-                Your payment has been successfully processed and your reservation is confirmed.
+                ${introText}
               </p>
 
               <!-- BOOKING SUMMARY BOX -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:24px;">
-                <h3 style="font-size:12px; font-weight:800; color:#012970; text-transform:uppercase; letter-spacing:0.8px; margin:0 0 14px; border-b:1px solid #cbd5e1; padding-bottom:8px;">BOOKING SUMMARY</h3>
+                <h3 style="font-size:12px; font-weight:800; color:#012970; text-transform:uppercase; letter-spacing:0.8px; margin:0 0 14px; border-bottom:1px solid #cbd5e1; padding-bottom:8px;">
+                  ${isBalancePayment ? 'PAYMENT & BOOKING SUMMARY' : 'BOOKING SUMMARY'}
+                </h3>
 
                 <table class="mobile-table" width="100%" cellpadding="6" cellspacing="0" style="font-size:13px; border-collapse:collapse;">
                   <tr>
@@ -283,15 +311,32 @@ export class EmailService {
                     <td align="right" style="color:#0f172a; font-weight:700; vertical-align:top;">${paymentText}</td>
                   </tr>
                   <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Amount Paid</td>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">${isBalancePayment ? 'Amount Paid (This Payment)' : 'Amount Paid'}</td>
                     <td align="right" style="color:#059669; font-weight:800; font-size:14px; vertical-align:top;">₹${this.formatINR(payload.paymentAmount)}</td>
                   </tr>
+                  ${payload.grandTotal ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Booking Amount</td>
+                    <td align="right" style="color:#0f172a; font-weight:700; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.grandTotal)}</td>
+                  </tr>
+                  ` : ''}
+                  ${payload.totalPaidAmount !== undefined && (payload.totalPaidAmount > payload.paymentAmount || isBalancePayment) ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Paid to Date</td>
+                    <td align="right" style="color:#059669; font-weight:700; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.totalPaidAmount)}</td>
+                  </tr>
+                  ` : ''}
                   ${isPartialPayment ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Remaining Balance</td>
                     <td align="right" style="color:#dc2626; font-weight:800; font-size:14px; vertical-align:top;">₹${this.formatINR(payload.remainingBalance)}</td>
                   </tr>
-                  ` : ''}
+                  ` : `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Remaining Balance</td>
+                    <td align="right" style="color:#059669; font-weight:800; font-size:13px; vertical-align:top;">₹0.00 (Fully Settled)</td>
+                  </tr>
+                  `}
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice Number</td>
                     <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">${payload.invoiceNumber}</td>
@@ -332,7 +377,7 @@ export class EmailService {
 
                 <!-- PROMINENT BUTTON -->
                 <div style="text-align:center; margin-top:20px;">
-                  <a href="${safeLoginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; shadow:0 2px 4px rgba(37,99,235,0.2);">
+                  <a href="${safeLoginUrl}" target="_blank" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
                     Login to Exhibitor Portal
                   </a>
                 </div>
@@ -347,8 +392,8 @@ export class EmailService {
               </p>
             </div>
 
-            <div style="background:#f8fafc; padding:18px 32px; text-align:center; color:#94a3b8; font-size:12px; border-t:1px solid #f1f5f9;">
-              This is an automated booking confirmation from Buoyant Media.
+            <div style="background:#f8fafc; padding:18px 32px; text-align:center; color:#94a3b8; font-size:12px; border-top:1px solid #f1f5f9;">
+              This is an automated payment confirmation from Buoyant Media.
             </div>
           </div>
         </body>
@@ -372,7 +417,7 @@ export class EmailService {
       await getEmailTransporter().sendMail({
         from: `"Buoyant Media" <${user}>`,
         to: payload.toEmail,
-        subject: `Booking Confirmed - ${payload.bookingReference}`,
+        subject: emailSubject,
         html,
         attachments,
       });

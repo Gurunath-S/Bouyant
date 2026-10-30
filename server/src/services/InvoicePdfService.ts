@@ -266,7 +266,12 @@ const formatOrdinalDate = (date?: Date): string => {
  
 const formatExhibitionDateRange = (ex: { startDate?: Date; endDate?: Date }): string => {
   if (!ex.startDate || !ex.endDate) return '20th, 21st & 22nd NOVEMBER, 2026';
-  return `${formatOrdinalDate(ex.startDate)} to ${formatOrdinalDate(ex.endDate)}`;
+  const formatShortDate = (d: Date) => {
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+  return `${formatShortDate(ex.startDate)} to ${formatShortDate(ex.endDate)}`;
 };
  
 export class InvoicePdfService {
@@ -542,7 +547,8 @@ export class InvoicePdfService {
                             { text: '1', alignment: 'right', border: [false, false, true, false] },
                             {
                               stack: [
-                                { text: `STALL NO: ${stallDetailsText}`, bold: true },
+                                { text: `STALL NO : ${stallDetailsText}`, bold: true },
+                                { text: `${totalQty} SQFT`, bold: true, margin: [0, 2, 0, 0] },
                                 {
                                   text: `${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),`,
                                   bold: true,
@@ -555,9 +561,9 @@ export class InvoicePdfService {
                               margin: [0, 0, 0, 35],
                               border: [false, false, true, false],
                             },
-                            { text: '', border: [false, false, true, false] },
-                            { text: `${totalQty} SQM`, bold: true, alignment: 'right', border: [false, false, true, false] },
-                            { text: 'SQM', alignment: 'center', border: [false, false, true, false] },
+                            { text: '9983', alignment: 'center', border: [false, false, true, false] },
+                            { text: `${totalQty} SQFT`, bold: true, alignment: 'right', border: [false, false, true, false] },
+                            { text: 'SQFT', alignment: 'center', border: [false, false, true, false] },
                             {
                               text: formatMoney(data.taxableAmount),
                               bold: true,
@@ -714,10 +720,10 @@ export class InvoicePdfService {
                               // Total Row
                               [
                                 { text: `Total ${formatMoney(data.taxableAmount)}`, alignment: 'right', bold: true, border: [false, false, true, true] },
-                                { text: '', border: [false, false, true, true] },
-                                { text: formatMoney(data.cgstAmount), alignment: 'right', bold: true, border: [false, false, true, true] },
-                                { text: '', border: [false, false, true, true] },
-                                { text: formatMoney(data.sgstAmount), alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: formatMoney(data.cgstAmount), colSpan: 2, alignment: 'right', bold: true, border: [false, false, true, true] },
+                                {},
+                                { text: formatMoney(data.sgstAmount), colSpan: 2, alignment: 'right', bold: true, border: [false, false, true, true] },
+                                {},
                                 { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, false, true] },
                               ],
                             ]
@@ -743,8 +749,8 @@ export class InvoicePdfService {
                               ],
                               [
                                 { text: `Total ${formatMoney(data.taxableAmount)}`, alignment: 'right', bold: true, border: [false, false, true, true] },
-                                { text: '', border: [false, false, true, true] },
-                                { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, true, true] },
+                                { text: formatMoney(data.totalTax), colSpan: 2, alignment: 'right', bold: true, border: [false, false, true, true] },
+                                {},
                                 { text: formatMoney(data.totalTax), alignment: 'right', bold: true, border: [false, false, false, true] },
                               ],
                             ],

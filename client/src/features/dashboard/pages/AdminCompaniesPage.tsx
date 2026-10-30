@@ -8,6 +8,7 @@ import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { formatDisplayDate } from '../../../utils/date';
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 import {
   Building2,
   Search,
@@ -277,43 +278,45 @@ export const AdminCompaniesPage: React.FC = () => {
           {/* Exhibition Dropdown & Search Input */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Exhibition Filter Dropdown */}
-            <div className="relative min-w-[280px]">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Layers className="w-4 h-4 text-purple-600" />
-              </div>
-              <select
-                value={selectedExhibitionId}
-                onChange={(e) => setSelectedExhibitionId(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30 cursor-pointer shadow-2xs"
-              >
-                <option value="">All Exhibitions & Historical Expos</option>
-                {exhibitions.map((expo) => {
-                  const now = new Date();
-                  const isCurrent = expo.status === 'PUBLISHED' && new Date(expo.endDate) >= now;
-                  return (
-                    <option key={expo.id} value={expo.id}>
-                      {expo.title} {isCurrent ? '(Active Event)' : ''} - {expo.city}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            <EventSelectorDropdown
+              events={exhibitions}
+              selectedEventId={selectedExhibitionId || 'ALL'}
+              onSelectEvent={(eventId) => setSelectedExhibitionId(eventId === 'ALL' ? '' : eventId)}
+              allowAllOption={true}
+              allOptionLabel={`All Exhibitions (${exhibitions.length})`}
+              align="left"
+              className="w-full sm:w-auto"
+              buttonClassName="w-full sm:min-w-[280px]"
+            />
 
             {/* Search Input */}
-            <div className="w-full sm:w-72">
+            <div className="w-full sm:w-80 md:w-96 lg:w-[400px] shrink-0">
               <Input
                 placeholder="Search company, contact, GST, stall..."
+                title="Search company, contact, GST, stall..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                leftIcon={<Search className="w-4 h-4" />}
-                className="py-1.5 text-xs"
+                leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+                rightIcon={
+                  search ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer p-0.5"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : null
+                }
+                className="py-2 text-xs sm:text-[13px] placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
         </div>
 
         {/* Selected Event Context Banner */}
-        {selectedExhibitionId ? (
+        {selectedExhibitionId && selectedExhibitionId !== 'ALL' ? (
           (() => {
             const currentExpo = exhibitions.find((e) => e.id === selectedExhibitionId);
             if (!currentExpo) return null;

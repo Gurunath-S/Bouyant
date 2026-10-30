@@ -2980,6 +2980,22 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 {halls.map((hall) => {
                   const isSelected = selectedRefs.some((r) => r.type === 'hall' && r.id === hall.id);
                   const strokeColor = hall.color || '#3b82f6';
+                  const hasBg = Boolean(backgroundImageUrl);
+
+                  let hallFill = '#f1f5f9';
+                  let hallFillOpacity = 1;
+
+                  if (isSelected) {
+                    hallFill = '#3b82f6';
+                    hallFillOpacity = 0.16;
+                  } else if (hall.fillColor) {
+                    hallFill = hall.fillColor;
+                    hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : (hasBg ? 0.75 : 1);
+                  } else if (hasBg) {
+                    // When blueprint is present, use clean white at 75% opacity so hall interior is vivid and clearly visible over blueprint
+                    hallFill = '#ffffff';
+                    hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : 0.75;
+                  }
 
                   return (
                     <g key={hall.id}>
@@ -2990,10 +3006,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         width={hall.width}
                         height={hall.height}
                         rx="14"
-                        fill={backgroundImageUrl ? 'rgba(255, 255, 255, 0.08)' : (isSelected ? 'rgba(59, 130, 246, 0.04)' : '#fafafa')}
+                        fill={hallFill}
+                        fillOpacity={hallFillOpacity}
                         stroke={strokeColor}
-                        strokeWidth={isSelected ? 3.5 : 2}
-                        strokeDasharray={isSelected ? 'none' : '8 6'}
+                        strokeWidth={isSelected ? 4 : 2.5}
+                        strokeDasharray="none"
                         className="transition-all cursor-crosshair"
                         onMouseDown={(e) => {
                           if (e.button === 1 || e.button === 2 || activeTool === 'pan' || isSpacePressed) {
@@ -3102,26 +3119,26 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                               height={bannerHeight}
                               rx="8"
                               fill={strokeColor}
-                              fillOpacity={isSelected ? 0.3 : 0.16}
+                              fillOpacity={isSelected ? 0.95 : 0.9}
                               stroke={strokeColor}
-                              strokeWidth={isSelected ? 2 : 1.5}
+                              strokeWidth={isSelected ? 2.5 : 1.5}
                               className="cursor-move"
                               onMouseDown={(e) => handleItemMouseDown(e, 'hall', hall.id)}
                             />
 
                             {/* Move Grip Dots */}
-                            <g className="cursor-move pointer-events-none" opacity={0.65}>
-                              <circle cx={bx + 10} cy={by + bannerHeight / 2 - 3} r="1.3" fill={strokeColor} />
-                              <circle cx={bx + 10} cy={by + bannerHeight / 2 + 3} r="1.3" fill={strokeColor} />
-                              <circle cx={bx + 14} cy={by + bannerHeight / 2 - 3} r="1.3" fill={strokeColor} />
-                              <circle cx={bx + 14} cy={by + bannerHeight / 2 + 3} r="1.3" fill={strokeColor} />
+                            <g className="cursor-move pointer-events-none" opacity={0.85}>
+                              <circle cx={bx + 10} cy={by + bannerHeight / 2 - 3} r="1.3" fill="#ffffff" />
+                              <circle cx={bx + 10} cy={by + bannerHeight / 2 + 3} r="1.3" fill="#ffffff" />
+                              <circle cx={bx + 14} cy={by + bannerHeight / 2 - 3} r="1.3" fill="#ffffff" />
+                              <circle cx={bx + 14} cy={by + bannerHeight / 2 + 3} r="1.3" fill="#ffffff" />
                             </g>
 
                             <text
                               x={bx + 23}
                               y={by + bannerHeight / 2 + 1}
                               dominantBaseline="central"
-                              fill={strokeColor}
+                              fill="#ffffff"
                               fontSize={fontSize}
                               fontWeight={
                                 fontWeight === 'black'
@@ -4073,48 +4090,48 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   const isBlocked = stall.status === 'BLOCKED';
                   const isBooked = stall.status === 'BOOKED_CONFIRMED';
 
-                  // High-contrast, professional architectural CAD palette
-                  let fillCol = '#f8fafc';
-                  let strokeCol = '#2563eb';
+                  // High-contrast, professional architectural CAD palette with richer shades and crisp 2px borders
+                  let fillCol = '#eff6ff';
+                  let strokeCol = '#1d4ed8';
                   let textCol = '#1e3a8a';
-                  let accentCol = '#3b82f6';
+                  let accentCol = '#2563eb';
 
                   if (stall.category === 'PREMIUM') {
-                    fillCol = '#f0fdf4';
-                    strokeCol = '#059669';
+                    fillCol = '#dcfce7';
+                    strokeCol = '#047857';
                     textCol = '#064e3b';
-                    accentCol = '#10b981';
+                    accentCol = '#059669';
                   } else if (stall.category === 'CORNER') {
-                    fillCol = '#fffbeb';
-                    strokeCol = '#d97706';
+                    fillCol = '#fef3c7';
+                    strokeCol = '#b45309';
                     textCol = '#78350f';
-                    accentCol = '#f59e0b';
+                    accentCol = '#d97706';
                   } else if (stall.category === 'ISLAND') {
-                    fillCol = '#faf5ff';
-                    strokeCol = '#7c3aed';
+                    fillCol = '#f3e8ff';
+                    strokeCol = '#6d28d9';
                     textCol = '#4c1d95';
-                    accentCol = '#8b5cf6';
+                    accentCol = '#7c3aed';
                   }
 
                   // Custom Multi-Color Stall Selection Override
                   const customStallColor = stall.color || initialLayoutData?.stallColors?.[stall.stallNumber] || initialLayoutData?.stallColors?.[stall.id];
                   if (customStallColor && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(customStallColor)) {
-                    fillCol = `${customStallColor}18`;
+                    fillCol = `${customStallColor}28`;
                     strokeCol = customStallColor;
                     accentCol = customStallColor;
-                    textCol = customStallColor;
+                    textCol = '#0f172a';
                   }
 
                   if (isBlocked) {
-                    fillCol = '#fff1f2';
+                    fillCol = '#ffe4e6';
                     strokeCol = '#e11d48';
                     textCol = '#9f1239';
                     accentCol = '#f43f5e';
                   } else if (isBooked) {
-                    fillCol = '#f1f5f9';
-                    strokeCol = '#64748b';
-                    textCol = '#334155';
-                    accentCol = '#94a3b8';
+                    fillCol = '#fee2e2';
+                    strokeCol = '#dc2626';
+                    textCol = '#991b1b';
+                    accentCol = '#ef4444';
                   }
 
                   const dimMarkText = stall.name && stall.name !== `Stall ${stall.stallNumber}`
@@ -4142,7 +4159,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         rx="6"
                         fill={fillCol}
                         stroke={isSelected ? '#2563eb' : strokeCol}
-                        strokeWidth={isSelected ? 3 : 1.5}
+                        strokeWidth={isSelected ? 3.5 : 2}
                         strokeDasharray={isBlocked ? '4 3' : 'none'}
                         className="transition-colors"
                       />
