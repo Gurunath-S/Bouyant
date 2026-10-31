@@ -44,6 +44,19 @@ export const paymentService = {
     return res?.data?.data || res?.data || res;
   },
 
+   recordCashPayment: async (payload: {
+    bookingId: string;
+    amount: number;
+    nextDueDate?: string;
+  }) => {
+    const res: any = await apiClient.post(
+      '/payments/cash',
+      payload
+    );
+
+    return res?.data?.data || res?.data || res;
+  },
+
   deletePayment: async (paymentId: string) => {
     const res: any = await apiClient.delete(`/payments/${paymentId}`);
     return res?.data?.data || res?.data || res;

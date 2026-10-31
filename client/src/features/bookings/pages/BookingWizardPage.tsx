@@ -700,7 +700,8 @@ export const BookingWizardPage: React.FC = () => {
         setCreatedBooking(realBooking as Booking);
         setPaymentStatusState('SUCCESS');
         clearStallSelection();
-        setCurrentStep(5);
+         navigate(`/booking/success?bookingId=${bookingId}`);
+        // setCurrentStep(5);
         return;
       }
 

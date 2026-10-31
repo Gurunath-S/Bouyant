@@ -4,6 +4,8 @@ import { Button } from '../../../../components/ui/Button';
 import { TermsAndConditionsModal } from '../TermsAndConditionsModal';
 import { formatDisplayDate } from '../../../../utils/date';
 import type { CreateBookingPayload } from '../../../../services/bookings/bookingService';
+import {AdminPaymentModeSelector} from './AdminPaymentModeSelector';
+import type { PaymentExecutionMethod} from '../../../../types';
 import {
   FileText,
   CreditCard,
@@ -67,6 +69,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [paymentExecutionMode, setPaymentExecutionMode] = useState<'DIRECT_OFFLINE' | 'ONLINE_GATEWAY'>('ONLINE_GATEWAY');
   const [offlineMethod, setOfflineMethod] = useState<string>('ADMIN_DIRECT_ALLOCATION');
+  const [paymentExecutionMethod, setPaymentExecutionMethod] = useState<PaymentExecutionMethod>('ONLINE_RAZORPAY');
   const [nextPaymentDate, setNextPaymentDate] = useState<Date | null>(null);
   const today = new Date();
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -121,12 +124,18 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
     if (selectedStalls.length === 0 || !selectedCompany) return;
 
     const isDirectOffline = isAdmin && paymentExecutionMode === 'DIRECT_OFFLINE';
-
+    const isCash = isAdmin && paymentExecutionMethod === 'CASH';
     // Prioritize exhibitor company contact person, email, and mobile when booking as admin/staff
     const contactPerson = (!isAdmin && user?.name) ? user.name : (selectedCompany.contactPerson || user?.name || '');
     const contactEmail = (!isAdmin && user?.email) ? user.email : (selectedCompany.email || user?.email || '');
     const contactPhone = (!isAdmin && user?.phone) ? user.phone : (selectedCompany.mobile || user?.phone || '');
 
+       let effectivePaymentMethod: PaymentExecutionMethod = 'ONLINE_RAZORPAY';
+
+    if(isCash){
+      effectivePaymentMethod = 'CASH';
+    }
+    
     const payload: CreateBookingPayload = {
       companyId: selectedCompany.id,
       stallIds: selectedStalls.map((s) => s.id),
@@ -150,8 +159,9 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
         }),
       paymentType: apiPaymentType,
       percentage: isPartial ? effectivePartialPercent : 100,
-      confirmDirectly: isDirectOffline,
+      confirmDirectly: isCash,
       paymentMethod: isDirectOffline ? offlineMethod : undefined,
+      paymentMode: effectivePaymentMethod,
         ...(isPartial && nextPaymentDate && {
      paymentReminderDate: [
             nextPaymentDate.getFullYear(),
@@ -502,7 +512,13 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
             )}
           </div>
 
-
+       {/* Admin Payment Mode Selector Component */}
+          {isAdmin && (
+            <AdminPaymentModeSelector
+              selectedMode={paymentExecutionMethod}
+              onSelectMode={setPaymentExecutionMethod}
+             />
+          )}
 
         </div>
 
@@ -692,27 +708,43 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               {/* Privileged Desk Allocation / Payment Mode Selector: Hidden for now per admin request to keep Razorpay alone */}
               {/* Note: Kept commented for quick re-enabling if needed */}
 
-              <Button
-                type="button"
-                variant="primary"
-                size="lg"
-                disabled={payableToday <= 0 || isPartial && nextPaymentDate === null}
-                className="w-full text-sm font-extrabold shadow-md hover:shadow-lg border-none py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#9cc542] hover:bg-[#82aa30] text-[#012970]"
-                onClick={handlePayClick}
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                {payableToday <= 0
-                  ? 'No Payment Required'
-                  : isPartial && nextPaymentDate === null
-                    ? 'Select Due Date to Pay'
+              
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              disabled={
+                payableToday <= 0 ||
+                (isPartial && nextPaymentDate === null)
+              }
+              className="w-full text-sm font-extrabold shadow-md hover:shadow-lg border-none py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#9cc542] hover:bg-[#82aa30] text-[#012970]"
+              onClick={handlePayClick}
+              rightIcon={<ArrowRight className="w-4 h-4" />}
+            >
+              {payableToday <= 0
+                ? 'No Payment Required'
+                : isPartial && nextPaymentDate === null
+                  ? 'Select Due Date to Pay'
+                  : isAdmin && paymentExecutionMethod === 'CASH'
+                    ? `Confirm Cash Booking (₹${payableToday.toLocaleString('en-IN')})`
                     : `Pay ₹${payableToday.toLocaleString('en-IN')} Now`}
-              </Button>
+            </Button>
 
-              {/* Razorpay Gateway Badge */}
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Secured by Razorpay • UPI, Cards, NetBanking</span>
-              </div>
+            {/* Payment Mode Processing Indicator Badge */}
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
+              {isAdmin && paymentExecutionMethod === 'CASH' ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Direct Cash Collection • Instant Confirmed Invoice</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Secured by Razorpay • UPI, Cards, NetBanking</span>
+                </>
+              )}
+            </div>
+
 
               {/* Compact & Professional Terms Agreement Checkbox */}
               <div

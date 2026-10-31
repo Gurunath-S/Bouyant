@@ -104,7 +104,8 @@ export const PaymentSuccessPage: React.FC = () => {
 
   const invoiceNumber = booking?.invoices?.[0]?.invoiceNumber || `INV-${booking?.bookingReference || '2026'}`;
   const bookingDate = booking?.createdAt ? new Date(booking.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
-  const paymentMethod = booking?.payments?.[0]?.paymentMethod || 'Online Payment';
+  const paymentMethod = booking?.payments?.[0]?.paymentMode || 'Online Payment';
+  
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

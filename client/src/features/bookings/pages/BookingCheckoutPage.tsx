@@ -79,43 +79,43 @@ export const BookingCheckoutPage: React.FC = () => {
     }
   };
 
-  const handleConfirmAndPay = async () => {
-    if (!stall) return;
-    try {
-      setProcessing(true);
-      setErrorMsg('');
+  // const handleConfirmAndPay = async () => {
+  //   if (!stall) return;
+  //   try {
+  //     setProcessing(true);
+  //     setErrorMsg('');
 
-      let activeCompanyId = selectedCompanyId;
-      if (!activeCompanyId) {
-        activeCompanyId = await handleCreateCompanyInline();
-      }
+  //     let activeCompanyId = selectedCompanyId;
+  //     if (!activeCompanyId) {
+  //       activeCompanyId = await handleCreateCompanyInline();
+  //     }
 
-      // Step 1: Create atomic server booking
-      const booking = await bookingService.createBooking({
-        stallIds: [stall.id],
-        companyId: activeCompanyId,
-        paymentType: 'FullPayment',
-        percentage: 100,
-      });
+  //     // Step 1: Create atomic server booking
+  //     const booking = await bookingService.createBooking({
+  //       stallIds: [stall.id],
+  //       companyId: activeCompanyId,
+  //       paymentType: 'FullPayment',
+  //       percentage: 100,
+  //     });
 
-      const bId = booking.bookingId || booking.id;
-      const bTotal = booking.amount || booking.grandTotal;
+  //     const bId = booking.bookingId || booking.id;
+  //     const bTotal = booking.amount || booking.grandTotal;
 
-      // Step 2: Simulate Payment processing
-      const paymentRes = await paymentService.processPayment({
-        bookingId: bId,
-        amount: Number(bTotal),
-        paymentMethod: 'CORPORATE_CARD',
-      });
+  //     // Step 2: Simulate Payment processing
+  //     const paymentRes = await paymentService.processPayment({
+  //       bookingId: bId,
+  //       amount: Number(bTotal),
+  //       paymentMethod: 'CORPORATE_CARD',
+  //     });
 
-      // Step 3: Navigate to confirmation page
-      navigate(`/payment-success?bookingId=${bId}&paymentId=${paymentRes.id}`);
-    } catch (err: any) {
-      setErrorMsg(err.message || err.response?.data?.message || 'Payment processing failed.');
-    } finally {
-      setProcessing(false);
-    }
-  };
+  //     // Step 3: Navigate to confirmation page
+  //     navigate(`/payment-success?bookingId=${bId}&paymentId=${paymentRes.id}`);
+  //   } catch (err: any) {
+  //     setErrorMsg(err.message || err.response?.data?.message || 'Payment processing failed.');
+  //   } finally {
+  //     setProcessing(false);
+  //   }
+  // };
 
   if (loading) {
     return <div className="p-12 text-center text-slate-500 font-medium animate-pulse">Initializing Secure Checkout...</div>;
@@ -299,7 +299,7 @@ export const BookingCheckoutPage: React.FC = () => {
               <p>Stall price locked via PostgreSQL atomic transaction block.</p>
             </div>
 
-            <Button
+            {/* <Button
               variant="primary"
               size="lg"
               className="w-full shadow-md"
@@ -308,7 +308,7 @@ export const BookingCheckoutPage: React.FC = () => {
               leftIcon={<CreditCard className="w-4 h-4" />}
             >
               Pay ₹{grandTotal.toLocaleString()} & Generate Invoice
-            </Button>
+            </Button> */}
           </div>
         </div>
       </div>

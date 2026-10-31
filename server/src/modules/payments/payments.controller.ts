@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { PaymentsService } from './payments.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { sendResponse } from '../../utils/response.js';
+import { ApiError } from '../../utils/apiError.js';
 
 export class PaymentsController {
   static verifyPayment = async (req:Request, res: Response) => {
@@ -93,5 +94,41 @@ export class PaymentsController {
       data: result,
     });
   };
+
+  static async cashPayment(req:AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    throw ApiError.unauthorized(
+      'Authentication is required.'
+    );
+  }
+
+  const allowedRoles = [
+    'SUPERADMIN',
+    'ADMIN',
+    'STAFF',
+  ];
+
+  if (!allowedRoles.includes(req.user.role)) {
+    throw ApiError.forbidden(
+      'Only SuperAdmin, Admin, and Staff can record cash payments.'
+    );
+  }
+
+  const { bookingId, amount, nextDueDate } = req.body;
+
+  const result = await PaymentsService.cashPayment({
+    bookingId,
+    amount,
+    nextDueDate,
+    user: req.user,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Cash payment processed successfully.',
+    data: result,
+  });
+}
+
 }
 

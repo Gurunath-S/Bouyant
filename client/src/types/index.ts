@@ -24,6 +24,8 @@ export type BookingPaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUN
 
 export type InvoiceStatus = 'ISSUED' | 'PAID' | 'VOID';
 
+export type PaymentExecutionMethod = 'ONLINE_RAZORPAY' | 'CASH';
+
 export interface User {
   id: string;
   email: string;

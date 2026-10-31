@@ -128,6 +128,7 @@ export interface BookingConfirmationEmailPayload {
   userName?: string | null;
   temporaryPassword?: string | null;
   pdfBuffer?: Buffer | null;
+  paymentMode?: string;
 }
 
 export interface PaymentAdminEmailPayload {
@@ -153,6 +154,7 @@ export interface PaymentAdminEmailPayload {
   paymentReference: string;
   notificationEmails: string[];
   pdfBuffer?: Buffer | null;
+  paymentMode?: string;
 }
 
 export interface InvoiceEmailPayload {
@@ -309,6 +311,17 @@ export class EmailService {
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Payment Status</td>
                     <td align="right" style="color:#0f172a; font-weight:700; vertical-align:top;">${paymentText}</td>
+                  </tr>
+                   <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">
+                      Payment Mode
+                    </td>
+                    <td
+                      align="right"
+                      style="color:#0f172a; font-weight:700; vertical-align:top;"
+                    >
+                      ${escapeHtml(payload.paymentMode || 'Not specified')}
+                    </td>
                   </tr>
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">${isBalancePayment ? 'Amount Paid (This Payment)' : 'Amount Paid'}</td>
@@ -522,9 +535,16 @@ export class EmailService {
                       ${payload.stalls.map((s) => `<div>Stall ${s.stallNumber} <span style="font-weight:normal; color:#64748b; font-size:12px;">(${s.category}${s.price ? ` - ₹${this.formatINR(s.price)}` : ''})</span></div>`).join('')}
                     </td>
                   </tr>
-                  <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Payment Method</td>
-                    <td align="right" style="color:#0f172a; font-weight:600; vertical-align:top;">${payload.paymentMethod || 'Online Payment'}</td>
+                 <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">
+                      Payment Mode
+                    </td>
+                    <td
+                      align="right"
+                      style="color:#0f172a; font-weight:700; vertical-align:top;"
+                    >
+                      ${escapeHtml(payload.paymentMode || 'Not specified')}
+                    </td>
                   </tr>
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Payment Reference</td>

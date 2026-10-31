@@ -1,5 +1,5 @@
 import { apiClient } from '../api/apiClient';
-import { Booking } from '../../types';
+import { Booking,PaymentExecutionMethod} from '../../types';
 
 export interface AdminBookingPayload {
   exhibitionId: string;
@@ -7,6 +7,7 @@ export interface AdminBookingPayload {
   companyId?: string;
   confirmDirectly?: boolean;
   paymentMethod?: string;
+  paymentMode?: PaymentExecutionMethod;
   notes?: string;
 }
 export interface CreateBookingPayload {
@@ -30,6 +31,7 @@ export interface CreateBookingPayload {
   percentage: number;
   confirmDirectly?: boolean;
   paymentMethod?: string;
+  paymentMode?: PaymentExecutionMethod;
   notes?: string;
   paymentReminderDate?: string | null;
 }

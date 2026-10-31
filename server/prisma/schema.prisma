@@ -84,6 +84,11 @@ enum ReminderStatus {
   CANCELLED
 }
 
+enum PaymentMode {
+  ONLINE_RAZORPAY
+  CASH
+}
+
 model User {
   id                 String         @id @default(uuid())
   email              String
@@ -316,6 +321,7 @@ model Payment {
   razorpaySignature String?
   installmentType   String?
   paymentMethod     String?
+  paymentMode       PaymentMode?
   failureReason     String?
   nextPaymentDate   DateTime?
   paidAt            DateTime?

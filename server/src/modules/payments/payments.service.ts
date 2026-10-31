@@ -1,48 +1,19 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { Prisma, PaymentStatus, Payment } from '@prisma/client';
+import { Prisma, PaymentStatus,PaymentMode } from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
 import { TokenPayload } from '../../utils/jwt.js';
-import { EmailService } from '../../services/email.service.js';
-import { InvoicePdfService } from '../../services/InvoicePdfService.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { generateReference } from '../../utils/reference.js';
 import { normalizePagination } from '../../utils/pagination.js';
 import { updateBookingPaymentReminder } from '../../services/paymentReminder.service.js'
-import { WhatsappService } from '../../services/whatsapp.service.js';
+import {PaymentNotificationService} from '../../services/paymentNotification.service.js'
+
+import { BookingsService } from '../bookings/bookings.service.js';
 export class PaymentsService {
 
-private static async createInvoice(
-  tx: Prisma.TransactionClient,
-  booking: any,
-  payment: Payment,
-  paymentAmount: Prisma.Decimal
-) {
-  const invoiceNumber = `INV-${Date.now()}`;
- 
-  const totalAmount = paymentAmount
-    .div(new Prisma.Decimal(1.18))
-    .toDecimalPlaces(2);
- 
-  const taxAmount = paymentAmount
-    .minus(totalAmount)
-    .toDecimalPlaces(2);
- 
-  return await tx.invoice.create({
-    data: {
-      invoiceNumber,
-      bookingId: booking.id,
-      paymentId: payment.id,
-      companyId: booking.companyId,
-      totalAmount,
-      taxAmount,
-      grandTotal: paymentAmount,
-      status: 'PAID',
-    },
-  });
-}
 
   /**
    * VERIFY PAYMENT SERVER-SIDE
@@ -669,7 +640,7 @@ private static async createInvoice(
         }
       }
     
-      const invoice = await this.createInvoice(tx,booking,currentPayment,paymentAmount);
+      const invoice = await BookingsService.createInvoice(tx,booking,currentPayment,paymentAmount);
       try {
         await updateBookingPaymentReminder(
           tx,
@@ -739,140 +710,29 @@ private static async createInvoice(
   );
 
   // OUT OF BAND SIDE-EFFECTS (AFTER DB TRANSACTION COMMITS)
-  if (result.emailData) {
-    const { booking, payment, invoice, paymentAmount, finalBalance, newPaidAmount, isInitialPayment } = result.emailData;
-    setImmediate(async () => {
-      try {
-        const grandTotalNum = Number(booking.grandTotal || 0);
-        const cumulativePaidNum = newPaidAmount ? newPaidAmount.toNumber() : Number(booking.paidAmount || 0) + paymentAmount.toNumber();
-        const calculatedPercentage = grandTotalNum > 0
-          ? Math.min(100, Math.round((cumulativePaidNum / grandTotalNum) * 100))
-          : 100;
-        const isBalancePayment = !isInitialPayment;
+ 
+if (result.emailData) {
+  const {
+    booking,
+    payment,
+    invoice,
+    paymentAmount,
+    finalBalance,
+    newPaidAmount,
+    isInitialPayment,
+  } = result.emailData;
 
-        const invoiceNumber = invoice?.invoiceNumber || `INV-${booking.bookingReference}`;
+  void PaymentNotificationService.sendPaymentEmails({
+    booking,
+    payment,
+    invoice,
+    paymentAmount,
+    finalBalance,
+    newPaidAmount,
+    isInitialPayment,
+  });
+}
 
-        let pdfBuffer: Buffer | null = null;
-        if (invoice) {
-          const pdfData = InvoicePdfService.buildInvoicePdfData(invoice, booking);
-          pdfBuffer = await InvoicePdfService.generateInvoicePdf(pdfData).catch((err: any) => {
-            console.error('⚠️ [PDF GENERATION FAILED] PDF creation error:', err?.message || err);
-            return null;
-          });
-        }
-
-        const stalls = (booking.stalls || []).map((s: any) => ({
-          stallNumber: s.stall?.stallNumber || s.stallId,
-          category: s.stall?.category || 'Standard',
-        }));
-
-        const bookingOwnerUser = booking.company.users?.find((u) => u.id === (booking as any).userId) || booking.company.users?.[0];
-        const comp = booking.company as any;
-        const billingName = (booking.billingName && booking.billingName.trim()) || comp?.name || 'Exhibitor';
-        const contactPerson = (booking.contactPerson && booking.contactPerson.trim()) || comp?.contactPerson || comp?.name || 'Exhibitor';
-        const contactEmail = (booking.contactEmail && booking.contactEmail.trim()) || bookingOwnerUser?.email || comp?.email || '';
-        const contactPhone = (booking.contactPhone && booking.contactPhone.trim()) || comp?.mobile || comp?.phone || '';
-        const billingGst = (booking.billingGst && booking.billingGst.trim()) || comp?.gstNumber || undefined;
-        const displayUsername = bookingOwnerUser?.username || null;
-
-        await EmailService.sendBookingConfirmationEmail({
-          toEmail: comp?.email || contactEmail,
-          toName: contactPerson,
-          companyName: billingName,
-          bookingReference: booking.bookingReference,
-          exhibitionTitle: booking.exhibition.title,
-          stalls,
-          invoiceNumber,
-          paymentPercentage: calculatedPercentage,
-          paymentAmount: paymentAmount.toNumber(),
-          totalPaidAmount: cumulativePaidNum,
-          grandTotal: grandTotalNum,
-          remainingBalance: finalBalance.toNumber(),
-          isBalancePayment,
-          paymentDate: payment.paidAt || new Date(),
-          paymentReference: payment.paymentReference,
-          userName: displayUsername,
-          pdfBuffer,
-        }).catch((err: any) => console.error('⚠️ [EMAIL SEND FAILED] Confirmation email error:', err?.message || err));
-
-        // DISPATCH ADMIN PAYMENT NOTIFICATION EMAIL
-        try {
-          const adminEmails: string[] = [];
-
-          if (booking.exhibition?.notificationEmails) {
-            const parsed = booking.exhibition.notificationEmails
-              .split(/[\s,;]+/)
-              .map((e: string) => e.trim())
-              .filter((e: string) => e.length > 0 && e.includes('@'));
-            adminEmails.push(...parsed);
-          }
-
-          const createdByEmail = (booking.exhibition as any)?.createdBy?.email;
-          if (createdByEmail) {
-            adminEmails.push(createdByEmail);
-          }
-
-          if (adminEmails.length === 0) {
-            const adminUsers = await prisma.user.findMany({
-              where: { role: { in: ['ADMIN', 'SUPERADMIN'] }, isActive: true },
-              select: { email: true },
-            });
-            adminUsers.forEach((u) => {
-              if (u.email) adminEmails.push(u.email);
-            });
-          }
-
-          const uniqueAdminEmails = Array.from(new Set(adminEmails));
-
-          if (uniqueAdminEmails.length > 0) {
-            await EmailService.sendPaymentAdminEmail({
-              notificationEmails: uniqueAdminEmails,
-              companyName: billingName,
-              contactPerson: contactPerson,
-              email: contactEmail || comp?.email,
-              phone: contactPhone,
-              gstNumber: billingGst,
-              bookingReference: booking.bookingReference,
-              exhibitionTitle: booking.exhibition?.title || 'Exhibition Event',
-              stalls: (booking.stalls || []).map((s: any) => ({
-                stallNumber: s.stall?.stallNumber || s.stallId,
-                category: s.stall?.category || 'Standard',
-                price: s.price ? Number(s.price) : undefined,
-              })),
-              invoiceNumber,
-              paymentPercentage: calculatedPercentage,
-              paymentAmount: paymentAmount.toNumber(),
-              remainingBalance: finalBalance.toNumber(),
-              grandTotal: grandTotalNum,
-              paymentMethod: payment.paymentMethod || 'Online Gateway',
-              paymentDate: payment.paidAt || new Date(),
-              paymentReference: payment.paymentReference,
-              pdfBuffer,
-            });
-          }
-        } catch (adminEmailErr: any) {
-          console.error('⚠️ [ADMIN PAYMENT EMAIL FAILED]:', adminEmailErr?.message || adminEmailErr);
-        }
-
-        //  // Send WhatsApp Confirmation with Invoice attachment via AskEva
-        //   await WhatsappService.sendBookingConfirmation({
-        //     booking,
-        //     payment,
-        //     invoice,
-        //     paymentAmount: paymentAmount.toNumber(),
-        //   });
-
-        // Dispatch notifications & admin alerts
-        // NotificationsService.dispatchEvent({
-        //   event: 'PAYMENT_RECEIVED',
-        //   bookingId: booking.id,
-        //   paymentId: payment.id,
-        // });
-      } catch (err: any) {
-        console.error('⚠️ [AFTER-PAYMENT SIDE EFFECT FAILED]:', err?.message || err);
-      }
-    });
-  }
 
   return result.response;
 }
@@ -1081,6 +941,7 @@ static async createBalancePaymentOrder(
       currency: 'INR',
       status: 'PENDING',
       provider: 'RAZORPAY',
+      paymentMode:PaymentMode.ONLINE_RAZORPAY,
       razorpayOrderId: razorpayOrder.id,
       installmentType: installmentTypeStr,
       nextPaymentDate: isPartial
@@ -1318,5 +1179,261 @@ static async createBalancePaymentOrder(
       message: `Payment record ${payment.paymentReference} deleted successfully.`,
     };
   }
+
+
+    static async cashPayment(input: {
+  bookingId: string;
+  amount: number;
+  nextDueDate?: string;
+  user: {
+    role: string;
+  };
+}) {
+  const { bookingId, amount, nextDueDate } = input;
+
+  // 1. Validate amount
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw ApiError.badRequest(
+      'Cash payment amount must be greater than zero.'
+    );
+  }
+
+  // 2. Validate staff role
+  const allowedRoles = ['SUPERADMIN', 'ADMIN', 'STAFF'];
+
+  if (!allowedRoles.includes(input.user.role)) {
+    throw ApiError.forbidden(
+      'Only SuperAdmin, Admin, and Staff can record cash payments.'
+    );
+  }
+
+  // 3. Validate next due date format and actual date
+  let nextPaymentDate: Date | null = null;
+
+  if (nextDueDate !== undefined) {
+    const parsedDate = new Date(
+      `${nextDueDate}T00:00:00.000Z`
+    );
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate) ||
+      Number.isNaN(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== nextDueDate
+    ) {
+      throw ApiError.badRequest(
+        'Invalid next payment due date.'
+      );
+    }
+     nextPaymentDate = parsedDate;
+  }
+
+  // 4. Process cash payment inside a transaction
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          stalls: {
+            include: {
+              stall: true,
+            },
+          },
+        },
+      });
+
+      if (!booking) {
+        throw ApiError.notFound('Booking not found.');
+      }
+
+      // 5. Validate booking status
+      if (
+        booking.status === 'CANCELLED' ||
+        booking.status === 'EXPIRED'
+      ) {
+        throw ApiError.badRequest(
+          `Cannot record payment for a ${booking.status.toLowerCase()} booking.`
+        );
+      }
+
+     if (booking.status !== 'PENDING_PAYMENT') {
+        throw ApiError.badRequest(
+          'Balance payment is allowed only for bookings with PENDING_PAYMENT status.'
+        );
+      }
+
+      if (booking.stalls.length === 0) {
+        throw ApiError.badRequest(
+          'No stalls are associated with this booking.'
+        );
+      }
+
+      // 6. Calculate the current balance
+      const paidAmount = Number(booking.paidAmount);
+      const remainingBalance = Number(booking.balanceAmount);
+
+      if (remainingBalance <= 0) {
+        throw ApiError.badRequest(
+          'This booking has no remaining balance.'
+        );
+      }
+
+      // Work in paise to avoid floating-point comparison issues.
+      const amountInPaise = Math.round(amount * 100);
+      const balanceInPaise = Math.round(remainingBalance * 100);
+
+      if (
+        !Number.isSafeInteger(amountInPaise) ||
+        amountInPaise <= 0
+      ) {
+        throw ApiError.badRequest(
+          'Invalid cash payment amount.'
+        );
+      }
+
+      if (amountInPaise > balanceInPaise) {
+        throw ApiError.badRequest(
+          `Cash amount cannot exceed the remaining balance of ₹${remainingBalance.toFixed(2)}.`
+        );
+      }
+
+      // 7. Calculate the updated payment totals
+      const newPaidAmount = (Math.round(paidAmount * 100) + amountInPaise) / 100;
+
+      const newBalanceAmount =(balanceInPaise - amountInPaise) / 100;
+
+      const isFullyPaid = newBalanceAmount === 0;
+
+      const isPartial = amountInPaise < newBalanceAmount;
+      const installmentTypeStr = isPartial
+    ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
+    : 'BALANCE';
+      // 10. Create a successful cash payment record
+      const payment = await tx.payment.create({
+        data: {
+          paymentReference: generateReference('PAY', 6),
+          bookingId: booking.id,
+          amount,
+          currency: 'INR',
+          status: PaymentStatus.SUCCESS,
+          provider: 'OFFLINE_ADMIN',
+          paymentMode:PaymentMode.CASH,
+          paymentMethod:'DIRECT_ADMIN',
+          installmentType: installmentTypeStr,
+          nextPaymentDate: isFullyPaid
+            ? null
+            : nextPaymentDate,
+          paidAt: new Date(),
+        },
+      });
+
+      // 11. Update booking totals and status
+     // 11. Update booking totals and status
+          const updatedBooking = await tx.booking.update({
+              where: {
+                id: booking.id,
+              },
+            data: {
+              paidAmount: newPaidAmount,
+              balanceAmount: newBalanceAmount,
+              paymentStatus: isFullyPaid
+                ? 'PAID_FULL'
+                : 'PARTIALLY_PAID',
+              status: isFullyPaid
+                ? 'CONFIRMED'
+                : 'PENDING_PAYMENT',
+              expiresAt: isFullyPaid
+                ? null
+                : booking.expiresAt,
+            },
+              include: {
+                stalls: {
+                  include: {
+                    stall: true,
+                  },
+                },
+              },
+            });
+        
+        // 12. Create invoice for this payment
+          const invoice = await BookingsService.createInvoice(
+            tx,
+            booking,
+            payment,
+            new Prisma.Decimal(amount)
+          );
+
+        // 13. Schedule or cancel payment reminders
+        await updateBookingPaymentReminder(
+          tx,
+          updatedBooking.id,
+          payment.id,
+          isFullyPaid ? null : payment.nextPaymentDate,
+          updatedBooking.balanceAmount
+        );
+
+       return {
+              payment,
+              booking: updatedBooking,
+              invoice,
+              isFullyPaid,
+              emailData: {
+              booking: updatedBooking,
+              payment,
+              invoice,
+
+              // Amount received in this transaction only
+              paymentAmount: new Prisma.Decimal(amount),
+
+              // Remaining balance after this payment
+              finalBalance: new Prisma.Decimal(newBalanceAmount),
+
+              // Cumulative amount paid after this payment
+              newPaidAmount: new Prisma.Decimal(newPaidAmount),
+
+              // Check the booking's payment status before this transaction
+              isInitialPayment: false,
+            },
+                        };
+                },
+            {
+              timeout: 10000,
+              isolationLevel: 'Serializable',
+            }
+          );
+          
+// Send email/WhatsApp notifications after transaction commit
+  // Send email notification after transaction commit
+  if (result.emailData) {
+     void PaymentNotificationService
+     .sendPaymentEmails(result.emailData)
+     .catch((err: unknown) => {
+      console.error('Cash payment email failed:', err);
+    });
+}
+    // }
+  // 14. Return the result after the transaction commits
+  return {
+    success: true,
+    message: result.isFullyPaid
+      ? 'Cash payment recorded successfully. Booking is fully paid and confirmed.'
+      : 'Partial cash payment recorded successfully. Remaining balance is pending.',
+    data: {
+      paymentId: result.payment.id,
+      paymentReference: result.payment.paymentReference,
+      paymentMethod: result.payment.paymentMethod,
+      paymentStatus: result.payment.status,
+      paidThisTransaction: Number(result.payment.amount),
+      totalPaidAmount: Number(result.booking.paidAmount),
+      balanceAmount: Number(result.booking.balanceAmount),
+      bookingId: result.booking.id,
+      bookingStatus: result.booking.status,
+      bookingPaymentStatus: result.booking.paymentStatus,
+      nextPaymentDate:
+        result.payment.nextPaymentDate,
+      paidAt: result.payment.paidAt,
+    },
+  };
+}
+
 }
 

@@ -204,62 +204,62 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
     setCurrentStep(3);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!exhibition) return;
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!exhibition) return;
 
-    if (selectedStallIds.length === 0) {
-      setErrorMsg('Please select at least one available stall for registration.');
-      return;
-    }
+  //   if (selectedStallIds.length === 0) {
+  //     setErrorMsg('Please select at least one available stall for registration.');
+  //     return;
+  //   }
 
-    try {
-      setSubmitting(true);
-      setErrorMsg(null);
+  //   try {
+  //     setSubmitting(true);
+  //     setErrorMsg(null);
 
-      let targetCompanyId = selectedCompanyId;
+  //     let targetCompanyId = selectedCompanyId;
 
-      // Create new company if needed
-      if (companyMode === 'NEW') {
-        const createdComp = await companyService.createCompany({
-          ...newCompany,
-          edition: exhibition.edition,
-          eventCode: exhibition.eventCode,
-        });
-        targetCompanyId = createdComp?.company?.id || createdComp?.id;
-      }
+  //     // Create new company if needed
+  //     if (companyMode === 'NEW') {
+  //       const createdComp = await companyService.createCompany({
+  //         ...newCompany,
+  //         edition: exhibition.edition,
+  //         eventCode: exhibition.eventCode,
+  //       });
+  //       targetCompanyId = createdComp?.company?.id || createdComp?.id;
+  //     }
 
-      if (!targetCompanyId) {
-        setErrorMsg('Please select or create an exhibitor company.');
-        setSubmitting(false);
-        return;
-      }
+  //     if (!targetCompanyId) {
+  //       setErrorMsg('Please select or create an exhibitor company.');
+  //       setSubmitting(false);
+  //       return;
+  //     }
 
-      // Submit booking
-      const effectivePaymentMethod = confirmDirectly
-        ? (isStaff ? 'OFFLINE_STAFF_DIRECT' : (paymentMethod || 'OFFLINE_ADMIN_DIRECT'))
-        : undefined;
+  //     // Submit booking
+  //     const effectivePaymentMethod = confirmDirectly
+  //       ? (isStaff ? 'OFFLINE_STAFF_DIRECT' : (paymentMethod || 'OFFLINE_ADMIN_DIRECT'))
+  //       : undefined;
 
-      const booking = await bookingService.createBooking({
-        exhibitionId: exhibition.id,
-        stallIds: selectedStallIds,
-        companyId: targetCompanyId,
-        confirmDirectly,
-        paymentMethod: effectivePaymentMethod,
-        notes: notes.trim() || undefined,
-      });
+  //     const booking = await bookingService.createBooking({
+  //       exhibitionId: exhibition.id,
+  //       stallIds: selectedStallIds,
+  //       companyId: targetCompanyId,
+  //       confirmDirectly,
+  //       paymentMethod: effectivePaymentMethod,
+  //       notes: notes.trim() || undefined,
+  //     });
 
-      onSuccess(booking);
-      onClose();
-    } catch (err: any) {
-      console.error('Admin event registration failed:', err);
-      setErrorMsg(
-        err.response?.data?.message || err.message || 'Failed to complete registration.'
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  //     onSuccess(booking);
+  //     onClose();
+  //   } catch (err: any) {
+  //     console.error('Admin event registration failed:', err);
+  //     setErrorMsg(
+  //       err.response?.data?.message || err.message || 'Failed to complete registration.'
+  //     );
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
 
   if (!isOpen || !exhibition) return null;
 
@@ -815,7 +815,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
             </Button>
           )}
 
-          {currentStep === 3 && (
+          {/* {currentStep === 3 && (
             <Button
               type="button"
               variant="primary"
@@ -826,7 +826,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
             >
               Confirm & Finalize Registration
             </Button>
-          )}
+          )} */}
         </div>
       </div>
     </Modal>

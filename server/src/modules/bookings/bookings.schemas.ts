@@ -35,6 +35,7 @@ export const CreateBookingSchema = z.object({
 
   // Optional payment method label recorded on the offline payment record
   paymentMethod: z.string().nullable().optional(),
+   paymentMode: z.enum(['ONLINE_RAZORPAY', 'CASH']).optional(),
 
   // Internal booking notes (admin use)
   notes: z.string().nullable().optional(),
