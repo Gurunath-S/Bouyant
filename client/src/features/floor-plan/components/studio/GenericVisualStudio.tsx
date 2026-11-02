@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   Minimize2,
   Maximize2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   HallZone,
@@ -310,6 +311,76 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
   const [isMultiSelectMode, setIsMultiSelectMode] = useState<boolean>(false);
   const [isUploadingBlueprint, setIsUploadingBlueprint] = useState<boolean>(false);
   const pendingBlueprintUploadRef = useRef<Promise<string | undefined> | null>(null);
+
+  // Blueprint URL Input & Validation State
+  const [blueprintUrlInput, setBlueprintUrlInput] = useState<string>('');
+  const [blueprintUrlError, setBlueprintUrlError] = useState<string | null>(null);
+  const [isValidatingBlueprintUrl, setIsValidatingBlueprintUrl] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isBgModalOpen) {
+      setBlueprintUrlInput(backgroundImageUrl || '');
+      setBlueprintUrlError(null);
+      setIsValidatingBlueprintUrl(false);
+    }
+  }, [isBgModalOpen, backgroundImageUrl]);
+
+  const handleApplyBlueprintUrl = useCallback(() => {
+    const trimmed = (blueprintUrlInput || '').trim();
+    if (!trimmed) {
+      setBlueprintUrlError('Blueprint image URL cannot be empty. Please enter a valid URL or upload a file.');
+      return false;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (!['http:', 'https:', 'blob:', 'data:'].includes(parsed.protocol)) {
+        setBlueprintUrlError('Please enter a valid HTTP or HTTPS image URL (e.g. https://example.com/venue-blueprint.png).');
+        return false;
+      }
+    } catch {
+      setBlueprintUrlError('Please enter a valid HTTP or HTTPS image URL (e.g. https://example.com/venue-blueprint.png).');
+      return false;
+    }
+
+    setIsValidatingBlueprintUrl(true);
+    setBlueprintUrlError(null);
+
+    const testImg = new window.Image();
+    testImg.onload = () => {
+      setIsValidatingBlueprintUrl(false);
+      setBlueprintUrlError(null);
+      setBackgroundImageUrl(trimmed);
+      setShowBlueprint(true);
+    };
+    testImg.onerror = () => {
+      setIsValidatingBlueprintUrl(false);
+      setBlueprintUrlError('Unable to load image from this URL. Please verify the URL points to an accessible image (PNG, JPG, SVG, WebP).');
+    };
+    testImg.src = trimmed;
+    return true;
+  }, [blueprintUrlInput]);
+
+  const handleCloseBgModal = useCallback(() => {
+    const trimmed = (blueprintUrlInput || '').trim();
+    if (trimmed && trimmed !== (backgroundImageUrl || '')) {
+      try {
+        const parsed = new URL(trimmed);
+        if (!['http:', 'https:', 'blob:', 'data:'].includes(parsed.protocol)) {
+          setBlueprintUrlError('Please enter a valid HTTP or HTTPS image URL (e.g. https://example.com/venue-blueprint.png).');
+          return;
+        }
+      } catch {
+        setBlueprintUrlError('Please enter a valid HTTP or HTTPS image URL (e.g. https://example.com/venue-blueprint.png).');
+        return;
+      }
+      setBackgroundImageUrl(trimmed);
+      setShowBlueprint(true);
+    } else if (!trimmed && backgroundImageUrl) {
+      setBackgroundImageUrl(undefined);
+    }
+    setIsBgModalOpen(false);
+  }, [blueprintUrlInput, backgroundImageUrl]);
 
   // Map Movement State (Spacebar held or Pan mode)
   const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
@@ -2445,7 +2516,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       }`}
     >
       {/* Studio Top Control Header */}
-      <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-slate-800 shadow-xs z-30 shrink-0">        <div className="flex items-center gap-3">
+      <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-slate-800 shadow-xs z-20 shrink-0">
+        <div className="flex items-center gap-3">
           {onBack && (
             <Tooltip content="Back to Event" description="Return to exhibition details and management" position="bottom">
               <button
@@ -4545,7 +4617,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       {isBgModalOpen && (() => {
         const bgModal = (
           <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
-            <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={() => setIsBgModalOpen(false)} aria-hidden="true" />
+            <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={handleCloseBgModal} aria-hidden="true" />
             <div className="relative z-10 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
@@ -4560,7 +4632,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                 </div>
               </div>
               <button
-                onClick={() => setIsBgModalOpen(false)}
+                onClick={handleCloseBgModal}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -4569,14 +4641,57 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-                <input
-                  type="text"
-                  value={backgroundImageUrl || ''}
-                  onChange={(e) => setBackgroundImageUrl(e.target.value)}
-                  placeholder="https://example.com/venue-blueprint.png"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                />
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Image URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={blueprintUrlInput}
+                    onChange={(e) => {
+                      setBlueprintUrlInput(e.target.value);
+                      if (blueprintUrlError) setBlueprintUrlError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleApplyBlueprintUrl();
+                      }
+                    }}
+                    placeholder="https://example.com/venue-blueprint.png"
+                    className={`w-full text-xs px-3 py-2 border rounded-lg focus:outline-hidden transition-colors ${
+                      blueprintUrlError
+                        ? 'border-red-400 dark:border-red-500/60 bg-red-50/40 dark:bg-red-950/20 text-red-900 dark:text-red-200 focus:ring-2 focus:ring-red-400'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyBlueprintUrl}
+                    disabled={isValidatingBlueprintUrl || isUploadingBlueprint}
+                    className="px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  >
+                    {isValidatingBlueprintUrl ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      'Apply URL'
+                    )}
+                  </button>
+                </div>
+
+                {blueprintUrlError ? (
+                  <div className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-red-600 dark:text-red-400 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{blueprintUrlError}</span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                    Paste a direct image link and click Apply URL, or press Enter
+                  </span>
+                )}
               </div>
 
               <div>
@@ -4591,8 +4706,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                     const file = e.target.files?.[0];
                     if (!file) return;
 
+                    setBlueprintUrlError(null);
                     // 1. Instant 0ms Preview: Render locally immediately so the user doesn't wait
                     const localPreviewUrl = URL.createObjectURL(file);
+                    setBlueprintUrlInput(localPreviewUrl);
                     setBackgroundImageUrl(localPreviewUrl);
                     setShowBlueprint(true);
                     setIsUploadingBlueprint(true);
@@ -4603,6 +4720,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         const optimizedDataUrl = await optimizeBlueprintImage(file);
                         const res = await uploadService.uploadImage(optimizedDataUrl, 'blueprints');
                         if (res?.url) {
+                          setBlueprintUrlInput(res.url);
                           setBackgroundImageUrl(res.url);
                           return res.url;
                         }
@@ -4701,11 +4819,18 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   <img
                     src={backgroundImageUrl}
                     alt="Blueprint Preview"
+                    onError={() => {
+                      setBlueprintUrlError('Unable to render blueprint image preview. The URL is inaccessible or invalid.');
+                    }}
                     className="max-h-full max-w-full object-contain"
                   />
                   <button
-                    onClick={() => setBackgroundImageUrl(undefined)}
-                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 text-xs flex items-center gap-1 font-bold cursor-pointer"
+                    onClick={() => {
+                      setBackgroundImageUrl(undefined);
+                      setBlueprintUrlInput('');
+                      setBlueprintUrlError(null);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm text-xs flex items-center gap-1 font-bold cursor-pointer transition-colors"
                     title="Remove Background Image"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Remove Image
@@ -4716,7 +4841,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
-                onClick={() => setIsBgModalOpen(false)}
+                onClick={handleCloseBgModal}
                 className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
                 Done
