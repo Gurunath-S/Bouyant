@@ -354,7 +354,7 @@ export const LoginPage: React.FC = () => {
                 <Input
                   label="Exhibitor Username"
                   type="text"
-                  placeholder="username, SP Code (e.g. SP1001), or admin email"
+                  placeholder="username"
                   leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
                   error={errors.email?.message}
                   {...register('email')}
