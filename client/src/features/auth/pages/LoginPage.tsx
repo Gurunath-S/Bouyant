@@ -333,7 +333,7 @@ export const LoginPage: React.FC = () => {
             <div className="text-center space-y-2">
               {/* Brand Accent Pill */}
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#1E3FA0]/10 dark:bg-blue-500/10 text-[#1E3FA0] dark:text-blue-400 rounded-full text-xs font-bold">
-                Exhibitor & Staff Portal
+                Exhibitor Portal
               </div>
               <h2 className="text-3xl font-black text-[#1E3FA0] dark:text-blue-400 tracking-tight">Welcome Back</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -347,50 +347,12 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {/* Quick Demo Credentials Autofill Panel */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  Demo Accounts (Click to Fill)
-                </span>
-                <span className="text-[10px] text-slate-400">Instant login</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => {
-                      setValue('email', acc.email, { shouldValidate: true });
-                      setValue('password', acc.password, { shouldValidate: true });
-                    }}
-                    className="p-2 text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 hover:border-purple-400 dark:hover:border-purple-500 rounded-xl transition-all shadow-2xs group cursor-pointer"
-                    title={`Click to fill ${acc.email}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                        {acc.role}
-                      </span>
-                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${acc.badgeColor}`}>
-                        {acc.badge}
-                      </span>
-                    </div>
-                    <p className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
-                      {acc.email}
-                    </p>
-                    <p className="text-[9px] font-mono text-slate-500 truncate">
-                      PW: {acc.password}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
+           
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Input
-                  label="Exhibitor Username, Staff SP Code, or Admin Email"
+                  label="Exhibitor Username"
                   type="text"
                   placeholder="username, SP Code (e.g. SP1001), or admin email"
                   leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
@@ -421,7 +383,7 @@ export const LoginPage: React.FC = () => {
               </div>
 
               {/* Sleek Remember Me Checkbox & Forgot Password Link */}
-              <div className="flex items-center justify-between text-xs pt-1">
+              {/*<div className="flex items-center justify-between text-xs pt-1">
                 <label className="inline-flex items-center gap-2.5 cursor-pointer group select-none">
                   <input
                     type="checkbox"
@@ -445,7 +407,7 @@ export const LoginPage: React.FC = () => {
                 >
                   Forgot password?
                 </button>
-              </div>
+              </div>*/}
 
               <div className="pt-2">
                 <Button
@@ -464,7 +426,7 @@ export const LoginPage: React.FC = () => {
             {/* Security Guarantee Badge */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500">
               <ShieldCheck className="w-4 h-4 text-[#0E8074] dark:text-teal-400 shrink-0" />
-              <span>256-Bit SSL Encrypted & Tax Compliant Portal</span>
+              <span>Official Buoyant Exhibitor Workspace</span>
             </div>
           </div>
         </div>
