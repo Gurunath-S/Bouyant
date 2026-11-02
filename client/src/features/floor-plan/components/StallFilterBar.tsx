@@ -98,7 +98,7 @@ export const StallFilterBar: React.FC<StallFilterBarProps> = ({
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
             }`}
           >
-            All Stalls ({availableCount})
+            All Available ({availableCount})
           </button>
           {activeCategories.map((cat) => {
             const style = CATEGORY_STYLES[cat];
