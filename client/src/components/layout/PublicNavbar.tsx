@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -13,6 +13,11 @@ export const PublicNavbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showHomeConfirmModal, setShowHomeConfirmModal] = useState(false);
+
+  // Auto-close mobile drawer on navigation
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -30,7 +35,7 @@ export const PublicNavbar: React.FC = () => {
 
   return (
     <>
-      <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E6EAF0] dark:border-slate-800 sticky top-0 z-30 shadow-xs transition-colors">
+      <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E6EAF0] dark:border-slate-800 sticky top-0 z-50 shadow-xs transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
           {/* Left: Buoyant Media Logo */}
           <Link

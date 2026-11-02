@@ -28,7 +28,7 @@ export const BookingNavbar: React.FC = () => {
   };
 
   return (
-    <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E6EAF0] dark:border-slate-800 sticky top-0 z-30 shadow-xs transition-colors">
+    <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E6EAF0] dark:border-slate-800 sticky top-0 z-50 shadow-xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Left: Brand Logo (Navigation guarded by useBlocker if holding stalls) */}
         <Link
