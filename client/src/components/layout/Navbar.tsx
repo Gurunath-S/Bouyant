@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { LogOut, ChevronDown, Building, Home } from 'lucide-react';
-import { ConfirmLeaveToHomeModal } from '../ui/ConfirmLeaveToHomeModal';
+import { LogOut, ChevronDown, Building } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -12,7 +11,6 @@ export const Navbar: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showHomeModal, setShowHomeModal] = useState(false);
 
   // Auto-close profile dropdown when navigating to any other page/route
   useEffect(() => {
@@ -167,17 +165,6 @@ export const Navbar: React.FC = () => {
                     </Link>
                   )}
                   <button
-                    type="button"
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowHomeModal(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3.5 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-left cursor-pointer"
-                  >
-                    <Home className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                    Visit Public Website
-                  </button>
-                  <button
                     onClick={() => {
                       setDropdownOpen(false);
                       setShowLogoutModal(true);
@@ -193,20 +180,6 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </header>
-
-      {/* Confirm Leave to Public Home Modal */}
-      <ConfirmLeaveToHomeModal
-        isOpen={showHomeModal}
-        onClose={() => setShowHomeModal(false)}
-        onConfirmHome={() => {
-          setShowHomeModal(false);
-          navigate('/');
-        }}
-        onGoToDashboard={() => {
-          setShowHomeModal(false);
-          navigate(getLogoDestination());
-        }}
-      />
 
 
       {/* Sign Out Confirmation Modal */}
