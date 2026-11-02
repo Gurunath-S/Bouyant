@@ -2799,72 +2799,75 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             </div>
           )}
 
-          {/* Blueprint X-Ray Active Banner */}
-          {isBlueprintInspectMode && (
-            <div
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border border-purple-400 text-xs font-bold flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-2"
-            >
-              <div className="flex items-center gap-1.5 text-purple-400">
-                <Eye className="w-4 h-4 animate-pulse" />
-                <span>Blueprint X-Ray Active</span>
-              </div>
-              <span className="text-slate-400 hidden sm:inline">•</span>
-              <span className="text-slate-300 hidden sm:inline">
-                Blueprint 100% clarity • Stalls translucent for alignment
-              </span>
-              <div className="flex items-center gap-1 ml-1 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
-                <span className="text-[10px] text-slate-400">Stalls:</span>
-                <button
-                  type="button"
-                  onClick={() => setGhostStallOpacity(0.12)}
-                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
-                    ghostStallOpacity === 0.12 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
+          {/* Top Center Floating Banners Container (stacks X-Ray and Multi-Select cleanly without overlap) */}
+          {(isBlueprintInspectMode || isMultiSelectMode || selectedRefs.filter((r) => r.type === 'stall').length > 1) && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 pointer-events-none max-w-[95vw]">
+              {/* Blueprint X-Ray Active Banner */}
+              {isBlueprintInspectMode && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="pointer-events-auto bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-2xl border border-purple-400 text-xs font-bold flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-top-2 whitespace-nowrap select-none shrink-0"
                 >
-                  12%
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGhostStallOpacity(0.22)}
-                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
-                    ghostStallOpacity === 0.22 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  22%
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGhostStallOpacity(0.4)}
-                  className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer ${
-                    ghostStallOpacity === 0.4 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  40%
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsBlueprintInspectMode(false)}
-                className="ml-1 px-2.5 py-1 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
-                title="Exit Blueprint X-Ray (Shortcut: X)"
-              >
-                Exit X-Ray (X)
-              </button>
-            </div>
-          )}
+                  <div className="flex items-center gap-1.5 text-purple-400 shrink-0">
+                    <Eye className="w-4 h-4 animate-pulse shrink-0" />
+                    <span className="whitespace-nowrap">Blueprint X-Ray Active</span>
+                  </div>
+                  <span className="text-slate-400 hidden sm:inline shrink-0">•</span>
+                  <span className="text-slate-300 hidden sm:inline shrink-0 whitespace-nowrap">
+                    Blueprint 100% clarity • Stalls translucent for alignment
+                  </span>
+                  <div className="flex items-center gap-1 ml-1 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 shrink-0">
+                    <span className="text-[10px] text-slate-400 shrink-0">Stalls:</span>
+                    <button
+                      type="button"
+                      onClick={() => setGhostStallOpacity(0.12)}
+                      className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer whitespace-nowrap transition-colors ${
+                        ghostStallOpacity === 0.12 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      12%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGhostStallOpacity(0.22)}
+                      className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer whitespace-nowrap transition-colors ${
+                        ghostStallOpacity === 0.22 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      22%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGhostStallOpacity(0.4)}
+                      className={`px-1.5 py-0.5 text-[10px] rounded cursor-pointer whitespace-nowrap transition-colors ${
+                        ghostStallOpacity === 0.4 ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      40%
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsBlueprintInspectMode(false)}
+                    className="shrink-0 whitespace-nowrap ml-1 px-2.5 py-1 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                    title="Exit Blueprint X-Ray (Shortcut: X)"
+                  >
+                    Exit X-Ray (X)
+                  </button>
+                </div>
+              )}
 
-          {/* Multi-Select Floating Action Pill */}
-          {(isMultiSelectMode || selectedRefs.filter((r) => r.type === 'stall').length > 1) && (
-            <div
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              className={`absolute left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-5 py-2.5 rounded-full shadow-2xl border text-xs font-bold flex items-center gap-3.5 backdrop-blur-md animate-in fade-in slide-in-from-top-2 pointer-events-auto select-none whitespace-nowrap max-w-[95vw] ${
-                isBlueprintInspectMode ? 'top-16' : 'top-4'
-              } ${isMultiSelectMode ? 'border-purple-400 ring-2 ring-purple-500/20' : 'border-slate-700 shadow-slate-950/50'}`}
-            >
+              {/* Multi-Select Floating Action Pill */}
+              {(isMultiSelectMode || selectedRefs.filter((r) => r.type === 'stall').length > 1) && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className={`pointer-events-auto bg-slate-900/95 text-white px-5 py-2.5 rounded-full shadow-2xl border text-xs font-bold flex items-center gap-3.5 backdrop-blur-md animate-in fade-in slide-in-from-top-2 select-none whitespace-nowrap shrink-0 ${
+                    isMultiSelectMode ? 'border-purple-400 ring-2 ring-purple-500/20' : 'border-slate-700 shadow-slate-950/50'
+                  }`}
+                >
               {/* Left selection status indicator */}
               <div className="flex items-center gap-2 shrink-0">
                 <div className="flex items-center gap-1.5 text-purple-400 font-bold">
@@ -2994,6 +2997,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
           {/* Zoom & Pan Container */}
           <div
             style={{
