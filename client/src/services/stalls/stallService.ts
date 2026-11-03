@@ -2,6 +2,15 @@ import { apiClient } from '../api/apiClient';
 import { Stall } from '../../types';
 
 export const stallService = {
+  getHoldConfig: async (): Promise<{ durationMinutes: number; durationSeconds: number }> => {
+    try {
+      const res: any = await apiClient.get('/stalls/hold-config');
+      return res.data;
+    } catch {
+      return { durationMinutes: 10, durationSeconds: 600 };
+    }
+  },
+
   getStallsByFloorPlan: async (floorPlanId: string): Promise<Stall[]> => {
     const res: any = await apiClient.get(`/stalls/floor-plan/${floorPlanId}`);
     return res.data;

@@ -191,7 +191,7 @@ export class StallsService {
 
     if (updatedCount.count === 0) {
       throw ApiError.conflict(
-        'This stall is no longer available for hold. Another user has already reserved or booked it. Please select another stall.'
+        'The selected stall is not available for booking. Please choose an available stall.'
       );
     }
 

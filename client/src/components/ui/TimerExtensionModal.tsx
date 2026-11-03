@@ -7,6 +7,7 @@ interface TimerExtensionModalProps {
   isOpen: boolean;
   type?: 'EXTENSION_PROMPT' | 'EXPIRED_TIMEOUT';
   remainingSeconds?: number;
+  durationMinutes?: number;
   onExtendHold?: () => void;
   onCancelBooking?: () => void;
   onRestartBooking: () => void;
@@ -14,6 +15,7 @@ interface TimerExtensionModalProps {
 
 export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
   isOpen,
+  durationMinutes = 10,
   onRestartBooking,
 }) => {
   if (!isOpen) return null;
@@ -93,7 +95,7 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
             Reservation Session Expired
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
-            Your 15-minute stall hold has ended. Selected booths were released back to the floor plan so other exhibitors can reserve them.
+            Your temporary stall reservation hold has ended. Selected booths were released back to the floor plan so other exhibitors can reserve them.
           </p>
         </div>
 

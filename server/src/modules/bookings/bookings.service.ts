@@ -177,7 +177,7 @@ private static async claimStallsForOfflineBooking(
   // abort and roll back the complete transaction.
   if (stallUpdate.count !== input.stallIds.length) {
     throw ApiError.conflict(
-      'One or more selected stalls were reserved by another user. Please refresh and try again.'
+      'The selected stall is not available for booking. Please refresh the floor plan and choose an another stall.'
     );
   }
 }
@@ -738,7 +738,7 @@ private static validateStalls(
 
       if (!isExpired && !isHeldByThisUser) {
         throw ApiError.conflict(
-          `Stall ${stall.stallNumber} is currently being held for another booking.`
+          `The selected stall #${stall.stallNumber} is not available for booking. Please choose an another stall.`
         );
       }
     }
@@ -961,7 +961,7 @@ static async createBooking(
     }
 
     throw ApiError.conflict(
-      `Stall ${stall.name || stall.stallNumber || stall.id} is currently ${stall.status}.`
+      `The selected stall #${stall.stallNumber} is not available for booking. Please choose an another stall.`
     );
   }
 
@@ -1252,10 +1252,11 @@ static async createBooking(
     .toUpperCase()}`;
 
 	  // ==================================================
-	  // 8. Assign a fresh full 15-minute hold timer for payment
+	  // 8. Assign a fresh hold timer for payment based on configured STALL_HOLD_DURATION_MINUTES
 	  // ==================================================
 
-	  const holdUntil = new Date(Date.now() + 15 * 60 * 1000);
+	  const holdMinutes = env.STALL_HOLD_DURATION_MINUTES || 10;
+	  const holdUntil = new Date(Date.now() + holdMinutes * 60 * 1000);
 
   // ==================================================
   // 9. DATABASE TRANSACTION
@@ -1338,7 +1339,7 @@ static async createBooking(
           }
 
           throw ApiError.conflict(
-            `Stall ${stall.name || stall.stallNumber || stall.id} is no longer available for booking.`
+            `The selected stall #${stall.stallNumber} is not available for booking. Please choose an another stall.`
           );
         }
 
@@ -1378,7 +1379,7 @@ static async createBooking(
 
         if (stallUpdate.count !== input.stallIds.length) {
           throw ApiError.conflict(
-            'One or more selected stalls were reserved by another user. Please refresh and choose available stalls.'
+            'The selected stall is not available for booking. Please refresh the floor plan and choose an another stall.'
           );
         }
 

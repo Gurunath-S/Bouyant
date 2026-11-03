@@ -858,11 +858,6 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                       stall.xPosition,
                       stall.yPosition
                     );
-                    const showStatusSubtext =
-                      zoomLevel >= 70 &&
-                      typo.lines.length === 1 &&
-                      isUnavailable &&
-                      stall.height > 40;
 
                     return (
                       <>
@@ -870,11 +865,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                           <text
                             key={lIdx}
                             x={typo.centerX}
-                            y={
-                              showStatusSubtext
-                                ? typo.startY + lIdx * typo.lineHeight - 4
-                                : typo.startY + lIdx * typo.lineHeight
-                            }
+                            y={typo.startY + lIdx * typo.lineHeight}
                             textAnchor="middle"
                             dominantBaseline="central"
                             fill={styles.textColor}
@@ -886,21 +877,6 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                             {line}
                           </text>
                         ))}
-
-                        {/* Status Indicator (Only if booked/unavailable) */}
-                        {showStatusSubtext && (
-                          <text
-                            x={stall.xPosition + stall.width / 2}
-                            y={stall.yPosition + stall.height / 2 + 11}
-                            textAnchor="middle"
-                            fill={styles.textColor}
-                            fontSize="8"
-                            fontWeight="800"
-                            className="select-none pointer-events-none font-mono opacity-90 tracking-wider uppercase"
-                          >
-                            BOOKED
-                          </text>
-                        )}
                       </>
                     );
                   })()}

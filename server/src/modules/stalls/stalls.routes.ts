@@ -9,7 +9,8 @@ import { Permissions } from '../../config/permissions.js';
 
 const router = Router();
 
-// Public route for viewing stalls
+// Public routes
+router.get('/hold-config', asyncHandler(StallsController.getHoldConfig));
 router.get('/floor-plan/:floorPlanId', asyncHandler(StallsController.getByFloorPlan));
 
 // Authenticated client hold routes

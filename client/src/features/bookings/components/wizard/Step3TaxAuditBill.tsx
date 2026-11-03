@@ -71,6 +71,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const [offlineMethod, setOfflineMethod] = useState<string>('ADMIN_DIRECT_ALLOCATION');
   const [paymentExecutionMethod, setPaymentExecutionMethod] = useState<PaymentExecutionMethod>('ONLINE_RAZORPAY');
   const [nextPaymentDate, setNextPaymentDate] = useState<Date | null>(null);
+  const [dateError, setDateError] = useState(false);
   const today = new Date();
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -117,6 +118,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const eventStartDate = exhibition ? new Date(exhibition.startDate) : fallbackStartDate;
   const deadlineDate = new Date(eventStartDate.getTime() - 15 * 24 * 60 * 60 * 1000);
   const formattedDeadline = formatDisplayDate(deadlineDate);
+  const maxDate = `${deadlineDate.getFullYear()}-${String(deadlineDate.getMonth() + 1).padStart(2, '0')}-${String(deadlineDate.getDate()).padStart(2, '0')}`;
 
   const handlePaymentPayload = () => {
     const apiPaymentType: CreateBookingPayload['paymentType'] = isPartial ? 'Partial' : 'FullPayment';
@@ -175,6 +177,11 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   };
 
   const handlePayClick = () => {
+    if (isPartial && !nextPaymentDate) {
+      setDateError(true);
+      return;
+    }
+    setDateError(false);
     if (!isTermsAccepted) {
       setTermsError(true);
       return;
@@ -470,6 +477,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               id="nextPaymentDate"
               type="date"
               min={minDate}
+              max={maxDate}
               value={
                 nextPaymentDate
                   ? `${nextPaymentDate.getFullYear()}-${String(nextPaymentDate.getMonth() + 1).padStart(2, '0')}-${String(nextPaymentDate.getDate()).padStart(2, '0')}`
@@ -478,11 +486,19 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               onChange={(e) => {
                 const value = e.target.value;
                 setNextPaymentDate(value ? new Date(`${value}T00:00:00`) : null);
+                if (value) setDateError(false);
               }}
               required
-              className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#9cc542] shrink-0"
+              className={`px-3 py-2 text-xs font-semibold rounded-lg border ${
+                dateError ? 'border-red-500 ring-2 ring-red-400' : 'border-slate-300 dark:border-slate-600'
+              } bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#9cc542] shrink-0`}
             />
           </div>
+          {dateError && !nextPaymentDate && (
+            <p className="text-[11px] font-bold text-red-600 dark:text-red-400">
+              Please select a payment due date for the remaining balance before proceeding.
+            </p>
+          )}
 
                 <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Custom Advance %:</span>
@@ -503,9 +519,19 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                 <div className="p-3 bg-amber-100/70 dark:bg-amber-950/60 border-l-4 border-amber-500 rounded-r-xl text-xs text-amber-900 dark:text-amber-200 font-medium flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-amber-950 dark:text-amber-100 block">15-Day Balance Deadline Notice:</span>
-                    The remaining balance of <b className="font-mono font-extrabold">₹{remainingBalance.toLocaleString('en-IN')} INR</b> must be cleared on or before{' '}
-                    <b className="font-bold">{formattedDeadline}</b>.
+                    <span className="font-bold text-amber-950 dark:text-amber-100 block">
+                      {nextPaymentDate ? 'Balance Payment Schedule:' : 'Select Remaining Balance Due Date:'}
+                    </span>
+                    {nextPaymentDate ? (
+                      <span>
+                        Please try to clear the remaining balance of <b className="font-mono font-extrabold">₹{remainingBalance.toLocaleString('en-IN')} INR</b> on or before{' '}
+                        <b className="font-bold">{formatDisplayDate(nextPaymentDate)}</b>.
+                      </span>
+                    ) : (
+                      <span>
+                        Please select a date above and try to clear the remaining balance of <b className="font-mono font-extrabold">₹{remainingBalance.toLocaleString('en-IN')} INR</b> by that date.
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
