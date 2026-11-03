@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
 import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
-import { PaymentStatusBadge, InvoiceStatusBadge } from '../../../components/ui/Badge';
+import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
@@ -65,20 +65,17 @@ export const AdminPaymentsPage: React.FC = () => {
   const [totalInvoices, setTotalInvoices] = useState(0);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceSearch, setInvoiceSearch] = useState('');
-  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
   const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoicePageSize, setInvoicePageSize] = useState(10);
 
   const hasActiveInvoiceFilters = Boolean(
     invoiceSearch.trim() ||
-    invoiceStatusFilter !== 'ALL' ||
     invoiceMethodFilter !== 'ALL'
   );
 
   const handleClearInvoiceFilters = () => {
     setInvoiceSearch('');
-    setInvoiceStatusFilter('ALL');
     setInvoiceMethodFilter('ALL');
     setInvoicePage(1);
   };
@@ -136,7 +133,6 @@ export const AdminPaymentsPage: React.FC = () => {
           page: invoicePage,
           limit: invoicePageSize,
           search: invoiceSearch.trim() || undefined,
-          status: invoiceStatusFilter !== 'ALL' ? invoiceStatusFilter : undefined,
           method: invoiceMethodFilter !== 'ALL' ? invoiceMethodFilter : undefined,
         },
       });
@@ -157,7 +153,7 @@ export const AdminPaymentsPage: React.FC = () => {
         setLoadingInvoices(false);
       }
     }
-  }, [invoicePage, invoicePageSize, invoiceSearch, invoiceStatusFilter, invoiceMethodFilter]);
+  }, [invoicePage, invoicePageSize, invoiceSearch, invoiceMethodFilter]);
 
   // Sync active tab with URL query parameter
   useEffect(() => {
@@ -206,7 +202,7 @@ export const AdminPaymentsPage: React.FC = () => {
 
   useEffect(() => {
     setInvoicePage(1);
-  }, [invoiceSearch, invoiceStatusFilter, invoiceMethodFilter]);
+  }, [invoiceSearch, invoiceMethodFilter]);
 
   const handleConfirmDeletePayment = async () => {
     if (!paymentToDelete) return;
@@ -600,7 +596,7 @@ export const AdminPaymentsPage: React.FC = () => {
         <div className="space-y-4">
           {/* Filter Bar for Invoices */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
               {/* Search */}
               <div className="relative">
@@ -622,24 +618,6 @@ export const AdminPaymentsPage: React.FC = () => {
                       ×
                     </button>
                   )}
-                </div>
-              </div>
-
-              {/* Invoice Status */}
-              <div className="relative">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Invoice Status</label>
-                <div className="relative">
-                  <select
-                    value={invoiceStatusFilter}
-                    onChange={(e) => setInvoiceStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="ISSUED">📄 Issued</option>
-                    <option value="PAID">✅ Paid</option>
-                    <option value="VOID">🚫 Void</option>
-                  </select>
-                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
@@ -707,7 +685,6 @@ export const AdminPaymentsPage: React.FC = () => {
                         <th className="py-3.5 px-4 text-right">Base Amount</th>
                         <th className="py-3.5 px-4 text-right">GST (18%)</th>
                         <th className="py-3.5 px-4 text-right">Grand Total</th>
-                        <th className="py-3.5 px-4 text-center">Status</th>
                         <th className="py-3.5 px-4 text-center">Action</th>
                       </tr>
                     </thead>
@@ -738,9 +715,6 @@ export const AdminPaymentsPage: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100">
                             ₹{Number(inv.grandTotal).toLocaleString('en-IN')} INR
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <InvoiceStatusBadge status={inv.status} />
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <div className="inline-flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
