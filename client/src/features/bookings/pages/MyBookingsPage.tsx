@@ -87,7 +87,8 @@ export const MyBookingsPage: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
-          <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[950px]">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="w-12 py-3.5 px-3 text-center">S.No</th>
@@ -205,6 +206,7 @@ export const MyBookingsPage: React.FC = () => {
               })}
             </tbody>
           </table>
+          </div>
 
           <TablePagination
             currentPage={currentPage}

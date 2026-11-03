@@ -190,10 +190,12 @@ export const PaymentSuccessPage: React.FC = () => {
                   <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                   <span><strong>Contact:</strong> {booking?.company?.contactPerson || booking?.contactPerson || booking?.user?.name || 'N/A'}</span>
                 </div>
-                <div className="flex items-center gap-1.5 truncate">
-                  <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                  <span className="truncate"><strong>Email:</strong> {userEmail || 'N/A'}</span>
-                </div>
+             <div className="flex items-start gap-1.5">
+               <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400 mt-0.5" />
+               <span className="break-all" title={userEmail || ''}>
+                <strong>Email:</strong> {userEmail || 'N/A'}
+               </span>
+            </div>
                 {(booking?.company?.phone || booking?.contactPhone || booking?.phone) && (
                   <div className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 shrink-0 text-slate-400" />
