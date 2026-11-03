@@ -119,7 +119,7 @@ const PAGE_ACCESS_ITEMS = [
   { id: 'events_floorplans', label: 'Exhibitions & Floor Plans', description: 'Manage trade fairs, visual designer, and hall blueprints' },
   { id: 'event_register', label: 'Event Registration Hub', description: 'Exhibitor registration and direct stall assignments' },
   { id: 'companies', label: 'Exhibitors Directory', description: 'Corporate profiles, KYC verification, and tax details' },
-  { id: 'bookings', label: 'Bookings & Allocations', description: 'Review stall reservations, holds, and approvals' },
+  { id: 'bookings', label: 'Bookings & Orders', description: 'Review stall reservations, holds, and approvals' },
   { id: 'payments', label: 'Billing & Invoices', description: 'Financial payments, GST invoices, and reconciliation' },
   { id: 'reports', label: 'Platform Reports & Analytics', description: 'Occupancy charts, revenue metrics, and export data' },
   { id: 'governance', label: 'User Governance & Roles', description: 'User directory, team permissions, and security control' },

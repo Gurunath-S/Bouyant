@@ -34,6 +34,7 @@ export const paymentService = {
     search?: string;
     status?: string;
     method?: string;
+    plan?: string;
   }) => {
     const res: any = await apiClient.get('/payments', { params });
     return res;

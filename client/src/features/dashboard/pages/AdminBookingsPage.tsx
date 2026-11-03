@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download, Trash2, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
@@ -38,11 +38,33 @@ export const AdminBookingsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState(searchParams.get('paymentStatus') || 'ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState(searchParams.get('paymentMethod') || 'ALL');
   const [exhibitionFilter, setExhibitionFilter] = useState(searchParams.get('exhibitionId') || 'ALL');
   const [registrarFilter, setRegistrarFilter] = useState(
     searchParams.get('registrar') || 'ALL'
   );
   const [balanceOnlyFilter, setBalanceOnlyFilter] = useState(false);
+
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() ||
+    statusFilter !== 'ALL' ||
+    paymentStatusFilter !== 'ALL' ||
+    paymentMethodFilter !== 'ALL' ||
+    exhibitionFilter !== 'ALL' ||
+    registrarFilter !== 'ALL' ||
+    balanceOnlyFilter
+  );
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setPaymentStatusFilter('ALL');
+    setPaymentMethodFilter('ALL');
+    setExhibitionFilter('ALL');
+    setRegistrarFilter('ALL');
+    setBalanceOnlyFilter(false);
+    setCurrentPage(1);
+  };
 
   // Request ID ref to protect against out-of-order race conditions
   const bookingsReqIdRef = useRef(0);
@@ -63,6 +85,7 @@ export const AdminBookingsPage: React.FC = () => {
         search: searchQuery.trim() || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         paymentStatus: paymentStatusFilter !== 'ALL' ? paymentStatusFilter : undefined,
+        paymentMethod: paymentMethodFilter !== 'ALL' ? paymentMethodFilter : undefined,
         exhibitionId: exhibitionFilter !== 'ALL' ? exhibitionFilter : undefined,
         registeredByRole: registrarFilter !== 'ALL' ? registrarFilter : undefined,
         bookedByUserId,
@@ -86,7 +109,7 @@ export const AdminBookingsPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [currentPage, pageSize, searchQuery, statusFilter, paymentStatusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+  }, [currentPage, pageSize, searchQuery, statusFilter, paymentStatusFilter, paymentMethodFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   useEffect(() => {
     fetchBookings();
@@ -94,7 +117,7 @@ export const AdminBookingsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, paymentStatusFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+  }, [searchQuery, statusFilter, paymentStatusFilter, paymentMethodFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
 
   const handleConfirmDeleteBooking = async () => {
     if (!bookingToDelete) return;
@@ -123,10 +146,10 @@ export const AdminBookingsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BookmarkCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Bookings & Allocations
+            Bookings & Orders
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            View, filter, and audit stall space reservations across all platform exhibitions.
+            View, filter, and audit stall space bookings across all platform exhibitions.
           </p>
         </div>
 
@@ -193,6 +216,17 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="UNPAID">Unpaid</option>
             </select>
 
+            {/* Payment Type Filter (Cash vs Online) */}
+            <select
+              value={paymentMethodFilter}
+              onChange={(e) => setPaymentMethodFilter(e.target.value)}
+              className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
+            >
+              <option value="ALL">All Payment Types</option>
+              <option value="ONLINE">Online (Razorpay)</option>
+              <option value="CASH">Cash Deposit</option>
+            </select>
+
             <select
               value={registrarFilter}
               onChange={(e) => setRegistrarFilter(e.target.value)}
@@ -213,13 +247,37 @@ export const AdminBookingsPage: React.FC = () => {
               />
               <span>Pending Balance Only</span>
             </label>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+                title="Clear all applied filters"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Clear Filters</span>
+              </button>
+            )}
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 font-medium">
-          <span>
-            Showing <strong>{bookings.length}</strong> of {totalBookings} reservations
-          </span>
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <strong>{bookings.length}</strong> of {totalBookings} bookings
+            </span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
           <span>
             Total Filtered Value: <strong className="font-mono text-purple-700 dark:text-purple-400">₹{totalValue.toLocaleString()} INR</strong>
           </span>
@@ -234,7 +292,7 @@ export const AdminBookingsPage: React.FC = () => {
           <div className="p-12 text-center text-xs text-slate-400 space-y-2">
             <BookmarkCheck className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
             <p className="font-bold text-slate-700 dark:text-slate-300">No Bookings Found</p>
-            <p>No reservations matched your search or status filter.</p>
+            <p>No bookings matched your search or status filter.</p>
           </div>
         ) : (
           <div>

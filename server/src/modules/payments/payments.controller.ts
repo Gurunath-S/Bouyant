@@ -61,6 +61,7 @@ export class PaymentsController {
     const search = (req.query.search as string) || '';
     const status = (req.query.status as string) || '';
     const method = (req.query.method as string) || '';
+    const plan = (req.query.plan as string) || '';
 
     const result = await PaymentsService.listPayments({
       page,
@@ -68,6 +69,7 @@ export class PaymentsController {
       search,
       status,
       method,
+      plan,
     });
     return sendResponse({
       res,

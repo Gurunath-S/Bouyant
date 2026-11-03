@@ -978,6 +978,7 @@ static async createBalancePaymentOrder(
       search?: string;
       status?: string;
       method?: string;
+      plan?: string;
     } | number,
     limitArg?: number
   ) {
@@ -986,6 +987,7 @@ static async createBalancePaymentOrder(
     let search = '';
     let status: string | undefined;
     let method: string | undefined;
+    let plan: string | undefined;
 
     if (options && typeof options === 'object') {
       rawPage = options.page;
@@ -993,6 +995,7 @@ static async createBalancePaymentOrder(
       search = options.search || '';
       status = options.status;
       method = options.method;
+      plan = (options as any).plan;
     } else {
       rawPage = options || 1;
       rawLimit = limitArg || 50;
@@ -1001,20 +1004,43 @@ static async createBalancePaymentOrder(
     const { page, limit: take, skip } = normalizePagination(rawPage, rawLimit, 10, 100);
     const andConditions: Prisma.PaymentWhereInput[] = [];
 
-    // Filter by status if specified
+    // Filter by status
     if (status && status !== 'ALL') {
       andConditions.push({ status: status as any });
     }
 
-    // Filter by payment method or plan
-    if (method && method !== 'ALL') {
-      if (method === 'FULL') {
+    // Filter by payment plan (Full vs Partial) — independent axis
+    if (plan && plan !== 'ALL') {
+      if (plan === 'FULL') {
+        // Full payment: installmentType is null or explicitly 'FULL'
         andConditions.push({
           OR: [{ installmentType: null }, { installmentType: 'FULL' }],
         });
-      } else if (method === 'PARTIAL') {
+      } else if (plan === 'PARTIAL') {
+        // Partial: installmentType starts with 'PARTIAL_' (e.g. PARTIAL_PAID, PARTIAL_BALANCE|DUE:...)
         andConditions.push({
-          installmentType: { not: null, notIn: ['FULL'] },
+          installmentType: { not: null, startsWith: 'PARTIAL' },
+        });
+      }
+    }
+
+    // Filter by payment method (Cash / Online) — independent axis
+    if (method && method !== 'ALL') {
+      if (method === 'CASH') {
+        // Cash: explicit CASH paymentMode OR offline admin provider
+        andConditions.push({
+          OR: [
+            { paymentMode: 'CASH' },
+            { provider: 'OFFLINE_ADMIN' },
+          ],
+        });
+      } else if (method === 'ONLINE') {
+        // Online: explicit ONLINE_RAZORPAY paymentMode OR provider=RAZORPAY (legacy records have null paymentMode)
+        andConditions.push({
+          OR: [
+            { paymentMode: 'ONLINE_RAZORPAY' },
+            { provider: 'RAZORPAY' },
+          ],
         });
       } else {
         andConditions.push({ paymentMethod: method });

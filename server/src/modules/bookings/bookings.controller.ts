@@ -78,6 +78,7 @@ export class BookingsController {
       bookedByUserId = req.user.userId;
     }
     const bookingSource = req.query.bookingSource as string;
+    const paymentMethod = req.query.paymentMethod as string;
 
     const result = await BookingsService.listAllBookings({
       page,
@@ -91,6 +92,7 @@ export class BookingsController {
       userId,
       bookedByUserId,
       bookingSource,
+      paymentMethod,
     });
     return sendResponse({
       res,

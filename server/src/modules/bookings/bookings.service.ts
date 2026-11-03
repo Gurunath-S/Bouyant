@@ -1832,6 +1832,7 @@ static async createBooking(
     let bookedByUserId: string | undefined;
     let bookingSource: string | undefined;
     let staffSpcode: string | undefined;
+    let paymentMethod: string | undefined;
 
     if (pageOrOptions && typeof pageOrOptions === 'object') {
       rawPage = pageOrOptions.page;
@@ -1846,6 +1847,7 @@ static async createBooking(
       bookedByUserId = pageOrOptions.bookedByUserId;
       bookingSource = pageOrOptions.bookingSource;
       staffSpcode = pageOrOptions.staffSpcode;
+      paymentMethod = pageOrOptions.paymentMethod;
     } else {
       rawPage = pageOrOptions || 1;
       rawLimit = limitArg || 20;
@@ -1870,6 +1872,33 @@ static async createBooking(
         paymentStatus: { not: 'UNPAID' },
         status: { notIn: ['CANCELLED', 'EXPIRED'] },
       });
+    }
+
+    // Filter by payment method type (CASH vs ONLINE)
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      if (paymentMethod === 'CASH') {
+        andConditions.push({
+          payments: {
+            some: {
+              OR: [
+                { paymentMode: 'CASH' },
+                { provider: 'OFFLINE_ADMIN' },
+              ],
+            },
+          },
+        });
+      } else if (paymentMethod === 'ONLINE') {
+        andConditions.push({
+          payments: {
+            some: {
+              OR: [
+                { paymentMode: 'ONLINE_RAZORPAY' },
+                { provider: 'RAZORPAY' },
+              ],
+            },
+          },
+        });
+      }
     }
     if (exhibitionId && exhibitionId !== 'ALL') {
       andConditions.push({ exhibitionId });

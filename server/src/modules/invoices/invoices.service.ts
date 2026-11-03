@@ -364,17 +364,21 @@ const [invoices, total] = await Promise.all([
   }
 
   static async listAllInvoices(
-    options?: { page?: number | string; limit?: number | string; search?: string } | number,
+    options?: { page?: number | string; limit?: number | string; search?: string; status?: string; method?: string } | number,
     limitArg?: number
   ) {
     let rawPage: any;
     let rawLimit: any;
     let search = '';
+    let status: string | undefined;
+    let method: string | undefined;
 
     if (options && typeof options === 'object') {
       rawPage = options.page;
       rawLimit = options.limit;
       search = options.search || '';
+      status = options.status;
+      method = options.method;
     } else if (options !== undefined) {
       rawPage = options;
       rawLimit = limitArg;
@@ -390,6 +394,30 @@ const [invoices, total] = await Promise.all([
           { booking: { bookingReference: { contains: q, mode: 'insensitive' } } },
         ],
       });
+    }
+
+    if (status && status !== 'ALL') {
+      andConditions.push({ status: status as any });
+    }
+
+    if (method && method !== 'ALL') {
+      if (method === 'CASH') {
+        andConditions.push({
+          OR: [
+            { payment: { paymentMode: 'CASH' } },
+            { payment: { provider: 'OFFLINE_ADMIN' } },
+            { booking: { payments: { some: { OR: [{ paymentMode: 'CASH' }, { provider: 'OFFLINE_ADMIN' }] } } } },
+          ],
+        });
+      } else if (method === 'ONLINE') {
+        andConditions.push({
+          OR: [
+            { payment: { paymentMode: 'ONLINE_RAZORPAY' } },
+            { payment: { provider: 'RAZORPAY' } },
+            { booking: { payments: { some: { OR: [{ paymentMode: 'ONLINE_RAZORPAY' }, { provider: 'RAZORPAY' }] } } } },
+          ],
+        });
+      }
     }
 
     const where = andConditions.length > 0 ? { AND: andConditions } : {};

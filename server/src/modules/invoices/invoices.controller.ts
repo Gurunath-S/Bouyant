@@ -42,8 +42,10 @@ static myInvoices = async (req: AuthenticatedRequest, res: Response) => {
     const page = req.query.page as string | undefined;
     const limit = req.query.limit as string | undefined;
     const search = (req.query.search as string) || '';
+    const status = req.query.status as string | undefined;
+    const method = req.query.method as string | undefined;
 
-    const result = await InvoicesService.listAllInvoices({ page, limit, search });
+    const result = await InvoicesService.listAllInvoices({ page, limit, search, status, method });
     if (result && typeof result === 'object' && 'invoices' in result) {
       return sendResponse({
         res,

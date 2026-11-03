@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
-import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { PaymentStatusBadge, InvoiceStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -41,16 +41,47 @@ export const AdminPaymentsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
+  const [planFilter, setPlanFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  const hasActivePaymentFilters = Boolean(
+    searchQuery.trim() ||
+    statusFilter !== 'ALL' ||
+    methodFilter !== 'ALL' ||
+    planFilter !== 'ALL'
+  );
+
+  const handleClearPaymentFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setMethodFilter('ALL');
+    setPlanFilter('ALL');
+    setCurrentPage(1);
+  };
 
   // Invoices & Bills State
   const [invoices, setInvoices] = useState<any[]>([]);
   const [totalInvoices, setTotalInvoices] = useState(0);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
+  const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoicePageSize, setInvoicePageSize] = useState(10);
+
+  const hasActiveInvoiceFilters = Boolean(
+    invoiceSearch.trim() ||
+    invoiceStatusFilter !== 'ALL' ||
+    invoiceMethodFilter !== 'ALL'
+  );
+
+  const handleClearInvoiceFilters = () => {
+    setInvoiceSearch('');
+    setInvoiceStatusFilter('ALL');
+    setInvoiceMethodFilter('ALL');
+    setInvoicePage(1);
+  };
 
   // Selected Bill / Invoice for Inspection Modal
   const [selectedBillOrInvoice, setSelectedBillOrInvoice] = useState<any | null>(null);
@@ -73,6 +104,7 @@ export const AdminPaymentsPage: React.FC = () => {
         search: searchQuery.trim() || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         method: methodFilter !== 'ALL' ? methodFilter : undefined,
+        plan: planFilter !== 'ALL' ? planFilter : undefined,
       });
 
       if (reqId === paymentsReqIdRef.current) {
@@ -93,7 +125,7 @@ export const AdminPaymentsPage: React.FC = () => {
         setLoadingPayments(false);
       }
     }
-  }, [currentPage, pageSize, searchQuery, statusFilter, methodFilter]);
+  }, [currentPage, pageSize, searchQuery, statusFilter, methodFilter, planFilter]);
 
   const fetchInvoices = useCallback(async () => {
     const reqId = ++invoicesReqIdRef.current;
@@ -104,6 +136,8 @@ export const AdminPaymentsPage: React.FC = () => {
           page: invoicePage,
           limit: invoicePageSize,
           search: invoiceSearch.trim() || undefined,
+          status: invoiceStatusFilter !== 'ALL' ? invoiceStatusFilter : undefined,
+          method: invoiceMethodFilter !== 'ALL' ? invoiceMethodFilter : undefined,
         },
       });
 
@@ -123,7 +157,7 @@ export const AdminPaymentsPage: React.FC = () => {
         setLoadingInvoices(false);
       }
     }
-  }, [invoicePage, invoicePageSize, invoiceSearch]);
+  }, [invoicePage, invoicePageSize, invoiceSearch, invoiceStatusFilter, invoiceMethodFilter]);
 
   // Sync active tab with URL query parameter
   useEffect(() => {
@@ -168,11 +202,11 @@ export const AdminPaymentsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, methodFilter]);
+  }, [searchQuery, statusFilter, methodFilter, planFilter]);
 
   useEffect(() => {
     setInvoicePage(1);
-  }, [invoiceSearch]);
+  }, [invoiceSearch, invoiceStatusFilter, invoiceMethodFilter]);
 
   const handleConfirmDeletePayment = async () => {
     if (!paymentToDelete) return;
@@ -309,68 +343,104 @@ export const AdminPaymentsPage: React.FC = () => {
         <div className="space-y-4">
           {/* Filter and Search Bar */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+
               {/* Keyword Search */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search Payment Ref, Booking Ref..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder-slate-400"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold"
-                  >
-                    ×
-                  </button>
-                )}
+              <div className="relative xl:col-span-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Search</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Payment Ref, Booking Ref..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder-slate-400"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Payment Status Filter */}
               <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="ALL">All Payment Statuses</option>
-                  <option value="SUCCESS">Success</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="FAILED">Failed</option>
-                </select>
-                <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Status</label>
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="SUCCESS">Success</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="FAILED">Failed</option>
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
-              {/* Payment Plan / Type Filter */}
+              {/* Payment Method Filter (Cash vs Online) */}
               <div className="relative">
-                <select
-                  value={methodFilter}
-                  onChange={(e) => setMethodFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="ALL">All Payment Plans & Types</option>
-                  <option value="FULL">Full Payment (100%)</option>
-                  <option value="PARTIAL">Partial Payment / Installment</option>
-                  <option value="RAZORPAY">Razorpay Gateway</option>
-                  <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
-                  <option value="CHEQUE">Cheque / Demand Draft</option>
-                  <option value="CASH">Cash Deposit</option>
-                  <option value="SIMULATED_GATEWAY">Simulated Gateway</option>
-                </select>
-                <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Payment Type</label>
+                <div className="relative">
+                  <select
+                    value={methodFilter}
+                    onChange={(e) => setMethodFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ALL">All Payment Types</option>
+                    <option value="ONLINE">Online (Razorpay)</option>
+                    <option value="CASH">Cash Deposit</option>
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
+
+              {/* Payment Plan Filter (Full vs Partial) */}
+              <div className="relative">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Payment Plan</label>
+                <div className="relative">
+                  <select
+                    value={planFilter}
+                    onChange={(e) => setPlanFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ALL">All Plans</option>
+                    <option value="FULL">Full Payment</option>
+                    <option value="PARTIAL">Partial Payment</option>
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
             </div>
 
             {/* Filter Summary Stats */}
             <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
-              <span>
-                Showing <strong className="text-slate-900 dark:text-slate-100">{payments.length}</strong> of{' '}
-                <strong className="text-slate-900 dark:text-slate-100">{totalPayments}</strong> transactions
-              </span>
+              <div className="flex items-center gap-3">
+                <span>
+                  Showing <strong className="text-slate-900 dark:text-slate-100">{payments.length}</strong> of{' '}
+                  <strong className="text-slate-900 dark:text-slate-100">{totalPayments}</strong> transactions
+                </span>
+                {hasActivePaymentFilters && (
+                  <button
+                    type="button"
+                    onClick={handleClearPaymentFilters}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-900/50 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+                    title="Clear all applied filters"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear Filters</span>
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
                 <DollarSign className="w-3.5 h-3.5" />
@@ -528,25 +598,89 @@ export const AdminPaymentsPage: React.FC = () => {
       {/* TAB 2: TAX INVOICES & BILLING RECORDS */}
       {activeTab === 'INVOICES' && (
         <div className="space-y-4">
-          {/* Search Bar for Invoices */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
-            <div className="relative max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search Invoice #, Company Name..."
-                value={invoiceSearch}
-                onChange={(e) => setInvoiceSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder-slate-400"
-              />
-              {invoiceSearch && (
-                <button
-                  onClick={() => setInvoiceSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold"
-                >
-                  ×
-                </button>
-              )}
+          {/* Filter Bar for Invoices */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+
+              {/* Search */}
+              <div className="relative">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Search</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Invoice #, Company, Booking Ref..."
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder-slate-400"
+                  />
+                  {invoiceSearch && (
+                    <button
+                      onClick={() => setInvoiceSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Invoice Status */}
+              <div className="relative">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Invoice Status</label>
+                <div className="relative">
+                  <select
+                    value={invoiceStatusFilter}
+                    onChange={(e) => setInvoiceStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="ISSUED">📄 Issued</option>
+                    <option value="PAID">✅ Paid</option>
+                    <option value="VOID">🚫 Void</option>
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Payment Type */}
+              <div className="relative">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-0.5">Payment Type</label>
+                <div className="relative">
+                  <select
+                    value={invoiceMethodFilter}
+                    onChange={(e) => setInvoiceMethodFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ALL">All Payment Types</option>
+                    <option value="ONLINE">🌐 Online (Razorpay)</option>
+                    <option value="CASH">💵 Cash Deposit</option>
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Invoice Filter Summary */}
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <span>
+                  Showing <strong className="text-slate-900 dark:text-slate-100">{invoices.length}</strong> of{' '}
+                  <strong className="text-slate-900 dark:text-slate-100">{totalInvoices}</strong> invoices
+                </span>
+                {hasActiveInvoiceFilters && (
+                  <button
+                    type="button"
+                    onClick={handleClearInvoiceFilters}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+                    title="Clear all applied filters"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear Filters</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

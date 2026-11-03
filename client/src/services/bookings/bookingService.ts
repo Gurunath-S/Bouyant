@@ -101,6 +101,7 @@ export const bookingService = {
     userId?: string;
     bookedByUserId?: string;
     bookingSource?: string;
+    paymentMethod?: string;
   }) => {
     const res: any = await apiClient.get('/bookings', { params });
     return res;
