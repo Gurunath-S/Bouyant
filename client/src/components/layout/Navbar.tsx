@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { LogOut, ChevronDown, Building } from 'lucide-react';
+import { LogOut, ChevronDown, Building, Menu, X } from 'lucide-react';
+import { useSidebarStore } from '../../stores/sidebarStore';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -11,6 +12,7 @@ export const Navbar: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { isMobileOpen, toggleMobile } = useSidebarStore();
 
   // Auto-close profile dropdown when navigating to any other page/route
   useEffect(() => {
@@ -91,6 +93,14 @@ export const Navbar: React.FC = () => {
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-14 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-50 shadow-xs transition-colors duration-200">
         {/* Brand Logo */}
         <div className="flex items-center gap-3">
+           <button
+              type="button"
+              onClick={toggleMobile}
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors md:hidden cursor-pointer"
+              aria-label="Toggle Sidebar Menu"
+            >
+              {isMobileOpen ? <X className="w-6 h-6 text-[#1E3FA0] dark:text-blue-400" /> : <Menu className="w-6 h-6" />}
+            </button>
           <Link
             to={getLogoDestination()}
             className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"

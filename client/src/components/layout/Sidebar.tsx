@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect} from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { hasPageAccess } from '../../config/pageAccess';
+import { useSidebarStore } from '../../stores/sidebarStore';
+
 import {
   LayoutDashboard,
   Calendar,
@@ -22,7 +24,10 @@ import {
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
+  const { isMobileOpen, closeMobile } = useSidebarStore();
   const location = useLocation();
+
+
   const role = user?.role;
 
   const isSuperAdmin = role === 'SUPERADMIN';
@@ -37,6 +42,10 @@ export const Sidebar: React.FC = () => {
       return false;
     }
   });
+
+useEffect(() => {
+    closeMobile();
+  }, [location.pathname, closeMobile])
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
@@ -156,15 +165,27 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside
-      className={`sticky top-14 h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 z-20 transition-all duration-300 ease-in-out select-none ${
-        isCollapsed ? 'w-20' : 'w-64'
-      }`}
-    >
+    <>
+      {/* Mobile Backdrop Overlay*/}
+      {isMobileOpen && (
+        <div
+          onClick={closeMobile}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 top-14 z-50 md:sticky md:top-14 md:translate-x-0 transform transition-transform duration-300 ease-in-out ${
+          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'
+        } h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none ${
+          isCollapsed ? 'w-20' : 'w-64'
+        }`}
+      >
       {/* Collapse / Expand Toggle Button */}
       <button
         onClick={toggleCollapse}
-        className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-md flex items-center justify-center text-slate-500 hover:text-[#09539b] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer group"
+        className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-md items-center justify-center text-slate-500 hover:text-[#09539b] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer group"
         title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
       >
@@ -288,5 +309,6 @@ export const Sidebar: React.FC = () => {
         )}
       </div>
     </aside>
+  </>
   );
 };

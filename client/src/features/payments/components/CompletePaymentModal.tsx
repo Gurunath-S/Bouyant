@@ -310,7 +310,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
                 {/* Booking Summary Box */}
                 <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2.5 text-xs">
-                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400 cursor-pointer">
                     <span>Exhibition:</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]" title={booking.exhibition?.title}>
                       {booking.exhibition?.title || 'Trade Fair'}

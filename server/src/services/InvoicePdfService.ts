@@ -535,7 +535,7 @@ export class InvoicePdfService {
                         body: [
                           // Headers
                           [
-                            { text: 'Sl\nNo', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
+                            { text: 'S.\nNo', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
                             { text: 'Description of Goods', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
                             { text: 'HSN/SAC', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
                             { text: 'Quantity', alignment: 'center', fontSize: 8, border: [false, true, true, true] },
@@ -548,7 +548,7 @@ export class InvoicePdfService {
                             {
                               stack: [
                                 { text: `STALL NO : ${stallDetailsText}`, bold: true },
-                                { text: `${totalQty} SQFT`, bold: true, margin: [0, 2, 0, 0] },
+                                { text: `${totalQty} SQM`, bold: true, margin: [0, 2, 0, 0] },
                                 {
                                   text: `${data.exhibition.title.toUpperCase()} (EDITION - ${data.exhibition.edition || '1'}),`,
                                   bold: true,
@@ -562,8 +562,8 @@ export class InvoicePdfService {
                               border: [false, false, true, false],
                             },
                             { text: '9983', alignment: 'center', border: [false, false, true, false] },
-                            { text: `${totalQty} SQFT`, bold: true, alignment: 'right', border: [false, false, true, false] },
-                            { text: 'SQFT', alignment: 'center', border: [false, false, true, false] },
+                            { text: `${totalQty} SQM`, bold: true, alignment: 'right', border: [false, false, true, false] },
+                            { text: 'SQM', alignment: 'center', border: [false, false, true, false] },
                             {
                               text: formatMoney(data.taxableAmount),
                               bold: true,
