@@ -54,30 +54,47 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
   const grandTotal = Number(booking?.grandTotal || 0);
   const paidAmount = Number(booking?.paidAmount || 0);
-  const balanceDue = Number(booking?.balanceAmount || Math.max(0, grandTotal - paidAmount));
+  const totalBalanceDue = Number(booking?.balanceAmount || Math.max(0, grandTotal - paidAmount));
+  const baseBalanceDue = Math.round(totalBalanceDue / 1.18);
   const stallNumbers = booking?.stalls?.map((s) => s.stall?.stallNumber || s.stallId).join(', ') || 'Assigned Booth';
 
   useEffect(() => {
-    if (isOpen && booking && balanceDue > 0) {
+    if (isOpen && booking && baseBalanceDue > 0) {
       setPaymentOption('full');
-      setCustomAmount(String(balanceDue));
+      setCustomAmount(String(baseBalanceDue));
       const d = new Date();
       d.setDate(d.getDate() + 15);
       setNextDueDate(d.toISOString().slice(0, 10));
       setError(null);
       setSuccessMessage(null);
     }
-  }, [isOpen, booking?.id, balanceDue]);
+  }, [isOpen, booking?.id, baseBalanceDue]);
 
-  const payableAmount = useMemo(() => {
-    if (paymentOption === 'full') return balanceDue;
-    if (paymentOption === 'half') return Math.max(1, Math.round(balanceDue / 2));
+  const selectedBaseAmount = useMemo(() => {
+    if (paymentOption === 'full') return baseBalanceDue;
+    if (paymentOption === 'half') return Math.max(1, Math.round(baseBalanceDue / 2));
     const num = parseFloat(customAmount);
-    return isNaN(num) ? 0 : Math.min(balanceDue, Math.max(1, Math.round(num)));
-  }, [paymentOption, customAmount, balanceDue]);
+    return isNaN(num) ? 0 : Math.min(baseBalanceDue, Math.max(1, Math.round(num)));
+  }, [paymentOption, customAmount, baseBalanceDue]);
 
-  const isPartialPayment = payableAmount < balanceDue;
-  const remainingAfterPayment = Math.max(0, balanceDue - payableAmount);
+  const currentTax = useMemo(() => {
+    if (selectedBaseAmount <= 0) return 0;
+    if (selectedBaseAmount === baseBalanceDue) {
+      return Math.max(0, totalBalanceDue - baseBalanceDue);
+    }
+    return Math.round(selectedBaseAmount * 0.18);
+  }, [selectedBaseAmount, baseBalanceDue, totalBalanceDue]);
+
+  const totalPayableAmount = useMemo(() => {
+    if (selectedBaseAmount <= 0) return 0;
+    if (selectedBaseAmount === baseBalanceDue) {
+      return totalBalanceDue;
+    }
+    return selectedBaseAmount + currentTax;
+  }, [selectedBaseAmount, baseBalanceDue, currentTax, totalBalanceDue]);
+
+  const isPartialPayment = totalPayableAmount < totalBalanceDue;
+  const remainingAfterPayment = Math.max(0, totalBalanceDue - totalPayableAmount);
 
   const tomorrowStr = useMemo(() => {
     const d = new Date();
@@ -139,8 +156,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             razorpay_signature: paymentResponse.razorpay_signature,
           });
           const successText = isPartialPayment
-            ? `Partial payment of ${formatCurrency(payableAmount)} verified successfully! Remaining ${formatCurrency(remainingAfterPayment)} is scheduled for ${formatDisplayDate(nextDueDate)}.`
-            : `Payment of ${formatCurrency(payableAmount)} verified successfully! Your booking status has been updated.`;
+            ? `Partial payment of ${formatCurrency(totalPayableAmount)} verified successfully! Remaining ${formatCurrency(remainingAfterPayment)} is scheduled for ${formatDisplayDate(nextDueDate)}.`
+            : `Payment of ${formatCurrency(totalPayableAmount)} verified successfully! Your booking status has been updated.`;
           setSuccessMessage(successText);
           setTimeout(() => {
             onSuccess();
@@ -186,13 +203,13 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (payableAmount <= 0) {
+    if (totalPayableAmount <= 0) {
       setError('Please specify a valid payment amount greater than ₹0.');
       return;
     }
 
-    if (payableAmount > balanceDue) {
-      setError(`Payment amount cannot exceed the remaining balance of ₹${balanceDue.toLocaleString('en-IN')}.`);
+    if (totalPayableAmount > totalBalanceDue) {
+      setError(`Payment amount cannot exceed the remaining balance of ₹${totalBalanceDue.toLocaleString('en-IN')}.`);
       return;
     }
 
@@ -207,13 +224,13 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
     if (paymentMethod === 'CASH') {
          await paymentService.recordCashPayment({
           bookingId: booking.id,
-          amount: payableAmount,
+          amount: totalPayableAmount,
           nextDueDate: isPartialPayment ? nextDueDate : undefined,
         });
         setSuccessMessage(
           isPartialPayment
-            ? `Partial cash payment of ${formatCurrency(payableAmount)} recorded successfully.`
-            : `Cash payment of ${formatCurrency(payableAmount)} recorded successfully.`
+            ? `Partial cash payment of ${formatCurrency(totalPayableAmount)} recorded successfully.`
+            : `Cash payment of ${formatCurrency(totalPayableAmount)} recorded successfully.`
         );
        // Allow the success message to display before closing.
       setTimeout(() => {
@@ -225,7 +242,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
     }
       // Online Razorpay Payment flow with custom/reduced amount and due date
       const orderInfo = await paymentService.createBalanceOrder(booking.id, {
-        amount: payableAmount,
+        amount: totalPayableAmount,
         nextDueDate: isPartialPayment ? nextDueDate : undefined,
       });
 
@@ -338,7 +355,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     </div>
                     <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
                       <span className="text-[9px] text-amber-600 dark:text-amber-400 uppercase font-bold block">Balance</span>
-                      <p className="font-extrabold text-amber-700 dark:text-amber-300 text-xs mt-0.5">{formatCurrency(balanceDue)}</p>
+                      <p className="font-extrabold text-amber-700 dark:text-amber-300 text-xs mt-0.5">{formatCurrency(totalBalanceDue)}</p>
                     </div>
                   </div>
                 </div>
@@ -397,7 +414,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     }`}
                   >
                     <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">100% Full</div>
-                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(balanceDue)}</div>
+                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(baseBalanceDue)}</div>
                   </button>
 
                   <button
@@ -410,15 +427,15 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     }`}
                   >
                     <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">50% Part</div>
-                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(Math.round(balanceDue / 2))}</div>
+                    <div className="font-extrabold text-xs mt-0.5">{formatCurrency(Math.round(baseBalanceDue / 2))}</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
                       setPaymentOption('custom');
-                      if (!customAmount || parseFloat(customAmount) >= balanceDue) {
-                        setCustomAmount(String(Math.round(balanceDue / 2)));
+                      if (!customAmount || parseFloat(customAmount) >= baseBalanceDue) {
+                        setCustomAmount(String(Math.round(baseBalanceDue / 2)));
                       }
                     }}
                     className={`p-2.5 rounded-xl border text-left transition-all ${
@@ -436,7 +453,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                 {paymentOption === 'custom' && (
                   <div className="space-y-1.5 animate-in fade-in duration-150">
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                      Enter Custom Payment Amount (Min: ₹1, Max: {formatCurrency(balanceDue)})
+                      Enter Custom Payment Amount (Min: ₹1, Max: {formatCurrency(baseBalanceDue)})
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500">
@@ -445,7 +462,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                       <input
                         type="number"
                         min={1}
-                        max={balanceDue}
+                        max={baseBalanceDue}
                         value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
                         placeholder="Enter amount"
@@ -459,11 +476,27 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                 )}
 
                 {/* Live Breakdown Box */}
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Amount Being Paid Now:</span>
-                  <span className="text-base font-black text-slate-900 dark:text-slate-100">
-                    {formatCurrency(payableAmount)}
-                  </span>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2 text-xs">
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                    <span>Amount:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {formatCurrency(selectedBaseAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                    <span>GST (18%):</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {formatCurrency(currentTax)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                    <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                      Total Payable Amount:
+                    </span>
+                    <span className="text-base font-black text-[#012970] dark:text-blue-400">
+                      {formatCurrency(totalPayableAmount)}
+                    </span>
+                  </div>
                 </div>
                <div className="grid grid-cols-2 gap-3">
                         <button
@@ -508,7 +541,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                       <span className="font-bold text-xs">Remaining Balance Promise Date</span>
                     </div>
                     <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                      Paying <b>{formatCurrency(payableAmount)}</b> now. The remaining balance of{' '}
+                      Paying <b>{formatCurrency(totalPayableAmount)}</b> now. The remaining balance of{' '}
                       <b className="text-amber-950 dark:text-amber-100 font-mono">{formatCurrency(remainingAfterPayment)}</b> will be due on:
                     </p>
                     <input
@@ -535,7 +568,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-500">Payable Now:</span>
               <span className="font-black text-slate-900 dark:text-slate-100 text-sm">
-                {formatCurrency(payableAmount)}
+                {formatCurrency(totalPayableAmount)}
               </span>
               {isPartialPayment && (
                 <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
@@ -557,7 +590,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
               <Button
                 variant="primary"
                 type="submit"
-                disabled={isProcessing || payableAmount <= 0 || (isPartialPayment && !nextDueDate)}
+                disabled={isProcessing || totalPayableAmount <= 0 || (isPartialPayment && !nextDueDate)}
                 leftIcon={
                   isProcessing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -570,8 +603,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                  {isProcessing
                   ? paymentMethod === "CASH" ? 'Recording Cash Payment...':'Opening Razorpay...'
                   : isPartialPayment
-                  ? `Pay Partial Now (${formatCurrency(payableAmount)})`
-                  : `Pay Remaining Balance (${formatCurrency(payableAmount)})`}
+                  ? `Pay Partial Now (${formatCurrency(totalPayableAmount)})`
+                  : `Pay Remaining Balance (${formatCurrency(totalPayableAmount)})`}
               </Button>
             </div>
           </div>

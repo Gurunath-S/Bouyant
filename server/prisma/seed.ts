@@ -512,6 +512,15 @@ async function main() {
   console.log('🗑️  Purging all user accounts...');
   await prisma.user.deleteMany({});
 
+  // Ensure PostgreSQL sequence company_code_seq exists
+  try {
+    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS company_code_seq START WITH 1;`);
+    await prisma.$executeRawUnsafe(`SELECT setval('company_code_seq', 1, false);`);
+    console.log('🔢 Initialized company_code_seq sequence...');
+  } catch (seqErr) {
+    console.warn('Could not initialize company_code_seq:', seqErr);
+  }
+
   // 2. Prepare Password Hashes
   console.log('\n🔑 Seeding Exact Demo Accounts from Login Page...');
   // Password123! matches the demo buttons on LoginPage.tsx

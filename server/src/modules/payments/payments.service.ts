@@ -1329,7 +1329,7 @@ static async createBalancePaymentOrder(
 
       const isFullyPaid = newBalanceAmount === 0;
 
-      const isPartial = amountInPaise < newBalanceAmount;
+      const isPartial = !isFullyPaid;
       const installmentTypeStr = isPartial
     ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
     : 'BALANCE';
