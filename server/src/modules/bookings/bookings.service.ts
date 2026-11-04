@@ -189,14 +189,17 @@ public static async createInvoice(
 ) {
   const invoiceNumber = `INV-${Date.now()}`;
  
-  const totalAmount = paymentAmount
-    .div(new Prisma.Decimal(1.18))
-    .toDecimalPlaces(2);
- 
-  const taxAmount = paymentAmount
-    .minus(totalAmount)
-    .toDecimalPlaces(2);
- 
+    const isFullPayment = paymentAmount.equals(new Prisma.Decimal(booking.grandTotal.toString()));
+    
+  // 1. Full Payment na direct-ah booking-oda exact values edukkurom (No paise mismatch)
+  // 2. Partial Payment na nearest rupee-ku round-off pannurom
+  const totalAmount = isFullPayment
+    ? new Prisma.Decimal(booking.totalAmount.toString())
+    : new Prisma.Decimal(Math.round(paymentAmount.div(new Prisma.Decimal(1.18)).toNumber()));
+
+  const taxAmount = paymentAmount.minus(totalAmount);
+
+
   return await tx.invoice.create({
     data: {
       invoiceNumber,
@@ -280,6 +283,7 @@ public static async createInvoice(
     const paidAmount = new Prisma.Decimal(
       result.payableAmount.toString()
     );
+    
 
     if (paidAmount.lte(0) || paidAmount.gt(grandTotal)) {
       throw ApiError.badRequest(
@@ -595,10 +599,11 @@ if (resultCash.emailData) {
       }
 
       const percentage = new Prisma.Decimal(input.percentage);
-      paymentBaseAmount = basePrice
+      const rawBase = basePrice
         .mul(percentage)
         .div(100)
-        .toDecimalPlaces(2);
+        .toNumber();
+      paymentBaseAmount = new Prisma.Decimal(Math.round(rawBase));
     }
 
     // --------------------------------------------------
@@ -635,10 +640,11 @@ if (resultCash.emailData) {
             'Discount percentage cannot exceed 100%.'
           );
         }
-        discountAmount = paymentBaseAmount
+        const rawDiscountVal = paymentBaseAmount
           .mul(rawDiscount)
           .div(100)
-          .toDecimalPlaces(2);
+          .toNumber();
+        discountAmount = new Prisma.Decimal(Math.round(rawDiscountVal));
       } else {
         if (rawDiscount.gte(paymentBaseAmount)) {
           throw ApiError.badRequest(
@@ -652,17 +658,19 @@ if (resultCash.emailData) {
     // --------------------------------------------------
     // 4. Tax and Current Payable Calculation
     // --------------------------------------------------
-    const taxRate = new Prisma.Decimal('0.18');
+      const taxRate = new Prisma.Decimal('0.18');
 
     const discountedAmount = paymentBaseAmount.sub(discountAmount);
-    const taxAmount = discountedAmount.mul(taxRate).toDecimalPlaces(2);
+    const rawTax = discountedAmount.mul(taxRate).toNumber();
+    const taxAmount = new Prisma.Decimal(Math.round(rawTax));
     const payableAmount = discountedAmount.add(taxAmount);
 
     // --------------------------------------------------
     // 5. Full booking values & Remaining balance
     // --------------------------------------------------
     const unpaidBase = isPartial ? basePrice.sub(paymentBaseAmount) : new Prisma.Decimal(0);
-    const unpaidTax = unpaidBase.mul(taxRate).toDecimalPlaces(2);
+    const rawUnpaidTax = unpaidBase.mul(taxRate).toNumber();
+    const unpaidTax = new Prisma.Decimal(Math.round(rawUnpaidTax));
     const remainingBalance = unpaidBase.add(unpaidTax);
 
     const discountedBookingAmount = basePrice.sub(discountAmount);
@@ -1383,12 +1391,13 @@ static async createBooking(
           );
         }
 
-        // Cancel any previous unfulfilled PENDING_PAYMENT booking for this company & exhibition to avoid orphaned duplicates when re-trying/switching payment plan
+        // Only cancel previous completely unpaid drafts (0 payment collected) when re-initiating checkout
         await tx.booking.updateMany({
           where: {
             companyId: input.companyId,
             exhibitionId: exhibition.id,
             status: BookingStatus.PENDING_PAYMENT,
+            paidAmount: { lte: 0 },
             stalls: {
               some: {
                 stallId: { in: input.stallIds },
