@@ -49,17 +49,51 @@ export const CompanyProfilePage: React.FC = () => {
     setValue('city', '', { shouldValidate: false });
   };
 
-  useEffect(() => {
-    if (user?.company) {
-      Object.keys(user.company).forEach((key) => {
+  const populateForm = React.useCallback(
+    (comp: any) => {
+      if (!comp) return;
+      Object.keys(comp).forEach((key) => {
         if (key === 'country') {
-          setValue('country', normalizeCountryName((user.company as any)[key] || 'India'));
+          setValue('country', normalizeCountryName(comp[key] || 'India'));
         } else {
-          setValue(key, (user.company as any)[key]);
+          setValue(key, comp[key]);
         }
       });
+      if (!comp.category && comp.industry) {
+        setValue('category', comp.industry);
+      }
+      if (!comp.designation) {
+        setValue('designation', 'Exhibitor Representative');
+      }
+    },
+    [setValue]
+  );
+
+  useEffect(() => {
+    if (user?.company) {
+      populateForm(user.company);
     }
-  }, [user, setValue]);
+
+    // Refresh company details from server if available
+    const targetId = user?.companyId || user?.company?.id;
+    if (targetId || user?.role === 'CLIENT') {
+      companyService
+        .getMyCompany()
+        .then((fresh) => {
+          if (fresh && fresh.id) {
+            populateForm(fresh);
+            if (user) {
+              setUser({
+                ...user,
+                companyId: fresh.id,
+                company: fresh,
+              });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.companyId, user?.company?.id, populateForm]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -67,24 +101,55 @@ export const CompanyProfilePage: React.FC = () => {
       setSuccessMsg('');
       setErrorMsg('');
 
-      let updatedCompany;
-      if (user?.companyId) {
-        updatedCompany = await companyService.updateCompany(user.companyId, data);
+      const targetCompanyId = user?.companyId || user?.company?.id;
+
+      const payload: any = {
+        name: data.name?.trim(),
+        contactPerson: data.contactPerson?.trim(),
+        mobile: data.mobile?.trim(),
+        email: data.email?.trim(),
+        address: data.address?.trim(),
+        city: data.city?.trim(),
+        state: data.state?.trim(),
+        pinCode: data.pinCode?.trim(),
+        country: data.country?.trim() || 'India',
+        industry: data.industry?.trim() || data.category?.trim() || 'General Exhibitor',
+        category: data.category?.trim() || data.industry?.trim() || 'General Exhibitor',
+        designation: data.designation?.trim() || 'Exhibitor Representative',
+        website: data.website?.trim() || '',
+        gstNumber: data.gstNumber?.trim().toUpperCase() || '',
+        panNumber: data.panNumber?.trim().toUpperCase() || '',
+        tanNumber: data.tanNumber?.trim().toUpperCase() || '',
+      };
+
+      let updatedCompany: any;
+      if (targetCompanyId) {
+        updatedCompany = await companyService.updateCompany(targetCompanyId, payload);
       } else {
-        updatedCompany = await companyService.createCompany(data);
+        updatedCompany = await companyService.createCompany(payload);
       }
 
-      if (user) {
+      if (user && updatedCompany) {
         setUser({
           ...user,
-          companyId: updatedCompany.id,
-          company: updatedCompany,
+          name: updatedCompany.contactPerson || payload.contactPerson || user.name,
+          phone: updatedCompany.mobile || payload.mobile || user.phone,
+          companyId: updatedCompany.id || targetCompanyId,
+          company: {
+            ...(user.company || {}),
+            ...updatedCompany,
+          },
         });
       }
 
       setSuccessMsg('Corporate profile updated successfully!');
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Failed to update company profile.');
+      const msg =
+        err.message ||
+        err.response?.data?.message ||
+        err.originalError?.response?.data?.message ||
+        'Failed to update company profile.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

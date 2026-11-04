@@ -526,7 +526,7 @@ export class EmailService {
                     <td align="right" style="color:#6366f1; font-weight:800; font-family:monospace; vertical-align:top;">${payload.bookingReference}</td>
                   </tr>
                   <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice #</td>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice</td>
                     <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">${payload.invoiceNumber}</td>
                   </tr>
                   <tr>

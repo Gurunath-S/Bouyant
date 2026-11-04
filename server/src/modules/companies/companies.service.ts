@@ -865,27 +865,100 @@ export class CompaniesService {
     throw lastError || ApiError.internal('Unable to complete registration due to concurrent updates. Please try again.');
   }
 
-  static async updateCompany(companyId: string, input: UpdateCompanyInput) {
+  static async updateCompany(companyId: string, input: UpdateCompanyInput, actingUserId?: string) {
     const company = await prisma.company.findUnique({ where: { id: companyId } });
     if (!company) {
       throw ApiError.notFound('Company not found.');
     }
 
-    const updateData: any = { ...input };
+    const anyInput = input as any;
+    const updateData: any = {};
+
+    if (input.name !== undefined && typeof input.name === 'string' && input.name.trim() !== '') {
+      updateData.name = input.name.trim();
+    }
+    if (input.contactPerson !== undefined && typeof input.contactPerson === 'string' && input.contactPerson.trim() !== '') {
+      updateData.contactPerson = input.contactPerson.trim();
+    }
+    if (input.mobile !== undefined && typeof input.mobile === 'string' && input.mobile.trim() !== '') {
+      updateData.mobile = input.mobile.trim();
+    }
+    if (input.email !== undefined && typeof input.email === 'string' && input.email.trim() !== '') {
+      updateData.email = input.email.trim().toLowerCase();
+    }
+    if (input.address !== undefined && typeof input.address === 'string') {
+      updateData.address = input.address.trim();
+    }
+    if (input.city !== undefined && typeof input.city === 'string') {
+      updateData.city = input.city.trim();
+    }
+    if (input.state !== undefined && typeof input.state === 'string') {
+      updateData.state = input.state.trim();
+    }
+    if (input.pinCode !== undefined && typeof input.pinCode === 'string') {
+      updateData.pinCode = input.pinCode.trim();
+    }
+    if (input.country !== undefined && typeof input.country === 'string') {
+      updateData.country = normalizeCountry(input.country);
+    }
+    if (input.industry !== undefined || anyInput.category !== undefined) {
+      const ind =
+        (typeof input.industry === 'string' ? input.industry.trim() : '') ||
+        (typeof anyInput.category === 'string' ? anyInput.category.trim() : '');
+      if (ind) {
+        updateData.industry = ind;
+      }
+    }
+    if (input.website !== undefined) {
+      updateData.website = typeof input.website === 'string' && input.website.trim() !== '' ? input.website.trim() : null;
+    }
+    if (input.remarks !== undefined) {
+      updateData.remarks = typeof input.remarks === 'string' && input.remarks.trim() !== '' ? input.remarks.trim() : null;
+    }
+    if (input.spcode !== undefined && typeof input.spcode === 'string' && input.spcode.trim() !== '') {
+      updateData.spcode = input.spcode.trim();
+    }
     if (input.gstNumber !== undefined) {
-      updateData.gstNumber = input.gstNumber && input.gstNumber.trim() !== '' ? input.gstNumber.trim().toUpperCase() : null;
+      const cleanGst = typeof input.gstNumber === 'string' && input.gstNumber.trim() !== '' ? input.gstNumber.trim().toUpperCase() : null;
+      if (cleanGst && cleanGst !== company.gstNumber) {
+        const existing = await prisma.company.findUnique({
+          where: { gstNumber: cleanGst },
+        });
+        if (existing && existing.id !== companyId) {
+          throw ApiError.conflict(`A company with GSTIN ${cleanGst} already exists.`);
+        }
+      }
+      updateData.gstNumber = cleanGst;
     }
     if (input.panNumber !== undefined) {
-      updateData.panNumber = input.panNumber && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
+      updateData.panNumber = typeof input.panNumber === 'string' && input.panNumber.trim() !== '' ? input.panNumber.trim().toUpperCase() : null;
     }
     if (input.tanNumber !== undefined) {
-      updateData.tanNumber = input.tanNumber && input.tanNumber.trim() !== '' ? input.tanNumber.trim().toUpperCase() : null;
+      updateData.tanNumber = typeof input.tanNumber === 'string' && input.tanNumber.trim() !== '' ? input.tanNumber.trim().toUpperCase() : null;
     }
 
-    return await prisma.company.update({
+    const updated = await prisma.company.update({
       where: { id: companyId },
       data: updateData,
     });
+
+    if (actingUserId) {
+      try {
+        const userUpdateData: any = {};
+        if (updateData.contactPerson) userUpdateData.name = updateData.contactPerson;
+        if (updateData.mobile) userUpdateData.phone = updateData.mobile;
+        if (Object.keys(userUpdateData).length > 0) {
+          await prisma.user.update({
+            where: { id: actingUserId },
+            data: userUpdateData,
+          });
+        }
+      } catch (userErr) {
+        console.warn('Could not sync user profile with company update:', userErr);
+      }
+    }
+
+    return updated;
   }
 
   static async getCompanyById(companyId: string) {

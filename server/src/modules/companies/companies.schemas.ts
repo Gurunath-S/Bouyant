@@ -16,6 +16,7 @@ export const CreateCompanySchema = z
     tanNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     industry: z.string().trim().optional().or(z.literal('')).default('General Exhibitor'),
     category: z.string().trim().optional(),
+    designation: z.string().trim().optional(),
     website: z.string().trim().optional().or(z.literal('')),
     remarks: z.string().trim().optional(),
     spcode: z.string().trim().optional(),

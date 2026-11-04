@@ -108,8 +108,9 @@ export const BookingWizardPage: React.FC = () => {
   const [layoutData, setLayoutData] = useState<FloorPlanLayoutData | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // 15-Minute Hold Timer & Expiration Popup State
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(900); // 15 minutes = 900s
+  // Stall Hold Timer & Expiration Popup State (Dynamically configured via STALL_HOLD_DURATION_MINUTES)
+  const [holdDurationMinutes, setHoldDurationMinutes] = useState<number>(10);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(600); // Defaults to 10 mins (600s)
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
 
@@ -243,9 +244,18 @@ export const BookingWizardPage: React.FC = () => {
         setSelectedCompany(null);
         setAssignedRegNo('');
       }
-    } catch (err) {
+      } catch (err) {
       console.error('Failed to load booking wizard data:', err);
     } finally {
+      try {
+        const holdConfig = await stallService.getHoldConfig();
+        if (holdConfig?.durationMinutes) {
+          setHoldDurationMinutes(holdConfig.durationMinutes);
+          setRemainingSeconds(holdConfig.durationSeconds);
+        }
+      } catch (e) {
+        console.warn('Failed to load stall hold config in booking wizard:', e);
+      }
       setLoading(false);
     }
   }
@@ -359,7 +369,7 @@ export const BookingWizardPage: React.FC = () => {
     setIsPaymentModalDismissed(false);
     clearStallSelection();
     setCurrentStep(1);
-    setRemainingSeconds(900);
+    setRemainingSeconds(holdDurationMinutes * 60);
     await loadInitialData();
   };
 
@@ -759,8 +769,13 @@ export const BookingWizardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Booking order creation error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Booking order initialization failed.';
+      try {
+        await loadInitialData();
+      } catch (reloadErr) {
+        console.warn('Failed to refresh floor plan after conflict:', reloadErr);
+      }
       await showAlert({
-        title: 'Payment Order Error',
+        title: 'Booking Notice',
         message: errMsg,
         type: 'danger',
       });
@@ -1087,6 +1102,7 @@ export const BookingWizardPage: React.FC = () => {
       {/* Timer Timeout Popup Modal */}
       <TimerExtensionModal
         isOpen={isExtensionModalOpen}
+        durationMinutes={holdDurationMinutes}
         onRestartBooking={handleRestartBookingFromExpired}
       />
 

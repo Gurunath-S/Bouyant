@@ -2,8 +2,22 @@ import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { StallsService } from './stalls.service.js';
 import { sendResponse } from '../../utils/response.js';
+import { env } from '../../config/env.js';
 
 export class StallsController {
+  static getHoldConfig = async (_req: Request, res: Response) => {
+    const minutes = env.STALL_HOLD_DURATION_MINUTES || 10;
+    return sendResponse({
+      res,
+      statusCode: 200,
+      message: 'Hold configuration retrieved.',
+      data: {
+        durationMinutes: minutes,
+        durationSeconds: minutes * 60,
+      },
+    });
+  };
+
   static getByFloorPlan = async (req: Request, res: Response) => {
     const stalls = await StallsService.getStallsByFloorPlan(req.params.floorPlanId);
     return sendResponse({

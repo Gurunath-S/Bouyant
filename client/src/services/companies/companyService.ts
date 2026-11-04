@@ -23,17 +23,17 @@ export const companyService = {
 
   createCompany: async (data: any): Promise<any> => {
     const res: any = await apiClient.post('/companies', data);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   verifyGst: async (gstNumber: string, edition?: string, eventCode?: string, spcode?: string, year?: string) => {
     const res: any = await apiClient.post('/companies/verify-gst', { gstNumber, edition, eventCode, spcode, year });
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   updateCompany: async (id: string, data: any): Promise<Company> => {
     const res: any = await apiClient.put(`/companies/${id}`, data);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   listCompanies: async (
