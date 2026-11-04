@@ -358,6 +358,10 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                       <p className="font-extrabold text-amber-700 dark:text-amber-300 text-xs mt-0.5">{formatCurrency(totalBalanceDue)}</p>
                     </div>
                   </div>
+
+                  <p className="text-[10.5px] text-center font-medium text-slate-500 dark:text-slate-400 pt-0.5">
+                    * Included 18% GST
+                  </p>
                 </div>
 
                 {/* Razorpay Supported Instruments & Security Banner */}
