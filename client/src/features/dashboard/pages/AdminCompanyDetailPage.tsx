@@ -36,6 +36,7 @@ import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { formatDisplayDateTime } from '../../../utils/date';
 
 export const AdminCompanyDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1077,8 +1078,10 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                             </span>
                                           </div>
                                           <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-700/60 pt-1 mt-1">
-                                            <span>Txn ID: {p.transactionId || 'N/A'}</span>
-                                            <span>{formatDisplayDate(p.paidAt || p.createdAt)}</span>
+                                            {(p.transactionId || p.razorpayPaymentId) ? (
+                                              <span>Txn: <strong className="font-mono text-slate-600 dark:text-slate-300">{p.transactionId || p.razorpayPaymentId}</strong></span>
+                                            ) : <span />}
+                                            <span className="font-medium text-slate-500 dark:text-slate-400">{formatDisplayDateTime(p.paidAt || p.createdAt)}</span>
                                           </div>
                                         </div>
                                       ))}
@@ -1276,7 +1279,8 @@ export const AdminCompanyDetailPage: React.FC = () => {
                           Provider: {p.provider || 'GATEWAY'} • Method: {p.paymentMethod || 'ONLINE'}
                         </span>
                         <span className="text-[10px] text-slate-400 block font-mono">
-                          Txn: {p.transactionId || 'N/A'} • {formatDisplayDate(p.paidAt || p.createdAt)}
+                          {(p.transactionId || p.razorpayPaymentId) ? `Txn: ${p.transactionId || p.razorpayPaymentId} • ` : ''}
+                          {formatDisplayDateTime(p.paidAt || p.createdAt)}
                         </span>
                       </div>
                       <div className="text-right">

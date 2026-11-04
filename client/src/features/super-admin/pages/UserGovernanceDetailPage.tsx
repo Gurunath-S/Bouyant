@@ -153,7 +153,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF'>('ADMIN');
+  const [editUserRole, setEditUserRole] = useState<'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT'>('ADMIN');
   const [editUserPages, setEditUserPages] = useState<string[]>([]);
   const [editModalError, setEditModalError] = useState<string | null>(null);
   const [editFieldErrors, setEditFieldErrors] = useState<{
@@ -163,6 +163,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
     phone?: string;
     spcode?: string;
     pageAccess?: string;
+    password?: string;
   }>({});
   const [editForm, setEditForm] = useState({
     name: '',
@@ -171,6 +172,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
     phone: '',
     spcode: '',
   });
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editSendNotificationEmail, setEditSendNotificationEmail] = useState(true);
   const [bookingSearchQuery, setBookingSearchQuery] = useState('');
 
   const generateRandomPassword = () => {
@@ -194,8 +198,8 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
   const handleOpenEdit = () => {
     if (!user) return;
-    const role: 'SUPERADMIN' | 'ADMIN' | 'STAFF' =
-      user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'STAFF'
+    const role: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT' =
+      user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'STAFF' || user.role === 'CLIENT'
         ? (user.role as any)
         : 'ADMIN';
     setEditUserRole(role);
@@ -207,6 +211,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
       phone: user.phone || '',
       spcode: user.spcode || '',
     });
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditSendNotificationEmail(true);
     setEditModalError(null);
     setEditFieldErrors({});
     setIsEditModalOpen(true);
@@ -235,11 +242,13 @@ export const UserGovernanceDetailPage: React.FC = () => {
     if (!user) return;
     setEditModalError(null);
 
+    const isClient = editUserRole === 'CLIENT';
     const trimmedName = editForm.name?.trim() || '';
     const trimmedEmail = editForm.email?.trim() || '';
     const trimmedUsername = editForm.username?.trim() || '';
     const trimmedPhone = editForm.phone?.trim() || '';
     const trimmedSpcode = editForm.spcode?.trim().toUpperCase() || '';
+    const trimmedPassword = editPassword.trim();
 
     const errors: {
       name?: string;
@@ -248,6 +257,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
       phone?: string;
       spcode?: string;
       pageAccess?: string;
+      password?: string;
     } = {};
 
     if (!trimmedName || trimmedName.length < 2) {
@@ -275,14 +285,20 @@ export const UserGovernanceDetailPage: React.FC = () => {
       errors.phone = 'Phone number must be at least 7 digits';
     }
 
-    if (!trimmedSpcode) {
-      errors.spcode = 'SP Code is required';
-    } else if (trimmedSpcode.length < 2) {
-      errors.spcode = 'SP Code must be at least 2 characters long';
+    if (!isClient) {
+      if (!trimmedSpcode) {
+        errors.spcode = 'SP Code is required';
+      } else if (trimmedSpcode.length < 2) {
+        errors.spcode = 'SP Code must be at least 2 characters long';
+      }
+
+      if (editUserPages.length === 0) {
+        errors.pageAccess = 'At least one page access permission must be granted';
+      }
     }
 
-    if (editUserPages.length === 0) {
-      errors.pageAccess = 'At least one page access permission must be granted';
+    if (trimmedPassword && trimmedPassword.length < 8) {
+      errors.password = 'Password must be at least 8 characters long';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -291,8 +307,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
       if (errors.email) missingLabels.push('Email Address');
       if (errors.username) missingLabels.push('Portal Username');
       if (errors.phone) missingLabels.push('Phone Number');
-      if (errors.spcode) missingLabels.push('SP Code');
-      if (errors.pageAccess) missingLabels.push('Page Access Rights');
+      if (!isClient && errors.spcode) missingLabels.push('SP Code');
+      if (!isClient && errors.pageAccess) missingLabels.push('Page Access Rights');
+      if (errors.password) missingLabels.push('New Password');
 
       setEditFieldErrors(errors);
       setEditModalError(`Please correct the required fields: ${missingLabels.join(', ')}.`);
@@ -301,15 +318,28 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
     try {
       setSavingEdit(true);
-      const updated = await userService.updateUser(user.id, {
+      const payload: any = {
         name: trimmedName,
         email: trimmedEmail,
         username: trimmedUsername,
         phone: trimmedPhone,
-        spcode: trimmedSpcode,
         role: editUserRole,
-        pageAccess: editUserPages,
-      });
+      };
+
+      if (!isClient) {
+        payload.spcode = trimmedSpcode;
+        payload.pageAccess = editUserPages;
+      } else {
+        payload.spcode = trimmedSpcode || undefined;
+        payload.pageAccess = [];
+      }
+
+      if (trimmedPassword) {
+        payload.password = trimmedPassword;
+        payload.sendNotificationEmail = editSendNotificationEmail;
+      }
+
+      const updated = await userService.updateUser(user.id, payload);
       setUser((prev) =>
         prev
           ? {
@@ -321,17 +351,20 @@ export const UserGovernanceDetailPage: React.FC = () => {
               spcode: updated.spcode,
               role: updated.role,
               pageAccess: updated.pageAccess,
+              company: updated.company || prev.company,
             }
           : null
       );
       setActionNotice({
         type: 'success',
-        message: `User "${updated.name}" profile updated successfully!`,
+        message: `User "${updated.name}" profile updated successfully!${trimmedPassword ? ' Password updated.' : ''}`,
       });
       setIsEditModalOpen(false);
       setEditModalError(null);
       setEditFieldErrors({});
+      setEditPassword('');
       setTimeout(() => setActionNotice(null), 5000);
+      await fetchUserData();
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user profile.';
       setEditModalError(errMsg);
@@ -389,6 +422,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
   useEffect(() => {
     fetchUserData();
   }, [id]);
+
+  useEffect(() => {
+    if (user?.role === 'CLIENT' && activeTab !== 'bookings' && activeTab !== 'organization') {
+      setActiveTab('bookings');
+    }
+  }, [user?.role, activeTab]);
 
   const handleToggleStatus = async () => {
     if (!user) return;
@@ -547,6 +586,24 @@ export const UserGovernanceDetailPage: React.FC = () => {
     0
   );
   const totalBookedValue = bookings.reduce((sum, b) => sum + Number(b.grandTotal || 0), 0);
+
+  // Client calculations
+  const totalClientStalls = bookings.reduce(
+    (sum, b: any) => sum + (b.stalls?.length || 0),
+    0
+  );
+  const totalPaidAmount = bookings.reduce(
+    (sum, b: any) => sum + (Number(b.paidAmount) || 0),
+    0
+  );
+  const totalBalanceDue = bookings.reduce(
+    (sum, b: any) =>
+      sum + (Number(b.balanceAmount) || Math.max(0, Number(b.grandTotal || 0) - Number(b.paidAmount || 0))),
+    0
+  );
+  const confirmedBookingsCount = bookings.filter((b: any) => b.status === 'CONFIRMED').length;
+  const activeBookingsCount = bookings.filter((b: any) => b.status !== 'CANCELLED').length;
+  const uniqueExhibitionsCount = new Set(bookings.map((b: any) => b.exhibitionId).filter(Boolean)).size;
 
   const heldStalls = user.heldStalls || [];
   const effectivePages = getUserEffectivePageAccess(user);
@@ -752,134 +809,232 @@ export const UserGovernanceDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Staff & Admin Works Performance Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Exhibitions Managed
-            </span>
-            <Layers className="w-4 h-4 text-purple-500" />
+      {/* Performance & Account Metrics */}
+      {user.role === 'CLIENT' ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Client Metric 1: Total Reservations */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                Total Reservations
+              </span>
+              <Calendar className="w-4 h-4 text-blue-500" />
+            </div>
+            <p className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-2">
+              {bookings.length}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {confirmedBookingsCount} confirmed • {activeBookingsCount} active
+            </p>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono mt-2">
-            {exhibitions.length}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {publishedExhibitions.length} published • {totalStallsInEvents} stalls in catalog
-          </p>
-        </div>
 
-        {/* Metric 2 */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-              Attributed Bookings
-            </span>
-            <TrendingUp className="w-4 h-4 text-indigo-500" />
+          {/* Client Metric 2: Allocated Stalls */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                Allocated Stalls
+              </span>
+              <Layers className="w-4 h-4 text-purple-500" />
+            </div>
+            <p className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono mt-2">
+              {totalClientStalls}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Across {uniqueExhibitionsCount} exhibition event{uniqueExhibitionsCount === 1 ? '' : 's'}
+            </p>
           </div>
-          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-2">
-            {bookings.length}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {paidBookings.length} completed / verified
-          </p>
-        </div>
 
-        {/* Metric 3 */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Revenue Generated
-            </span>
-            <CreditCard className="w-4 h-4 text-emerald-500" />
+          {/* Client Metric 3: Total Paid Amount */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                Total Paid Amount
+              </span>
+              <CreditCard className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-2">
+              ₹{totalPaidAmount.toLocaleString('en-IN')}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Contract value: ₹{totalBookedValue.toLocaleString('en-IN')}
+            </p>
           </div>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-2">
-            ₹{totalRevenueGenerated.toLocaleString('en-IN')}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Total value: ₹{totalBookedValue.toLocaleString('en-IN')}
-          </p>
-        </div>
 
-        {/* Metric 4 */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-              Page Rights Granted
-            </span>
-            <Lock className="w-4 h-4 text-blue-500" />
+          {/* Client Metric 4: Outstanding Balance */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                Outstanding Balance
+              </span>
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+            <p className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono mt-2">
+              ₹{Math.max(0, totalBalanceDue).toLocaleString('en-IN')}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {totalBalanceDue <= 0 ? 'All invoices fully settled' : 'Pending balance due'}
+            </p>
           </div>
-          <p className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-2">
-            {effectivePages.length} / {PAGE_ACCESS_ITEMS.length}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {user.rolePermissions?.length || 0} API permissions configured
-          </p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Metric 1 */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Exhibitions Managed
+              </span>
+              <Layers className="w-4 h-4 text-purple-500" />
+            </div>
+            <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono mt-2">
+              {exhibitions.length}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {publishedExhibitions.length} published • {totalStallsInEvents} stalls in catalog
+            </p>
+          </div>
+
+          {/* Metric 2 */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                Attributed Bookings
+              </span>
+              <TrendingUp className="w-4 h-4 text-indigo-500" />
+            </div>
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-2">
+              {bookings.length}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {paidBookings.length} completed / verified
+            </p>
+          </div>
+
+          {/* Metric 3 */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                Revenue Generated
+              </span>
+              <CreditCard className="w-4 h-4 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-2">
+              ₹{totalRevenueGenerated.toLocaleString('en-IN')}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Total value: ₹{totalBookedValue.toLocaleString('en-IN')}
+            </p>
+          </div>
+
+          {/* Metric 4 */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                Page Rights Granted
+              </span>
+              <Lock className="w-4 h-4 text-blue-500" />
+            </div>
+            <p className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-2">
+              {effectivePages.length} / {PAGE_ACCESS_ITEMS.length}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {user.rolePermissions?.length || 0} API permissions configured
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto text-xs font-bold">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'overview'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Briefcase className="w-3.5 h-3.5" />
-          Works Overview & Timeline
-        </button>
+        {user.role === 'CLIENT' ? (
+          <>
+            <button
+              onClick={() => setActiveTab('bookings')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'bookings'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Stall Bookings & Invoices ({bookings.length})
+            </button>
 
-        <button
-          onClick={() => setActiveTab('exhibitions')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'exhibitions'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          Exhibitions Created ({exhibitions.length})
-        </button>
+            <button
+              onClick={() => setActiveTab('organization')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'organization'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Exhibitor Entity & Profile
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'overview'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              Works Overview & Timeline
+            </button>
 
-        <button
-          onClick={() => setActiveTab('bookings')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'bookings'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <TrendingUp className="w-3.5 h-3.5" />
-          Sales & Attributed Bookings ({bookings.length})
-        </button>
+            <button
+              onClick={() => setActiveTab('exhibitions')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'exhibitions'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Exhibitions Created ({exhibitions.length})
+            </button>
 
-        <button
-          onClick={() => setActiveTab('permissions')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'permissions'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Lock className="w-3.5 h-3.5" />
-          Page Access & Permissions ({effectivePages.length})
-        </button>
+            <button
+              onClick={() => setActiveTab('bookings')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'bookings'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Sales & Attributed Bookings ({bookings.length})
+            </button>
 
-        <button
-          onClick={() => setActiveTab('organization')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'organization'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Building2 className="w-3.5 h-3.5" />
-          Entity & Profile
-        </button>
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'permissions'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Page Access & Permissions ({effectivePages.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('organization')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'organization'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Entity & Profile
+            </button>
+          </>
+        )}
       </div>
 
       {/* TAB 1: OVERVIEW & WORKS SUMMARY */}
@@ -1166,7 +1321,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
             <div>
               <h3 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-indigo-600" />
-                Sales & Bookings Attributed to {user.name} ({user.spcode ? `SP Code: ${user.spcode}` : 'User ID'})
+                {user.role === 'CLIENT'
+                  ? `Stall Bookings & Invoices for ${user.name}`
+                  : `Sales & Bookings Attributed to ${user.name} (${user.spcode ? `SP Code: ${user.spcode}` : 'User ID'})`}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Total of {bookings.length} reservations with ₹{totalBookedValue.toLocaleString('en-IN')} aggregate value.
@@ -1587,7 +1744,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                   {sendNotificationEmail
-                    ? `An email with the username and the new temporary password will be sent securely to ${user.email}.`
+                    ? `An email with the username and the updated password will be sent securely to ${user.email}.`
                     : 'No email will be sent. The user password will be silently updated in the system.'}
                 </span>
               </div>
@@ -1598,9 +1755,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
           <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="leading-relaxed">
-              <strong>How does the user know which password to login with?</strong>
+              <strong>Account Notification:</strong>
               <br />
-              When notification email is enabled, the system transmits this new temporary password along with their username to <strong>{user.email}</strong> via TLS-encrypted email. For account security, the user is instructed in the email to sign in and immediately change this temporary password.
+              When notification email is enabled, the system transmits the login credentials along with their username to <strong>{user.email}</strong> via TLS-encrypted email.
             </div>
           </div>
 
@@ -1640,8 +1797,8 @@ export const UserGovernanceDetailPage: React.FC = () => {
           setEditModalError(null);
           setEditFieldErrors({});
         }}
-        title={`Edit User Profile: ${user.name}`}
-        maxWidth="5xl"
+        title={editUserRole === 'CLIENT' ? `Edit Client Profile: ${user.name}` : `Edit User Profile: ${user.name}`}
+        maxWidth={editUserRole === 'CLIENT' ? 'xl' : '6xl'}
       >
         <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[82vh] overflow-y-auto pr-1">
           {/* In-Modal Alert Banner */}
@@ -1663,44 +1820,72 @@ export const UserGovernanceDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Horizontal 2-Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            {/* LEFT COLUMN: Role & Profile Fields (5 cols) */}
-            <div className="lg:col-span-5 space-y-3">
-              {/* Account Role */}
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Account Role *
-                </label>
-                <div className={`grid gap-2 ${allowedEditRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                  {allowedEditRoles.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => handleEditRoleChange(r)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
-                        editUserRole === r
-                          ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
-                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 font-bold">
-                        {r === 'SUPERADMIN' ? (
-                          <Shield className="w-3.5 h-3.5 text-amber-500" />
-                        ) : r === 'ADMIN' ? (
-                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                        ) : (
-                          <Users className="w-3.5 h-3.5 text-emerald-500" />
-                        )}
-                        <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+          {/* Form Layout: Single column for Client, 2-column grid for Admin/Staff */}
+          <div className={editUserRole === 'CLIENT' ? 'space-y-3' : 'grid grid-cols-1 lg:grid-cols-12 gap-5 items-start'}>
+            {/* LEFT COLUMN: Role & Profile Fields */}
+            <div className={editUserRole === 'CLIENT' ? 'space-y-3' : 'lg:col-span-5 space-y-3'}>
+              {/* Account Role / Client Classification */}
+              {editUserRole === 'CLIENT' ? (
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Account Classification
+                  </label>
+                  <div className="p-3 rounded-xl border border-blue-200/90 dark:border-blue-800/80 bg-blue-50/70 dark:bg-blue-950/40 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#09539b] to-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                        <Users className="w-4 h-4" />
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
-                        {r === 'SUPERADMIN' ? 'Full Control' : r === 'ADMIN' ? 'Events & Stalls' : 'Operations'}
-                      </p>
-                    </button>
-                  ))}
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-blue-950 dark:text-blue-100 text-xs">
+                            Exhibitor / Client
+                          </span>
+                          <span className="text-[9px] px-2 py-0.2 rounded-full font-bold bg-blue-100 dark:bg-blue-900/70 text-[#09539b] dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                            External Portal
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-blue-700/80 dark:text-blue-300/80 mt-0.5">
+                          Customer account for stall booking & invoice tracking
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Account Role *
+                  </label>
+                  <div className={`grid gap-2 ${allowedEditRoles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    {allowedEditRoles.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => handleEditRoleChange(r)}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          editUserRole === r
+                            ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold">
+                          {r === 'SUPERADMIN' ? (
+                            <Shield className="w-3.5 h-3.5 text-amber-500" />
+                          ) : r === 'ADMIN' ? (
+                            <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                          ) : (
+                            <Users className="w-3.5 h-3.5 text-emerald-500" />
+                          )}
+                          <span>{r === 'SUPERADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Staff'}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-normal">
+                          {r === 'SUPERADMIN' ? 'Full Control' : r === 'ADMIN' ? 'Events & Stalls' : 'Operations'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1775,128 +1960,195 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  SP Code *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. SP-201"
-                  value={editForm.spcode}
-                  error={editFieldErrors.spcode}
-                  onChange={(e) => {
-                    setEditForm((prev) => ({ ...prev, spcode: e.target.value.toUpperCase() }));
-                    if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
-                    if (editModalError) setEditModalError(null);
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: Granular Page Access Rights (7 cols, 2-column grid with clean images/icons) */}
-            <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+              {editUserRole !== 'CLIENT' && (
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
-                      Page Permissions *
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                      {editUserPages.length}/{PAGE_ACCESS_ITEMS.length}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Select granted platform areas. At least one permission required.
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
-                    className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
-                    className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
-                  >
-                    All
-                  </button>
-                </div>
-              </div>
-
-              {editFieldErrors.pageAccess && (
-                <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                  <span>{editFieldErrors.pageAccess}</span>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    SP Code *
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. SP-201"
+                    value={editForm.spcode}
+                    error={editFieldErrors.spcode}
+                    onChange={(e) => {
+                      setEditForm((prev) => ({ ...prev, spcode: e.target.value.toUpperCase() }));
+                      if (editFieldErrors.spcode) setEditFieldErrors((prev) => ({ ...prev, spcode: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
                 </div>
               )}
 
-              {/* 2-Column Permissions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
-                {PAGE_ACCESS_ITEMS.map((page) => {
-                  const isSelected = editUserPages.includes(page.id);
-                  const config = PAGE_ICON_CONFIG[page.id] || {
-                    icon: Layers,
-                    color: 'text-blue-600 dark:text-blue-400',
-                    bg: 'bg-blue-50 dark:bg-blue-950/60',
-                    border: 'border-blue-200 dark:border-blue-800/80',
-                  };
-                  const IconComp = config.icon;
-
-                  return (
-                    <div
-                      key={page.id}
-                      onClick={() => handleToggleEditPage(page.id)}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
-                        isSelected
-                          ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${config.bg} ${config.color} ${config.border} transition-transform group-hover:scale-105`}
-                          >
-                            <IconComp className="w-3.5 h-3.5" />
-                          </div>
-                          {page.id === 'governance' && (
-                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
-                              Super Admin
-                            </span>
-                          )}
-                          {page.id === 'reports' && (
-                            <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
-                              Reports
-                            </span>
-                          )}
-                        </div>
-                        <div className="shrink-0 mt-0.5">
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400" />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 block truncate group-hover:text-[#09539b] dark:group-hover:text-blue-300 transition-colors">
-                          {page.label}
-                        </span>
-                        <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5 leading-tight">
-                          {page.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Password Change Field (Optional for all user roles) */}
+              <div className="p-3 rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-800/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 text-xs">
+                    Change Password <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+                      let pwd = 'Buoy@';
+                      for (let i = 0; i < 6; i++) {
+                        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+                      }
+                      setEditPassword(pwd);
+                      setShowEditPassword(true);
+                      if (editFieldErrors.password) setEditFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                    className="text-[10px] font-bold text-[#09539b] dark:text-blue-400 hover:underline"
+                  >
+                    Generate Random
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    type={showEditPassword ? 'text' : 'password'}
+                    placeholder="Leave blank to keep current password"
+                    value={editPassword}
+                    error={editFieldErrors.password}
+                    onChange={(e) => {
+                      setEditPassword(e.target.value);
+                      if (editFieldErrors.password) setEditFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      if (editModalError) setEditModalError(null);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    title={showEditPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Minimum 8 characters. Only fill if you wish to reset or change this user's password.
+                </p>
+                {editPassword && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                    <input
+                      type="checkbox"
+                      checked={editSendNotificationEmail}
+                      onChange={(e) => setEditSendNotificationEmail(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 focus:ring-blue-500"
+                    />
+                    <span className="text-[10px] text-slate-600 dark:text-slate-300">
+                      Send password update notification email to user
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
+
+            {/* RIGHT COLUMN: Page Permissions (only for Admin/Staff, not for Client) */}
+            {editUserRole !== 'CLIENT' && (
+              <div className="lg:col-span-7 flex flex-col space-y-2.5 bg-slate-50/70 dark:bg-slate-800/30 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                      <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs">
+                        Page Permissions *
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        {editUserPages.length}/{PAGE_ACCESS_ITEMS.length}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Select granted platform areas. At least one permission required.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditUserPages([...(DEFAULT_ROLE_PAGE_ACCESS[editUserRole] || ['dashboard'])])}
+                      className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditUserPages(PAGE_ACCESS_ITEMS.map((p) => p.id))}
+                      className="px-2 py-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-800 transition-colors shadow-2xs"
+                    >
+                      All
+                    </button>
+                  </div>
+                </div>
+
+                {editFieldErrors.pageAccess && (
+                  <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>{editFieldErrors.pageAccess}</span>
+                  </div>
+                )}
+
+                {/* 2-Column Permissions Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+                  {PAGE_ACCESS_ITEMS.map((page) => {
+                    const isSelected = editUserPages.includes(page.id);
+                    const config = PAGE_ICON_CONFIG[page.id] || {
+                      icon: Layers,
+                      color: 'text-blue-600 dark:text-blue-400',
+                      bg: 'bg-blue-50 dark:bg-blue-950/60',
+                      border: 'border-blue-200 dark:border-blue-800/80',
+                    };
+                    const IconComp = config.icon;
+
+                    return (
+                      <div
+                        key={page.id}
+                        onClick={() => handleToggleEditPage(page.id)}
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
+                          isSelected
+                            ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${config.bg} ${config.color} ${config.border} transition-transform group-hover:scale-105`}
+                            >
+                              <IconComp className="w-3.5 h-3.5" />
+                            </div>
+                            {page.id === 'governance' && (
+                              <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                                Super Admin
+                              </span>
+                            )}
+                            {page.id === 'reports' && (
+                              <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                                Reports
+                              </span>
+                            )}
+                          </div>
+                          <div className="shrink-0 mt-0.5">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-[#09539b] dark:text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400" />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="min-w-0">
+                          <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100 block truncate group-hover:text-[#09539b] dark:group-hover:text-blue-300 transition-colors">
+                            {page.label}
+                          </span>
+                          <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5 leading-tight">
+                            {page.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -1921,7 +2173,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 isLoading={savingEdit}
                 className="bg-[#09539b] hover:bg-[#07427d] text-white font-bold"
               >
-                Save Profile Changes
+                Save Changes
               </Button>
             </div>
           </div>

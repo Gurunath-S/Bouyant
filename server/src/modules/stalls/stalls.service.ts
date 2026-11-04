@@ -22,17 +22,16 @@ export class StallsService {
       if (expiredStalls.length === 0) return 0;
       const expiredStallIds = expiredStalls.map((s) => s.id);
 
-      // 2. Mark associated unconfirmed bookings as CANCELLED
+      // 2. Business Rule: Never auto-cancel bookings when hold/due dates pass.
+      // Keep bookings as PENDING_PAYMENT so payment can still be collected and records remain active.
       await tx.booking.updateMany({
         where: {
-          status: { in: ['INITIATED', 'PENDING_PAYMENT', 'HELD'] },
-          OR: [
-            { stalls: { some: { stallId: { in: expiredStallIds } } } },
-            { expiresAt: { lt: now } },
-          ],
+          status: 'INITIATED',
+          paidAmount: { lte: 0 },
+          stalls: { some: { stallId: { in: expiredStallIds } } },
         },
         data: {
-          status: 'CANCELLED',
+          status: 'PENDING_PAYMENT',
         },
       });
 
@@ -432,13 +431,15 @@ export class StallsService {
       if (userStalls.length > 0) {
         const stallIds = userStalls.map((s) => s.id);
 
+        // Keep bookings as PENDING_PAYMENT — do not cancel on hold release
         await tx.booking.updateMany({
           where: {
-            status: { in: ['INITIATED', 'PENDING_PAYMENT', 'HELD'] },
+            status: 'INITIATED',
+            paidAmount: { lte: 0 },
             stalls: { some: { stallId: { in: stallIds } } },
           },
           data: {
-            status: 'CANCELLED',
+            status: 'PENDING_PAYMENT',
           },
         });
 

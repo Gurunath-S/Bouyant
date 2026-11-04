@@ -1383,12 +1383,13 @@ static async createBooking(
           );
         }
 
-        // Cancel any previous unfulfilled PENDING_PAYMENT booking for this company & exhibition to avoid orphaned duplicates when re-trying/switching payment plan
+        // Only cancel previous completely unpaid drafts (0 payment collected) when re-initiating checkout
         await tx.booking.updateMany({
           where: {
             companyId: input.companyId,
             exhibitionId: exhibition.id,
             status: BookingStatus.PENDING_PAYMENT,
+            paidAmount: { lte: 0 },
             stalls: {
               some: {
                 stallId: { in: input.stallIds },

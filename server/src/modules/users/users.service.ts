@@ -590,6 +590,15 @@ export class UsersService {
       spcode = cleanSp;
     }
 
+    let passwordHash: string | undefined = undefined;
+    if (input.password && input.password.trim()) {
+      const cleanPassword = input.password.trim();
+      if (cleanPassword.length < 8) {
+        throw ApiError.badRequest('Password must be at least 8 characters long.');
+      }
+      passwordHash = await bcrypt.hash(cleanPassword, 10);
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
@@ -600,6 +609,7 @@ export class UsersService {
         spcode,
         role: input.role ? (input.role as UserRole) : undefined,
         pageAccess: input.pageAccess !== undefined ? input.pageAccess : undefined,
+        passwordHash: passwordHash || undefined,
       },
       select: {
         id: true,
@@ -612,8 +622,57 @@ export class UsersService {
         pageAccess: true,
         isActive: true,
         updatedAt: true,
+        companyId: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            companyCode: true,
+            contactPerson: true,
+            mobile: true,
+            email: true,
+            address: true,
+            city: true,
+            state: true,
+            pinCode: true,
+            country: true,
+            gstNumber: true,
+            panNumber: true,
+            industry: true,
+            website: true,
+          },
+        },
       },
     });
+
+    // If client user belongs to a company, sync contact details so company and bookings reflect the edit
+    if (user.companyId) {
+      try {
+        await prisma.company.update({
+          where: { id: user.companyId },
+          data: {
+            contactPerson: input.name ? input.name.trim() : undefined,
+            email: input.email !== undefined ? email : undefined,
+            mobile: input.phone && input.phone.trim() ? input.phone.trim() : undefined,
+          },
+        });
+      } catch (companySyncErr) {
+        console.warn('Failed to sync user updates to linked company:', companySyncErr);
+      }
+    }
+
+    if (passwordHash && input.sendNotificationEmail !== false) {
+      try {
+        await EmailService.sendAdminPasswordResetNotificationEmail({
+          toEmail: email,
+          toName: input.name ? input.name.trim() : user.name,
+          username: username || undefined,
+          password: input.password!.trim(),
+        });
+      } catch (emailErr) {
+        console.warn(`Failed to dispatch password notification email to ${email}:`, emailErr);
+      }
+    }
 
     return updated;
   }
