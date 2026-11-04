@@ -10,6 +10,7 @@ import { CompletePaymentModal } from '../../payments/components/CompletePaymentM
 import { BookingDetailModal } from '../components/BookingDetailModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { formatDisplayDate, formatDisplayTime } from '../../../utils/date';
 
 export const MyBookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -93,6 +94,7 @@ export const MyBookingsPage: React.FC = () => {
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                 <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                 <th className="py-3.5 px-4">Booking Ref</th>
+                <th className="py-3.5 px-4">Booked Date & Time</th>
                 <th className="py-3.5 px-4">Exhibition Event</th>
                 <th className="py-3.5 px-4">Stall Number</th>
                 <th className="py-3.5 px-4">Company Entity</th>
@@ -114,6 +116,14 @@ export const MyBookingsPage: React.FC = () => {
                       {(currentPage - 1) * PAGE_SIZE + idx + 1}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-blue-700 dark:text-blue-400">{b.bookingReference}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="font-medium text-slate-700 dark:text-slate-300">
+                        {formatDisplayDate(b.createdAt)}
+                      </div>
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                        {formatDisplayTime(b.createdAt)}
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{b.exhibition?.title}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Stall(s) {b.stalls?.map(bs => bs.stall?.stallNumber).join(', ')}</td>
                     <td className="py-3.5 px-4">{b.company?.name}</td>

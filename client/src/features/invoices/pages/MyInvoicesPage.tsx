@@ -4,7 +4,7 @@ import { apiClient } from '../../../services/api/apiClient';
 import { Invoice } from '../../../types';
 import { FileText, Download, Eye, Search, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate,formatDisplayDateTime,formatDisplayTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { TablePagination } from '../../../components/ui/TablePagination';
 
@@ -174,7 +174,7 @@ useEffect(() => {
                   <th className="py-3.5 px-4">Invoice No.</th>
                   <th className="py-3.5 px-4">Exhibition</th>
                   <th className="py-3.5 px-4">Stalls</th>
-                  <th className="py-3.5 px-4">Issue Date</th>
+                  <th className="py-3.5 px-4">Issue Date & Time</th>
                   <th className="py-3.5 px-4 text-right">Base (excl. GST)</th>
                   <th className="py-3.5 px-4 text-right">GST 18%</th>
                   <th className="py-3.5 px-4 text-right">Grand Total</th>
@@ -213,8 +213,8 @@ useEffect(() => {
                       >
                         {stallNumbers}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {formatDisplayDate(inv.issueDate)}
+                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium">
+                        {formatDisplayDateTime(inv.issueDate)}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono">
                         ₹{Number(inv.totalAmount || 0).toLocaleString('en-IN')}

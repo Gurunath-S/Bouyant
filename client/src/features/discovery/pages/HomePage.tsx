@@ -152,13 +152,14 @@ export const HomePage: React.FC = () => {
               </div>
 
               {/* Action Button */}
-              <div className="pt-1 flex flex-wrap items-center gap-4">
-                <Link to={`/exhibitions/${featuredEvent.slug}`}>
-                  <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
-                    Book Your Stall <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
-              </div>
+             
+            <div className="pt-1 flex flex-wrap items-center justify-end sm:justify-start gap-4">
+              <Link to={`/exhibitions/${featuredEvent.slug}`}>
+                <button className="inline-flex items-center gap-2 bg-[#1E3FA0] hover:bg-[#152B75] text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
+                  Book Your Stall <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
 
               {/* Trust & Guarantee Highlights Bar */}
               <div className="pt-3 border-t border-slate-300/60 dark:border-slate-800 flex flex-wrap gap-4 text-xs font-semibold text-slate-600 dark:text-slate-400">

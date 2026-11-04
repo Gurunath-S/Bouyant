@@ -884,7 +884,7 @@ export const BookingWizardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleInitiateLeave}
-                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  className="group inline-flex mt-10 items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
                   title={fromReferrer ? `Back to ${fromReferrerLabel || 'Previous Page'}` : 'Back to Exhibition Profile'}
                 >
                   <ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
