@@ -184,8 +184,8 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
 
   // Local coordinates
   const [currentCoords, setCurrentCoords] = useState<{ lat?: number; lng?: number }>({
-    lat: latitude,
-    lng: longitude,
+    lat: latitude !== undefined && latitude !== null ? Number(latitude) : undefined,
+    lng: longitude !== undefined && longitude !== null ? Number(longitude) : undefined,
   });
 
   // Close search dropdown on click outside
@@ -202,14 +202,22 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
   // Initial center calculation
   const initialCenter = useMemo<[number, number]>(() => {
     if (latitude && longitude) {
-      return [latitude, longitude];
+      const lat = Number(latitude);
+      const lng = Number(longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return [lat, lng];
+      }
+    }
+    if (venueName) {
+      const preset = findPresetByText(venueName.trim());
+      if (preset) return [preset.lat, preset.lng];
     }
     const cleanCity = cityName?.toLowerCase().trim();
     if (cleanCity && CITY_COORDINATES[cleanCity]) {
       return CITY_COORDINATES[cleanCity];
     }
     return [11.0168, 76.9558]; // Coimbatore default or Mumbai
-  }, [latitude, longitude, cityName]);
+  }, [latitude, longitude, venueName, cityName]);
 
   // Marker helper
   const updateMarkerPosition = useCallback(
@@ -337,12 +345,22 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
       mapInstanceRef.current = null;
     }
 
-    const startCenter: [number, number] =
-      latitude && longitude ? [latitude, longitude] : initialCenter;
+    const validLat = latitude !== undefined && latitude !== null ? Number(latitude) : undefined;
+    const validLng = longitude !== undefined && longitude !== null ? Number(longitude) : undefined;
+    const hasValidCoords = validLat !== undefined && validLng !== undefined && !isNaN(validLat) && !isNaN(validLng);
+    const preset = !hasValidCoords && venueName ? findPresetByText(venueName.trim()) : null;
+
+    const startCenter: [number, number] = hasValidCoords
+      ? [validLat!, validLng!]
+      : preset
+      ? [preset.lat, preset.lng]
+      : initialCenter;
+
+    const initialZoom = hasValidCoords || preset ? 16 : 13;
 
     const map = L.map(mapContainerRef.current, {
       center: startCenter,
-      zoom: latitude && longitude ? 16 : 13,
+      zoom: initialZoom,
       minZoom: 3,
       maxZoom: 20,
       zoomControl: false, // We render clean zoom buttons in header
@@ -363,9 +381,12 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
     }).addTo(map);
     tileLayerRef.current = tiles;
 
-    if (latitude && longitude) {
-      const marker = L.marker([latitude, longitude], {
-        icon: createGoogleMapsPinIcon(venueName),
+    const markerLat = hasValidCoords ? validLat! : preset ? preset.lat : null;
+    const markerLng = hasValidCoords ? validLng! : preset ? preset.lng : null;
+
+    if (markerLat !== null && markerLng !== null) {
+      const marker = L.marker([markerLat, markerLng], {
+        icon: createGoogleMapsPinIcon(venueName || preset?.name),
         draggable: !readOnly,
       }).addTo(map);
 
@@ -450,6 +471,41 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
       updateMarkerPosition(currentCoords.lat, currentCoords.lng, venueName);
     }
   }, [currentCoords.lat, currentCoords.lng, venueName, updateMarkerPosition]);
+
+  // Synchronize coordinates and pin when latitude / longitude props change or load asynchronously
+  useEffect(() => {
+    const validLat = latitude !== undefined && latitude !== null ? Number(latitude) : undefined;
+    const validLng = longitude !== undefined && longitude !== null ? Number(longitude) : undefined;
+    const hasValidCoords = validLat !== undefined && validLng !== undefined && !isNaN(validLat) && !isNaN(validLng);
+
+    if (hasValidCoords) {
+      if (currentCoords.lat !== validLat || currentCoords.lng !== validLng) {
+        setCurrentCoords({ lat: validLat!, lng: validLng! });
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView([validLat!, validLng!], 16);
+      }
+      updateMarkerPosition(validLat!, validLng!, venueName);
+      return;
+    }
+
+    // If coordinates are missing, fallback to preset venue detection (e.g. BIEC, CODISSIA, etc.)
+    if (venueName) {
+      const clean = venueName.trim();
+      if (clean.length >= 2) {
+        const matched = findPresetByText(clean);
+        if (matched) {
+          if (currentCoords.lat !== matched.lat || currentCoords.lng !== matched.lng) {
+            setCurrentCoords({ lat: matched.lat, lng: matched.lng });
+          }
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.setView([matched.lat, matched.lng], 16);
+          }
+          updateMarkerPosition(matched.lat, matched.lng, venueName || matched.name);
+        }
+      }
+    }
+  }, [latitude, longitude, venueName, updateMarkerPosition]);
 
   // ONLY move the map when the user genuinely changes venueName or cityName in the form inputs
   useEffect(() => {
@@ -709,16 +765,21 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-              {title}
+              {title || (venueName ? `${venueName}${cityName ? `, ${cityName}` : ''}` : 'Venue Location')}
             </h4>
-            {venueName && (
-              <span className="text-xs text-red-600 dark:text-red-400 font-semibold truncate">
-                • {venueName}
-              </span>
-            )}
+            {venueName &&
+              title &&
+              title.toLowerCase() !== venueName.toLowerCase() &&
+              !title.toLowerCase().includes(venueName.toLowerCase()) && (
+                <span className="text-xs text-red-600 dark:text-red-400 font-semibold truncate">
+                  • {venueName}
+                </span>
+              )}
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            Drag map to pan • Scroll to zoom in/out • Click anywhere to drop pin
+            {readOnly
+              ? 'Interactive venue map • Drag to pan • Scroll to zoom'
+              : 'Drag map to pan • Scroll to zoom in/out • Click anywhere to drop pin'}
           </p>
         </div>
 

@@ -4,6 +4,7 @@ import { FloorPlanLayoutData } from '../../../../types/floorPlanStudio';
 import { FloorPlanCanvas } from '../../../floor-plan/components/FloorPlanCanvas';
 import { StallFilterBar } from '../../../floor-plan/components/StallFilterBar';
 import { useFloorPlanStore } from '../../../../stores/floorPlanStore';
+import { getStallAreaSqMt } from '../../../../utils/stallArea';
 import { Button } from '../../../../components/ui/Button';
 import {
   CheckCircle2,
@@ -174,7 +175,7 @@ export const Step1StallSelection: React.FC<Step1StallSelectionProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-blue-200 font-medium">
-              Stall Dimensions: <b className="text-white font-mono">{selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')}</b> • Combined Area: <b className="text-white">{Math.round(selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
+              Stall Dimensions: <b className="text-white font-mono">{selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')}</b> • Combined Area: <b className="text-white">{Number(selectedStallsObj.reduce((sum, s) => sum + getStallAreaSqMt(s), 0).toFixed(1))} Sq.Mt</b> • Base Rental: <b className="text-white font-mono">₹{basePrice.toLocaleString()}</b> (+ 18% GST: ₹{taxAmount.toLocaleString()})
             </p>
           </div>
 

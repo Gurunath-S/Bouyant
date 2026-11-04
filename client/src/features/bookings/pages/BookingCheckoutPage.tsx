@@ -10,6 +10,7 @@ import { BackButton } from '../../../components/ui/BackButton';
 import { Input } from '../../../components/ui/Input';
 import { ShieldCheck, Building2, CreditCard, AlertCircle } from 'lucide-react';
 import { Stall, Company } from '../../../types';
+import { formatStallArea } from '../../../utils/stallArea';
 
 export const BookingCheckoutPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -204,7 +205,7 @@ export const BookingCheckoutPage: React.FC = () => {
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
                 <p className="text-slate-400 font-medium">Physical Dimensions</p>
                 <p className="text-sm font-bold text-slate-900 mt-0.5">
-                  {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m (${stall.areaSqFt} Sq.Ft)` : `${stall.areaSqFt} Sq.Ft`}
+                  {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m (${formatStallArea(stall, 'Sq.Mt')})` : formatStallArea(stall, 'Sq.Mt')}
                 </p>
               </div>
             </div>

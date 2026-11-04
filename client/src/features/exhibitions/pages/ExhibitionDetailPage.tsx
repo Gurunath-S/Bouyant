@@ -9,6 +9,8 @@ import {
   Calendar,
   Clock,
   MapPin,
+  Building2,
+  Car,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -27,6 +29,7 @@ import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { FloorPlanLayoutData } from '../../../types/floorPlanStudio';
 import { formatDisplayDate, formatExhibitionOperatingHours } from '../../../utils/date';
+import { getStallAreaSqMt } from '../../../utils/stallArea';
 import { showAlert } from '../../../stores/dialogStore';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
 import { BackButton } from '../../../components/ui/BackButton';
@@ -571,7 +574,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                 const selectedStallsObj = stalls.filter((s) => selectedStallIds.includes(s.id));
                 if (selectedStallsObj.length === 0) return null;
 
-                const totalArea = selectedStallsObj.reduce((sum, s) => sum + s.areaSqFt, 0);
+                const totalArea = Number(selectedStallsObj.reduce((sum, s) => sum + getStallAreaSqMt(s), 0).toFixed(1));
                 const totalPrice = selectedStallsObj.reduce((sum, s) => sum + Number(s.price), 0);
                 const stallNumbers = selectedStallsObj.map((s) => s.stallNumber).join(', ');
 
@@ -587,7 +590,7 @@ export const ExhibitionDetailPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        {selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} ({totalArea} Sq.Ft) • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
+                        {selectedStallsObj.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} ({totalArea} Sq.Mt) • Total Rental: <b className="text-[#1E3FA0] dark:text-blue-400 font-mono">₹{totalPrice.toLocaleString()} + GST</b>
                       </p>
                     </div>
 
@@ -617,29 +620,98 @@ export const ExhibitionDetailPage: React.FC = () => {
               </h3>
 
               <InteractivePinMap
+                latitude={exhibition.latitude !== null && exhibition.latitude !== undefined ? Number(exhibition.latitude) : undefined}
+                longitude={exhibition.longitude !== null && exhibition.longitude !== undefined ? Number(exhibition.longitude) : undefined}
                 venueName={exhibition.venue}
                 cityName={exhibition.city}
+                stateName={exhibition.state || undefined}
                 address={exhibition.address || undefined}
                 readOnly={true}
-                title={`Interactive Venue Map & Navigation — ${exhibition.venue}, ${exhibition.city}`}
+                title={`${exhibition.venue}${exhibition.city ? `, ${exhibition.city}` : ''}`}
                 heightClass="h-96"
               />
 
-              <div className="bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs shadow-xs">
-                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Convention Centre</span>
-                  <p className="text-slate-600 dark:text-slate-300">{exhibition.venue}</p>
-                  {exhibition.address && (
-                    <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">{exhibition.address}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Convention Centre */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-blue-400/50 dark:hover:border-blue-500/50 transition-all">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                        Convention Centre
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug">
+                        {exhibition.venue}
+                      </h4>
+                      {exhibition.address && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                          {exhibition.address}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {exhibition.city && (
+                    <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                      <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      <span className="truncate">{exhibition.city}{exhibition.state ? `, ${exhibition.state}` : ''}</span>
+                    </div>
                   )}
                 </div>
-                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Host City</span>
-                  <p className="text-slate-600 dark:text-slate-300">{exhibition.city}</p>
+
+                {/* 2. Host City */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-emerald-400/50 dark:hover:border-emerald-500/50 transition-all">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                        Host City
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {exhibition.city}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                        {exhibition.state ? `${exhibition.state}, India` : 'India'} • Major commercial hub with international transit connectivity.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>Prime Exhibition Destination</span>
+                  </div>
                 </div>
-                <div className="p-4 bg-[#EEF4FC] dark:bg-slate-800/60 rounded-xl space-y-1">
-                  <span className="font-bold text-[#121B3D] dark:text-slate-100 text-sm block">Parking & Transit</span>
-                  <p className="text-slate-600 dark:text-slate-300">On-site visitor parking & VIP delegate drop-off zones available.</p>
+
+                {/* 3. Parking & Transit */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-purple-400/50 dark:hover:border-purple-500/50 transition-all">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                        <Car className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
+                        Parking & Transit
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        Visitor & Freight Access
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                        On-site visitor parking, loading docks & VIP delegate drop-off zones available.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    <span>24/7 Monitored Access</span>
+                  </div>
                 </div>
               </div>
             </div>

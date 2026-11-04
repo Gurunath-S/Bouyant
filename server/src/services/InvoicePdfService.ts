@@ -2,6 +2,7 @@
  
 import pdfmake from 'pdfmake';
 import { ApiError } from '../utils/apiError.js';
+import { getStallAreaSqMt } from '../utils/stallArea.js';
  
 // Restrict external URL fetches for security
 pdfmake.setUrlAccessPolicy(() => false);
@@ -237,8 +238,8 @@ export function resetRenderQueueForTesting(): void {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const formatMoney = (amount: number): string =>
-  amount.toLocaleString('en-IN', {
+const formatMoney = (amount?: number): string =>
+  (Number(amount) || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -289,7 +290,7 @@ export class InvoicePdfService {
     const stalls = (booking?.stalls || []).map((bs: any) => ({
       stallNumber: bs.stall?.stallNumber || bs.stallId || 'A14',
       category: bs.stall?.category || 'PREMIUM',
-      areaSqFt: bs.stall?.areaSqFt ?? 100,
+      areaSqFt: bs.stall?.areaSqFt ?? 9,
       actualWidth: bs.stall?.actualWidth,
       actualHeight: bs.stall?.actualHeight,
       name: bs.stall?.name || '',
@@ -381,11 +382,21 @@ export class InvoicePdfService {
     const stallDetailsText = data.stalls
       .map((s) => {
         const dim = s.actualWidth && s.actualHeight ? ` [${s.actualWidth}m × ${s.actualHeight}m]` : '';
-        return `${s.stallNumber} (${s.category.toUpperCase()})${dim} ${s.name || ''}`.trim();
+        const cleanName = s.name?.trim() || '';
+        const isDuplicateName =
+          !cleanName ||
+          cleanName.toLowerCase() === s.stallNumber.toLowerCase() ||
+          cleanName.toLowerCase() === `stall ${s.stallNumber.toLowerCase()}` ||
+          cleanName.toLowerCase().replace(/^stall\s*/i, '').trim() === s.stallNumber.toLowerCase() ||
+          cleanName.toLowerCase() === `${s.actualWidth}×${s.actualHeight}` ||
+          cleanName.toLowerCase() === `${s.actualWidth}x${s.actualHeight}`;
+
+        const extraName = isDuplicateName ? '' : ` (${cleanName})`;
+        return `${s.stallNumber} (${s.category.toUpperCase()})${dim}${extraName}`.trim();
       })
       .join(', ');
  
-    const totalQty = data.stalls.reduce((sum, s) => sum + (s.areaSqFt || 100), 0);
+    const totalQty = data.stalls.reduce((sum, s) => sum + getStallAreaSqMt(s), 0);
  
     const tableNoPadding = {
       hLineWidth: () => 0.75,
@@ -640,7 +651,7 @@ export class InvoicePdfService {
                             { text: 'Total', alignment: 'right', bold: true, border: [false, true, true, true] },
                             { text: '', border: [false, true, true, true] },
                             { text: `${totalQty}`, alignment: 'right', bold: true, border: [false, true, true, true] },
-                            { text: '-', alignment: 'center', border: [false, true, true, true] },
+                            { text: 'SQM', alignment: 'center', bold: true, border: [false, true, true, true] },
                             {
                               text: formatMoney(data.grandTotal),
                               alignment: 'right',

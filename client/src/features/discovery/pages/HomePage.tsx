@@ -232,8 +232,8 @@ export const HomePage: React.FC = () => {
 
               <div className="p-6 bg-[#EEF4FC] dark:bg-slate-900 rounded-2xl border border-[#E6EAF0] dark:border-slate-800 space-y-1 text-center">
                 <LayoutGrid className="w-6 h-6 text-[#0E8074] dark:text-teal-400 mx-auto mb-2" />
-                <span className="text-2xl font-black text-[#121B3D] dark:text-slate-100 block">100,000</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sq.Ft Air-Conditioned</span>
+                <span className="text-2xl font-black text-[#121B3D] dark:text-slate-100 block">10,000</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sq.Mt Air-Conditioned</span>
               </div>
 
               <div className="p-6 bg-[#EEF4FC] dark:bg-slate-900 rounded-2xl border border-[#E6EAF0] dark:border-slate-800 space-y-1 text-center">

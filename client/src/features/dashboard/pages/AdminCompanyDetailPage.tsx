@@ -5,6 +5,7 @@ import { exhibitionService } from '../../../services/exhibitions/exhibitionServi
 import { Company, Exhibition, Booking } from '../../../types';
 import { normalizeCountryName } from '../../../data/indianStatesCities';
 import { BackButton } from '../../../components/ui/BackButton';
+import { formatStallArea } from '../../../utils/stallArea';
 import {
   ArrowLeft,
   Building2,
@@ -1146,7 +1147,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                               Stall No:{bs.stall?.stallNumber || 'N/A'} ({bs.stall?.category || 'STANDARD'})
                                             </span>
                                             <span className="text-slate-500 font-mono">
-                                              {bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m (${bs.stall.areaSqFt} sq.ft)` : bs.stall?.areaSqFt ? `${bs.stall.areaSqFt} sq.ft` : ''} • ₹{Number(bs.price || bs.stall?.price || 0).toLocaleString()}
+                                              {bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m (${formatStallArea(bs.stall, 'Sq.Mt')})` : bs.stall ? formatStallArea(bs.stall, 'Sq.Mt') : ''} • ₹{Number(bs.price || bs.stall?.price || 0).toLocaleString()}
                                             </span>
                                           </div>
                                         ))}

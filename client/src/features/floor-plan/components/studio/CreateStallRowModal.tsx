@@ -135,7 +135,7 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
   const gapPx = Math.round(gapMeters * pxPerMeter);
 
   const areaSqMeters = Number((effectiveWidthMeters * effectiveDepthMeters).toFixed(1));
-  const areaSqFt = Math.round(areaSqMeters * 10.7639);
+  const areaSqFt = areaSqMeters;
 
   const totalSpanMeters = Number(
     (
@@ -424,7 +424,7 @@ export const CreateStallRowModal: React.FC<CreateStallRowModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
               <span>
                 Single stall area:{' '}
-                <strong className="text-slate-800 font-bold">{areaSqMeters} sq.m</strong> ({areaSqFt} sq.ft)
+                <strong className="text-slate-800 font-bold">{areaSqMeters} Sq.Mt</strong>
               </span>
               <span>
                 Total row span:{' '}

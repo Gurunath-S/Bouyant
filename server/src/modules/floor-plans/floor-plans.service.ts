@@ -244,7 +244,7 @@ export class FloorPlansService {
               : validatedLayoutData?.stallPhysicalDimensions?.[stallNum]?.height !== undefined
                 ? Number(validatedLayoutData.stallPhysicalDimensions[stallNum].height)
                 : Number((height / 20).toFixed(1));
-            const areaSqFt = s.areaSqFt ? Number(s.areaSqFt) : Math.round(actualWidth * actualHeight * 10.764);
+            const areaSqFt = Number((actualWidth * actualHeight).toFixed(1));
             const xPosition = Number(s.xPosition) || 0;
             const yPosition = Number(s.yPosition) || 0;
 

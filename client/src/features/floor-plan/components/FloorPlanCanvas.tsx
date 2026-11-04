@@ -20,6 +20,7 @@ interface FloorPlanCanvasProps {
 
 import { getStallTypography } from '../utils/stallTypography';
 import { getFacilityIconKey, renderFacilitySvgIcon } from '../utils/facilityIconRenderer';
+import { formatStallArea } from '../../../utils/stallArea';
 
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   stalls,
@@ -811,7 +812,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
               const titleText = isUnavailable
                 ? `Stall ${stall.stallNumber} • Booked`
-                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${dimText} (${Math.round(stall.areaSqFt || (stall.width * stall.height) / 100)} sqft)`;
+                : `Stall ${stall.stallNumber} • ${stall.category} • ₹${Number(stall.price).toLocaleString()} • ${dimText} (${formatStallArea(stall, 'Sq.Mt')})`;
 
               return (
                 <g

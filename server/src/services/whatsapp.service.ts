@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { DateTime } from "luxon";
+import { getStallAreaSqMt } from '../utils/stallArea.js';
 
 export interface SendConfirmationParams {
   booking: any;
@@ -79,19 +80,13 @@ export class WhatsappService {
           const stall = s.stall;
           if (!stall) return 'Standard';
 
-          // Option A: Display Area in Sq.Ft (e.g. "100 Sq.Ft")
-          if (stall.areaSqFt) {
-            return `${stall.areaSqFt} Sq.Ft`;
+          // Display Area in Sq.Mt (e.g. "9 Sq.Mt")
+          const sqmt = getStallAreaSqMt(stall);
+          if (stall.actualWidth && stall.actualHeight) {
+            return `${stall.actualWidth}m × ${stall.actualHeight}m (${sqmt} Sq.Mt)`;
           }
-
-          // Option B: Display Width x Height (e.g. "10m x 10m" or "100 x 100")
-          if (stall.width && stall.height) {
-      return `${stall.width}m x ${stall.height}m`;
-    }
-
-    // Option C: Fallback to Category
-    return stall.category || 'Standard';
-  })
+          return `${sqmt} Sq.Mt`;
+        })
   .join(', ') || 'Standard';
 
       // 4. Construct AskEva Payload

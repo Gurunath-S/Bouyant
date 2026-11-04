@@ -1059,7 +1059,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       name: '3×3',
       category: 'STANDARD',
       price: 50000,
-      areaSqFt: 100,
+      areaSqFt: 9,
       width: 60, // 3m
       height: 60, // 3m
       xPosition: snapCoord(Math.min(canvasWidth - 70, spawnPos.x + cascade)),
@@ -1354,7 +1354,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
       newW = dimSnap(newW);
       newH = dimSnap(newH);
-      const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
+      const areaSqFt = Number(((newW / pxPerMeter) * (newH / pxPerMeter)).toFixed(1));
       newDims.set(s.id, { width: newW, height: newH, areaSqFt });
     });
 
@@ -2078,7 +2078,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       }
 
       if (resizeInitial.type === 'stall') {
-        const areaSqFt = Math.round((newW / pxPerMeter) * (newH / pxPerMeter) * 10.764);
+        const areaSqFt = Number(((newW / pxPerMeter) * (newH / pxPerMeter)).toFixed(1));
         const deltaW = newW - resizeInitial.width;
         const deltaH = newH - resizeInitial.height;
         const neighborMap = new Map(resizeNeighbors.map((n) => [n.id, n]));

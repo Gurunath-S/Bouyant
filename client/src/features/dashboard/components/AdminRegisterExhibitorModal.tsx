@@ -11,6 +11,7 @@ import { SearchableCombobox } from '../../../components/ui/SearchableCombobox';
 import { ALL_COUNTRIES, getStatesForCountry, getCitiesForLocation, getStateForCity, normalizeCountryName } from '../../../data/indianStatesCities';
 import { Modal } from '../../../components/ui/Modal';
 import { formatDisplayDate } from '../../../utils/date';
+import { formatStallArea } from '../../../utils/stallArea';
 import {
   Building2,
   Calendar,
@@ -656,7 +657,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                           </div>
                         ) : (
                           <span className="text-[10px] text-slate-400 font-mono">
-                            {s.actualWidth && s.actualHeight ? `${s.actualWidth}×${s.actualHeight}m` : `${s.areaSqFt ? Math.round(s.areaSqFt / 10.764) : 9} m²`}
+                            {s.actualWidth && s.actualHeight ? `${s.actualWidth}×${s.actualHeight}m` : formatStallArea(s, 'Sq.Mt')}
                           </span>
                         )}
                       </div>

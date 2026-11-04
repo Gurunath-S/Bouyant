@@ -3,6 +3,7 @@ import { Company, Exhibition, Stall, User } from '../../../../types';
 import { Button } from '../../../../components/ui/Button';
 import { TermsAndConditionsModal } from '../TermsAndConditionsModal';
 import { formatDisplayDate } from '../../../../utils/date';
+import { getStallAreaSqMt, formatStallArea } from '../../../../utils/stallArea';
 import type { CreateBookingPayload } from '../../../../services/bookings/bookingService';
 import {AdminPaymentModeSelector} from './AdminPaymentModeSelector';
 import type { PaymentExecutionMethod} from '../../../../types';
@@ -100,10 +101,9 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const discountedAmount = Math.max(0, billBaseAmount - discountAmount);
 
   // Calculate GST (18%) AFTER discount (Split into CGST 9% + SGST 9%)
-  const cgst = Math.round(discountedAmount * 0.09);
-  const sgst = Math.round(discountedAmount * 0.09);
-  const totalGst = cgst + sgst;
-  const taxAmount = totalGst;
+  const totalGst = Math.round(discountedAmount * 0.18);
+  const cgst = Math.floor(totalGst / 2);
+  const sgst = totalGst - cgst;
 
   // Final amount to pay today
   const billGrandTotal = discountedAmount + totalGst;
@@ -329,7 +329,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                 </h4>
               </div>
               <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-extrabold">
-                {Math.round(selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft Total Area
+                {Number(selectedStalls.reduce((sum, s) => sum + getStallAreaSqMt(s), 0).toFixed(1))} Sq.Mt Total Area
               </span>
             </div>
 
@@ -357,7 +357,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                         </span>
                       </div>
                       <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                        Modular Shell Scheme • {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m • ` : ''}{Math.round(stall.areaSqFt)} Sq.Ft ({Math.round(stall.areaSqFt / 10.764)} Sq.Mtr)
+                        Modular Shell Scheme • {stall.actualWidth && stall.actualHeight ? `${stall.actualWidth}m × ${stall.actualHeight}m • ` : ''}{formatStallArea(stall, 'Sq.Mt')}
                       </span>
                     </div>
                   </div>

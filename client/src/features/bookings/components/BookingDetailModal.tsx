@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { getStallAreaSqMt, formatStallArea } from '../../../utils/stallArea';
 
 interface BookingDetailModalProps {
   booking: Booking | null;
@@ -206,8 +207,8 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                   </span>
                   <span className="font-bold text-slate-900 dark:text-slate-100">
                     {booking.stalls && booking.stalls.length > 0
-                      ? booking.stalls.map(bs => `${bs.stall?.stallNumber}: ${bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m` : `${bs.stall?.areaSqFt || 100} sqft`}`).join(' | ') + ` (${booking.stalls.reduce((sum, bs) => sum + (bs.stall?.areaSqFt || 0), 0)} Sq.Ft)`
-                      : `${booking.stalls?.reduce((sum, bs) => sum + (bs.stall?.areaSqFt || 0), 0) || 100} Sq.Ft`}
+                      ? booking.stalls.map(bs => `${bs.stall?.stallNumber}: ${bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m` : formatStallArea(bs.stall, 'Sq.Mt')}`).join(' | ') + ` (${Number(booking.stalls.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0).toFixed(1))} Sq.Mt)`
+                      : `${Number(booking.stalls?.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0) || 9).toFixed(1)} Sq.Mt`}
                   </span>
                 </div>
               </div>

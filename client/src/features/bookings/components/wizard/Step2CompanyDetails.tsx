@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Company, Exhibition, Stall, User } from '../../../../types';
+import { getStallAreaSqMt } from '../../../../utils/stallArea';
 import { companyService } from '../../../../services/companies/companyService';
 import { Input } from '../../../../components/ui/Input';
 import { Textarea } from '../../../../components/ui/Textarea';
@@ -912,7 +913,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {selectedStalls.length > 0 ? (
               <>
-                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} • {Math.round(selectedStalls.reduce((sum, s) => sum + s.areaSqFt, 0))} Sq.Ft, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
+                Selected: <b className="text-[#09539b] dark:text-blue-400 font-mono">Stall {selectedStalls.map((s) => '#' + s.stallNumber).join(', ')}</b> ({selectedStalls.map(s => `${s.stallNumber}: ${s.actualWidth && s.actualHeight ? `${s.actualWidth}m × ${s.actualHeight}m` : `${(s.width / 20).toFixed(1)}m × ${(s.height / 20).toFixed(1)}m`}`).join(' | ')} • {Number(selectedStalls.reduce((sum, s) => sum + getStallAreaSqMt(s), 0).toFixed(1))} Sq.Mt, ₹{selectedStalls.reduce((sum, s) => sum + Number(s.price), 0).toLocaleString()}) •{' '}
               </>
             ) : null}
             Fill in your corporate details below. Login is optional — an account with password will be auto-generated upon payment.

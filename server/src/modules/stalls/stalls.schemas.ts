@@ -6,7 +6,7 @@ export const CreateStallSchema = z.object({
   name: z.string().optional(),
   category: z.enum(['STANDARD', 'PREMIUM', 'CORNER', 'ISLAND']).default('STANDARD'),
   price: z.number().positive('Price must be greater than 0'),
-  areaSqFt: z.number().positive().default(100),
+  areaSqFt: z.number().positive().default(9),
   width: z.number().positive().default(100),
   height: z.number().positive().default(100),
   xPosition: z.number().default(0),

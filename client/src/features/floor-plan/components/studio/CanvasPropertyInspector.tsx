@@ -1019,7 +1019,6 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 ? stall.actualHeight
                 : Number(((stall.height || 60) / pxPerMeter).toFixed(1));
             const actualAreaSqM = Number((actualW * actualH).toFixed(1));
-            const actualAreaSqFt = Math.round(actualW * actualH * 10.764);
 
             return (
               <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
@@ -1047,7 +1046,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                         onUpdateStall(stall.id, {
                           actualWidth: w,
                           actualDimensions: `${w}m × ${actualH}m`,
-                          areaSqFt: Math.round(w * actualH * 10.764),
+                          areaSqFt: Number((w * actualH).toFixed(1)),
                         });
                       }}
                       className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
@@ -1066,7 +1065,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                         onUpdateStall(stall.id, {
                           actualHeight: h,
                           actualDimensions: `${actualW}m × ${h}m`,
-                          areaSqFt: Math.round(actualW * h * 10.764),
+                          areaSqFt: Number((actualW * h).toFixed(1)),
                         });
                       }}
                       className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
@@ -1076,7 +1075,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
 
                 <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-200/60 font-mono">
                   <span>Footprint: {actualW}m × {actualH}m</span>
-                  <span>{actualAreaSqFt} sq.ft ({actualAreaSqM} m²)</span>
+                  <span>{actualAreaSqM} Sq.Mt</span>
                 </div>
                 <p className="text-[10px] text-slate-400 leading-tight">
                   Informational physical dimensions. Does not modify canvas pixel size, coordinates, or layout reflow.

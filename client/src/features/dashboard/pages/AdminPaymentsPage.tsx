@@ -6,6 +6,7 @@ import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileT
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
+import { getStallAreaSqMt } from '../../../utils/stallArea';
 import { TablePagination } from '../../../components/ui/TablePagination';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -246,8 +247,8 @@ export const AdminPaymentsPage: React.FC = () => {
     const cgstAmount = Number((taxAmount / 2).toFixed(2));
     const sgstAmount = Number((taxAmount / 2).toFixed(2));
 
-    const primaryStall = stalls[0]?.stall || { stallNumber: 'Allocated Stall', category: 'STANDARD', areaSqFt: 100 };
-    const totalQty = stalls.reduce((sum: number, bs: any) => sum + (bs.stall?.areaSqFt || 100), 0) || (primaryStall.areaSqFt || 100);
+    const primaryStall = stalls[0]?.stall || { stallNumber: 'Allocated Stall', category: 'STANDARD' };
+    const totalQty = stalls.reduce((sum: number, bs: any) => sum + getStallAreaSqMt(bs.stall), 0) || getStallAreaSqMt(primaryStall);
 
     return {
       isPayment,

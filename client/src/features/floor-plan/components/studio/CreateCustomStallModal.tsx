@@ -14,11 +14,11 @@ interface CreateCustomStallModalProps {
 }
 
 const PRESET_DIMENSIONS = [
-  { label: '3×3m', widthMeters: 3, depthMeters: 3, desc: 'Standard Booth (9 sq.m / 97 sq.ft)', category: 'STANDARD' as StallCategory },
-  { label: '4×3m', widthMeters: 4, depthMeters: 3, desc: 'Expanded Booth (12 sq.m / 129 sq.ft)', category: 'STANDARD' as StallCategory },
-  { label: '6×3m', widthMeters: 6, depthMeters: 3, desc: 'Double-Wide Frontage (18 sq.m / 194 sq.ft)', category: 'PREMIUM' as StallCategory },
-  { label: '6×6m', widthMeters: 6, depthMeters: 6, desc: 'Quad Island Pavilion (36 sq.m / 388 sq.ft)', category: 'ISLAND' as StallCategory },
-  { label: '2×2m', widthMeters: 2, depthMeters: 2, desc: 'Compact Kiosk (4 sq.m / 43 sq.ft)', category: 'STANDARD' as StallCategory },
+  { label: '3×3m', widthMeters: 3, depthMeters: 3, desc: 'Standard Booth (9 Sq.Mt)', category: 'STANDARD' as StallCategory },
+  { label: '4×3m', widthMeters: 4, depthMeters: 3, desc: 'Expanded Booth (12 Sq.Mt)', category: 'STANDARD' as StallCategory },
+  { label: '6×3m', widthMeters: 6, depthMeters: 3, desc: 'Double-Wide Frontage (18 Sq.Mt)', category: 'PREMIUM' as StallCategory },
+  { label: '6×6m', widthMeters: 6, depthMeters: 6, desc: 'Quad Island Pavilion (36 Sq.Mt)', category: 'ISLAND' as StallCategory },
+  { label: '2×2m', widthMeters: 2, depthMeters: 2, desc: 'Compact Kiosk (4 Sq.Mt)', category: 'STANDARD' as StallCategory },
 ];
 
 export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
@@ -61,7 +61,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   const effectiveWidthMeters = unit === 'm' ? widthMeters : Number((widthFeet / 3.28084).toFixed(2));
   const effectiveDepthMeters = unit === 'm' ? depthMeters : Number((depthFeet / 3.28084).toFixed(2));
   const areaSqMeters = Number((effectiveWidthMeters * effectiveDepthMeters).toFixed(1));
-  const areaSqFt = Math.round(areaSqMeters * 10.764);
+  const areaSqFt = areaSqMeters;
 
   const handleApplyPreset = (preset: typeof PRESET_DIMENSIONS[0]) => {
     setUnit('m');
@@ -318,7 +318,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-semibold text-slate-600 bg-white p-2 rounded-lg border border-slate-200">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Footprint: <strong className="text-slate-800">{effectiveWidthMeters}m × {effectiveDepthMeters}m</strong> ({areaSqMeters} sq.m / {areaSqFt} sq.ft)
+                Footprint: <strong className="text-slate-800">{effectiveWidthMeters}m × {effectiveDepthMeters}m</strong> ({areaSqMeters} Sq.Mt)
               </span>
               <span className="text-slate-400 font-mono text-[10px]">Canvas: {Math.round(effectiveWidthMeters * pxPerMeter)}px × {Math.round(effectiveDepthMeters * pxPerMeter)}px</span>
             </div>
