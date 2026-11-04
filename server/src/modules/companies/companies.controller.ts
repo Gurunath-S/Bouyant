@@ -2,6 +2,7 @@ import { Request,Response } from 'express';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { CompaniesService } from './companies.service.js';
 import { sendResponse } from '../../utils/response.js';
+import { prisma } from '../../config/db.js';
 
 export class CompaniesController {
 
@@ -45,7 +46,16 @@ export class CompaniesController {
   };
 
   static update = async (req: AuthenticatedRequest, res: Response) => {
-    const targetCompanyId = req.params.id || req.user!.companyId;
+    let targetCompanyId = req.params.id || req.user?.companyId;
+
+    if (!targetCompanyId && req.user?.userId) {
+      const userRecord = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { companyId: true },
+      });
+      targetCompanyId = userRecord?.companyId || undefined;
+    }
+
     if (!targetCompanyId) {
       return sendResponse({
         res,
@@ -54,16 +64,29 @@ export class CompaniesController {
       });
     }
 
-    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN';
-    if (!isAdmin && req.user?.companyId !== targetCompanyId) {
-      return sendResponse({
-        res,
-        statusCode: 403,
-        message: 'Access denied: You can only update your own company profile.',
-      });
+    const isAdminOrStaff =
+      req.user?.role === 'ADMIN' || req.user?.role === 'SUPERADMIN' || req.user?.role === 'STAFF';
+
+    if (!isAdminOrStaff) {
+      let userCompanyId = req.user?.companyId;
+      if (!userCompanyId && req.user?.userId) {
+        const userRecord = await prisma.user.findUnique({
+          where: { id: req.user.userId },
+          select: { companyId: true },
+        });
+        userCompanyId = userRecord?.companyId || null;
+      }
+
+      if (userCompanyId !== targetCompanyId) {
+        return sendResponse({
+          res,
+          statusCode: 403,
+          message: 'Access denied: You can only update your own company profile.',
+        });
+      }
     }
 
-    const updated = await CompaniesService.updateCompany(targetCompanyId, req.body);
+    const updated = await CompaniesService.updateCompany(targetCompanyId, req.body, req.user?.userId);
     return sendResponse({
       res,
       statusCode: 200,
