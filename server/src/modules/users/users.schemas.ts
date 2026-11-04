@@ -41,6 +41,8 @@ export const UpdateUserSchema = z.object({
   spcode: z.string().trim().toUpperCase().optional().nullable(),
   role: z.enum(['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT']).optional(),
   pageAccess: z.array(z.string()).optional(),
+  password: z.string().min(8, 'Password must be at least 8 characters long').optional().nullable(),
+  sendNotificationEmail: z.boolean().optional(),
 });
 
 export const ToggleUserStatusSchema = z.object({

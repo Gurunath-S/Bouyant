@@ -931,14 +931,8 @@ export class EmailService {
                 </div>
               </div>
 
-              ${safePassword ? `
-              <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:14px; font-size:12px; color:#92400e; line-height:1.5; margin-bottom:16px;">
-                ⚠️ <strong>Security Recommendation:</strong> For your security, we strongly recommend logging in and updating your password immediately after sign-in. Never share your password or credentials with unauthorized individuals.
-              </div>
-              ` : ''}
-
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; font-size:12px; color:#64748b; line-height:1.5;">
-                🔒 <strong>Security Notice:</strong> If you did not request or expect this change, please contact the Buoyant Media administration team immediately.
+                🔒 <strong>Security Notice:</strong> Please keep your login credentials confidential. If you did not request or expect this change, please contact the Buoyant Media administration team immediately.
               </div>
             </div>
 

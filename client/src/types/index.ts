@@ -314,6 +314,8 @@ export interface UpdateUserPayload {
   spcode?: string;
   role?: 'SUPERADMIN' | 'ADMIN' | 'STAFF' | 'CLIENT';
   pageAccess?: string[];
+  password?: string;
+  sendNotificationEmail?: boolean;
 }
 
 // Reports Types
