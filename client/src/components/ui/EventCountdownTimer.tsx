@@ -70,43 +70,43 @@ export const EventCountdownTimer: React.FC<EventCountdownTimerProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center justify-between gap-1.5 font-mono">
+            <div className="flex items-center justify-between gap-1 sm:gap-1.5 font-mono">
         {/* Days */}
-        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
-          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
+        <div className="flex-1 min-w-0 bg-gradient-to-b from-white to-[#F0F6FE] dark:from-slate-800 dark:to-slate-800/60 py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-lg sm:text-xl font-black text-[#1B37A0] dark:text-blue-400 tracking-tight">
             {String(time.days).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Days</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 dark:text-slate-400 mt-0.5">Days</span>
         </div>
 
-        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+        <span className="shrink-0 text-[#1E3FA0]/40 dark:text-blue-400/40 font-bold text-sm sm:text-base mb-2.5 select-none">:</span>
 
         {/* Hours */}
-        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
-          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
+        <div className="flex-1 min-w-0 bg-gradient-to-b from-white to-[#F0F6FE] dark:from-slate-800 dark:to-slate-800/60 py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-lg sm:text-xl font-black text-[#1B37A0] dark:text-blue-400 tracking-tight">
             {String(time.hours).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Hours</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 dark:text-slate-400 mt-0.5">Hours</span>
         </div>
 
-        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+        <span className="shrink-0 text-[#1E3FA0]/40 dark:text-blue-400/40 font-bold text-sm sm:text-base mb-2.5 select-none">:</span>
 
         {/* Minutes */}
-        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
-          <span className="text-xl sm:text-2xl font-black text-[#1B37A0] tracking-tight">
+        <div className="flex-1 min-w-0 bg-gradient-to-b from-white to-[#F0F6FE] dark:from-slate-800 dark:to-slate-800/60 py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-lg sm:text-xl font-black text-[#1B37A0] dark:text-blue-400 tracking-tight">
             {String(time.minutes).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Mins</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 dark:text-slate-400 mt-0.5">Mins</span>
         </div>
 
-        <span className="text-[#1E3FA0]/40 font-bold text-lg pb-3">:</span>
+        <span className="shrink-0 text-[#1E3FA0]/40 dark:text-blue-400/40 font-bold text-sm sm:text-base mb-2.5 select-none">:</span>
 
         {/* Seconds */}
-        <div className="flex-1 bg-gradient-to-b from-white to-[#F0F6FE] p-2.5 sm:p-3 rounded-xl border border-[#1E3FA0]/15 text-center flex flex-col justify-center shadow-xs">
-          <span className="text-xl sm:text-2xl font-black text-[#0E8074] tracking-tight animate-pulse">
+        <div className="flex-1 min-w-0 bg-gradient-to-b from-white to-[#F0F6FE] dark:from-slate-800 dark:to-slate-800/60 py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl border border-[#1E3FA0]/15 dark:border-slate-700 text-center flex flex-col justify-center shadow-xs">
+          <span className="text-lg sm:text-xl font-black text-[#0E8074] dark:text-teal-400 tracking-tight animate-pulse">
             {String(time.seconds).padStart(2, '0')}
           </span>
-          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 mt-0.5">Secs</span>
+          <span className="text-[9px] uppercase font-sans font-extrabold text-slate-500 dark:text-slate-400 mt-0.5">Secs</span>
         </div>
       </div>
     </div>
