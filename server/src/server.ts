@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
 import { getRedisClient } from './config/redis.js';
 import { StallsService } from './modules/stalls/stalls.service.js';
+import { PaymentsService } from './modules/payments/payments.service.js';
 import { verifyEmailTransporter } from './services/email.service.js';
 import { startPaymentReminderCron } from './job/paymentReminder.cron.js';
 
@@ -32,10 +33,11 @@ const startServer = async () => {
     console.log(`🌐 Server running on http://localhost:${env.PORT} in [${env.NODE_ENV}] mode`);
   });
 
-  // Background cron-like worker for releasing expired stall holds every 30 seconds
+  // Background cron-like worker for releasing expired stall holds and stale checkout sessions every 30 seconds
   setInterval(async () => {
     try {
       await StallsService.releaseExpiredHolds();
+      await PaymentsService.cancelStalePendingPayments();
     } catch (err) {
       console.warn('⚠️ Background stall hold release check warning:', err);
     }

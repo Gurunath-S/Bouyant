@@ -195,6 +195,8 @@ export interface Payment {
   status: PaymentStatus;
   provider: string;
   transactionId?: string;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
   paymentMethod?: string;
   failureReason?: string;
   paidAt?: string;

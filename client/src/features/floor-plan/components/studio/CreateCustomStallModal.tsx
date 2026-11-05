@@ -181,11 +181,11 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   const theme = getCategoryTheme(category);
 
   const modalContent = (
-    <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed inset-0 bg-transparent" onClick={onClose} aria-hidden="true" />
+      <div className="relative z-10 bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] my-auto">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/60 via-slate-50 to-white">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/60 via-slate-50 to-white rounded-t-2xl">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <Square className="w-5 h-5" />

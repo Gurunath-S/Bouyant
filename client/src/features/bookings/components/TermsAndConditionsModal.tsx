@@ -24,10 +24,10 @@ export const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = (
   };
 
   const modalNode = (
-    <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[10000] bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans my-auto">
         {/* Header */}
-        <div className="p-6 bg-[#012970] dark:bg-slate-800 text-white flex justify-between items-center shrink-0 border-b border-blue-900 dark:border-slate-700">
+        <div className="p-6 bg-[#012970] dark:bg-slate-800 text-white flex justify-between items-center shrink-0 border-b border-blue-900 dark:border-slate-700 rounded-t-2xl">
           <div>
             <span className="px-2.5 py-0.5 bg-[#9cc542] text-[#012970] font-black text-[10px] uppercase rounded">
               Official Exhibition Contract Clauses

@@ -15,6 +15,7 @@ import { formatDisplayDate, displayInputDateToIso } from '../../../utils/date';
 import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
 import { useAuthStore } from '../../../stores/authStore';
 import { showConfirm, showAlert } from '../../../stores/dialogStore';
+import { compressDataUrl } from '../../../utils/imageOptimizer';
 import {
   Layers,
   RotateCcw,
@@ -699,11 +700,30 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
     const timer = setTimeout(() => {
       try {
+        const cleanBasicInfoForStorage = {
+          ...basicInfo,
+          images: basicInfo.images?.filter((img) => !img.startsWith('data:image/') || img.length < 50000) || [],
+          bannerUrl:
+            basicInfo.bannerUrl?.startsWith('data:image/') && basicInfo.bannerUrl.length > 50000
+              ? ''
+              : basicInfo.bannerUrl,
+        };
+        const cleanLayoutForStorage = layoutData
+          ? {
+              ...layoutData,
+              backgroundImageUrl:
+                layoutData.backgroundImageUrl?.startsWith('data:image/') &&
+                layoutData.backgroundImageUrl.length > 50000
+                  ? ''
+                  : layoutData.backgroundImageUrl,
+            }
+          : layoutData;
+
         const draft = {
-          basicInfo,
+          basicInfo: cleanBasicInfoForStorage,
           hallConfig,
           stalls,
-          layoutData,
+          layoutData: cleanLayoutForStorage,
           currentStep,
           timestamp: Date.now(),
         };
@@ -726,11 +746,30 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           (layoutData?.halls && layoutData.halls.length > 0);
         if (!hasMeaningfulContent) return;
 
+        const cleanBasicInfoForStorage = {
+          ...basicInfo,
+          images: basicInfo.images?.filter((img) => !img.startsWith('data:image/') || img.length < 50000) || [],
+          bannerUrl:
+            basicInfo.bannerUrl?.startsWith('data:image/') && basicInfo.bannerUrl.length > 50000
+              ? ''
+              : basicInfo.bannerUrl,
+        };
+        const cleanLayoutForStorage = layoutData
+          ? {
+              ...layoutData,
+              backgroundImageUrl:
+                layoutData.backgroundImageUrl?.startsWith('data:image/') &&
+                layoutData.backgroundImageUrl.length > 50000
+                  ? ''
+                  : layoutData.backgroundImageUrl,
+            }
+          : layoutData;
+
         const draft = {
-          basicInfo,
+          basicInfo: cleanBasicInfoForStorage,
           hallConfig,
           stalls,
-          layoutData,
+          layoutData: cleanLayoutForStorage,
           currentStep,
           timestamp: Date.now(),
         };
@@ -845,6 +884,32 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         ? formatIsoWithTime(calculateDefaultBookingEndDate(basicInfo.startDate), '23:59', 23)
         : null;
 
+      // Ensure all images & layout backgrounds are compressed to prevent 413 (Request Entity Too Large)
+      let cleanBannerUrl = basicInfo.bannerUrl || basicInfo.images?.[0] || '';
+      if (cleanBannerUrl?.startsWith('data:image/')) {
+        cleanBannerUrl = await compressDataUrl(cleanBannerUrl, 1600, 0.8);
+      }
+
+      let cleanImages: string[] = [];
+      if (Array.isArray(basicInfo.images) && basicInfo.images.length > 0) {
+        cleanImages = await Promise.all(
+          basicInfo.images.filter(Boolean).map(async (img) => {
+            if (img?.startsWith('data:image/')) {
+              return await compressDataUrl(img, 1600, 0.8);
+            }
+            return img;
+          })
+        );
+      } else if (cleanBannerUrl) {
+        cleanImages = [cleanBannerUrl];
+      }
+
+      let cleanLayoutData = layoutData;
+      if (cleanLayoutData?.backgroundImageUrl?.startsWith('data:image/')) {
+        const compressedBg = await compressDataUrl(cleanLayoutData.backgroundImageUrl, 2000, 0.78);
+        cleanLayoutData = { ...cleanLayoutData, backgroundImageUrl: compressedBg };
+      }
+
       if (id || eventDbId) {
         // Updating existing event
         const updatePayload = {
@@ -864,8 +929,8 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
-          bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
-          images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
+          bannerUrl: cleanBannerUrl,
+          images: cleanImages,
           notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
@@ -877,9 +942,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         if (floorPlanId) {
           await floorPlanService.syncFloorPlan(floorPlanId, {
             name: hallConfig.hallName,
-            width: layoutData?.canvasWidth || 1400,
-            height: layoutData?.canvasHeight || 850,
-            layoutData,
+            width: cleanLayoutData?.canvasWidth || 1400,
+            height: cleanLayoutData?.canvasHeight || 850,
+            layoutData: cleanLayoutData,
             stalls: stalls.map((s) => ({
               id: s.id,
               stallNumber: s.stallNumber,
@@ -913,17 +978,17 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
           startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
           endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
           bookingEndDate: computedBookingEndDate,
-          bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
-          images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
+          bannerUrl: cleanBannerUrl,
+          images: cleanImages,
           notificationEmails: basicInfo.notificationEmails || null,
           status: basicInfo.status,
           totalStalls: stalls.length,
           floorPlans: [
             {
               name: hallConfig.hallName,
-              width: layoutData?.canvasWidth || 1400,
-              height: layoutData?.canvasHeight || 850,
-              layoutData,
+              width: cleanLayoutData?.canvasWidth || 1400,
+              height: cleanLayoutData?.canvasHeight || 850,
+              layoutData: cleanLayoutData,
               stalls: stalls.map((s) => ({
                 stallNumber: s.stallNumber,
                 xPosition: s.xPosition,
@@ -938,7 +1003,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             },
           ],
         };
-        await exhibitionService.createExhibition(payload as any);
+        const created = await exhibitionService.createExhibition(payload as any);
+        if (created?.floorPlans?.[0]?.id) {
+          setFloorPlanId(created.floorPlans[0].id);
+        }
+        if (created?.id) {
+          setEventDbId(created.id);
+        }
       }
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       try {
@@ -2311,6 +2382,32 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
               setLayoutData(savedLayout);
               setStalls(savedStalls as any);
               try {
+                // Ensure layout blueprint and banners are compressed
+                let cleanSavedLayout = savedLayout;
+                if (cleanSavedLayout?.backgroundImageUrl?.startsWith('data:image/')) {
+                  const compressedBg = await compressDataUrl(cleanSavedLayout.backgroundImageUrl, 2000, 0.78);
+                  cleanSavedLayout = { ...cleanSavedLayout, backgroundImageUrl: compressedBg };
+                }
+
+                let cleanBanner = basicInfo.bannerUrl || basicInfo.images?.[0] || '';
+                if (cleanBanner?.startsWith('data:image/')) {
+                  cleanBanner = await compressDataUrl(cleanBanner, 1600, 0.8);
+                }
+
+                let cleanImagesList: string[] = [];
+                if (Array.isArray(basicInfo.images) && basicInfo.images.length > 0) {
+                  cleanImagesList = await Promise.all(
+                    basicInfo.images.filter(Boolean).map(async (img) => {
+                      if (img?.startsWith('data:image/')) {
+                        return await compressDataUrl(img, 1600, 0.8);
+                      }
+                      return img;
+                    })
+                  );
+                } else if (cleanBanner) {
+                  cleanImagesList = [cleanBanner];
+                }
+
                 const existingId = eventDbId || id;
                 if (existingId && floorPlanId) {
                   await exhibitionService.updateExhibition(existingId, {
@@ -2323,13 +2420,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     latitude: basicInfo.latitude,
                     longitude: basicInfo.longitude,
                     category: basicInfo.category,
+                    bannerUrl: cleanBanner,
+                    images: cleanImagesList,
                     totalStalls: savedStalls.length,
                   });
                   await floorPlanService.syncFloorPlan(floorPlanId, {
                     name: hallConfig.hallName,
-                    width: savedLayout.canvasWidth,
-                    height: savedLayout.canvasHeight,
-                    layoutData: savedLayout,
+                    width: cleanSavedLayout.canvasWidth,
+                    height: cleanSavedLayout.canvasHeight,
+                    layoutData: cleanSavedLayout,
                     stalls: savedStalls,
                   });
                   await showAlert({
@@ -2344,9 +2443,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     setFloorPlanId(fp.id);
                     await floorPlanService.syncFloorPlan(fp.id, {
                       name: hallConfig.hallName,
-                      width: savedLayout.canvasWidth,
-                      height: savedLayout.canvasHeight,
-                      layoutData: savedLayout,
+                      width: cleanSavedLayout.canvasWidth,
+                      height: cleanSavedLayout.canvasHeight,
+                      layoutData: cleanSavedLayout,
                       stalls: savedStalls,
                     });
                     await showAlert({
@@ -2365,13 +2464,15 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                       latitude: basicInfo.latitude,
                       longitude: basicInfo.longitude,
                       category: basicInfo.category,
+                      bannerUrl: cleanBanner,
+                      images: cleanImagesList,
                       totalStalls: savedStalls.length,
                       floorPlans: [
                         {
                           name: hallConfig.hallName || 'Hall A',
-                          width: savedLayout.canvasWidth || 1400,
-                          height: savedLayout.canvasHeight || 850,
-                          layoutData: savedLayout,
+                          width: cleanSavedLayout.canvasWidth || 1400,
+                          height: cleanSavedLayout.canvasHeight || 850,
+                          layoutData: cleanSavedLayout,
                           stalls: savedStalls.map((s) => ({
                             stallNumber: s.stallNumber,
                             name: s.name,
@@ -2412,16 +2513,16 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     longitude: basicInfo.longitude,
                     startDate: formatIsoWithTime(basicInfo.startDate, basicInfo.startTime, 10),
                     endDate: formatIsoWithTime(basicInfo.endDate, basicInfo.endTime, 18),
-                    bannerUrl: basicInfo.bannerUrl || basicInfo.images[0] || '',
-                    images: basicInfo.images || (basicInfo.bannerUrl ? [basicInfo.bannerUrl] : []),
+                    bannerUrl: cleanBanner,
+                    images: cleanImagesList,
                     status: 'DRAFT',
                     totalStalls: savedStalls.length,
                     floorPlans: [
                       {
                         name: hallConfig.hallName || 'Hall A',
-                        width: savedLayout.canvasWidth || 1400,
-                        height: savedLayout.canvasHeight || 850,
-                        layoutData: savedLayout,
+                        width: cleanSavedLayout.canvasWidth || 1400,
+                        height: cleanSavedLayout.canvasHeight || 850,
+                        layoutData: cleanSavedLayout,
                         stalls: savedStalls.map((s) => ({
                           stallNumber: s.stallNumber,
                           name: s.name,

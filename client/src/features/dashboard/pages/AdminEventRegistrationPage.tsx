@@ -13,6 +13,7 @@ import { AdminRegisterExhibitorModal } from '../components/AdminRegisterExhibito
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { TablePagination } from '../../../components/ui/TablePagination';
+import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 import {
   CalendarPlus,
   Calendar,
@@ -1002,18 +1003,27 @@ export const AdminEventRegistrationPage: React.FC = () => {
 
               <div className="flex items-center gap-1.5">
                 <label className="text-xs font-bold text-slate-500 shrink-0">Exhibition:</label>
-                <select
-                  value={bookingExhibitionFilter}
-                  onChange={(e) => setBookingExhibitionFilter(e.target.value)}
-                  className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-800 dark:text-slate-200 max-w-[200px] truncate"
-                >
-                  <option value="ALL">All Exhibitions</option>
-                  {exhibitions.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.title} ({ex.eventCode}-{ex.edition})
-                    </option>
-                  ))}
-                </select>
+                <EventSelectorDropdown
+                  events={exhibitions}
+                  selectedEventId={bookingExhibitionFilter}
+                  onSelectEvent={(eventId) => setBookingExhibitionFilter(eventId)}
+                  allowAllOption={true}
+                  allOptionLabel="All Events (Platform-Wide Overview)"
+                  placeholder="Select Exhibition Event"
+                  searchPlaceholder="Search published events..."
+                  align="right"
+                  buttonClassName="min-w-[200px] max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+                />
+                {bookingExhibitionFilter !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setBookingExhibitionFilter('ALL')}
+                    className="px-2 py-1 text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/60 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                    title="Reset to all exhibitions"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
 
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100/50">

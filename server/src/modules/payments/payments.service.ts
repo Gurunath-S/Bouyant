@@ -571,6 +571,8 @@ export class PaymentsService {
             status: 'SUCCESS',
             razorpayPaymentId:
               data.razorpay_payment_id,
+            transactionId:
+              currentPayment.transactionId || data.razorpay_payment_id,
             razorpaySignature:
               data.razorpay_signature,
             paidAt:  new Date(),
@@ -652,6 +654,19 @@ export class PaymentsService {
       } catch (reminderErr: any) {
         console.warn('Payment reminder scheduling warning (non-fatal):', reminderErr?.message || reminderErr);
       }
+
+      // Automatically cancel any other abandoned pending attempts for this booking
+      await tx.payment.updateMany({
+        where: {
+          bookingId: booking.id,
+          id: { not: currentPayment.id },
+          status: 'PENDING',
+        },
+        data: {
+          status: 'CANCELLED',
+          failureReason: 'Abandoned - payment completed via another attempt',
+        },
+      });
       // =====================================================
       // RESPONSE
       // =====================================================
@@ -928,6 +943,18 @@ static async createBalancePaymentOrder(
   // -----------------------------------------
   // 8. Create Payment record
   // -----------------------------------------
+  // Cancel any previous uncompleted pending balance payment attempts for this booking
+  await prisma.payment.updateMany({
+    where: {
+      bookingId: booking.id,
+      status: 'PENDING',
+    },
+    data: {
+      status: 'CANCELLED',
+      failureReason: 'Abandoned - superseded by new payment attempt',
+    },
+  });
+
   const paymentReference = generateReference('PAY', 6);
   const installmentTypeStr = isPartial
     ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
@@ -971,6 +998,27 @@ static async createBalancePaymentOrder(
   };
 }
 
+  /**
+   * Automatically marks abandoned/stale checkout attempts (> 30 minutes old) as CANCELLED.
+   */
+  static async cancelStalePendingPayments() {
+    try {
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+      await prisma.payment.updateMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lt: cutoff },
+        },
+        data: {
+          status: 'CANCELLED',
+          failureReason: 'Abandoned checkout session timed out',
+        },
+      });
+    } catch (err) {
+      console.warn('⚠️ Stale pending payment cleanup warning:', err);
+    }
+  }
+
   static async listPayments(
     options?: {
       page?: number | string;
@@ -982,6 +1030,9 @@ static async createBalancePaymentOrder(
     } | number,
     limitArg?: number
   ) {
+    // Automatically transition stale abandoned checkout sessions to CANCELLED
+    await this.cancelStalePendingPayments();
+
     let rawPage: any = 1;
     let rawLimit: any = 50;
     let search = '';
@@ -1053,6 +1104,8 @@ static async createBalancePaymentOrder(
       andConditions.push({
         OR: [
           { paymentReference: { contains: q, mode: 'insensitive' } },
+          { razorpayPaymentId: { contains: q, mode: 'insensitive' } },
+          { transactionId: { contains: q, mode: 'insensitive' } },
           { paymentMethod: { contains: q, mode: 'insensitive' } },
           { booking: { bookingReference: { contains: q, mode: 'insensitive' } } },
         ],

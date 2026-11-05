@@ -13,6 +13,7 @@ import {
 import { Button } from './Button';
 import { Input } from './Input';
 import { uploadService } from '../../services/upload/uploadService';
+import { compressImageFile } from '../../utils/imageOptimizer';
 
 export interface MultiImagePickerProps {
   images: string[];
@@ -60,34 +61,22 @@ export const MultiImagePicker: React.FC<MultiImagePickerProps> = ({
     setIsUploading(true);
     setUploadingCount(rawFiles.length);
 
-    // 1. Read all local files as Data URLs immediately (< 50ms)
-    const readPromises = rawFiles.map((file) => {
-      return new Promise<string>((resolve, reject) => {
-        const isImage =
-          file.type.startsWith('image/') ||
-          /\.(jpe?g|png|webp|gif|svg|bmp|jfif)$/i.test(file.name);
+    // 1. Validate and compress all local files to lightweight web-ready images (< 200KB each)
+    const readPromises = rawFiles.map(async (file) => {
+      const isImage =
+        file.type.startsWith('image/') ||
+        /\.(jpe?g|png|webp|gif|svg|bmp|jfif)$/i.test(file.name);
 
-        if (!isImage) {
-          reject(new Error(`"${file.name}" is not a recognized image format.`));
-          return;
-        }
+      if (!isImage) {
+        throw new Error(`"${file.name}" is not a recognized image format.`);
+      }
 
-        if (file.size > 15 * 1024 * 1024) {
-          reject(new Error(`"${file.name}" exceeds the 15MB size limit.`));
-          return;
-        }
+      if (file.size > 20 * 1024 * 1024) {
+        throw new Error(`"${file.name}" exceeds the 20MB size limit.`);
+      }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error(`Failed to read file "${file.name}".`));
-          }
-        };
-        reader.onerror = () => reject(new Error(`Error reading "${file.name}".`));
-        reader.readAsDataURL(file);
-      });
+      // Fast in-browser compression to max 1920px (reduces 10MB to ~150-250KB)
+      return await compressImageFile(file, 1920, 0.82);
     });
 
     let localPreviews: string[] = [];

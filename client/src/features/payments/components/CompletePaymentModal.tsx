@@ -261,7 +261,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 w-screen h-screen z-[99999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isProcessing) {
           handleClose();
@@ -270,7 +270,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
     >
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 my-auto">
         {/* Header - Fixed Top */}
-        <div className="shrink-0 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+        <div className="shrink-0 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 rounded-t-3xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
               <CreditCard className="w-5 h-5" />

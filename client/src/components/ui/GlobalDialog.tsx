@@ -80,14 +80,14 @@ export const GlobalDialog: React.FC = () => {
   const defaultConfirmText = isAlert ? 'Got It' : 'Confirm';
 
   const dialogNode = (
-    <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="fixed inset-0 w-screen h-screen"
+        className="fixed inset-0 bg-transparent"
         onClick={() => closeDialog(false)}
         aria-hidden="true"
       />
 
-      <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 z-10 my-auto">
+      <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 z-10 my-auto overflow-hidden">
         <button
           type="button"
           onClick={() => closeDialog(false)}

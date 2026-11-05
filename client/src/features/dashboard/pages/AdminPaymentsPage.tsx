@@ -377,6 +377,7 @@ export const AdminPaymentsPage: React.FC = () => {
                     <option value="ALL">All Statuses</option>
                     <option value="SUCCESS">Success</option>
                     <option value="PENDING">Pending</option>
+                    <option value="CANCELLED">Cancelled</option>
                     <option value="FAILED">Failed</option>
                   </select>
                   <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -487,8 +488,25 @@ export const AdminPaymentsPage: React.FC = () => {
                               <span className="font-mono font-bold text-blue-700 dark:text-blue-400 block">
                                 {p.paymentReference}
                               </span>
+                              {(p.transactionId || p.razorpayPaymentId) ? (
+                                <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5" title="Gateway Transaction ID">
+                                  Txn: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{p.transactionId || p.razorpayPaymentId}</strong>
+                                </span>
+                              ) : p.status === 'PENDING' ? (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 block mt-0.5 font-medium italic" title="Customer opened checkout but has not completed payment yet">
+                                  Txn: Pending Checkout
+                                </span>
+                              ) : p.status === 'CANCELLED' ? (
+                                <span className="text-[10px] text-rose-600 dark:text-rose-400 block mt-0.5 font-medium italic" title="Checkout was abandoned or superseded">
+                                  Txn: Cancelled / Expired
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-0.5 font-medium" title="Offline or in-person cash entry without gateway reference">
+                                  Txn: Cash Deposit
+                                </span>
+                              )}
                               {p.createdAt && (
-                                <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
                                   {formatDisplayDateTime(p.createdAt)}
                                 </span>
                               )}

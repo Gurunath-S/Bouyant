@@ -1078,9 +1078,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
                                             </span>
                                           </div>
                                           <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-700/60 pt-1 mt-1">
-                                            {(p.transactionId || p.razorpayPaymentId) ? (
-                                              <span>Txn: <strong className="font-mono text-slate-600 dark:text-slate-300">{p.transactionId || p.razorpayPaymentId}</strong></span>
-                                            ) : <span />}
+                                            <span>Txn: <strong className="font-mono text-slate-600 dark:text-slate-300">{p.transactionId || p.razorpayPaymentId || p.paymentReference || 'N/A'}</strong></span>
                                             <span className="font-medium text-slate-500 dark:text-slate-400">{formatDisplayDateTime(p.paidAt || p.createdAt)}</span>
                                           </div>
                                         </div>
@@ -1279,8 +1277,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
                           Provider: {p.provider || 'GATEWAY'} • Method: {p.paymentMethod || 'ONLINE'}
                         </span>
                         <span className="text-[10px] text-slate-400 block font-mono">
-                          {(p.transactionId || p.razorpayPaymentId) ? `Txn: ${p.transactionId || p.razorpayPaymentId} • ` : ''}
-                          {formatDisplayDateTime(p.paidAt || p.createdAt)}
+                          Txn: {p.transactionId || p.razorpayPaymentId || p.paymentReference || 'N/A'} • {formatDisplayDateTime(p.paidAt || p.createdAt)}
                         </span>
                       </div>
                       <div className="text-right">

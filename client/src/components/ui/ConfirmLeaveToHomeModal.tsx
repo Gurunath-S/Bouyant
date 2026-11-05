@@ -50,10 +50,10 @@ export const ConfirmLeaveToHomeModal: React.FC<ConfirmLeaveToHomeModalProps> = (
   };
 
   const modalNode = (
-    <div className="fixed inset-0 w-screen h-screen z-[120] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop covering 100% of the screen */}
       <div
-        className="fixed inset-0 w-screen h-screen bg-slate-950/70 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
         onClick={onClose}
         aria-hidden="true"
       />

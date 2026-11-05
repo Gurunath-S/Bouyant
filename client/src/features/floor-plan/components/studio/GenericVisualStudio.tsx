@@ -528,6 +528,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
 
     const timer = setTimeout(() => {
       try {
+        const safeBg =
+          backgroundImageUrl?.startsWith('data:image/') && backgroundImageUrl.length > 50000
+            ? ''
+            : backgroundImageUrl;
         const draft = {
           halls,
           facilities,
@@ -535,7 +539,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           stalls,
           canvasWidth,
           canvasHeight,
-          backgroundImageUrl,
+          backgroundImageUrl: safeBg,
           backgroundOpacity,
           timestamp: Date.now(),
         };
@@ -3062,16 +3066,19 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   let hallFill = '#f1f5f9';
                   let hallFillOpacity = 1;
 
-                  if (isSelected) {
-                    hallFill = '#3b82f6';
-                    hallFillOpacity = 0.16;
-                  } else if (hall.fillColor) {
+                  if (hall.fillColor) {
                     hallFill = hall.fillColor;
                     hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : (hasBg ? 0.75 : 1);
                   } else if (hasBg) {
-                    // When blueprint is present, use clean white at 75% opacity so hall interior is vivid and clearly visible over blueprint
+                    // When blueprint is present, default to clean white for contrast over blueprint lines
                     hallFill = '#ffffff';
                     hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : 0.75;
+                  } else if (isSelected) {
+                    hallFill = '#3b82f6';
+                    hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : 0.16;
+                  } else {
+                    hallFill = '#f1f5f9';
+                    hallFillOpacity = hall.fillOpacity !== undefined ? hall.fillOpacity : 1;
                   }
 
                   return (
@@ -4558,6 +4565,10 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
             unlockedBookedStallIds={unlockedBookedStallIds}
             onUnlockStall={handleRequestUnlockStall}
             onRelockStall={handleRelockStall}
+            backgroundImageUrl={backgroundImageUrl}
+            backgroundOpacity={backgroundOpacity}
+            onChangeBackgroundOpacity={setBackgroundOpacity}
+            onOpenBlueprintModal={() => setIsBgModalOpen(true)}
           />
         )}
       </div>
@@ -4587,6 +4598,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
         hasBlueprint={Boolean(backgroundImageUrl)}
         showBlueprint={showBlueprint}
         onToggleBlueprint={() => setShowBlueprint((prev) => !prev)}
+        backgroundOpacity={backgroundOpacity}
+        onChangeBackgroundOpacity={setBackgroundOpacity}
         isBlueprintInspectMode={isBlueprintInspectMode}
         onToggleInspectMode={() => {
           setIsBlueprintInspectMode((prev) => !prev);
@@ -4621,9 +4634,9 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
       {/* Background Blueprint Image Modal */}
       {isBgModalOpen && (() => {
         const bgModal = (
-          <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
-            <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={handleCloseBgModal} aria-hidden="true" />
-            <div className="relative z-10 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+            <div className="fixed inset-0 bg-transparent" onClick={handleCloseBgModal} aria-hidden="true" />
+            <div className="relative z-10 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 overflow-hidden">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center">
@@ -4813,7 +4826,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                       step="0.05"
                       value={backgroundOpacity}
                       onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
-                      className="w-full accent-blue-600"
+                      onInput={(e) => setBackgroundOpacity(parseFloat((e.target as HTMLInputElement).value))}
+                      className="w-full accent-blue-600 cursor-pointer"
                     />
                   </div>
                 </div>
@@ -4824,10 +4838,11 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                   <img
                     src={backgroundImageUrl}
                     alt="Blueprint Preview"
+                    style={{ opacity: backgroundOpacity }}
                     onError={() => {
                       setBlueprintUrlError('Unable to render blueprint image preview. The URL is inaccessible or invalid.');
                     }}
-                    className="max-h-full max-w-full object-contain"
+                    className="max-h-full max-w-full object-contain transition-opacity duration-150"
                   />
                   <button
                     onClick={() => {

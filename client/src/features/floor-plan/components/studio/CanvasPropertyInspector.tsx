@@ -83,6 +83,10 @@ interface CanvasPropertyInspectorProps {
   unlockedBookedStallIds?: Set<string>;
   onUnlockStall?: (stallId: string, stallNumber: string) => void;
   onRelockStall?: (stallId: string) => void;
+  backgroundImageUrl?: string;
+  backgroundOpacity?: number;
+  onChangeBackgroundOpacity?: (val: number) => void;
+  onOpenBlueprintModal?: () => void;
 }
 
 interface InspectorNumericInputProps {
@@ -177,6 +181,10 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
   unlockedBookedStallIds,
   onUnlockStall,
   onRelockStall,
+  backgroundImageUrl,
+  backgroundOpacity = 0.85,
+  onChangeBackgroundOpacity,
+  onOpenBlueprintModal,
 }) => {
   const pxPerMeter = 20;
   const [bulkKeepFlush, setBulkKeepFlush] = useState<boolean>(true);
@@ -1784,6 +1792,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 step="0.05"
                 value={hall.fillOpacity !== undefined ? hall.fillOpacity : 0.75}
                 onChange={(e) => onUpdateHall(hall.id, { fillOpacity: Number(e.target.value) })}
+                onInput={(e) => onUpdateHall(hall.id, { fillOpacity: Number((e.target as HTMLInputElement).value) })}
                 className="w-full accent-purple-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-medium">
@@ -2346,6 +2355,46 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Blueprint Settings (When blueprint is loaded) */}
+        {backgroundImageUrl && onChangeBackgroundOpacity && (
+          <div className="p-3.5 bg-gradient-to-br from-indigo-50/70 to-blue-50/70 border border-indigo-200/80 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-indigo-600" /> Blueprint Opacity
+              </span>
+              <span className="text-xs font-mono font-bold text-indigo-700 bg-white border border-indigo-200 px-1.5 py-0.5 rounded shadow-2xs">
+                {Math.round(backgroundOpacity * 100)}%
+              </span>
+            </div>
+            <div className="space-y-1">
+              <input
+                type="range"
+                min="0.05"
+                max="1"
+                step="0.05"
+                value={backgroundOpacity}
+                onChange={(e) => onChangeBackgroundOpacity(parseFloat(e.target.value))}
+                onInput={(e) => onChangeBackgroundOpacity(parseFloat((e.target as HTMLInputElement).value))}
+                className="w-full accent-indigo-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>5% (Light)</span>
+                <span>50%</span>
+                <span>100% (Solid)</span>
+              </div>
+            </div>
+            {onOpenBlueprintModal && (
+              <button
+                type="button"
+                onClick={onOpenBlueprintModal}
+                className="w-full py-1 text-[11px] font-bold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors cursor-pointer text-center"
+              >
+                Configure Blueprint Position & Scale
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Total Valuation Card */}
         <div className="p-3.5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-1">
           <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">

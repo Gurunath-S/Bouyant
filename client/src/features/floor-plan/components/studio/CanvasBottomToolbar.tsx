@@ -40,6 +40,8 @@ interface CanvasBottomToolbarProps {
   hasBlueprint?: boolean;
   showBlueprint?: boolean;
   onToggleBlueprint?: () => void;
+  backgroundOpacity?: number;
+  onChangeBackgroundOpacity?: (val: number) => void;
   isBlueprintInspectMode?: boolean;
   onToggleInspectMode?: () => void;
   isMultiSelectMode?: boolean;
@@ -70,6 +72,8 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
   hasBlueprint,
   showBlueprint = true,
   onToggleBlueprint,
+  backgroundOpacity = 0.85,
+  onChangeBackgroundOpacity,
   isBlueprintInspectMode = false,
   onToggleInspectMode,
   isMultiSelectMode = false,
@@ -118,6 +122,27 @@ export const CanvasBottomToolbar: React.FC<CanvasBottomToolbarProps> = ({
               <span>Blueprint {showBlueprint ? 'ON' : 'OFF'}</span>
             </button>
           </Tooltip>
+        )}
+
+        {/* Blueprint Opacity Slider (Real-time adjustment on the canvas toolbar) */}
+        {hasBlueprint && showBlueprint && onChangeBackgroundOpacity && (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-slate-200 bg-slate-50 text-xs">
+            <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">Opacity:</span>
+            <input
+              type="range"
+              min="0.05"
+              max="1"
+              step="0.05"
+              value={backgroundOpacity}
+              onChange={(e) => onChangeBackgroundOpacity(parseFloat(e.target.value))}
+              onInput={(e) => onChangeBackgroundOpacity(parseFloat((e.target as HTMLInputElement).value))}
+              className="w-16 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+              title={`Blueprint Opacity: ${Math.round(backgroundOpacity * 100)}%`}
+            />
+            <span className="text-[10px] font-mono font-bold text-slate-700 min-w-[28px] text-right">
+              {Math.round(backgroundOpacity * 100)}%
+            </span>
+          </div>
         )}
 
         {/* Blueprint X-Ray Inspect Mode (100% sharp blueprint + translucent stalls) */}

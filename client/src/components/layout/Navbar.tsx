@@ -195,9 +195,9 @@ export const Navbar: React.FC = () => {
       {/* Sign Out Confirmation Modal */}
       {showLogoutModal && (() => {
         const logoutModalContent = (
-          <div className="fixed inset-0 w-screen h-screen z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
-            <div className="fixed inset-0 w-screen h-screen bg-transparent" onClick={() => setShowLogoutModal(false)} aria-hidden="true" />
-            <div className="relative z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+            <div className="fixed inset-0 bg-transparent" onClick={() => setShowLogoutModal(false)} aria-hidden="true" />
+            <div className="relative z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 overflow-hidden">
               <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/80 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
                 <LogOut className="w-6 h-6" />
               </div>

@@ -9,6 +9,8 @@ import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { ALL_INDIAN_STATES, getCitiesForLocation, getStateForCity } from '../../../data/indianStatesCities';
 import { InteractivePinMap } from '../../../components/ui/InteractivePinMap';
+import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
+import { compressDataUrl } from '../../../utils/imageOptimizer';
 import {
   CalendarPlus,
   ArrowLeft,
@@ -63,6 +65,7 @@ export const StaffRegisterEventPage: React.FC = () => {
     bookingEndDate: '',
     totalStalls: 50,
     bannerUrl: '',
+    images: [] as string[],
   });
 
   const availableCities = useMemo(() => {
@@ -135,8 +138,30 @@ export const StaffRegisterEventPage: React.FC = () => {
       setLoading(true);
       setErrorMsg(null);
 
+      // Compress oversized base64 images before transmission to prevent 413 Payload Too Large
+      let cleanBannerUrl = formData.bannerUrl || formData.images?.[0] || '';
+      if (cleanBannerUrl?.startsWith('data:image/')) {
+        cleanBannerUrl = await compressDataUrl(cleanBannerUrl, 1600, 0.8);
+      }
+
+      let cleanImages: string[] = [];
+      if (Array.isArray(formData.images) && formData.images.length > 0) {
+        cleanImages = await Promise.all(
+          formData.images.filter(Boolean).map(async (img) => {
+            if (img?.startsWith('data:image/')) {
+              return await compressDataUrl(img, 1600, 0.8);
+            }
+            return img;
+          })
+        );
+      } else if (cleanBannerUrl) {
+        cleanImages = [cleanBannerUrl];
+      }
+
       const payload = {
         ...formData,
+        bannerUrl: cleanBannerUrl,
+        images: cleanImages,
         notificationEmails: user?.email || undefined,
         totalStalls: Number(formData.totalStalls) || 0,
         status: 'DRAFT', // Enters as DRAFT ready for layout & publishing
@@ -511,18 +536,24 @@ export const StaffRegisterEventPage: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, totalStalls: parseInt(e.target.value, 10) || 0 })}
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Banner Image URL (Optional)
-              </label>
-              <Input
-                type="url"
-                placeholder="https://images.unsplash.com/..."
-                value={formData.bannerUrl}
-                onChange={(e) => setFormData({ ...formData, bannerUrl: e.target.value })}
-              />
-            </div>
+          {/* Event Banners & Gallery Media */}
+          <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <MultiImagePicker
+              images={formData.images || []}
+              coverImage={formData.bannerUrl || ''}
+              disabled={loading}
+              label="Event Banners & Media Gallery"
+              helperText="Upload event promotional photos or add image URLs. Click the star icon to set the main cover banner."
+              onChangeImages={(newImages, newCover) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  images: newImages,
+                  bannerUrl: newCover || newImages[0] || '',
+                }));
+              }}
+            />
           </div>
 
           <div>

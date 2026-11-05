@@ -170,15 +170,17 @@ useEffect(() => {
       {isMobileOpen && (
         <div
           onClick={closeMobile}
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 md:hidden transition-opacity"
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 top-14 z-50 md:sticky md:top-14 md:translate-x-0 transform transition-transform duration-300 ease-in-out ${
-          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none'
-        } h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none ${
+        className={`fixed left-0 top-14 bottom-0 z-40 md:z-30 md:sticky md:top-14 md:bottom-auto ${
+          isMobileOpen
+            ? 'translate-x-0 shadow-2xl'
+            : '-translate-x-full md:translate-x-0 shadow-none'
+        } transition-transform md:transition-none md:transform-none duration-300 ease-in-out h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >

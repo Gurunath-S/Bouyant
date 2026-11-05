@@ -42,9 +42,14 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
   if (!booking) return null;
 
-  const paymentList = (booking.payments && booking.payments.length > 0)
+  const rawPayments = (booking.payments && booking.payments.length > 0)
     ? booking.payments
     : (booking.payment ? [booking.payment] : []);
+  const paymentList = [...rawPayments].sort((a: any, b: any) => {
+    const dateA = new Date(a.createdAt || a.paidAt || 0).getTime();
+    const dateB = new Date(b.createdAt || b.paidAt || 0).getTime();
+    return dateA - dateB;
+  });
   const successfulPayments = paymentList.filter((p: any) => p.status === 'SUCCESS');
 
   const grandTotal = Number(booking.grandTotal || 0);
@@ -324,13 +329,23 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                           <div>
                             <span className="text-slate-400 block text-[10px]">Method / Provider:</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                              {p.provider || 'RAZORPAY'} • {p.paymentMethod || 'UPI / Gateway'}
+                              {p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
+                                ? 'CASH • Offline / In-Person'
+                                : `${p.provider || 'RAZORPAY'} • ${p.paymentMethod || 'UPI / Gateway'}`}
                             </span>
                           </div>
                           <div>
                             <span className="text-slate-400 block text-[10px]">Txn Reference:</span>
                             <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block truncate" title={p.transactionId || p.razorpayPaymentId || '-'}>
-                              {p.transactionId || p.razorpayPaymentId || '-'}
+                              {p.transactionId || p.razorpayPaymentId || (
+                                p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
+                                  ? 'Cash Collection'
+                                  : p.status === 'CANCELLED'
+                                  ? 'Cancelled (Unpaid)'
+                                  : p.status === 'PENDING'
+                                  ? 'Pending Checkout'
+                                  : '-'
+                              )}
                             </span>
                           </div>
                           <div>

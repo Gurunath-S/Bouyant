@@ -21,7 +21,7 @@ export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
   if (!isOpen) return null;
 
   const modalNode = (
-    <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl text-center space-y-5 relative overflow-hidden transform transition-all scale-100 my-auto">
         
         {/* Visual Top Decorative Gradient */}

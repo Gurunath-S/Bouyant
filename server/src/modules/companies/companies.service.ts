@@ -1012,6 +1012,8 @@ export class CompaniesService {
                 provider: true,
                 paymentMethod: true,
                 transactionId: true,
+                razorpayPaymentId: true,
+                razorpayOrderId: true,
                 paidAt: true,
                 createdAt: true,
               },
