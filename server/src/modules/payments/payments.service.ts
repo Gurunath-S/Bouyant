@@ -376,7 +376,13 @@ export class PaymentsService {
         };
       }
 
-      if (currentPayment.status !== 'PENDING') {
+      // If Razorpay captured the funds, accept the payment even if an aggressive hold expiration
+      // or cleanup job previously marked the attempt as FAILED or CANCELLED.
+      if (
+        currentPayment.status !== 'PENDING' &&
+        currentPayment.status !== 'FAILED' &&
+        currentPayment.status !== 'CANCELLED'
+      ) {
         throw ApiError.badRequest(
           `Payment is already ${currentPayment.status}.`
         );
@@ -427,12 +433,15 @@ export class PaymentsService {
       // =====================================================
 
       // If Razorpay captured the payment, allow completing the booking
-      // even if the 30s background cron briefly marked it EXPIRED,
-      // or if it was already CONFIRMED with partial payment.
+      // even if the 30s background cron or client hold timer marked it EXPIRED or CANCELLED,
+      // or if it is currently INITIATED, HELD, or CONFIRMED.
       if (
         booking.status !== 'PENDING_PAYMENT' &&
         booking.status !== 'EXPIRED' &&
-        booking.status !== 'CONFIRMED'
+        booking.status !== 'CONFIRMED' &&
+        booking.status !== 'CANCELLED' &&
+        booking.status !== 'INITIATED' &&
+        booking.status !== 'HELD'
       ) {
         throw ApiError.conflict(
           `Booking cannot be completed because its current status is ${booking.status}.`
@@ -565,7 +574,7 @@ export class PaymentsService {
         await tx.payment.updateMany({
           where: {
             id: currentPayment.id,
-            status: 'PENDING',
+            status: { in: ['PENDING', 'FAILED', 'CANCELLED'] },
           },
           data: {
             status: 'SUCCESS',
@@ -602,10 +611,7 @@ export class PaymentsService {
         data: {
           paidAmount: newPaidAmount,
           balanceAmount: finalBalance,
-          status:
-            bookingIsFullyPaid
-              ? 'CONFIRMED'
-              : (booking.status === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING_PAYMENT'),
+          status: 'CONFIRMED',
           paymentStatus:
             bookingIsFullyPaid
               ? 'PAID_FULL'
@@ -617,7 +623,13 @@ export class PaymentsService {
       // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
       // =====================================================
 
-      if (booking.paymentStatus === 'UNPAID') {
+      if (
+        booking.paymentStatus === 'UNPAID' ||
+        booking.status === 'CANCELLED' ||
+        booking.status === 'EXPIRED' ||
+        booking.status === 'INITIATED' ||
+        booking.status === 'HELD'
+      ) {
         const stallUpdate =
           await tx.stall.updateMany({
             where: {
@@ -625,7 +637,13 @@ export class PaymentsService {
                 in: stallIds,
               },
               status: {
-                in: ['AVAILABLE', 'TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BLOCKED'],
+                in: [
+                  'AVAILABLE',
+                  'TEMPORARILY_HELD',
+                  'PAYMENT_PENDING',
+                  'BOOKING_IN_PROGRESS',
+                  'BLOCKED',
+                ],
               },
             },
             data: {
@@ -1098,7 +1116,7 @@ static async createBalancePaymentOrder(
       }
     }
 
-    // Search filter: paymentReference, bookingReference, paymentMethod
+    // Search filter: paymentReference, bookingReference, paymentMethod, company name, event
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({
@@ -1108,6 +1126,8 @@ static async createBalancePaymentOrder(
           { transactionId: { contains: q, mode: 'insensitive' } },
           { paymentMethod: { contains: q, mode: 'insensitive' } },
           { booking: { bookingReference: { contains: q, mode: 'insensitive' } } },
+          { booking: { company: { name: { contains: q, mode: 'insensitive' } } } },
+          { booking: { exhibition: { title: { contains: q, mode: 'insensitive' } } } },
         ],
       });
     }
@@ -1145,13 +1165,15 @@ static async createBalancePaymentOrder(
     };
   }
 
-  static async handleWebhook(body: any, signature: string | undefined) {
+  static async handleWebhook(body: any, signature: string | undefined, rawBody?: Buffer | string) {
     if (!signature) {
       throw ApiError.badRequest('Missing Razorpay webhook signature header.');
     }
 
     const secret = (process.env.RAZORPAY_WEBHOOK_SECRET || env.RAZORPAY_API_SECRET || '').trim();
-    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+    const bodyStr = rawBody
+      ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8'))
+      : (typeof body === 'string' ? body : JSON.stringify(body));
     const expectedSignature = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
 
     const expectedBuf = Buffer.from(expectedSignature, 'utf8');
@@ -1163,11 +1185,29 @@ static async createBalancePaymentOrder(
 
     const event = typeof body === 'string' ? JSON.parse(body) : body;
     const paymentEntity = event?.payload?.payment?.entity;
-    const orderId = paymentEntity?.order_id;
-    const paymentId = paymentEntity?.id;
+    const orderEntity = event?.payload?.order?.entity;
+    let orderId = paymentEntity?.order_id || orderEntity?.id;
+    let paymentId = paymentEntity?.id;
+
+    if (!orderId && !paymentId) {
+      return { success: true, message: 'Event acknowledged (no payment/order payload).' };
+    }
+
+    // If orderId is present but paymentId is not (e.g. order.paid event), fetch payment from Razorpay
+    if (orderId && !paymentId) {
+      try {
+        const orderPayments: any = await (razorpay.orders as any).fetchPayments(orderId);
+        const captured = orderPayments?.items?.find((p: any) => p.status === 'captured');
+        if (captured) {
+          paymentId = captured.id;
+        }
+      } catch (e: any) {
+        console.warn('Could not fetch payments for order in webhook:', e?.message);
+      }
+    }
 
     if (!orderId || !paymentId) {
-      return { success: true, message: 'Event acknowledged (no payment/order payload).' };
+      return { success: true, message: 'Event acknowledged (could not resolve captured payment for order).' };
     }
 
     const payment = await prisma.payment.findUnique({

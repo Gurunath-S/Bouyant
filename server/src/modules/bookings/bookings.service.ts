@@ -1019,7 +1019,10 @@ static async createBooking(
 
   const snapshotBillingName = input.billingName?.trim() || company.name;
   const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
-  const snapshotBillingPan = input.billingPan?.trim().toUpperCase() || company.panNumber || null;
+  const snapshotBillingPan =
+    input.billingPan?.trim().toUpperCase() ||
+    company.panNumber ||
+    (snapshotBillingGst && snapshotBillingGst.length === 15 ? snapshotBillingGst.substring(2, 12).toUpperCase() : null);
   const snapshotBillingAddress = input.billingAddress?.trim() || company.address;
   const snapshotBillingCity = input.billingCity?.trim() || company.city;
   const snapshotBillingState = input.billingState?.trim() || company.state;
@@ -1576,18 +1579,34 @@ static async createBooking(
   // ==================================================
 
   try {
-    const updatedPayment =
-      await prisma.payment.update({
+    const paymentHoldExtension = new Date(Date.now() + 15 * 60 * 1000);
+    const [updatedPayment] = await prisma.$transaction([
+      prisma.payment.update({
         where: {
-          id:
-            transactionResult.payment.id,
+          id: transactionResult.payment.id,
         },
-
         data: {
-          razorpayOrderId:
-            razorpayOrder.id,
+          razorpayOrderId: razorpayOrder.id,
         },
-      });
+      }),
+      prisma.booking.update({
+        where: {
+          id: transactionResult.booking.id,
+        },
+        data: {
+          expiresAt: paymentHoldExtension,
+        },
+      }),
+      prisma.stall.updateMany({
+        where: {
+          id: { in: input.stallIds },
+        },
+        data: {
+          heldUntil: paymentHoldExtension,
+          status: StallStatus.PAYMENT_PENDING,
+        },
+      }),
+    ]);
 
     // ==================================================
     // 12. Return response
@@ -1777,6 +1796,7 @@ static async createBooking(
             state: true,
             country: true,
             gstNumber: true,
+            panNumber: true,
           },
         },
         exhibition: {
@@ -2019,6 +2039,9 @@ static async createBooking(
           { bookingReference: { contains: q, mode: 'insensitive' } },
           { company: { name: { contains: q, mode: 'insensitive' } } },
           { company: { contactPerson: { contains: q, mode: 'insensitive' } } },
+          { company: { companyCode: { contains: q, mode: 'insensitive' } } },
+          { company: { email: { contains: q, mode: 'insensitive' } } },
+          { company: { mobile: { contains: q, mode: 'insensitive' } } },
           { exhibition: { title: { contains: q, mode: 'insensitive' } } },
           { stalls: { some: { stall: { stallNumber: { contains: q, mode: 'insensitive' } } } } },
         ],
@@ -2026,7 +2049,7 @@ static async createBooking(
     }
 
     const where: Prisma.BookingWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
-
+ 
     const [bookings, total, aggregate, totalStallsCount] = await Promise.all([
       prisma.booking.findMany({
         where,
@@ -2056,8 +2079,13 @@ static async createBooking(
               contactPerson: true,
               mobile: true,
               email: true,
+              address: true,
               city: true,
+              state: true,
+              country: true,
+              pinCode: true,
               gstNumber: true,
+              panNumber: true,
             },
           },
           user: {

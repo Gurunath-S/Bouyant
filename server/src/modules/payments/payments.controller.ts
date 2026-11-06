@@ -29,7 +29,8 @@ export class PaymentsController {
 
   static handleWebhook = async (req: Request, res: Response) => {
     const signature = req.headers['x-razorpay-signature'] as string | undefined;
-    const result = await PaymentsService.handleWebhook(req.body, signature);
+    const rawBody = (req as any).rawBody;
+    const result = await PaymentsService.handleWebhook(req.body, signature, rawBody);
     return res.status(200).json(result);
   };
 

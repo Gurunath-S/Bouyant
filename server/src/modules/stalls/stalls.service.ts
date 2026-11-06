@@ -22,13 +22,36 @@ export class StallsService {
       if (expiredStalls.length === 0) return 0;
       const expiredStallIds = expiredStalls.map((s) => s.id);
 
+      // Protect in-flight checkouts: Do not release stalls if there is an active pending Razorpay payment created within the last 15 minutes
+      const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+      const activeCheckoutStalls = await tx.bookingStall.findMany({
+        where: {
+          stallId: { in: expiredStallIds },
+          booking: {
+            payments: {
+              some: {
+                status: 'PENDING',
+                createdAt: { gte: fifteenMinutesAgo },
+                razorpayOrderId: { not: null },
+              },
+            },
+          },
+        },
+        select: { stallId: true },
+      });
+
+      const activeStallIdSet = new Set(activeCheckoutStalls.map((b) => b.stallId));
+      const releaseCandidateIds = expiredStallIds.filter((id) => !activeStallIdSet.has(id));
+
+      if (releaseCandidateIds.length === 0) return 0;
+
       // 2. Business Rule: Never auto-cancel bookings when hold/due dates pass.
       // Keep bookings as PENDING_PAYMENT so payment can still be collected and records remain active.
       await tx.booking.updateMany({
         where: {
           status: 'INITIATED',
           paidAmount: { lte: 0 },
-          stalls: { some: { stallId: { in: expiredStallIds } } },
+          stalls: { some: { stallId: { in: releaseCandidateIds } } },
         },
         data: {
           status: 'PENDING_PAYMENT',
@@ -38,7 +61,7 @@ export class StallsService {
       // 3. Atomically release stall statuses back to AVAILABLE
       const result = await tx.stall.updateMany({
         where: {
-          id: { in: expiredStallIds },
+          id: { in: releaseCandidateIds },
           status: { in: ['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'] },
           heldUntil: { lt: now },
         },
@@ -94,9 +117,29 @@ export class StallsService {
   }
 
   static async updateStall(stallId: string, input: UpdateStallInput) {
-    const stall = await prisma.stall.findUnique({ where: { id: stallId } });
+    const stall = await prisma.stall.findUnique({
+      where: { id: stallId },
+      include: { bookingStalls: true },
+    });
     if (!stall) {
       throw ApiError.notFound('Stall not found.');
+    }
+
+    const isBookedOrHeld =
+      (stall.bookingStalls && stall.bookingStalls.length > 0) ||
+      ['BOOKED_CONFIRMED', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS', 'TEMPORARILY_HELD'].includes(stall.status) ||
+      Boolean((stall as any).heldByUserId);
+
+    if (isBookedOrHeld) {
+      if (input.price !== undefined && Number(input.price) !== Number(stall.price)) {
+        throw ApiError.badRequest('Cannot modify the price of an already booked or reserved stall.');
+      }
+      if (input.stallNumber && input.stallNumber.trim().toUpperCase() !== stall.stallNumber.toUpperCase()) {
+        throw ApiError.badRequest('Cannot change the stall identifier of an already booked or reserved stall.');
+      }
+      if (input.category && input.category !== stall.category) {
+        throw ApiError.badRequest('Cannot change the category of an already booked or reserved stall.');
+      }
     }
 
     if (input.stallNumber) {
