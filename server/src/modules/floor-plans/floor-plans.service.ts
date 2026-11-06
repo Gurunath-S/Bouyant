@@ -257,13 +257,16 @@ export class FloorPlansService {
                 Boolean((existingByNum as any).heldByUserId);
 
               const resolvedStatus = isExistingBookedOrHeld ? existingByNum.status : status;
+              const resolvedPrice = isExistingBookedOrHeld ? existingByNum.price : price;
+              const resolvedCategory = isExistingBookedOrHeld ? existingByNum.category : category;
+              const resolvedName = s.name || existingByNum.name || `Stall ${stallNum}`;
 
               await tx.stall.update({
                 where: { id: existingByNum.id },
                 data: {
-                  name: s.name || `Stall ${stallNum}`,
-                  category,
-                  price,
+                  name: resolvedName,
+                  category: resolvedCategory,
+                  price: resolvedPrice,
                   areaSqFt,
                   actualWidth,
                   actualHeight,

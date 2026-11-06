@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { PrismaClient } from '@prisma/client';
 import { FloorPlansService } from '../src/modules/floor-plans/floor-plans.service.js';
 import { ExhibitionsService } from '../src/modules/exhibitions/exhibitions.service.js';
+import { StallsService } from '../src/modules/stalls/stalls.service.js';
 
 const prisma = new PrismaClient();
 
@@ -149,14 +150,15 @@ describe('Floor Design Editor Stall Properties, Physical Dimensions, and Color P
         'Physical dimensions must remain 4.5m × 3m and NOT be overwritten by visual canvas size changes'
       );
 
-      // 5. Verify availability status protection against overriding booked/held state
+      // 5. Verify price, category, and availability status protection against overriding booked/held state
       // Manually set stall status to BOOKED_CONFIRMED to simulate active booking
       await prisma.stall.update({
         where: { id: stallA101.id },
         data: { status: 'BOOKED_CONFIRMED' },
       });
 
-      // Try syncing with status: AVAILABLE - the server must safeguard and preserve BOOKED_CONFIRMED
+      // Try syncing with modified price (99000 instead of 85000), modified category (ISLAND instead of PREMIUM), and status: AVAILABLE
+      // The server must safeguard and preserve the original price, category, and BOOKED_CONFIRMED status
       const syncResult4 = await FloorPlansService.syncFloorPlan(floorPlan.id, {
         layoutData: parsedLayout3,
         stalls: [
@@ -164,8 +166,8 @@ describe('Floor Design Editor Stall Properties, Physical Dimensions, and Color P
             id: stallA101.id,
             stallNumber: 'A101',
             name: 'Stall A101 Renamed',
-            category: 'PREMIUM',
-            price: 90000,
+            category: 'ISLAND', // Attempting to override booked category
+            price: 99000, // Attempting to override booked price
             width: 100,
             height: 80,
             xPosition: 100,
@@ -181,7 +183,26 @@ describe('Floor Design Editor Stall Properties, Physical Dimensions, and Color P
         'BOOKED_CONFIRMED',
         'Booked status must NOT be overridden by editor synchronization'
       );
+      assert.strictEqual(
+        Number(bookedStall.price),
+        85000,
+        'Booked stall price must remain strictly unchanged across floor plan sync'
+      );
+      assert.strictEqual(
+        bookedStall.category,
+        'PREMIUM',
+        'Booked stall category must remain strictly unchanged across floor plan sync'
+      );
       assert.strictEqual(bookedStall.name, 'Stall A101 Renamed', 'Other allowed fields such as name must update cleanly');
+
+      // Verify updateStall directly also rejects price modifications on booked stalls
+      await assert.rejects(
+        async () => {
+          await StallsService.updateStall(bookedStall.id, { price: 120000 });
+        },
+        /Cannot modify the price of an already booked or reserved stall/,
+        'StallsService.updateStall must reject price changes for booked stalls'
+      );
 
       // 6. Verify handling of stalls with missing physical dimensions
       const syncResult5 = await FloorPlansService.syncFloorPlan(floorPlan.id, {

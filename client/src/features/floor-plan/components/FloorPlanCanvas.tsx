@@ -681,7 +681,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
               const mode = fac.displayMode || 'both';
               const iconKey = getFacilityIconKey(fac.iconName, fac.type);
-              const iconSize = Math.max(12, Math.min(64, fac.iconSize || 24));
+              const iconSize = fac.iconSize || (fac.height >= 40 ? 24 : 18);
+              const fontSize = fac.fontSize || 10;
+              const fontWeight = fac.fontWeight || 'bold';
 
               return (
                 <g key={fac.id} transform={transformAttr}>
@@ -698,79 +700,272 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     />
                   )}
 
-                  {mode === 'icon-only' &&
-                    renderFacilitySvgIcon(
-                      iconKey,
-                      fac.x + fac.width / 2,
-                      fac.y + fac.height / 2,
-                      iconSize,
-                      strokeCol
-                    )}
+                  {/* ClipPath Definition to guarantee nothing spills outside */}
+                  <defs>
+                    <clipPath id={`clip-canvas-fac-${fac.id}`}>
+                      <rect
+                        x={fac.x + 1}
+                        y={fac.y + 1}
+                        width={Math.max(0, fac.width - 2)}
+                        height={Math.max(0, fac.height - 2)}
+                        rx="5"
+                      />
+                    </clipPath>
+                  </defs>
 
-                  {mode === 'text-only' && (
-                    <text
-                      x={fac.x + fac.width / 2}
-                      y={fac.y + fac.height / 2 + 4}
-                      textAnchor="middle"
-                      fill={textCol}
-                      fontSize="10"
-                      fontWeight="bold"
-                      letterSpacing="0.8"
-                      className="select-none pointer-events-none uppercase"
-                    >
-                      {fac.label}
-                    </text>
-                  )}
-
-                  {mode === 'both' && (
-                    <g>
-                      {fac.height >= 44 ? (
-                        <>
-                          {renderFacilitySvgIcon(
-                            iconKey,
-                            fac.x + fac.width / 2,
-                            fac.y + fac.height / 2 - 7,
-                            iconSize,
-                            textCol
-                          )}
-                          <text
-                            x={fac.x + fac.width / 2}
-                            y={fac.y + fac.height / 2 + iconSize / 2 + 2}
-                            textAnchor="middle"
-                            fill={textCol}
-                            fontSize="9"
-                            fontWeight="bold"
-                            letterSpacing="0.8"
-                            className="select-none pointer-events-none uppercase"
-                          >
-                            {fac.label}
-                          </text>
-                        </>
-                      ) : (
-                        <>
-                          {renderFacilitySvgIcon(
-                            iconKey,
-                            fac.x + 14,
-                            fac.y + fac.height / 2,
-                            iconSize,
-                            textCol
-                          )}
-                          <text
-                            x={fac.x + 28}
-                            y={fac.y + fac.height / 2 + 3}
-                            textAnchor="start"
-                            fill={textCol}
-                            fontSize="9"
-                            fontWeight="bold"
-                            letterSpacing="0.8"
-                            className="select-none pointer-events-none uppercase"
-                          >
-                            {fac.label}
-                          </text>
-                        </>
+                  <g clipPath={`url(#clip-canvas-fac-${fac.id})`}>
+                    {/* Display Mode: Icon Only */}
+                    {mode === 'icon-only' &&
+                      renderFacilitySvgIcon(
+                        iconKey,
+                        fac.x + fac.width / 2,
+                        fac.y + fac.height / 2,
+                        Math.min(iconSize, Math.min(fac.width - 8, fac.height - 8)),
+                        strokeCol
                       )}
-                    </g>
-                  )}
+
+                    {/* Display Mode: Text Only */}
+                    {mode === 'text-only' && (() => {
+                      const padX = 5;
+                      const padY = 4;
+                      const availW = Math.max(12, fac.width - padX * 2);
+                      const availH = Math.max(12, fac.height - padY * 2);
+                      const words = (fac.label || '').trim().split(/\s+/).filter(Boolean);
+                      if (words.length === 0) return null;
+
+                      const maxWordLen = words.reduce((m, w) => Math.max(m, w.length), 1);
+                      const maxAllowedFs = (availW - maxWordLen * 0.2) / (maxWordLen * 0.7);
+                      let effectiveFs = Math.min(fontSize, Math.max(5, maxAllowedFs));
+
+                      const wrapLines = (fs: number) => {
+                        if (words.length <= 1) return words;
+                        const charW = fs * 0.7 + 0.2;
+                        const res: string[] = [];
+                        let curr = '';
+                        for (const w of words) {
+                          const test = curr ? `${curr} ${w}` : w;
+                          if (test.length * charW <= availW) {
+                            curr = test;
+                          } else {
+                            if (curr) res.push(curr);
+                            curr = w;
+                          }
+                        }
+                        if (curr) res.push(curr);
+                        return res;
+                      };
+
+                      let lines = wrapLines(effectiveFs);
+                      let lineHeight = effectiveFs * 1.15;
+                      let totalH = lines.length * lineHeight;
+
+                      if (totalH > availH) {
+                        const scale = Math.max(0.45, availH / totalH);
+                        effectiveFs = Math.max(5, effectiveFs * scale);
+                        lineHeight = effectiveFs * 1.15;
+                        lines = wrapLines(effectiveFs);
+                        totalH = lines.length * lineHeight;
+                      }
+
+                      const startY = fac.y + Math.max(padY, (fac.height - totalH) / 2) + lineHeight / 2;
+
+                      return (
+                        <text
+                          x={fac.x + fac.width / 2}
+                          y={startY}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={textCol}
+                          fontSize={effectiveFs}
+                          fontWeight={
+                            fontWeight === 'black'
+                              ? '900'
+                              : fontWeight === 'bold'
+                              ? '700'
+                              : fontWeight === 'semibold'
+                              ? '600'
+                              : '400'
+                          }
+                          letterSpacing="0.2"
+                          className="select-none pointer-events-none uppercase"
+                        >
+                          {lines.map((line, idx) => {
+                            const estLineW = line.length * (effectiveFs * 0.7) + (line.length - 1) * 0.2;
+                            return (
+                              <tspan
+                                key={idx}
+                                x={fac.x + fac.width / 2}
+                                dy={idx === 0 ? 0 : lineHeight}
+                                textLength={estLineW > availW ? availW : undefined}
+                                lengthAdjust="spacingAndGlyphs"
+                              >
+                                {line}
+                              </tspan>
+                            );
+                          })}
+                        </text>
+                      );
+                    })()}
+
+                    {/* Display Mode: Both (Icon + Text) */}
+                    {mode === 'both' && (() => {
+                      const words = (fac.label || '').trim().split(/\s+/).filter(Boolean);
+                      const textLen = (fac.label || '').length || 1;
+                      const padX = 5;
+                      const padY = 4;
+                      const availW = Math.max(12, fac.width - padX * 2);
+                      const availH = Math.max(12, fac.height - padY * 2);
+
+                      const minLegibleFs = 7;
+                      const minNeededTextW = textLen * (minLegibleFs * 0.65);
+                      const effectiveIconSizeH = Math.max(12, Math.min(iconSize, availH));
+                      const textGap = 5;
+                      const availTextW = Math.max(0, availW - effectiveIconSizeH - textGap);
+
+                      // Only allow horizontal row layout if box is wide enough to fit readable text without squashing
+                      const isHorizontal =
+                        fac.width >= fac.height * 1.4 &&
+                        fac.height < 54 &&
+                        availTextW >= minNeededTextW;
+
+                      if (isHorizontal) {
+                        // Horizontal row layout: [icon] [text]
+                        const rawTextW = textLen * fontSize * 0.65;
+                        const effectiveFs = rawTextW > availTextW
+                          ? Math.max(minLegibleFs, Math.min(fontSize, availTextW / (textLen * 0.65)))
+                          : fontSize;
+                        const actualTextW = textLen * effectiveFs * 0.65;
+                        const totalW = effectiveIconSizeH + textGap + Math.min(actualTextW, availTextW);
+                        const startX = Math.max(fac.x + padX, fac.x + (fac.width - totalW) / 2);
+                        const iconCenterX = startX + effectiveIconSizeH / 2;
+                        const textStartX = startX + effectiveIconSizeH + textGap;
+
+                        return (
+                          <g>
+                            {renderFacilitySvgIcon(
+                              iconKey,
+                              iconCenterX,
+                              fac.y + fac.height / 2,
+                              effectiveIconSizeH,
+                              textCol
+                            )}
+                            <text
+                              x={textStartX}
+                              y={fac.y + fac.height / 2}
+                              textAnchor="start"
+                              dominantBaseline="central"
+                              fill={textCol}
+                              fontSize={effectiveFs}
+                              fontWeight={
+                                fontWeight === 'black'
+                                  ? '900'
+                                  : fontWeight === 'bold'
+                                  ? '700'
+                                  : fontWeight === 'semibold'
+                                  ? '600'
+                                  : '400'
+                              }
+                              letterSpacing="0.2"
+                              textLength={actualTextW > availTextW ? availTextW : undefined}
+                              lengthAdjust="spacingAndGlyphs"
+                              className="select-none pointer-events-none uppercase"
+                            >
+                              {fac.label}
+                            </text>
+                          </g>
+                        );
+                      } else {
+                        // Stacked layout: icon on top, text wrapped below
+                        const maxWordLen = words.reduce((m, w) => Math.max(m, w.length), 1);
+                        const maxAllowedFs = (availW - maxWordLen * 0.2) / (maxWordLen * 0.7);
+                        let effectiveFs = Math.min(fontSize, Math.max(5, maxAllowedFs));
+
+                        const wrapLines = (fs: number) => {
+                          if (words.length <= 1) return words;
+                          const charW = fs * 0.7 + 0.2;
+                          const res: string[] = [];
+                          let curr = '';
+                          for (const w of words) {
+                            const test = curr ? `${curr} ${w}` : w;
+                            if (test.length * charW <= availW) {
+                              curr = test;
+                            } else {
+                              if (curr) res.push(curr);
+                              curr = w;
+                            }
+                          }
+                          if (curr) res.push(curr);
+                          return res;
+                        };
+
+                        let lines = wrapLines(effectiveFs);
+                        let lineHeight = effectiveFs * 1.15;
+                        let totalTextH = lines.length * lineHeight;
+                        let effectiveIconSize = Math.max(10, Math.min(iconSize, availH * 0.42));
+                        let totalBlockH = effectiveIconSize + 4 + totalTextH;
+
+                        if (totalBlockH > availH) {
+                          const scale = Math.max(0.45, availH / totalBlockH);
+                          effectiveIconSize = Math.max(10, Math.min(effectiveIconSize * scale, availH * 0.35));
+                          effectiveFs = Math.max(5, effectiveFs * scale);
+                          lineHeight = effectiveFs * 1.15;
+                          lines = wrapLines(effectiveFs);
+                          totalTextH = lines.length * lineHeight;
+                          totalBlockH = effectiveIconSize + 3 + totalTextH;
+                        }
+
+                        const startY = fac.y + Math.max(padY, (fac.height - totalBlockH) / 2);
+                        const iconCenterY = startY + effectiveIconSize / 2;
+                        const textFirstLineY = startY + effectiveIconSize + 3 + lineHeight / 2;
+
+                        return (
+                          <g>
+                            {renderFacilitySvgIcon(
+                              iconKey,
+                              fac.x + fac.width / 2,
+                              iconCenterY,
+                              effectiveIconSize,
+                              textCol
+                            )}
+                            <text
+                              x={fac.x + fac.width / 2}
+                              y={textFirstLineY}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill={textCol}
+                              fontSize={effectiveFs}
+                              fontWeight={
+                                fontWeight === 'black'
+                                  ? '900'
+                                  : fontWeight === 'bold'
+                                  ? '700'
+                                  : fontWeight === 'semibold'
+                                  ? '600'
+                                  : '400'
+                              }
+                              letterSpacing="0.2"
+                              className="select-none pointer-events-none uppercase"
+                            >
+                              {lines.map((line, idx) => {
+                                const estLineW = line.length * (effectiveFs * 0.7) + (line.length - 1) * 0.2;
+                                return (
+                                  <tspan
+                                    key={idx}
+                                    x={fac.x + fac.width / 2}
+                                    dy={idx === 0 ? 0 : lineHeight}
+                                    textLength={estLineW > availW ? availW : undefined}
+                                    lengthAdjust="spacingAndGlyphs"
+                                  >
+                                    {line}
+                                  </tspan>
+                                );
+                              })}
+                            </text>
+                          </g>
+                        );
+                      }
+                    })()}
+                  </g>
                 </g>
               );
             })}

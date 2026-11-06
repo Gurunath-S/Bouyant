@@ -486,9 +486,12 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-purple-50/60 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-2xs cursor-pointer"
           >
             <span className="flex items-center gap-2">
-              <Sliders className="w-3.5 h-3.5 text-purple-600" /> + Special Area (VIP / Stage)
+              <Sliders className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>+ Special Area</span>
             </span>
-            <span className="text-[10px] text-slate-400">VIP / Media</span>
+            <span className="text-[10px] text-purple-700 font-bold bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded shrink-0">
+              VIP / Stage
+            </span>
           </button>
         </Tooltip>
       </div>
@@ -501,7 +504,7 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           </span>
           <button
             onClick={() => setShowFacilitiesMenu(!showFacilitiesMenu)}
-            className="text-[10px] font-bold text-blue-600 cursor-pointer"
+            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
             title={showFacilitiesMenu ? 'Collapse amenities list' : 'Expand full amenities list'}
           >
             {showFacilitiesMenu ? 'Collapse' : 'Expand'}
@@ -512,33 +515,37 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
           <Tooltip content="Main Entrance" description="Place main visitor entrance gate marker" position="top">
             <button
               onClick={() => onAddFacility('entrance')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
             >
-              <DoorOpen className="w-3 h-3 text-emerald-600" /> Main Entry
+              <DoorOpen className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="truncate">Main Entry</span>
             </button>
           </Tooltip>
           <Tooltip content="Emergency Exit" description="Place emergency exit door marker" position="top">
             <button
               onClick={() => onAddFacility('exit')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
             >
-              <DoorClosed className="w-3 h-3 text-rose-600" /> Emergency Exit
+              <DoorClosed className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span className="truncate">Emergency Exit</span>
             </button>
           </Tooltip>
           <Tooltip content="Registration Desk" description="Place attendee check-in and badges desk" position="top">
             <button
               onClick={() => onAddFacility('registration')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
             >
-              <ClipboardList className="w-3 h-3 text-blue-600" /> Registration
+              <ClipboardList className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="truncate">Registration</span>
             </button>
           </Tooltip>
           <Tooltip content="Keynote Stage" description="Place presentation stage or podium platform" position="top">
             <button
               onClick={() => onAddFacility('stage')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
             >
-              <Mic className="w-3 h-3 text-purple-600" /> Keynote Stage
+              <Mic className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span className="truncate">Keynote Stage</span>
             </button>
           </Tooltip>
         </div>
@@ -548,33 +555,37 @@ export const CanvasToolbox: React.FC<CanvasToolboxProps> = ({
             <Tooltip content="Food Court" description="Place food court plaza and stalls" position="top">
               <button
                 onClick={() => onAddFacility('food-court')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
               >
-                <Utensils className="w-3 h-3 text-amber-600" /> Food Court
+                <Utensils className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="truncate">Food Court</span>
               </button>
             </Tooltip>
             <Tooltip content="Dining / Café" description="Place dining seating and coffee bar" position="top">
               <button
                 onClick={() => onAddFacility('dining')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
               >
-                <Coffee className="w-3 h-3 text-amber-700" /> Dining / Café
+                <Coffee className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span className="truncate">Dining / Café</span>
               </button>
             </Tooltip>
             <Tooltip content="Restrooms" description="Place public restroom facilities" position="top">
               <button
                 onClick={() => onAddFacility('restroom')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
               >
-                <Bath className="w-3 h-3 text-sky-600" /> Restroom
+                <Bath className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                <span className="truncate">Restroom</span>
               </button>
             </Tooltip>
             <Tooltip content="Shutter Gate" description="Place security / delivery shutter gate" position="top">
               <button
                 onClick={() => onAddFacility('shutter')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer min-h-[30px] overflow-hidden"
               >
-                <Sliders className="w-3 h-3 text-slate-600" /> Shutter Gate
+                <Sliders className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="truncate">Shutter Gate</span>
               </button>
             </Tooltip>
           </div>
