@@ -1067,19 +1067,19 @@ export const AdminEventRegistrationPage: React.FC = () => {
           ) : (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full text-xs border-collapse min-w-[1320px]">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-extrabold">
-                      <th className="w-12 py-3.5 px-3 text-center">S.No</th>
-                      <th className="py-3.5 px-4">Booking Ref & Date</th>
-                      <th className="py-3.5 px-4">Exhibition Event</th>
-                      <th className="py-3.5 px-4">Registered Company</th>
-                      <th className="py-3.5 px-4">Allocated Stalls</th>
-                      <th className="py-3.5 px-4">Status & Payment</th>
-                      <th className="py-3.5 px-4 text-right">Value & Balance</th>
-                      <th className="py-3.5 px-4">Booked By</th>
-                      <th className="py-3.5 px-4">Channel</th>
-                      <th className="py-3.5 px-4 text-center">Actions</th>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-extrabold text-[11px]">
+                      <th className="w-12 py-3.5 px-3 text-center whitespace-nowrap">S.No</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[170px]">Booking Ref & Date</th>
+                      <th className="py-3.5 px-4 text-center min-w-[200px]">Exhibition Event</th>
+                      <th className="py-3.5 px-4 text-center min-w-[180px]">Registered Company</th>
+                      <th className="py-3.5 px-4 text-center min-w-[130px]">Allocated Stalls</th>
+                      <th className="py-3.5 px-4 text-center min-w-[135px]">Status & Payment</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[130px]">Value & Balance</th>
+                      <th className="py-3.5 px-4 text-center min-w-[130px]">Booked By</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[110px]">Channel</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[220px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -1092,11 +1092,11 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                           {(bookingPage - 1) * BOOKING_PAGE_SIZE + idx + 1}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap min-w-[170px]">
                           <span className="font-mono font-bold text-purple-700 dark:text-purple-300 block">
                             {b.bookingReference}
                           </span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 font-medium whitespace-nowrap">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 inline-flex items-center justify-center gap-1.5 mt-0.5 font-medium whitespace-nowrap">
                             <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                             <span>
                               {new Date(b.createdAt).toLocaleDateString('en-GB', {
@@ -1116,26 +1116,26 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 min-w-[200px]">
+                        <td className="py-3.5 px-4 min-w-[200px] text-center">
                           <span className="font-bold text-slate-900 dark:text-slate-100 block break-words">
                             {b.exhibition?.title}
                           </span>
-                          <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                          <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 block mt-0.5">
                             {b.exhibition?.eventCode}-{b.exhibition?.edition} • {b.exhibition?.city}
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 min-w-[180px] text-center">
                           <span className="font-bold block text-slate-900 dark:text-slate-100">
                             {b.company?.name}
                           </span>
-                          <span className="text-[11px] text-slate-400 block">
+                          <span className="text-[11px] text-slate-400 block mt-0.5">
                             {b.company?.contactPerson} ({b.company?.mobile})
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-wrap gap-1">
+                        <td className="py-3.5 px-4 min-w-[130px] text-center">
+                          <div className="flex flex-wrap gap-1 justify-center">
                             {b.stalls && b.stalls.length > 0 ? (
                               b.stalls.map((bs) => (
                                 <span
@@ -1151,14 +1151,14 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 align-middle">
-                          <div className="flex flex-col gap-1.5 items-start justify-center min-w-[125px]">
-                            <BookingStatusBadge status={b.status} className="w-full text-center" />
-                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full text-center" />
+                        <td className="py-3.5 px-4 align-middle min-w-[135px] text-center">
+                          <div className="flex flex-col gap-1.5 items-center justify-center">
+                            <BookingStatusBadge status={b.status} className="w-full max-w-[130px] text-center" />
+                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full max-w-[130px] text-center" />
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap min-w-[130px]">
                           <span className="font-mono font-black text-slate-900 dark:text-slate-100 text-xs block">
                             ₹{Number(b.grandTotal).toLocaleString()}
                           </span>
@@ -1167,23 +1167,23 @@ export const AdminEventRegistrationPage: React.FC = () => {
                               Due: ₹{Number(b.balanceAmount).toLocaleString()}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5 font-medium">
                               Fully Paid
                             </span>
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 min-w-[130px] text-center">
                           <span className="font-semibold text-xs text-purple-700 dark:text-purple-300 block">
                             {b.bookedByUser?.name || b.user?.name || 'System'}
                           </span>
-                          <span className="font-mono text-[10px] text-slate-400">
+                          <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
                             {b.bookedByUser?.role || b.user?.role || '—'}
                             {(b.bookedByUser?.spcode || b.user?.spcode) && ` • ${b.bookedByUser?.spcode || b.user?.spcode}`}
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 min-w-[110px] text-center whitespace-nowrap">
                           {(() => {
                             const badge = getSourceBadge(b.bookingSource);
                             return (
@@ -1194,8 +1194,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           })()}
                         </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="inline-flex items-center gap-1.5 justify-center">
+                        <td className="py-3.5 px-4 text-center min-w-[220px] whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 justify-center flex-nowrap">
                             <button
                               type="button"
                               title="View Booking Dossier"
@@ -1203,9 +1203,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
                                 e.stopPropagation();
                                 setInspectedBooking(b);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 rounded-lg transition-colors shrink-0 whitespace-nowrap cursor-pointer"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 shrink-0" />
                               <span>View</span>
                             </button>
 
@@ -1217,9 +1217,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
                                   e.stopPropagation();
                                   setPayingBooking(b);
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors shrink-0 whitespace-nowrap cursor-pointer"
                               >
-                                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                 <span>Pay</span>
                               </button>
                             )}
@@ -1231,9 +1231,9 @@ export const AdminEventRegistrationPage: React.FC = () => {
                                 e.stopPropagation();
                                 downloadInvoicePdf(b);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors shrink-0 whitespace-nowrap cursor-pointer"
                             >
-                              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
                               <span>Bill</span>
                             </button>
                           </div>

@@ -426,7 +426,13 @@ export const ClientDashboardPage: React.FC = () => {
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
             <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">PAN Number</p>
-            <p className="font-bold text-slate-800 dark:text-slate-200 font-mono">{user?.company?.panNumber || 'Not Provided'}</p>
+            <p className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+              {user?.company?.panNumber ||
+                (user?.company?.gstNumber && user.company.gstNumber.length === 15
+                  ? user.company.gstNumber.substring(2, 12).toUpperCase()
+                  : null) ||
+                'Not Provided'}
+            </p>
           </div>
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-1">
             <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">City / State</p>
