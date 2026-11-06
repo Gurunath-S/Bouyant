@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { Booking } from '../../../types';
+import { bookingService } from '../../../services/bookings/bookingService';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Link } from 'react-router-dom';
@@ -39,12 +40,36 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
   onRefresh,
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [activeBooking, setActiveBooking] = useState<Booking | null>(booking);
+
+  useEffect(() => {
+    setActiveBooking(booking);
+    if (isOpen && booking?.id) {
+      let isMounted = true;
+      bookingService
+        .getBookingById(booking.id)
+        .then((fullBooking: any) => {
+          if (isMounted && fullBooking) {
+            const data = fullBooking.data || fullBooking;
+            setActiveBooking((prev) => ({ ...(prev || {}), ...data }));
+          }
+        })
+        .catch(() => {
+          // Keep current booking if fetch fails
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [booking, isOpen]);
 
   if (!booking) return null;
 
-  const rawPayments = (booking.payments && booking.payments.length > 0)
-    ? booking.payments
-    : (booking.payment ? [booking.payment] : []);
+  const currentBooking = activeBooking || booking;
+
+  const rawPayments = (currentBooking.payments && currentBooking.payments.length > 0)
+    ? currentBooking.payments
+    : (currentBooking.payment ? [currentBooking.payment] : []);
   const paymentList = [...rawPayments].sort((a: any, b: any) => {
     const dateA = new Date(a.createdAt || a.paidAt || 0).getTime();
     const dateB = new Date(b.createdAt || b.paidAt || 0).getTime();
@@ -52,27 +77,40 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
   });
   const successfulPayments = paymentList.filter((p: any) => p.status === 'SUCCESS');
 
-  const grandTotal = Number(booking.grandTotal || 0);
+  const grandTotal = Number(currentBooking.grandTotal || 0);
   const paidAmount = Number(
-    booking.paidAmount ||
-      (booking.paymentStatus === 'PAID' || (booking.paymentStatus as string) === 'PAID_FULL'
+    currentBooking.paidAmount ||
+      (currentBooking.paymentStatus === 'PAID' || (currentBooking.paymentStatus as string) === 'PAID_FULL'
         ? grandTotal
         : 0)
   );
-  const balanceDue = Number(booking.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
+  const balanceDue = Number(currentBooking.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
   const isEligibleForPayment =
-    booking.status !== 'CANCELLED' &&
-    booking.status !== 'EXPIRED' &&
-    booking.paymentStatus !== 'PAID' &&
-    (booking.paymentStatus as string) !== 'PAID_FULL' &&
+    currentBooking.status !== 'CANCELLED' &&
+    currentBooking.status !== 'EXPIRED' &&
+    currentBooking.paymentStatus !== 'PAID' &&
+    (currentBooking.paymentStatus as string) !== 'PAID_FULL' &&
     balanceDue > 0 &&
     paidAmount > 0;
+
+  const companyGst =
+    currentBooking.company?.gstNumber?.trim() ||
+    currentBooking.billingGst?.trim() ||
+    null;
+
+  const companyPan =
+    currentBooking.company?.panNumber?.trim() ||
+    currentBooking.billingPan?.trim() ||
+    (companyGst && companyGst.length === 15 ? companyGst.substring(2, 12).toUpperCase() : null);
+
+  const displayGst = companyGst || 'Not provided';
+  const displayPan = companyPan || 'Not provided';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Booking Details — ${booking.bookingReference}`}
+      title={`Booking Details — ${currentBooking.bookingReference}`}
       maxWidth="5xl"
     >
       <div className="space-y-5 text-xs text-slate-700 dark:text-slate-200 max-h-[82vh] overflow-y-auto pr-1">
@@ -80,15 +118,15 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-semibold text-slate-500 dark:text-slate-400">Current Status:</span>
-            <BookingStatusBadge status={booking.status} />
-            <PaymentStatusBadge status={booking.paymentStatus || 'UNPAID'} />
+            <BookingStatusBadge status={currentBooking.status} />
+            <PaymentStatusBadge status={currentBooking.paymentStatus || 'UNPAID'} />
             <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-              Ref: {booking.bookingReference}
+              Ref: {currentBooking.bookingReference}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
             <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span>Booked on: {formatDisplayDateTime(booking.createdAt)}</span>
+            <span>Booked on: {formatDisplayDateTime(currentBooking.createdAt)}</span>
           </div>
         </div>
 
@@ -105,11 +143,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
               <div className="space-y-1">
                 <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  {booking.company?.name || 'N/A'}
+                  {currentBooking.company?.name || 'N/A'}
                 </p>
-                {booking.company?.companyCode && (
+                {currentBooking.company?.companyCode && (
                   <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                    Client Code: {booking.company.companyCode}
+                    Client Code: {currentBooking.company.companyCode}
                   </p>
                 )}
               </div>
@@ -118,46 +156,50 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <div className="p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-700/60">
                   <span className="font-semibold text-slate-500 block text-[10px] uppercase">GSTIN:</span>
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200 break-all">
-                    {booking.company?.gstNumber || 'Not provided'}
+                    {displayGst}
                   </span>
                 </div>
                 <div className="p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-700/60">
                   <span className="font-semibold text-slate-500 block text-[10px] uppercase">PAN Number:</span>
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200 break-all">
-                    {booking.company?.panNumber || 'Not provided'}
+                    {displayPan}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-1.5 pt-1 text-[11px]">
-                {booking.company?.contactPerson && (
+                {currentBooking.company?.contactPerson && (
                   <p className="flex items-center gap-1.5">
                     <span className="font-semibold text-slate-500 shrink-0">Representative:</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {booking.company.contactPerson}
-                      {booking.company.designation ? ` (${booking.company.designation})` : ''}
+                      {currentBooking.company.contactPerson}
+                      {currentBooking.company.designation ? ` (${currentBooking.company.designation})` : ''}
                     </span>
                   </p>
                 )}
-                {booking.company?.email && (
+                {currentBooking.company?.email && (
                   <p className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <a href={`mailto:${booking.company.email}`} className="text-blue-600 hover:underline break-all">
-                      {booking.company.email}
+                    <a href={`mailto:${currentBooking.company.email}`} className="text-blue-600 hover:underline break-all">
+                      {currentBooking.company.email}
                     </a>
                   </p>
                 )}
-                {booking.company?.mobile && (
+                {currentBooking.company?.mobile && (
                   <p className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-mono">{booking.company.mobile}</span>
+                    <span className="font-mono">{currentBooking.company.mobile}</span>
                   </p>
                 )}
-                {booking.company?.address && (
+                {(currentBooking.company?.address || currentBooking.billingAddress) && (
                   <div className="text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-100 dark:border-slate-700/60 flex items-start gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span>
-                      {booking.company.address}, {booking.company.city}, {booking.company.state}
+                      {[
+                        currentBooking.company?.address || currentBooking.billingAddress,
+                        currentBooking.company?.city || currentBooking.billingCity,
+                        currentBooking.company?.state || currentBooking.billingState,
+                      ].filter(Boolean).join(', ')}
                     </span>
                   </div>
                 )}
@@ -173,20 +215,20 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
               <div className="space-y-1">
                 <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  {booking.exhibition?.title || 'Exhibition Event'}
+                  {currentBooking.exhibition?.title || 'Exhibition Event'}
                 </p>
-                {booking.exhibition?.venue && (
+                {currentBooking.exhibition?.venue && (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{booking.exhibition.venue}, {booking.exhibition.city}</span>
+                    <span>{currentBooking.exhibition.venue}, {currentBooking.exhibition.city}</span>
                   </p>
                 )}
-                {booking.exhibition?.startDate && (
+                {currentBooking.exhibition?.startDate && (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>
-                      Dates: {formatDisplayDate(booking.exhibition.startDate)} –{' '}
-                      {formatDisplayDate(booking.exhibition.endDate)}
+                      Dates: {formatDisplayDate(currentBooking.exhibition.startDate)} –{' '}
+                      {formatDisplayDate(currentBooking.exhibition.endDate)}
                     </span>
                   </p>
                 )}
@@ -197,11 +239,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <div className="flex flex-wrap justify-between items-center gap-2">
                   <span className="font-bold text-[#09539b] dark:text-blue-400 text-sm font-mono flex items-center gap-1.5">
                     <Tag className="w-3.5 h-3.5 shrink-0" />
-                    Stall(s): {booking.stalls?.map(bs => bs.stall?.stallNumber).join(', ') || 'N/A'}
+                    Stall(s): {currentBooking.stalls?.map(bs => bs.stall?.stallNumber).join(', ') || 'N/A'}
                   </span>
                   <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-extrabold text-[10px] rounded uppercase">
-                    {booking.stalls && booking.stalls.length > 0
-                      ? Array.from(new Set(booking.stalls.map(bs => bs.stall?.category))).join(', ')
+                    {currentBooking.stalls && currentBooking.stalls.length > 0
+                      ? Array.from(new Set(currentBooking.stalls.map(bs => bs.stall?.category))).join(', ')
                       : 'STANDARD'}
                   </span>
                 </div>
@@ -211,9 +253,9 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                     <Maximize2 className="w-3 h-3 text-slate-400 shrink-0" /> Dimensions & Area:
                   </span>
                   <span className="font-bold text-slate-900 dark:text-slate-100">
-                    {booking.stalls && booking.stalls.length > 0
-                      ? booking.stalls.map(bs => `${bs.stall?.stallNumber}: ${bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m` : formatStallArea(bs.stall, 'Sq.Mt')}`).join(' | ') + ` (${Number(booking.stalls.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0).toFixed(1))} Sq.Mt)`
-                      : `${Number(booking.stalls?.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0) || 9).toFixed(1)} Sq.Mt`}
+                    {currentBooking.stalls && currentBooking.stalls.length > 0
+                      ? currentBooking.stalls.map(bs => `${bs.stall?.stallNumber}: ${bs.stall?.actualWidth && bs.stall?.actualHeight ? `${bs.stall.actualWidth}m × ${bs.stall.actualHeight}m` : formatStallArea(bs.stall, 'Sq.Mt')}`).join(' | ') + ` (${Number(currentBooking.stalls.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0).toFixed(1))} Sq.Mt)`
+                      : `${Number(currentBooking.stalls?.reduce((sum, bs) => sum + getStallAreaSqMt(bs.stall), 0) || 9).toFixed(1)} Sq.Mt`}
                   </span>
                 </div>
               </div>
@@ -251,7 +293,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col justify-between items-center text-center min-h-[72px]">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Payment Status</p>
                   <div className="mt-1 flex items-center justify-center">
-                    <PaymentStatusBadge status={booking.paymentStatus || 'UNPAID'} />
+                    <PaymentStatusBadge status={currentBooking.paymentStatus || 'UNPAID'} />
                   </div>
                 </div>
               </div>
@@ -383,10 +425,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 Pay Remaining Amount (₹{balanceDue.toLocaleString()})
               </Button>
             )}
-            {Number(booking.paidAmount || 0) > 0 && (booking.invoice || booking.id) && (
+            {Number(currentBooking.paidAmount || 0) > 0 && (currentBooking.invoice || currentBooking.id) && (
               <>
-                {booking.invoice?.id && (
-                  <Link to={`/invoices/${booking.invoice.id}`} target="_blank">
+                {currentBooking.invoice?.id && (
+                  <Link to={`/invoices/${currentBooking.invoice.id}`} target="_blank">
                     <Button variant="outline" size="sm" leftIcon={<Receipt className="w-3.5 h-3.5 text-blue-600" />}>
                       View Tax Invoice
                     </Button>
@@ -396,7 +438,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                   variant="outline"
                   size="sm"
                   leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                  onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
+                  onClick={() => downloadInvoicePdf(currentBooking.invoice?.id || currentBooking.id, currentBooking.bookingReference)}
                 >
                   Download Official PDF
                 </Button>
@@ -411,7 +453,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
       {showPaymentModal && (
         <CompletePaymentModal
-          booking={booking}
+          booking={currentBooking}
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           onSuccess={() => {
