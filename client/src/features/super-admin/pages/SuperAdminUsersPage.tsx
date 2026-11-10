@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+​import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { userService } from '../../../services/users/userService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
@@ -945,6 +945,28 @@ export const SuperAdminUsersPage: React.FC = () => {
 
       {/* 2. Filters & Governance Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-4">
+        {selectedEventId !== 'ALL' && (
+          <div className="flex items-center justify-between gap-2 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-3.5 py-2 rounded-xl text-xs text-blue-800 dark:text-blue-300">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>
+                Filtered by Event Scope:{' '}
+                <strong>
+                  {publishedEvents.find((e) => e.id === selectedEventId)?.title || selectedEventId}
+                </strong>{' '}
+                <span className="text-[11px] text-blue-600 dark:text-blue-400 font-normal">
+                  (Showing only accounts linked to this event)
+                </span>
+              </span>
+            </div>
+            <button
+              onClick={() => handleEventFilterChange('ALL')}
+              className="text-xs font-bold text-blue-700 dark:text-blue-300 hover:text-blue-900 flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" /> Clear Event Scope
+            </button>
+          </div>
+        )}
 
         {/* Secondary Filter Controls: Role Tabs, Status Filter, Search Input */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -1027,14 +1049,27 @@ export const SuperAdminUsersPage: React.FC = () => {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search name, email, SP, company..."
+                placeholder="Search name, email, @user, role, company..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                className="w-full pl-9 pr-8 py-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
 
             <select
@@ -1683,7 +1718,13 @@ export const SuperAdminUsersPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">PAN Number</span>
-                      <span className="font-mono text-slate-800 dark:text-slate-200">{viewDetailsUser.company.panNumber || 'Not provided'}</span>
+                      <span className="font-mono text-slate-800 dark:text-slate-200">
+                        {viewDetailsUser.company.panNumber ||
+                          (viewDetailsUser.company.gstNumber && viewDetailsUser.company.gstNumber.length === 15
+                            ? viewDetailsUser.company.gstNumber.substring(2, 12).toUpperCase()
+                            : null) ||
+                          'Not provided'}
+                      </span>
                     </div>
                     <div className="col-span-2">
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Address</span>

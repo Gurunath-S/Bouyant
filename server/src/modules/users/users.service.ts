@@ -66,14 +66,32 @@ export class UsersService {
     // Search query
     if (search.trim()) {
       const s = search.trim();
-      where.OR = [
+      const cleanUsername = s.startsWith('@') ? s.slice(1).trim() : s;
+
+      const searchConditions: any[] = [
         { name: { contains: s, mode: 'insensitive' } },
         { email: { contains: s, mode: 'insensitive' } },
         { username: { contains: s, mode: 'insensitive' } },
         { spcode: { contains: s, mode: 'insensitive' } },
         { phone: { contains: s, mode: 'insensitive' } },
         { company: { name: { contains: s, mode: 'insensitive' } } },
+        { company: { companyCode: { contains: s, mode: 'insensitive' } } },
+        { company: { contactPerson: { contains: s, mode: 'insensitive' } } },
+        { company: { email: { contains: s, mode: 'insensitive' } } },
       ];
+
+      // If user typed username with '@' prefix (e.g. '@guru'), match username without '@'
+      if (cleanUsername && cleanUsername !== s) {
+        searchConditions.push({ username: { contains: cleanUsername, mode: 'insensitive' } });
+      }
+
+      // If user searched by role name (e.g. "client", "staff", "admin", "superadmin", "super admin")
+      const normalizedRole = s.toUpperCase().replace(/[\s_-]+/g, '');
+      if (['SUPERADMIN', 'ADMIN', 'STAFF', 'CLIENT'].includes(normalizedRole)) {
+        searchConditions.push({ role: normalizedRole as UserRole });
+      }
+
+      where.OR = searchConditions;
     }
 
     // Event scoping
@@ -851,3 +869,4 @@ export class UsersService {
     };
   }
 }
+ 

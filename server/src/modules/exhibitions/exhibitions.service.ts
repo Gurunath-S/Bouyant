@@ -638,12 +638,29 @@ export class ExhibitionsService {
 
           const existingStall = await prisma.stall.findFirst({
             where: { floorPlanId: fp.id, stallNumber: stallNum },
+            include: { bookingStalls: true },
           });
 
           if (existingStall) {
+            const isExistingBookedOrHeld =
+              (existingStall.bookingStalls && existingStall.bookingStalls.length > 0) ||
+              ['BOOKED_CONFIRMED', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS', 'TEMPORARILY_HELD'].includes(existingStall.status) ||
+              Boolean((existingStall as any).heldByUserId);
+ 
+            const resolvedStatus = isExistingBookedOrHeld ? existingStall.status : status;
+            const resolvedPrice = isExistingBookedOrHeld ? existingStall.price : (Number(s.price) || 50000);
+            const resolvedCategory = isExistingBookedOrHeld ? existingStall.category : category;
+            const resolvedName = s.name || existingStall.name || `Stall ${stallNum}`;
+            
             await prisma.stall.update({
               where: { id: existingStall.id },
-              data: stallData,
+              data: {
+                ...stallData,
+                name: resolvedName,
+                status: resolvedStatus as any,
+                price: resolvedPrice,
+                category: resolvedCategory as any,
+              },
             });
           } else {
             await prisma.stall.create({

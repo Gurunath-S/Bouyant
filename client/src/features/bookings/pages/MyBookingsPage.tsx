@@ -108,7 +108,14 @@ export const MyBookingsPage: React.FC = () => {
                 const grandTotal = Number(b.grandTotal || 0);
                 const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || (b.paymentStatus as string) === 'PAID_FULL' ? grandTotal : 0));
                 const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
-                const isEligibleForPayment = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && (b.paymentStatus as string) !== 'PAID_FULL' && balanceDue > 0 && paidAmount > 0;
+                const isEligibleForPayment =
+                  b.status !== 'CANCELLED' &&
+                  b.status !== 'EXPIRED' &&
+                  b.status !== 'PENDING_CHEQUE_VERIFICATION' &&
+                  b.paymentStatus !== 'PAID' &&
+                  (b.paymentStatus as string) !== 'PAID_FULL' &&
+                  balanceDue > 0 &&
+                  paidAmount > 0;
 
                 return (
                   <tr key={b.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">

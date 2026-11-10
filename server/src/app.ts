@@ -59,7 +59,14 @@ export const createApp = (): Express => {
     })
   );
   app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
-  app.use(express.json({ limit: '50mb' }));
+  app.use(
+    express.json({
+      limit: '50mb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   app.use(cookieParser());
 

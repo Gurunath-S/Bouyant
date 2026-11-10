@@ -1608,7 +1608,14 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">PAN Number</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{user.company.panNumber || 'Not provided'}</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {user.company.panNumber ||
+                    (user.company.gstNumber && user.company.gstNumber.length === 15
+                      ? user.company.gstNumber.substring(2, 12).toUpperCase()
+                      : null) ||
+                    'Not provided'}
+                </span>
+ 
               </div>
 
               <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">

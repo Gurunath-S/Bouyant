@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+​import React, { useState, useEffect } from 'react';
 import {
   Trash2,
   Copy,
@@ -35,6 +35,14 @@ import {
   Lock,
   Unlock,
   AlertCircle,
+  ArrowUpLeft,
+  ArrowUp,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowDown,
+  ArrowDownRight,
+  CircleDot,
+  Compass,
 } from 'lucide-react';
 import { StallCategory, StallStatus } from '../../../../types';
 import {
@@ -703,6 +711,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <option value="BOOKED_CONFIRMED">★ Booked Confirmed</option>
                 </select>
 
+                {bookedStallsCount > 0 && (
+                  <p className="text-[10px] text-amber-700 font-medium flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>{bookedStallsCount} booked stall{bookedStallsCount > 1 ? 's' : ''} cannot have reservation status changed.</span>
+                  </p>
+                )}
+
                 {/* Instant Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <button
@@ -747,6 +762,12 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <option value="CORNER">Corner</option>
                   <option value="ISLAND">Island</option>
                 </select>
+                {bookedStallsCount > 0 && (
+                  <p className="mt-1 text-[10px] text-amber-700 font-medium flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>{bookedStallsCount} booked stall{bookedStallsCount > 1 ? 's' : ''} will keep their booked category.</span>
+                  </p>
+                )}
               </div>
 
               {/* Bulk Custom Stall Color Applicator */}
@@ -822,11 +843,17 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                         el.value = '';
                       }
                     }}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
                   >
                     Apply
                   </button>
                 </div>
+                {bookedStallsCount > 0 && (
+                  <p className="mt-1.5 text-[10px] text-amber-700 font-medium flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>{bookedStallsCount} booked stall{bookedStallsCount > 1 ? 's' : ''} will be protected and keep original price.</span>
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -986,15 +1013,19 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   <label className="block text-xs font-bold text-slate-700">
                     Stall Name / Number
                   </label>
-                  {isDuplicate && (
+                  {isBooked ? (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" /> Locked
+                    </span>
+                  ) : isDuplicate ? (
                     <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Duplicate!
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <input
                   type="text"
-                  disabled={readOnly}
+                  disabled={readOnly || isBooked}
                   value={stall.stallNumber || ''}
                   onChange={(e) => {
                     const val = e.target.value.toUpperCase();
@@ -1002,16 +1033,22 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                   }}
                   placeholder="e.g. TECH-C06, A-101"
                   className={`w-full px-3 py-2 text-sm border rounded-lg font-mono font-bold uppercase focus:ring-2 ${
-                    isDuplicate
+                    isBooked
+                      ? 'bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed'
+                      : isDuplicate
                       ? 'border-rose-400 bg-rose-50 text-rose-900 focus:ring-rose-400 focus:border-rose-500'
                       : 'border-slate-300 focus:ring-blue-500 bg-white text-slate-900'
                   }`}
                 />
-                {isDuplicate && (
+                {isBooked ? (
+                  <p className="text-[10px] text-amber-700 font-medium">
+                    Stall number is locked to match customer reservation and invoice records.
+                  </p>
+                ) : isDuplicate ? (
                   <p className="text-[11px] text-rose-600 font-medium">
                     Stall No: {stall.stallNumber} is already in use by another booth. Stall numbers must be unique.
                   </p>
-                )}
+                ) : null}
               </div>
             );
           })()}
@@ -1094,38 +1131,70 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
 
           {/* 3. Category */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Category
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Category
+              </label>
+              {isBooked && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5" /> Locked
+                </span>
+              )}
+            </div>
             <select
-              disabled={readOnly}
+              disabled={readOnly || isBooked}
               value={stall.category}
               onChange={(e) => onUpdateStall(stall.id, { category: e.target.value as StallCategory })}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-medium bg-white"
+              className={`w-full px-3 py-2 text-xs border rounded-lg font-medium ${
+                isBooked
+                  ? 'bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed'
+                  : 'bg-white border-slate-300 text-slate-900'
+              }`}
             >
               <option value="STANDARD">Standard</option>
               <option value="PREMIUM">Premium</option>
               <option value="CORNER">Corner</option>
               <option value="ISLAND">Island Suite</option>
             </select>
+            {isBooked && (
+              <p className="mt-1 text-[10px] text-amber-700 font-medium">
+                Category is locked for booked stalls.
+              </p>
+            )}
           </div>
 
           {/* 4. Price */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Price (₹ INR)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Price (₹ INR)
+              </label>
+              {isBooked && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5" /> Locked
+                </span>
+              )}
+            </div>
             <div className="relative">
               <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">₹</span>
               <InspectorNumericInput
-                disabled={readOnly}
+                disabled={readOnly || isBooked}
                 step="1000"
                 min={0}
                 value={stall.price}
                 onChange={(p) => onUpdateStall(stall.id, { price: p })}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg font-mono font-bold text-slate-900 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg font-mono font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                  isBooked
+                    ? 'bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-900'
+                }`}
               />
             </div>
+            {isBooked && (
+              <p className="mt-1 text-[10px] text-amber-700 font-medium">
+                Price is locked for booked stalls to prevent changes to existing booking amounts and maintain consistent pricing across all dashboards.
+              </p>
+            )}
           </div>
 
           {/* 5. Availability Status */}
@@ -1534,79 +1603,326 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
               Title Banner Customization
             </span>
-            {/* Inside vs Outside Mode Switch */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Banner Placement Mode
-              </label>
-              <div className="grid grid-cols-2 gap-1 mb-2">
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => {
-                    const currentPos = hall.namePosition || 'top-left';
-                    const newPos = currentPos.replace('outside-', '') as HallNamePosition;
-                    onUpdateHall(hall.id, { namePosition: newPos });
-                  }}
-                  className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
-                    !(hall.namePosition || 'top-left').startsWith('outside')
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Inside Hall
-                </button>
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => {
-                    const currentPos = hall.namePosition || 'top-left';
-                    let newPos: HallNamePosition = 'outside-top-left';
-                    if (currentPos.includes('center')) newPos = 'outside-top-center';
-                    else if (currentPos.includes('right')) newPos = 'outside-top-right';
-                    else if (currentPos.includes('bottom')) newPos = 'outside-bottom-left';
-                    onUpdateHall(hall.id, { namePosition: newPos });
-                  }}
-                  className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center ${
-                    (hall.namePosition || 'top-left').startsWith('outside')
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Outside Hall (Tab)
-                </button>
-              </div>
-            </div>
+            {/* Hall Title Banner Placement & Alignment Controls */}
+            {(() => {
+              const currentPos = hall.namePosition || 'top-left';
+              const isOutside = currentPos.startsWith('outside');
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Exact Position / Alignment
-              </label>
-              <select
-                disabled={readOnly}
-                value={hall.namePosition || 'top-left'}
-                onChange={(e) => onUpdateHall(hall.id, { namePosition: e.target.value as any })}
-                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800"
-              >
-                <optgroup label="Outside Hall (Header Tabs)">
-                  <option value="outside-top-left">Outside Top-Left (Floating Header Tab)</option>
-                  <option value="outside-top-center">Outside Top-Center (Centered Marquee)</option>
-                  <option value="outside-top-right">Outside Top-Right</option>
-                  <option value="outside-bottom-left">Outside Bottom-Left</option>
-                  <option value="outside-bottom-center">Outside Bottom-Center</option>
-                  <option value="outside-bottom-right">Outside Bottom-Right</option>
-                </optgroup>
-                <optgroup label="Inside Hall Interior">
-                  <option value="top-left">Inside Top-Left Banner</option>
-                  <option value="top-center">Inside Top-Center Banner</option>
-                  <option value="top-right">Inside Top-Right Banner</option>
-                  <option value="center">Inside Center Banner</option>
-                  <option value="bottom-left">Inside Bottom-Left Banner</option>
-                  <option value="bottom-center">Inside Bottom-Center Banner</option>
-                  <option value="bottom-right">Inside Bottom-Right Banner</option>
-                </optgroup>
-              </select>
-            </div>
+              const insidePositions: Array<{
+                id: HallNamePosition;
+                label: string;
+                shortLabel: string;
+              }> = [
+                { id: 'top-left', label: 'Top-Left Corner', shortLabel: 'Top-Left' },
+                { id: 'top-center', label: 'Top-Center Header', shortLabel: 'Top-Center' },
+                { id: 'top-right', label: 'Top-Right Corner', shortLabel: 'Top-Right' },
+                { id: 'center', label: 'Interior Center', shortLabel: 'Center' },
+                { id: 'bottom-left', label: 'Bottom-Left Corner', shortLabel: 'Bottom-Left' },
+                { id: 'bottom-center', label: 'Bottom-Center Footer', shortLabel: 'Bottom-Center' },
+                { id: 'bottom-right', label: 'Bottom-Right Corner', shortLabel: 'Bottom-Right' },
+              ];
+
+              const outsidePositions: Array<{
+                id: HallNamePosition;
+                label: string;
+                shortLabel: string;
+                edge: 'top' | 'bottom';
+              }> = [
+                { id: 'outside-top-left', label: 'Top-Left Tab', shortLabel: 'Top-Left', edge: 'top' },
+                { id: 'outside-top-center', label: 'Top-Center Tab', shortLabel: 'Top-Center', edge: 'top' },
+                { id: 'outside-top-right', label: 'Top-Right Tab', shortLabel: 'Top-Right', edge: 'top' },
+                { id: 'outside-bottom-left', label: 'Bottom-Left Tab', shortLabel: 'Bottom-Left', edge: 'bottom' },
+                { id: 'outside-bottom-center', label: 'Bottom-Center Tab', shortLabel: 'Bottom-Center', edge: 'bottom' },
+                { id: 'outside-bottom-right', label: 'Bottom-Right Tab', shortLabel: 'Bottom-Right', edge: 'bottom' },
+              ];
+
+              const currentBadge = isOutside
+                ? outsidePositions.find((p) => p.id === currentPos)?.shortLabel || 'Top-Left'
+                : insidePositions.find((p) => p.id === currentPos)?.shortLabel || 'Top-Left';
+
+              return (
+                <div className="space-y-3">
+                  {/* Inside vs Outside Mode Switch */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-blue-600" />
+                        Placement Style
+                      </label>
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        {isOutside ? 'Floating Tab' : 'Interior Banner'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => {
+                          const newPos = currentPos.replace('outside-', '') as HallNamePosition;
+                          onUpdateHall(hall.id, { namePosition: newPos });
+                        }}
+                        className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer text-center ${
+                          !isOutside
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Inside Hall
+                      </button>
+                      <button
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => {
+                          let newPos: HallNamePosition = 'outside-top-left';
+                          if (currentPos.includes('center')) newPos = 'outside-top-center';
+                          else if (currentPos.includes('right')) newPos = 'outside-top-right';
+                          else if (currentPos.includes('bottom')) newPos = 'outside-bottom-left';
+                          onUpdateHall(hall.id, { namePosition: newPos });
+                        }}
+                        className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer text-center ${
+                          isOutside
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Outside Hall (Tab)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Position / Alignment Controls */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-1.5 min-h-[24px]">
+                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 min-w-0">
+                        <Compass className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="truncate">Alignment</span>
+                      </label>
+                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 whitespace-nowrap shrink-0">
+                        {currentBadge}
+                      </span>
+                    </div>
+
+                    {!isOutside ? (
+                      /* Inside Hall: Visual 3x3 Alignment Grid */
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+                          Tap to Align Inside Hall
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5 max-w-[200px] mx-auto p-1.5 bg-slate-50 rounded-lg border border-slate-200">
+                          {/* Top-Left */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'top-left' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'top-left'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Top-Left"
+                          >
+                            <ArrowUpLeft className="w-4 h-4" />
+                          </button>
+                          {/* Top-Center */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'top-center' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'top-center'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Top-Center"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          {/* Top-Right */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'top-right' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'top-right'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Top-Right"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </button>
+
+                          {/* Middle row: spacer, Center, spacer */}
+                          <div className="p-2" />
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'center' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'center'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Center"
+                          >
+                            <CircleDot className="w-4 h-4" />
+                          </button>
+                          <div className="p-2" />
+
+                          {/* Bottom-Left */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'bottom-left' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'bottom-left'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Bottom-Left"
+                          >
+                            <ArrowDownLeft className="w-4 h-4" />
+                          </button>
+                          {/* Bottom-Center */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'bottom-center' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'bottom-center'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Bottom-Center"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                          {/* Bottom-Right */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'bottom-right' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'bottom-right'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Inside Bottom-Right"
+                          >
+                            <ArrowDownRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Outside Hall: Visual 3x3 Alignment Grid */
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+                          Tap to Align Outside Tab
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5 max-w-[200px] mx-auto p-1.5 bg-slate-50 rounded-lg border border-slate-200">
+                          {/* Outside Top-Left */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-top-left' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-top-left'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Top-Left Tab"
+                          >
+                            <ArrowUpLeft className="w-4 h-4" />
+                          </button>
+                          {/* Outside Top-Center */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-top-center' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-top-center'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Top-Center Tab"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          {/* Outside Top-Right */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-top-right' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-top-right'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Top-Right Tab"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </button>
+
+                          {/* Middle row: visual hall area representation */}
+                          <div className="p-2 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          </div>
+                          <div className="p-2 flex items-center justify-center text-[9px] font-bold text-slate-400 uppercase tracking-wider select-none">
+                            Hall
+                          </div>
+                          <div className="p-2 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          </div>
+
+                          {/* Outside Bottom-Left */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-bottom-left' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-bottom-left'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Bottom-Left Tab"
+                          >
+                            <ArrowDownLeft className="w-4 h-4" />
+                          </button>
+                          {/* Outside Bottom-Center */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-bottom-center' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-bottom-center'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Bottom-Center Tab"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                          {/* Outside Bottom-Right */}
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => onUpdateHall(hall.id, { namePosition: 'outside-bottom-right' })}
+                            className={`p-2 rounded flex items-center justify-center transition-all cursor-pointer ${
+                              currentPos === 'outside-bottom-right'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Outside Bottom-Right Tab"
+                          >
+                            <ArrowDownRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -1800,9 +2116,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <span>50% (Balanced)</span>
                 <span>100% (Solid)</span>
               </div>
-              <p className="text-[10px] text-slate-500 leading-tight mt-1.5 bg-blue-50/70 border border-blue-200/60 p-2 rounded-lg">
-                💡 When a blueprint image is in the background, a 60%–85% interior fill ensures the hall interior and booth borders stand out clearly over the blueprint lines.
-              </p>
+
             </div>
           </div>
         </div>
@@ -1816,17 +2130,17 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     if (!fac) return null;
 
     const availableIcons = [
-      { id: 'door', label: 'Door / Gate', icon: DoorOpen },
+      { id: 'door', label: 'Door', icon: DoorOpen },
       { id: 'log-in', label: 'Entrance', icon: LogIn },
       { id: 'log-out', label: 'Exit', icon: LogOut },
-      { id: 'badge', label: 'Registration', icon: BadgeCheck },
+      { id: 'badge', label: 'Badge', icon: BadgeCheck },
       { id: 'restroom', label: 'Restroom', icon: Bath },
-      { id: 'utensils', label: 'Food / Dining', icon: Utensils },
-      { id: 'coffee', label: 'Cafeteria', icon: Coffee },
+      { id: 'utensils', label: 'Dining', icon: Utensils },
+      { id: 'coffee', label: 'Café', icon: Coffee },
       { id: 'presentation', label: 'Stage', icon: Presentation },
       { id: 'shield', label: 'Security', icon: Shield },
-      { id: 'info', label: 'Info Booth', icon: Info },
-      { id: 'zap', label: 'Power / Tech', icon: Zap },
+      { id: 'info', label: 'Info', icon: Info },
+      { id: 'zap', label: 'Power', icon: Zap },
       { id: 'star', label: 'VIP Zone', icon: Star },
     ];
 

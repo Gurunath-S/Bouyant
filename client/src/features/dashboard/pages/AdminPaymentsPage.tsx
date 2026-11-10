@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
-import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw,CheckCircle2, XCircle } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -11,6 +11,7 @@ import { TablePagination } from '../../../components/ui/TablePagination';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { InvoicePdfModal } from '../../invoices/components/InvoicePdfModal';
+import { ChequeVerificationModal } from '@/features/payments/components/ChequeVerificationModal';
 import { useAuthStore } from '../../../stores/authStore';
 
 export const AdminPaymentsPage: React.FC = () => {
@@ -18,6 +19,12 @@ export const AdminPaymentsPage: React.FC = () => {
   const isSuperAdmin = user?.role === 'SUPERADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+    // Cheque Verification & Rejection Modal State
+  const [chequeActionModal, setChequeActionModal] = useState<{
+    payment: any;
+    action: 'VERIFY' | 'REJECT';
+  } | null>(null);
+
 
   // Navigation Tabs: 'TRANSACTIONS' vs 'INVOICES'
   const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES'>(() => {
@@ -478,7 +485,6 @@ export const AdminPaymentsPage: React.FC = () => {
                         return (
                           <tr
                             key={p.id}
-                            onClick={() => setSelectedBillOrInvoice(p)}
                             className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
                           >
                             <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
@@ -537,7 +543,33 @@ export const AdminPaymentsPage: React.FC = () => {
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <div className="inline-flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
-                                <button
+                                {isSuperAdmin && p.status === 'PENDING' && (p.paymentMode === 'CHEQUE' || p.paymentMethod?.includes('CHEQUE')) && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setChequeActionModal({ payment: p, action: 'VERIFY' })}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 rounded transition-colors shadow-xs"
+                                      title="Verify & Approve Cheque"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                      <span>Verify</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setChequeActionModal({ payment: p, action: 'REJECT' })}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-300 dark:border-rose-700 rounded transition-colors shadow-xs"
+                                      title="Reject / Bounce Cheque"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </>
+                                )}
+                                {p.status === "SUCCESS" && (
+
+                                  <>
+                                   <button
                                   type="button"
                                   onClick={() => setSelectedBillOrInvoice(p)}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded transition-colors"
@@ -568,9 +600,12 @@ export const AdminPaymentsPage: React.FC = () => {
                                   )}
                                   <span>{downloadingId === idToUse ? 'Generating...' : 'PDF'}</span>
                                 </button>
+                                  </>
+                                )}
+                               
 
                                 {isSuperAdmin &&
-                                  (p.status === 'FAILED' || p.status === 'CANCELLED' || p.status === 'PENDING') && (
+                                  (p.status === 'FAILED' || p.status === 'CANCELLED') && (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -887,6 +922,17 @@ export const AdminPaymentsPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+      {/* Cheque Action Modal */}
+      <ChequeVerificationModal
+        isOpen={!!chequeActionModal}
+        payment={chequeActionModal?.payment}
+        action={chequeActionModal?.action || 'VERIFY'}
+        onClose={() => setChequeActionModal(null)}
+        onSuccess={() => {
+          setChequeActionModal(null);
+          fetchPayments();
+        }}
+      />
     </div>
   );
 };

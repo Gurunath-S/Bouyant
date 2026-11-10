@@ -314,7 +314,6 @@ export const AdminBookingsPage: React.FC = () => {
                   {bookings.map((b, idx) => (
                     <tr
                       key={b.id}
-                      onClick={() => setInspectedBooking(b)}
                       className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                     >
                       <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
@@ -394,7 +393,7 @@ export const AdminBookingsPage: React.FC = () => {
                             const grandTotal = Number(b.grandTotal || 0);
                             const paidAmount = Number(b.paidAmount || (b.paymentStatus === 'PAID' || b.paymentStatus === 'PAID_FULL' ? grandTotal : 0));
                             const balanceDue = Number(b.balanceAmount ?? Math.max(0, grandTotal - paidAmount));
-                            const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
+                            const isEligible = b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.status !== 'PENDING_CHEQUE_VERIFICATION' && b.paymentStatus !== 'PAID' && b.paymentStatus !== 'PAID_FULL' && balanceDue > 0;
 
                             if (!isEligible) return null;
                             return (

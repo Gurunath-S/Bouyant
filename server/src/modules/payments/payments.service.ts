@@ -1,6 +1,6 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { Prisma, PaymentStatus,PaymentMode } from '@prisma/client';
+import { Prisma, PaymentStatus,PaymentMode,BookingStatus,BookingPaymentStatus,StallStatus} from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
@@ -376,7 +376,13 @@ export class PaymentsService {
         };
       }
 
-      if (currentPayment.status !== 'PENDING') {
+      // If Razorpay captured the funds, accept the payment even if an aggressive hold expiration
+      // or cleanup job previously marked the attempt as FAILED or CANCELLED.
+      if (
+        currentPayment.status !== 'PENDING' &&
+        currentPayment.status !== 'FAILED' &&
+        currentPayment.status !== 'CANCELLED'
+      ) {
         throw ApiError.badRequest(
           `Payment is already ${currentPayment.status}.`
         );
@@ -427,12 +433,15 @@ export class PaymentsService {
       // =====================================================
 
       // If Razorpay captured the payment, allow completing the booking
-      // even if the 30s background cron briefly marked it EXPIRED,
-      // or if it was already CONFIRMED with partial payment.
+      // even if the 30s background cron or client hold timer marked it EXPIRED or CANCELLED,
+      // or if it is currently INITIATED, HELD, or CONFIRMED.
       if (
         booking.status !== 'PENDING_PAYMENT' &&
         booking.status !== 'EXPIRED' &&
-        booking.status !== 'CONFIRMED'
+        booking.status !== 'CONFIRMED' &&
+        booking.status !== 'CANCELLED' &&
+        booking.status !== 'INITIATED' &&
+        booking.status !== 'HELD'
       ) {
         throw ApiError.conflict(
           `Booking cannot be completed because its current status is ${booking.status}.`
@@ -565,7 +574,7 @@ export class PaymentsService {
         await tx.payment.updateMany({
           where: {
             id: currentPayment.id,
-            status: 'PENDING',
+           status: { in: ['PENDING', 'FAILED', 'CANCELLED'] },
           },
           data: {
             status: 'SUCCESS',
@@ -598,14 +607,12 @@ export class PaymentsService {
       const updatedBooking = await tx.booking.update({
         where: {
           id: booking.id,
+
         },
         data: {
           paidAmount: newPaidAmount,
           balanceAmount: finalBalance,
-          status:
-            bookingIsFullyPaid
-              ? 'CONFIRMED'
-              : (booking.status === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING_PAYMENT'),
+          status: 'CONFIRMED',
           paymentStatus:
             bookingIsFullyPaid
               ? 'PAID_FULL'
@@ -617,15 +624,27 @@ export class PaymentsService {
       // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
       // =====================================================
 
-      if (booking.paymentStatus === 'UNPAID') {
+           if (
+        booking.paymentStatus === 'UNPAID' ||
+        booking.status === 'CANCELLED' ||
+        booking.status === 'EXPIRED' ||
+        booking.status === 'INITIATED' ||
+        booking.status === 'HELD'
+      ) {
         const stallUpdate =
           await tx.stall.updateMany({
             where: {
               id: {
                 in: stallIds,
               },
-              status: {
-                in: ['AVAILABLE', 'TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BLOCKED'],
+             status: {
+                in: [
+                  'AVAILABLE',
+                  'TEMPORARILY_HELD',
+                  'PAYMENT_PENDING',
+                  'BOOKING_IN_PROGRESS',
+                  'BLOCKED',
+                ],
               },
             },
             data: {
@@ -813,6 +832,10 @@ static async createBalancePaymentOrder(
   // -----------------------------------------
   // 3. Validate booking status
   // -----------------------------------------
+  // Prevent submitting another cheque if one is ALREADY awaiting verification!
+  if (booking.status === BookingStatus.PENDING_CHEQUE_VERIFICATION) {
+    throw ApiError.conflict('A cheque is already pending verification for this booking. Please await clearance.');
+  }
 
   if (booking.status === 'CANCELLED' || booking.status === 'EXPIRED') {
     throw ApiError.badRequest(
@@ -1098,7 +1121,7 @@ static async createBalancePaymentOrder(
       }
     }
 
-    // Search filter: paymentReference, bookingReference, paymentMethod
+   // Search filter: paymentReference, bookingReference, paymentMethod, company name, event
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({
@@ -1108,6 +1131,8 @@ static async createBalancePaymentOrder(
           { transactionId: { contains: q, mode: 'insensitive' } },
           { paymentMethod: { contains: q, mode: 'insensitive' } },
           { booking: { bookingReference: { contains: q, mode: 'insensitive' } } },
+          { booking: { company: { name: { contains: q, mode: 'insensitive' } } } },
+          { booking: { exhibition: { title: { contains: q, mode: 'insensitive' } } } },
         ],
       });
     }
@@ -1145,13 +1170,15 @@ static async createBalancePaymentOrder(
     };
   }
 
-  static async handleWebhook(body: any, signature: string | undefined) {
+  static async handleWebhook(body: any, signature: string | undefined, rawBody?: Buffer | string) {
     if (!signature) {
       throw ApiError.badRequest('Missing Razorpay webhook signature header.');
     }
 
     const secret = (process.env.RAZORPAY_WEBHOOK_SECRET || env.RAZORPAY_API_SECRET || '').trim();
-    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+    const bodyStr = rawBody
+      ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8'))
+      : (typeof body === 'string' ? body : JSON.stringify(body));
     const expectedSignature = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
 
     const expectedBuf = Buffer.from(expectedSignature, 'utf8');
@@ -1163,13 +1190,32 @@ static async createBalancePaymentOrder(
 
     const event = typeof body === 'string' ? JSON.parse(body) : body;
     const paymentEntity = event?.payload?.payment?.entity;
-    const orderId = paymentEntity?.order_id;
-    const paymentId = paymentEntity?.id;
+    const orderEntity = event?.payload?.order?.entity;
+    let orderId = paymentEntity?.order_id || orderEntity?.id;
+    let paymentId = paymentEntity?.id;
 
-    if (!orderId || !paymentId) {
+    if (!orderId && !paymentId) {
       return { success: true, message: 'Event acknowledged (no payment/order payload).' };
     }
 
+    
+    // If orderId is present but paymentId is not (e.g. order.paid event), fetch payment from Razorpay
+    if (orderId && !paymentId) {
+      try {
+        const orderPayments: any = await (razorpay.orders as any).fetchPayments(orderId);
+        const captured = orderPayments?.items?.find((p: any) => p.status === 'captured');
+        if (captured) {
+          paymentId = captured.id;
+        }
+      } catch (e: any) {
+        console.warn('Could not fetch payments for order in webhook:', e?.message);
+      }
+    }
+
+    if (!orderId || !paymentId) {
+      return { success: true, message: 'Event acknowledged (could not resolve captured payment for order).' };
+    }
+    
     const payment = await prisma.payment.findUnique({
       where: { razorpayOrderId: orderId },
     });
@@ -1260,7 +1306,7 @@ static async createBalancePaymentOrder(
   }
 
 
-    static async cashPayment(input: {
+  static async cashPayment(input: {
   bookingId: string;
   amount: number;
   nextDueDate?: string;
@@ -1333,6 +1379,10 @@ static async createBalancePaymentOrder(
           `Cannot record payment for a ${booking.status.toLowerCase()} booking.`
         );
       }
+        // Prevent submitting another cheque if one is ALREADY awaiting verification!
+      if (booking.status === BookingStatus.PENDING_CHEQUE_VERIFICATION) {
+         throw ApiError.conflict('A cheque is already pending verification for this booking. Please await clearance.');
+       }
 
      if (booking.status !== 'PENDING_PAYMENT') {
         throw ApiError.badRequest(
@@ -1513,6 +1563,437 @@ static async createBalancePaymentOrder(
     },
   };
 }
+
+  /**
+   * SuperAdmin Cheque Verification & Rejection Processing
+   */
+    /**
+   * SuperAdmin Cheque Verification & Rejection Processing
+   */
+    /**
+   * SuperAdmin Cheque Verification & Rejection Processing
+   */
+  static async verifyChequePayment(input: {
+    paymentId: string;
+    status: 'CHEQUE_VERIFIED' | 'CHEQUE_REJECTED';
+    rejectionReason?: string;
+    referenceNote?: string;
+    user: {
+      role: string;
+    };
+  }) {
+    const { paymentId, status, rejectionReason, user } = input;
+
+    // 1. Role validation - Strict SuperAdmin Only
+    if (user.role !== 'SUPERADMIN') {
+      throw ApiError.forbidden('Only SuperAdmin can verify or reject cheque payments.');
+    }
+
+    const isApproval = status === 'CHEQUE_VERIFIED';
+
+    // 2. Process inside a Serializable transaction
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Fetch payment and associated booking with stalls
+        const payment = await tx.payment.findUnique({
+          where: { id: paymentId },
+          include: {
+            booking: {
+              include: {
+                stalls: {
+                  include: {
+                    stall: true,
+                  },
+                },
+                company: true,
+                exhibition: true,
+              },
+            },
+          },
+        });
+
+        if (!payment) {
+          throw ApiError.notFound('Payment record not found.');
+        }
+
+        if (payment.paymentMode !== PaymentMode.CHEQUE) {
+          throw ApiError.badRequest('The specified payment is not a cheque payment.');
+        }
+
+        if (payment.status !== PaymentStatus.PENDING) {
+          throw ApiError.badRequest(
+            `This cheque has already been processed (Current status: ${payment.status}).`
+          );
+        }
+
+        const booking = payment.booking;
+        if (!booking) {
+          throw ApiError.notFound('Associated booking record not found.');
+        }
+
+        if (booking.status !== BookingStatus.PENDING_CHEQUE_VERIFICATION) {
+          throw ApiError.badRequest(
+            `Cheque verification is only allowed for bookings with PENDING_CHEQUE_VERIFICATION status (Current status: ${booking.status}).`
+          );
+        }
+
+        // ==============================================================
+        // CASE A: CHEQUE REJECTED (Bounce / Cancel)
+        // ==============================================================
+        if (!isApproval) {
+          const reasonText = rejectionReason || 'Cheque rejected/bounced by SuperAdmin';
+
+          // 1. Payment Table-la CANCELLED nu update panrom
+          const cancelledPayment = await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: PaymentStatus.CANCELLED,
+              failureReason: reasonText,
+              referenceNote: 'Cheque transaction cancelled by SuperAdmin.',
+            },
+          });
+
+          // 2. Check if customer already paid any money earlier (Cash / Online / Advance)
+          const paidInPaise = Math.round(Number(booking.paidAmount) * 100);
+          const hasPriorPaidMoney = paidInPaise > 0;
+
+          let updatedBooking;
+          let releasedStallCount = 0;
+
+          if (!hasPriorPaidMoney) {
+            // -------------------------------------------------------------
+            // SCENARIO 1: Initial Cheque Bounced (paidAmount == 0)
+            // -------------------------------------------------------------
+            // Zero advance paid: Entire booking CANCELLED and stalls RELEASED
+            updatedBooking = await tx.booking.update({
+              where: { id: booking.id },
+              data: {
+                status: BookingStatus.CANCELLED,
+                paymentStatus: BookingPaymentStatus.UNPAID,
+                expiresAt: null,
+              },
+            });
+
+            const stallIds = booking.stalls.map((bs) => bs.stallId);
+            if (stallIds.length > 0) {
+              await tx.stall.updateMany({
+                where: {
+                  id: { in: stallIds },
+                },
+                data: {
+                  status: StallStatus.AVAILABLE,
+                  heldUntil: null,
+                  heldByUserId: null,
+                },
+              });
+              releasedStallCount = stallIds.length;
+            }
+          } else {
+            // -------------------------------------------------------------
+            // SCENARIO 2: Balance Cheque Bounced (paidAmount > 0)
+            // -------------------------------------------------------------
+            // Advance already paid!
+            // Booking status STRICTLY PENDING_PAYMENT-ku revert aagum!
+            // Stalls-ah release panna KOODATHU (Retained)!
+            updatedBooking = await tx.booking.update({
+              where: { id: booking.id },
+              data: {
+                status: BookingStatus.PENDING_PAYMENT,
+                paymentStatus: BookingPaymentStatus.PARTIALLY_PAID,
+              },
+            });
+          }
+
+          return {
+            isApproval: false,
+            payment: cancelledPayment,
+            booking: updatedBooking,
+            releasedStallCount,
+            hasPriorPaidMoney,
+          };
+        }
+
+        // ==============================================================
+        // CASE B: CHEQUE VERIFIED (Approval & Credit Amount)
+        // ==============================================================
+        // Calculate paid and balance in paise to avoid floating-point errors
+        const currentPaidInPaise = Math.round(Number(booking.paidAmount) * 100);
+        const chequeAmountInPaise = Math.round(Number(payment.amount) * 100);
+        const grandTotalInPaise = Math.round(Number(booking.grandTotal) * 100);
+
+        const newPaidAmount = (currentPaidInPaise + chequeAmountInPaise) / 100;
+        const newBalanceAmount = Math.max(0, (grandTotalInPaise - (currentPaidInPaise + chequeAmountInPaise)) / 100);
+        const isFullyPaid = newBalanceAmount === 0;
+
+        // 1. Update Payment to SUCCESS
+        const successPayment = await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            paidAt: new Date(),
+            referenceNote: 'Verified by SuperAdmin',
+          },
+        });
+
+        // 2. Update Booking Totals & Status
+        const confirmedBooking = await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            paidAmount: newPaidAmount,
+            balanceAmount: newBalanceAmount,
+            paymentStatus: isFullyPaid
+              ? BookingPaymentStatus.PAID_FULL
+              : BookingPaymentStatus.PARTIALLY_PAID,
+            status: isFullyPaid
+              ? BookingStatus.CONFIRMED
+              : BookingStatus.PENDING_PAYMENT,
+            expiresAt: isFullyPaid ? null : booking.expiresAt,
+          },
+          include: {
+            stalls: {
+              include: {
+                stall: true,
+              },
+            },
+            company: true,
+            exhibition: true,
+          },
+        });
+
+        // 3. Generate Official Tax Invoice for this verified payment amount
+        const invoice = await BookingsService.createInvoice(
+          tx,
+          confirmedBooking,
+          successPayment,
+          new Prisma.Decimal(payment.amount)
+        );
+
+        // // 4. Update / Cancel payment reminders based on remaining balance
+        // await updateBookingPaymentReminder(
+        //   tx,
+        //   confirmedBooking.id,
+        //   successPayment.id,
+        //   isFullyPaid ? null : successPayment.nextPaymentDate,
+        //   confirmedBooking.balanceAmount
+        // );
+
+        return {
+          isApproval: true,
+          payment: successPayment,
+          booking: confirmedBooking,
+          invoice,
+          isFullyPaid,
+          hasPriorPaidMoney: currentPaidInPaise > 0,
+          emailData: {
+            booking: confirmedBooking,
+            payment: successPayment,
+            invoice,
+            paymentAmount: new Prisma.Decimal(payment.amount),
+            finalBalance: new Prisma.Decimal(newBalanceAmount),
+            newPaidAmount: new Prisma.Decimal(newPaidAmount),
+            isInitialPayment: currentPaidInPaise === 0,
+          },
+        };
+      },
+      {
+        timeout: 15000,
+        isolationLevel: 'Serializable',
+      }
+    );
+
+    
+       // Send email notifications asynchronously after transaction commits
+    if (result.isApproval && result.emailData) {
+      setImmediate(() => {
+        void PaymentNotificationService.sendPaymentEmails(result.emailData).catch((err) => {
+          console.error('Cheque verification confirmation email failed:', err);
+        });
+      });
+    } else if (!result.isApproval) {
+      // 👇 REJECTION EMAIL: Using the SAME TEMPLATE with Rejection Flag & Stall details!
+      setImmediate(() => {
+        void PaymentNotificationService.sendPaymentEmails({
+          booking: result.booking,
+          payment: result.payment,
+          invoice: null, // No invoice for rejected cheque
+          paymentAmount: new Prisma.Decimal(result.payment.amount),
+          finalBalance: new Prisma.Decimal(result.booking.balanceAmount),
+          isRejectedCheque: true,
+          rejectionReason: rejectionReason || 'Cheque bounced or signature mismatch',
+        }).catch((err) => {
+          console.error('Cheque rejection alert email failed:', err);
+        });
+      });
+    }
+
+    return {
+      success: true,
+      message: result.isApproval
+        ? result.isFullyPaid
+          ? 'Cheque verified successfully. Booking is fully paid and confirmed.'
+          : 'Cheque verified successfully. Remaining balance is pending.'
+        : result.hasPriorPaidMoney
+          ? 'Cheque rejected. Payment marked as cancelled. Stalls and booking remain retained because prior advance payment exists.'
+          : `Cheque rejected. Booking cancelled and ${result.releasedStallCount} stall(s) released to available.`,
+      data: {
+        paymentId: result.payment.id,
+        paymentReference: result.payment.paymentReference,
+        paymentStatus: result.payment.status,
+        bookingId: result.booking.id,
+        bookingReference: result.booking.bookingReference,
+        bookingStatus: result.booking.status,
+        bookingPaymentStatus: result.booking.paymentStatus,
+        paidAmount: Number(result.booking.paidAmount),
+        balanceAmount: Number(result.booking.balanceAmount),
+        isApproval: result.isApproval,
+      },
+    };
+  }
+
+    /**
+   * Admin / Staff records an offline Cheque payment for remaining balance.
+   * Booking transitions to PENDING_CHEQUE_VERIFICATION.
+   * Payment record is set to PENDING awaiting SuperAdmin clearance.
+   */
+  static async recordBalanceChequePayment(input: {
+    bookingId: string;
+    amount: number;
+    chequeNumber: string;
+    bankName: string;
+    chequeDate: string;
+    referenceNote?: string;
+    nextDueDate?: string;
+    user: {
+      userId?: string;
+      role: string;
+      spcode?: string|null;
+    };
+  }) {
+    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate, user } = input;
+
+    // 1. Role Authorization
+    const allowedRoles = ['SUPERADMIN', 'ADMIN', 'STAFF'];
+    if (!allowedRoles.includes(user.role)) {
+      throw ApiError.forbidden('Only SuperAdmin, Admin, and Staff can record cheque payments.');
+    }
+
+    // 2. Process inside a Serializable transaction
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const booking = await tx.booking.findUnique({
+          where: { id: bookingId },
+          include: {
+            stalls: { include: { stall: true } },
+            company: true,
+            exhibition:true
+          },
+        });
+
+        if (!booking) {
+          throw ApiError.notFound('Booking record not found.');
+        }
+
+        if (booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.EXPIRED) {
+          throw ApiError.badRequest(`Cannot record cheque for a ${booking.status.toLowerCase()} booking.`);
+        }
+
+        // Prevent submitting another cheque if one is ALREADY awaiting verification!
+        if (booking.status === BookingStatus.PENDING_CHEQUE_VERIFICATION) {
+          throw ApiError.conflict('A cheque is already pending verification for this booking. Please await clearance.');
+        }
+
+        const remainingBalance = Number(booking.balanceAmount);
+        if (remainingBalance <= 0) {
+          throw ApiError.badRequest('This booking has no pending balance.');
+        }
+
+        const amountInPaise = Math.round(amount * 100);
+        const balanceInPaise = Math.round(remainingBalance * 100);
+
+        if (amountInPaise > balanceInPaise) {
+          throw ApiError.badRequest(
+            `Cheque amount (₹${amount.toFixed(2)}) cannot exceed the remaining balance of ₹${remainingBalance.toFixed(2)}.`
+          );
+        }
+
+        // 3. User Attribution Tag
+        const userSpcode = user.spcode || (user.userId
+          ? (await tx.user.findUnique({ where: { id: user.userId }, select: { spcode: true } }))?.spcode
+          : null);
+        const attributionTag = userSpcode ? ` [${userSpcode}]` : user.userId ? ` [ID:${user.userId.slice(-6)}]` : '';
+        const paymentProvider = user.role === 'STAFF' ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
+        const isPartial = amountInPaise < balanceInPaise;
+        const installmentTypeStr = isPartial
+          ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
+          : 'BALANCE';
+
+        // 4. Create PENDING Cheque Payment Record
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference: generateReference('PAY', 10, false),
+            bookingId: booking.id,
+            amount: new Prisma.Decimal(amount),
+            currency: 'INR',
+            status: PaymentStatus.PENDING, // 👈 Pending clearance!
+            provider: paymentProvider,
+            paymentMode: PaymentMode.CHEQUE,
+            paymentMethod: `CHEQUE${attributionTag}`,
+            installmentType: installmentTypeStr,
+            chequeNumber,
+            bankName,
+            chequeDate: new Date(`${chequeDate}T00:00:00.000Z`),
+            referenceNote: referenceNote || null,
+            nextPaymentDate: nextDueDate ? new Date(`${nextDueDate}T00:00:00.000Z`) : null,
+          },
+        });
+
+        // 5. Update Booking Status to PENDING_CHEQUE_VERIFICATION
+        // (paidAmount & balanceAmount will ONLY be updated when SuperAdmin approves!)
+        const updatedBooking = await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: BookingStatus.PENDING_CHEQUE_VERIFICATION,
+          },
+        });
+
+        return {
+          payment,
+          booking: updatedBooking,
+           emailData: {
+            booking: { ...updatedBooking, stalls: booking.stalls, company: booking.company, exhibition: booking.exhibition },
+            payment,
+            invoice: null, // clearance aagura varaikkum invoice illa
+            paymentAmount: new Prisma.Decimal(amount),
+            finalBalance: new Prisma.Decimal(booking.balanceAmount),
+            isInitialPayment: false, // It's balance payment!
+          },
+        };
+      },
+      {
+        timeout: 10000,
+        isolationLevel: 'Serializable',
+      }
+    );
+
+      if (result.emailData) {
+      setImmediate(() => {
+        void PaymentNotificationService.sendPaymentEmails(result.emailData).catch((err) => {
+          console.error('Balance cheque pending email failed:', err);
+        });
+      });
+    }
+    return {
+      success: true,
+      message: 'Cheque balance payment submitted successfully. Awaiting SuperAdmin verification.',
+      data: {
+        paymentId: result.payment.id,
+        paymentReference: result.payment.paymentReference,
+        paymentStatus: result.payment.status,
+        bookingId: result.booking.id,
+        bookingStatus: result.booking.status,
+      },
+    };
+  }
 
 }
 

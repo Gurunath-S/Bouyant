@@ -43,6 +43,7 @@ enum BookingStatus {
   INITIATED
   HELD
   PENDING_PAYMENT
+  PENDING_CHEQUE_VERIFICATION
   CONFIRMED
   CANCELLED
   EXPIRED
@@ -87,6 +88,7 @@ enum ReminderStatus {
 enum PaymentMode {
   ONLINE_RAZORPAY
   CASH
+  CHEQUE
 }
 
 model User {
@@ -322,6 +324,10 @@ model Payment {
   installmentType   String?
   paymentMethod     String?
   paymentMode       PaymentMode?
+  chequeNumber      String?
+  bankName          String?
+  chequeDate        DateTime?
+  referenceNote     String?
   failureReason     String?
   nextPaymentDate   DateTime?
   paidAt            DateTime?

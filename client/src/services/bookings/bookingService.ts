@@ -1,5 +1,5 @@
 import { apiClient } from '../api/apiClient';
-import { Booking,PaymentExecutionMethod} from '../../types';
+import { Booking,PaymentExecutionMethod,ChequeDetails} from '../../types';
 
 export interface AdminBookingPayload {
   exhibitionId: string;
@@ -32,6 +32,7 @@ export interface CreateBookingPayload {
   confirmDirectly?: boolean;
   paymentMethod?: string;
   paymentMode?: PaymentExecutionMethod;
+  chequeDetails?: ChequeDetails;
   notes?: string;
   paymentReminderDate?: string | null;
 }

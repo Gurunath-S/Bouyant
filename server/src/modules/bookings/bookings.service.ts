@@ -573,7 +573,372 @@ if (resultCash.emailData) {
     };
  }
 
-  static calculate(
+  static async createChequeBooking(
+  user: AuthenticatedRequest['user'],
+  input: CreateBookingInput,
+  context: {
+    exhibition: Awaited<
+      ReturnType<typeof BookingsService.validateExhibitionBookingWindow>
+    >;
+
+    company: NonNullable<
+      Awaited<ReturnType<typeof prisma.company.findUnique>>
+    >;
+
+    stalls: Awaited<ReturnType<typeof prisma.stall.findMany>>;
+
+    result: Awaited<ReturnType<typeof BookingsService.calculate>>;
+
+    bookingUserId: string | null;
+    bookedByUserId:string | null;
+    bookingSource:BookingSource;
+    snapshotContactPerson: string;
+    snapshotContactEmail: string | null;
+    snapshotContactPhone: string | null;
+
+    snapshotBillingName: string;
+    snapshotBillingGst: string | null;
+    snapshotBillingPan: string | null;
+    snapshotBillingAddress: string;
+    snapshotBillingCity: string;
+    snapshotBillingState: string;
+    snapshotBillingPinCode: string;
+    snapshotBillingCountry: string;
+
+    nextPaymentDate: Date | null;
+  }
+) {
+  // Step 1: Validate user role
+  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'STAFF'];
+
+  if (!user || !allowedRoles.includes(user.role)) {
+    throw ApiError.forbidden(
+      'Only Admin, SuperAdmin, and Staff can create cheque bookings.'
+    );
+  }
+
+  // Step 2: Extract context
+  const {
+    exhibition,
+    company,
+    stalls,
+    result,
+    bookingUserId,
+    bookedByUserId,
+    bookingSource,
+    snapshotContactPerson,
+    snapshotContactEmail,
+    snapshotContactPhone,
+
+    snapshotBillingName,
+    snapshotBillingGst,
+    snapshotBillingPan,
+    snapshotBillingAddress,
+    snapshotBillingCity,
+    snapshotBillingState,
+    snapshotBillingPinCode,
+    snapshotBillingCountry,
+
+    nextPaymentDate,
+  } = context;
+
+  // Step 3: Calculate booking and cheque amounts
+  const grandTotal = new Prisma.Decimal(
+    result.grandTotal.toString()
+  );
+
+  const chequeAmount = new Prisma.Decimal(
+    result.payableAmount.toString()
+  );
+
+  if (
+    grandTotal.lte(0) ||
+    chequeAmount.lte(0) ||
+    chequeAmount.gt(grandTotal)
+  ) {
+    throw ApiError.badRequest(
+      'Invalid cheque payment amount.'
+    );
+  }
+
+  // IMPORTANT:
+  // Cheque is not verified yet.
+  // Therefore, do not consider the cheque amount as paid.
+  const paidAmount = new Prisma.Decimal(0);
+
+  const balanceAmount = grandTotal;
+
+  // Step 4: Generate booking reference
+  const currentYear = new Date().getFullYear();
+
+  const bookingReference = `BKG-${currentYear}-${crypto
+    .randomUUID()
+    .replace(/-/g, '')
+    .substring(0, 10)
+    .toUpperCase()}`;
+
+  // Step 5: Create booking and pending cheque payment
+  const resultCheque = await prisma.$transaction(
+    async (tx) => {
+      // Step 5A: Validate that all requested stalls are available.
+       // If any later database operation fails, the transaction rolls back.
+      // Step 5A: Atomically claim stalls before creating the booking.
+        await this.claimStallsForOfflineBooking(
+          tx,
+          input,
+          user,
+          company.id,
+          exhibition.id,
+          bookingUserId
+        );
+
+      // Step 5B: Create booking.
+      // Booking remains pending until cheque verification.
+      const booking = await tx.booking.create({
+        data: {
+          bookingReference,
+
+          companyId: company.id,
+          exhibitionId: exhibition.id,
+          userId: bookingUserId,
+          bookedByUserId:bookedByUserId,
+          bookingSource:bookingSource,
+          contactPerson: snapshotContactPerson,
+          contactEmail: snapshotContactEmail,
+          contactPhone: snapshotContactPhone,
+
+          billingName: snapshotBillingName,
+          billingGst: snapshotBillingGst,
+          billingPan: snapshotBillingPan,
+          billingAddress: snapshotBillingAddress,
+          billingCity: snapshotBillingCity,
+          billingState: snapshotBillingState,
+          billingPinCode: snapshotBillingPinCode,
+          billingCountry: snapshotBillingCountry,
+
+          status: BookingStatus.PENDING_CHEQUE_VERIFICATION,
+
+          // No verified payment has been received yet.
+          paymentStatus: BookingPaymentStatus.UNPAID,
+
+          totalAmount: result.basePrice,
+          taxAmount: result.bookingTaxAmount,
+          grandTotal,
+
+          paidAmount,
+          balanceAmount,
+
+          discountAmount: result.discountAmount,
+          discountType: input.discountType,
+
+          stalls: {
+            create: stalls.map((stall) => ({
+              stallId: stall.id,
+              price: new Prisma.Decimal(
+                stall.price.toString()
+              ),
+            })),
+          },
+          
+        },
+        include: {
+          company: {
+            include: {
+              users: true,
+            },
+          },
+          exhibition: {
+            include: {
+              createdBy: true,
+            },
+          },
+          stalls: {
+            include: {
+              stall: true,
+            },
+          },
+        },
+      });
+
+      // Step 5C: Create cheque payment as PENDING.
+      const paymentReference = generateReference(
+        'PAY',
+        10,
+        false
+      );
+
+          const userSpcode = user?.spcode ||
+    (user?.userId
+      ? (
+          await tx.user.findUnique({
+            where: { id: user.userId },
+            select: { spcode: true },
+          })
+        )?.spcode
+      : null);
+
+      const attributionTag = userSpcode
+        ? ` [${userSpcode}]`
+        : user?.userId
+          ? ` [ID:${user.userId.slice(-6)}]`
+        : '';
+        const paymentMethod = `CHEQUE${attributionTag}`;
+        const paymentProvider = user?.role === 'STAFF' ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
+        const chequeDetails = input.chequeDetails;
+
+      if (!chequeDetails) {
+        throw ApiError.badRequest(
+          'Cheque details are required for cheque payments.'
+        );
+      }
+
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference,
+            bookingId: booking.id,
+            // Amount written on the cheque
+            amount: chequeAmount,
+
+            currency: 'INR',
+
+            // Awaiting cheque verification
+            status: PaymentStatus.PENDING,
+
+            provider:paymentProvider,
+            paymentMethod:paymentMethod,
+            paymentMode: PaymentMode.CHEQUE,
+
+            // Save cheque details
+            chequeNumber: chequeDetails.chequeNumber,
+            bankName: chequeDetails.bankName,
+            chequeDate: new Date(
+              `${chequeDetails.chequeDate}T00:00:00.000Z`
+            ),
+            referenceNote: chequeDetails.referenceNote ?? null,
+
+            // Reminder date
+            nextPaymentDate,
+          },
+        });
+
+      // Step 5F: Reserve stalls.
+      // Booking is pending verification, but the stalls are reserved.
+      const finalStallUpdate = await tx.stall.updateMany({
+          where: {
+            id: {
+              in: input.stallIds,
+            },
+            status: StallStatus.BOOKING_IN_PROGRESS,
+          },
+          data: {
+            status: StallStatus.BOOKED_CONFIRMED,
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
+
+        if (finalStallUpdate.count !== input.stallIds.length) {
+          throw ApiError.conflict(
+            'Unable to reserve all selected stalls. Please try again.'
+          );
+        }
+
+      // Step 5G: Create or update payment reminder.
+      // Use the supplied date or default to 15 days from now.
+
+        // const isFullyPaid = balanceAmount.isZero();
+        // try {
+        //     await updateBookingPaymentReminder(
+        //       tx,
+        //       booking.id,
+        //       payment.id,
+        //       isFullyPaid
+        //         ? null
+        //         : (payment.nextPaymentDate ??
+        //             new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
+        //       booking.balanceAmount
+        //     );
+        //   } catch (reminderErr: unknown) {
+        //     const message =
+        //       reminderErr instanceof Error
+        //         ? reminderErr.message
+        //         : String(reminderErr);
+
+        //     console.warn(
+        //       'Payment reminder scheduling warning (non-fatal):',
+        //       message
+        //     );
+        //   }
+
+ 
+      // Step 5H: Return booking and payment details.
+      return {
+        booking: booking,
+        payment,
+
+        data: {
+          bookingId:booking.id,
+          bookingReference: booking.bookingReference,
+
+          paymentId: payment.id,
+          paymentReference: payment.paymentReference,
+
+          paymentStatus: 'PENDING',
+          paymentMethod: 'CHEQUE',
+
+          bookingStatus: booking.status,
+
+          chequeAmount: chequeAmount.toString(),
+          paidAmount: paidAmount.toString(),
+          balanceAmount: balanceAmount.toString(),
+
+          paidAt: null,
+        },
+         // Data required for email and WhatsApp
+        emailData: {
+          booking,
+          payment,
+          invoice: null,
+
+          // Actual cheque amount, not verified paid amount
+          paymentAmount: booking.paidAmount,
+
+          // Balance remains unchanged until cheque approval
+          finalBalance: balanceAmount,
+
+        },
+      };
+    },
+    {
+      timeout: 15000,
+    }
+  );
+
+  // Step 6: Send cheque pending approval notifications
+if (resultCheque.emailData) {
+  setImmediate(() => {
+    void PaymentNotificationService
+      .sendPaymentEmails(resultCheque.emailData)
+      .catch((err: unknown) => {
+        console.error(
+          'Cheque pending notification failed:',
+          err
+        );
+      });
+  });
+}
+
+// Step 7: Return response to frontend
+return {
+  success: true,
+  message:
+    'Cheque submitted successfully. Awaiting verification.',
+  data: resultCheque.data,
+};
+  
+ }
+
+ static calculate(
     stalls: Stall[],
     user: AuthenticatedRequest['user'],
     input: CreateBookingInput
@@ -1019,7 +1384,10 @@ static async createBooking(
 
   const snapshotBillingName = input.billingName?.trim() || company.name;
   const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
-  const snapshotBillingPan = input.billingPan?.trim().toUpperCase() || company.panNumber || null;
+ const snapshotBillingPan =
+    input.billingPan?.trim().toUpperCase() ||
+    company.panNumber ||
+    (snapshotBillingGst && snapshotBillingGst.length === 15 ? snapshotBillingGst.substring(2, 12).toUpperCase() : null);
   const snapshotBillingAddress = input.billingAddress?.trim() || company.address;
   const snapshotBillingCity = input.billingCity?.trim() || company.city;
   const snapshotBillingState = input.billingState?.trim() || company.state;
@@ -1223,8 +1591,9 @@ static async createBooking(
   // 7. Generate booking reference (standard Razorpay flow)
   // ==================================================
 
-  if (isPrivilegedUser && (paymentMode === 'CASH')) {
-  const cashResult = await BookingsService.createCashBooking(
+  if (isPrivilegedUser && (paymentMode === 'CASH' || paymentMode === 'CHEQUE')) {
+    if(paymentMode==="CASH"){
+       const cashResult = await BookingsService.createCashBooking(
     user,
     input,
     {
@@ -1250,7 +1619,37 @@ static async createBooking(
 
       nextPaymentDate,
     })
-   return cashResult
+       return cashResult
+    }
+    if(paymentMode==="CHEQUE"){
+        const chequeResult = await BookingsService.createChequeBooking(
+    user,
+    input,
+    {
+      exhibition,
+      company,
+      stalls,
+      result,
+      bookingUserId,
+      bookedByUserId,
+      bookingSource,
+      snapshotContactPerson,
+      snapshotContactEmail,
+      snapshotContactPhone,
+
+      snapshotBillingName,
+      snapshotBillingGst,
+      snapshotBillingPan,
+      snapshotBillingAddress,
+      snapshotBillingCity,
+      snapshotBillingState,
+      snapshotBillingPinCode,
+      snapshotBillingCountry,
+
+      nextPaymentDate,
+    })
+    return chequeResult
+    }
   }
 
   const bookingRef = `BKG-2026-${crypto
@@ -1575,19 +1974,35 @@ static async createBooking(
   // 11. Save Razorpay Order ID
   // ==================================================
 
-  try {
-    const updatedPayment =
-      await prisma.payment.update({
+   try {
+    const paymentHoldExtension = new Date(Date.now() + 15 * 60 * 1000);
+    const [updatedPayment] = await prisma.$transaction([
+      prisma.payment.update({
         where: {
-          id:
-            transactionResult.payment.id,
+          id: transactionResult.payment.id,
         },
-
         data: {
-          razorpayOrderId:
-            razorpayOrder.id,
+          razorpayOrderId: razorpayOrder.id,
         },
-      });
+      }),
+      prisma.booking.update({
+        where: {
+          id: transactionResult.booking.id,
+        },
+        data: {
+          expiresAt: paymentHoldExtension,
+        },
+      }),
+      prisma.stall.updateMany({
+        where: {
+          id: { in: input.stallIds },
+        },
+        data: {
+          heldUntil: paymentHoldExtension,
+          status: StallStatus.PAYMENT_PENDING,
+        },
+      }),
+    ]);
 
     // ==================================================
     // 12. Return response
@@ -1777,6 +2192,7 @@ static async createBooking(
             state: true,
             country: true,
             gstNumber: true,
+            panNumber: true,
           },
         },
         exhibition: {
@@ -2019,6 +2435,9 @@ static async createBooking(
           { bookingReference: { contains: q, mode: 'insensitive' } },
           { company: { name: { contains: q, mode: 'insensitive' } } },
           { company: { contactPerson: { contains: q, mode: 'insensitive' } } },
+          { company: { companyCode: { contains: q, mode: 'insensitive' } } },
+          { company: { email: { contains: q, mode: 'insensitive' } } },
+          { company: { mobile: { contains: q, mode: 'insensitive' } } },
           { exhibition: { title: { contains: q, mode: 'insensitive' } } },
           { stalls: { some: { stall: { stallNumber: { contains: q, mode: 'insensitive' } } } } },
         ],
@@ -2056,8 +2475,13 @@ static async createBooking(
               contactPerson: true,
               mobile: true,
               email: true,
+              address: true,
               city: true,
+              state: true,
+              country: true,
+              pinCode: true,
               gstNumber: true,
+              panNumber: true,
             },
           },
           user: {

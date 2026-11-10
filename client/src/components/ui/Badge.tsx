@@ -53,6 +53,8 @@ export const BookingStatusBadge: React.FC<{ status: BookingStatus | string; clas
   switch (status) {
     case 'CONFIRMED':
       return <Badge variant="success" className={className}>Confirmed</Badge>;
+    case 'PENDING_CHEQUE_VERIFICATION':
+      return <Badge variant="warning" className={className}>Cheque Verification Pending</Badge>;
     case 'PENDING_PAYMENT':
     case 'INITIATED':
       return <Badge variant="warning" className={className}>Pending Payment</Badge>;

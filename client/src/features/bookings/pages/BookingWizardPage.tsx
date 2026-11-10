@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+​import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, useBlocker } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
@@ -113,6 +113,7 @@ export const BookingWizardPage: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(600); // Defaults to 10 mins (600s)
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
+  const [isGatewayActive, setIsGatewayActive] = useState<boolean>(false);
 
   // Inline Login Modal state when company registration returns HTTP 409 ACCOUNT_EXISTS
   const [accountExistsModal, setAccountExistsModal] = useState<{
@@ -317,26 +318,39 @@ export const BookingWizardPage: React.FC = () => {
     }
   }, [searchParams, stalls, clearStallSelection, toggleStallSelection]);
 
-  // Start Silent Hold Timer when user advances to Step 2, 3, or 4
+  // Start Silent Hold Timer when user advances to Step 2 or 3 (never during active payment or confirmation)
   useEffect(() => {
-    if (selectedStallIds.length > 0 && (currentStep === 2 || currentStep === 3 || currentStep === 4)) {
+    if (
+      selectedStallIds.length > 0 &&
+      (currentStep === 2 || currentStep === 3) &&
+      !isGatewayActive &&
+      paymentStatusState !== 'PROCESSING'
+    ) {
       if (!isTimerActive && remainingSeconds > 0) {
         setIsTimerActive(true);
       }
-    } else if (currentStep === 1 || currentStep === 5) {
+    } else if (
+      currentStep === 1 ||
+      currentStep === 4 ||
+      currentStep === 5 ||
+      isGatewayActive ||
+      paymentStatusState === 'PROCESSING'
+    ) {
       setIsTimerActive(false);
     }
-  }, [currentStep, selectedStallIds.length, isTimerActive, remainingSeconds]);
+  }, [currentStep, selectedStallIds.length, isTimerActive, remainingSeconds, isGatewayActive, paymentStatusState]);
 
-  // Timer Tick Interval (Silent 15-minute expiration trigger)
+  // Timer Tick Interval (Silent 15-minute expiration trigger, paused during payment gateway / processing)
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (isTimerActive && remainingSeconds > 0) {
+    if (isTimerActive && !isGatewayActive && paymentStatusState !== 'PROCESSING' && remainingSeconds > 0) {
       interval = setInterval(() => {
         setRemainingSeconds((prev) => {
           if (prev <= 1) {
             setIsTimerActive(false);
-            setIsExtensionModalOpen(true);
+            if (!isGatewayActive) {
+              setIsExtensionModalOpen(true);
+            }
             return 0;
           }
           return prev - 1;
@@ -346,9 +360,14 @@ export const BookingWizardPage: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isTimerActive, remainingSeconds]);
+  }, [isTimerActive, isGatewayActive, paymentStatusState, remainingSeconds]);
 
   const handleRestartBookingFromExpired = async () => {
+    // Never cancel or reset booking if payment is actively in flight or processing
+    if (isGatewayActive || paymentStatusState === 'PROCESSING') {
+      setIsExtensionModalOpen(false);
+      return;
+    }
     setIsExtensionModalOpen(false);
     try {
       const tokenToUse = pendingUserAuth?.tokens?.accessToken;
@@ -563,8 +582,8 @@ export const BookingWizardPage: React.FC = () => {
         setCompanies((prev) => [...prev.filter((c) => c.id !== compWithUser.id), compWithUser]);
         setSelectedCompany(compWithUser);
 
-	        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
-	        if (createdUser && !isPrivileged) {
+        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
+        if (createdUser && !isPrivileged) {
             const authenticatedUser = {
               id: createdUser.id,
               email: createdUser.email,
@@ -577,11 +596,11 @@ export const BookingWizardPage: React.FC = () => {
               createdAt: createdUser.createdAt || new Date().toISOString(),
             };
 
-	          setPendingUserAuth({
-	            user: authenticatedUser,
-	            tokens: tokens,
-	          });
-	        }
+          setPendingUserAuth({
+            user: authenticatedUser,
+            tokens: tokens,
+          });
+        }
         if (tempPass) {
           setGeneratedOTP(tempPass);
         }
@@ -719,10 +738,10 @@ export const BookingWizardPage: React.FC = () => {
         throw new Error('Failed to generate Razorpay payment order from backend.');
       }
 
-	      const keyId = response.razorpayKeyId;
-	      if (!keyId) {
-	        throw new Error('Payment gateway key is missing from backend response.');
-	      }
+      const keyId = response.razorpayKeyId;
+      if (!keyId) {
+        throw new Error('Payment gateway key is missing from backend response.');
+      }
       setRazorpayOrderInfo({
         razorpayOrderId: response.razorpayOrderId,
         razorpayKeyId: keyId,
@@ -757,7 +776,7 @@ export const BookingWizardPage: React.FC = () => {
         exhibition: exhibition || undefined,
       };
 
-	      setCreatedBooking(realBooking as Booking);
+      setCreatedBooking(realBooking as Booking);
 
       // Directly launch Razorpay Gateway Modal from Step 3
       await executeRazorpayGateway(realBooking as Booking, {
@@ -786,9 +805,15 @@ export const BookingWizardPage: React.FC = () => {
 
   // Launch Razorpay Payment Gateway directly
   const executeRazorpayGateway = async (booking: Booking, orderInfo: any) => {
+    // Explicitly pause timer and dismiss hold warning while gateway modal is active
+    setIsGatewayActive(true);
+    setIsTimerActive(false);
+    setIsExtensionModalOpen(false);
+
     // Ensure Razorpay SDK script is loaded
     await loadRazorpay();
     if (typeof (window as any).Razorpay === 'undefined') {
+      setIsGatewayActive(false);
       await showAlert({
         title: 'Payment Gateway Loading',
         message: 'Razorpay SDK is loading. Please check your internet connection or try again in a moment.',
@@ -805,6 +830,9 @@ export const BookingWizardPage: React.FC = () => {
       description: `Stall Reservation Booking — Ref: ${booking.bookingReference}`,
       order_id: orderInfo.razorpayOrderId,
       handler: async function (paymentResponse: any) {
+        setIsGatewayActive(true);
+        setIsTimerActive(false);
+        setIsExtensionModalOpen(false);
         setPaymentStatusState('PROCESSING');
         setCurrentStep(4); // Move to Confirmation & Pass view
 
@@ -819,9 +847,13 @@ export const BookingWizardPage: React.FC = () => {
             await new Promise((res) => setTimeout(res, 1000));
           }
 
+          setIsExtensionModalOpen(false);
+          setIsGatewayActive(false);
+
           // Preserve authenticated user session (CLIENT, STAFF, ADMIN, SUPERADMIN) after successful payment
           navigate(`/booking/success?bookingId=${booking.id}`);
         } catch (err: any) {
+          setIsGatewayActive(false);
           setPaymentStatusState('FAILED');
           setPaymentErrorMessage(err.response?.data?.message || err.message || 'Razorpay payment verification failed.');
         }
@@ -837,6 +869,7 @@ export const BookingWizardPage: React.FC = () => {
       modal: {
         ondismiss: function () {
           console.log('Razorpay payment modal closed by user');
+          setIsGatewayActive(false);
           setIsPaymentModalDismissed(true);
         },
       },
@@ -846,6 +879,7 @@ export const BookingWizardPage: React.FC = () => {
       const razorpayInstance = new (window as any).Razorpay(options);
       razorpayInstance.open();
     } catch (err: any) {
+      setIsGatewayActive(false);
       console.error('Failed to open Razorpay modal:', err);
       await showAlert({
         title: 'Payment Window Blocked',
@@ -1100,11 +1134,13 @@ export const BookingWizardPage: React.FC = () => {
       )}
 
       {/* Timer Timeout Popup Modal */}
-      <TimerExtensionModal
-        isOpen={isExtensionModalOpen}
-        durationMinutes={holdDurationMinutes}
-        onRestartBooking={handleRestartBookingFromExpired}
-      />
+      {!isGatewayActive && paymentStatusState !== 'PROCESSING' && (
+        <TimerExtensionModal
+          isOpen={isExtensionModalOpen}
+          durationMinutes={holdDurationMinutes}
+          onRestartBooking={handleRestartBookingFromExpired}
+        />
+      )}
 
       {/* Account Exists Inline Login Modal */}
       <AccountExistsLoginModal

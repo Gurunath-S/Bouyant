@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+​import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { companyService } from '../../../services/companies/companyService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
@@ -637,7 +637,11 @@ export const AdminCompanyDetailPage: React.FC = () => {
             <div>
               <span className="text-slate-400 block text-[11px]">PAN</span>
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                {company.panNumber || '—'}
+                {company.panNumber ||
+                  (company.gstNumber && company.gstNumber.length === 15
+                    ? company.gstNumber.substring(2, 12).toUpperCase()
+                    : null) ||
+                  '—'}
               </span>
             </div>
             <div>

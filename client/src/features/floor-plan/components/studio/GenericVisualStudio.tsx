@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+​import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
@@ -1197,10 +1197,17 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const target = stalls.find((s) => s.id === id);
     if (!target) return;
 
-    const deltaW = updates.width !== undefined ? updates.width - target.width : 0;
-    const deltaH = updates.height !== undefined ? updates.height - target.height : 0;
+    // Restrict price, category, status, and stallNumber edits for already booked or held stalls
+    let safeUpdates = updates;
+    if (isStallBookedOrHeld(target)) {
+      const { price, category, status, stallNumber, ...allowed } = updates;
+      safeUpdates = allowed;
+    }
 
-    let nextStalls = stalls.map((s) => (s.id === id ? { ...s, ...updates } : s));
+    const deltaW = safeUpdates.width !== undefined ? safeUpdates.width - target.width : 0;
+    const deltaH = safeUpdates.height !== undefined ? safeUpdates.height - target.height : 0;
+
+    let nextStalls = stalls.map((s) => (s.id === id ? { ...s, ...safeUpdates } : s));
 
     if (options?.pushNeighbors !== false && (deltaW !== 0 || deltaH !== 0)) {
       // 1. Shift contiguous row neighbors to the right
@@ -1298,10 +1305,17 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     pushHistory(halls, facilities, nextAnns, stalls);
   };
 
-  // Bulk Stalls Update
+  // Bulk Stalls Update (protects booked stalls from price, category, status, and stallNumber overrides)
   const handleBulkUpdateStalls = (updates: Partial<DraftStallItem>) => {
     const selectedIds = new Set(selectedRefs.filter((r) => r.type === 'stall').map((r) => r.id));
-    const nextStalls = stalls.map((s) => (selectedIds.has(s.id) ? { ...s, ...updates } : s));
+    const nextStalls = stalls.map((s) => {
+      if (!selectedIds.has(s.id)) return s;
+      if (isStallBookedOrHeld(s)) {
+        const { price, category, status, stallNumber, ...allowed } = updates;
+        return { ...s, ...allowed };
+      }
+      return { ...s, ...updates };
+    });
     setStalls(nextStalls);
     pushHistory(halls, facilities, annotations, nextStalls);
   };
@@ -1804,8 +1818,8 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     lastCanvasClickPos.current = { x: pt.x, y: pt.y };
 
     // If clicked on canvas background:
-    if (!e.shiftKey) {
-      setSelectedRefs([]);
+    if (!e.shiftKey && !isMultiSelectMode) {
+      setSelectedRefs((prev) => (prev.length === 0 ? prev : []));
     }
     setMarqueeBox({ startX: pt.x, startY: pt.y, currX: pt.x, currY: pt.y, startInsideHallId: null });
   };
@@ -2365,10 +2379,16 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
           // In Multi-Select Pick Mode, clicking empty canvas does NOT clear your selection!
         } else if (marqueeBox.startInsideHallId) {
           // User clicked inside a hall: select the hall!
-          setSelectedRefs([{ type: 'hall', id: marqueeBox.startInsideHallId }]);
+          const hallId = marqueeBox.startInsideHallId;
+          setSelectedRefs((prev) => {
+            if (prev.length === 1 && prev[0].type === 'hall' && prev[0].id === hallId) {
+              return prev;
+            }
+            return [{ type: 'hall', id: hallId }];
+          });
         } else {
           // User clicked empty canvas background: deselect
-          setSelectedRefs([]);
+          setSelectedRefs((prev) => (prev.length === 0 ? prev : []));
         }
       }
 
@@ -3109,7 +3129,12 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                           const pt = getSVGCoordinates(e);
                           lastCanvasClickPos.current = { x: pt.x, y: pt.y };
                           if (!e.shiftKey && !isMultiSelectMode) {
-                            setSelectedRefs([]);
+                            setSelectedRefs((prev) => {
+                              if (prev.length === 1 && prev[0].type === 'hall' && prev[0].id === hall.id) {
+                                return prev;
+                              }
+                              return [{ type: 'hall', id: hall.id }];
+                            });
                           }
                           setMarqueeBox({
                             startX: pt.x,
@@ -3553,110 +3578,273 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
                         />
                       )}
 
-                      {/* Display Mode: Icon Only */}
-                      {mode === 'icon-only' && (
-                        renderFacilitySvgIcon(
-                          iconKey,
-                          fac.x + fac.width / 2,
-                          fac.y + fac.height / 2,
-                          iconSize,
-                          isSelected ? '#2563eb' : strokeCol
-                        )
-                      )}
+                      {/* ClipPath Definition to guarantee nothing spills outside */}
+                      <defs>
+                        <clipPath id={`clip-fac-${fac.id}`}>
+                          <rect
+                            x={fac.x + 1}
+                            y={fac.y + 1}
+                            width={Math.max(0, fac.width - 2)}
+                            height={Math.max(0, fac.height - 2)}
+                            rx="5"
+                          />
+                        </clipPath>
+                      </defs>
 
-                      {/* Display Mode: Text Only */}
-                      {mode === 'text-only' && (
-                        <text
-                          x={fac.x + fac.width / 2}
-                          y={fac.y + fac.height / 2}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          fill={textCol}
-                          fontSize={fontSize}
-                          fontWeight={
-                            fontWeight === 'black'
-                              ? '900'
-                              : fontWeight === 'bold'
-                              ? '700'
-                              : fontWeight === 'semibold'
-                              ? '600'
-                              : '400'
+                      <g clipPath={`url(#clip-fac-${fac.id})`}>
+                        {/* Display Mode: Icon Only */}
+                        {mode === 'icon-only' && (
+                          renderFacilitySvgIcon(
+                            iconKey,
+                            fac.x + fac.width / 2,
+                            fac.y + fac.height / 2,
+                            Math.min(iconSize, Math.min(fac.width - 8, fac.height - 8)),
+                            isSelected ? '#2563eb' : strokeCol
+                          )
+                        )}
+
+                        {/* Display Mode: Text Only */}
+                        {mode === 'text-only' && (() => {
+                          const padX = 5;
+                          const padY = 4;
+                          const availW = Math.max(12, fac.width - padX * 2);
+                          const availH = Math.max(12, fac.height - padY * 2);
+                          const words = (fac.label || '').trim().split(/\s+/).filter(Boolean);
+                          if (words.length === 0) return null;
+
+                          const maxWordLen = words.reduce((m, w) => Math.max(m, w.length), 1);
+                          const maxAllowedFs = (availW - maxWordLen * 0.2) / (maxWordLen * 0.7);
+                          let effectiveFs = Math.min(fontSize, Math.max(5, maxAllowedFs));
+
+                          const wrapLines = (fs: number) => {
+                            if (words.length <= 1) return words;
+                            const charW = fs * 0.7 + 0.2;
+                            const res: string[] = [];
+                            let curr = '';
+                            for (const w of words) {
+                              const test = curr ? `${curr} ${w}` : w;
+                              if (test.length * charW <= availW) {
+                                curr = test;
+                              } else {
+                                if (curr) res.push(curr);
+                                curr = w;
+                              }
+                            }
+                            if (curr) res.push(curr);
+                            return res;
+                          };
+
+                          let lines = wrapLines(effectiveFs);
+                          let lineHeight = effectiveFs * 1.15;
+                          let totalH = lines.length * lineHeight;
+
+                          if (totalH > availH) {
+                            const scale = Math.max(0.45, availH / totalH);
+                            effectiveFs = Math.max(5, effectiveFs * scale);
+                            lineHeight = effectiveFs * 1.15;
+                            lines = wrapLines(effectiveFs);
+                            totalH = lines.length * lineHeight;
                           }
-                          letterSpacing="0.8"
-                          className="select-none pointer-events-none uppercase"
-                        >
-                          {fac.label}
-                        </text>
-                      )}
 
-                      {/* Display Mode: Both (Icon + Text) */}
-                      {mode === 'both' && (
-                        <g>
-                          {fac.height >= 48 ? (
-                            <>
-                              {renderFacilitySvgIcon(
-                                iconKey,
-                                fac.x + fac.width / 2,
-                                fac.y + fac.height / 2 - 7,
-                                iconSize,
-                                textCol
-                              )}
-                              <text
-                                x={fac.x + fac.width / 2}
-                                y={fac.y + fac.height / 2 + iconSize / 2 + 2}
-                                textAnchor="middle"
-                                dominantBaseline="central"
-                                fill={textCol}
-                                fontSize={fontSize}
-                                fontWeight={
-                                  fontWeight === 'black'
-                                    ? '900'
-                                    : fontWeight === 'bold'
-                                    ? '700'
-                                    : fontWeight === 'semibold'
-                                    ? '600'
-                                    : '400'
+                          const startY = fac.y + Math.max(padY, (fac.height - totalH) / 2) + lineHeight / 2;
+
+                          return (
+                            <text
+                              x={fac.x + fac.width / 2}
+                              y={startY}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill={textCol}
+                              fontSize={effectiveFs}
+                              fontWeight={
+                                fontWeight === 'black'
+                                  ? '900'
+                                  : fontWeight === 'bold'
+                                  ? '700'
+                                  : fontWeight === 'semibold'
+                                  ? '600'
+                                  : '400'
+                              }
+                              letterSpacing="0.2"
+                              className="select-none pointer-events-none uppercase"
+                            >
+                              {lines.map((line, idx) => {
+                                const estLineW = line.length * (effectiveFs * 0.7) + (line.length - 1) * 0.2;
+                                return (
+                                  <tspan
+                                    key={idx}
+                                    x={fac.x + fac.width / 2}
+                                    dy={idx === 0 ? 0 : lineHeight}
+                                    textLength={estLineW > availW ? availW : undefined}
+                                    lengthAdjust="spacingAndGlyphs"
+                                  >
+                                    {line}
+                                  </tspan>
+                                );
+                              })}
+                            </text>
+                          );
+                        })()}
+
+                        {/* Display Mode: Both (Icon + Text) */}
+                        {mode === 'both' && (() => {
+                          const words = (fac.label || '').trim().split(/\s+/).filter(Boolean);
+                          const textLen = (fac.label || '').length || 1;
+                          const padX = 5;
+                          const padY = 4;
+                          const availW = Math.max(12, fac.width - padX * 2);
+                          const availH = Math.max(12, fac.height - padY * 2);
+
+                          const minLegibleFs = 7;
+                          const minNeededTextW = textLen * (minLegibleFs * 0.65);
+                          const effectiveIconSizeH = Math.max(12, Math.min(iconSize, availH));
+                          const textGap = 5;
+                          const availTextW = Math.max(0, availW - effectiveIconSizeH - textGap);
+
+                          // Only allow horizontal row layout if box is wide enough to fit readable text without squashing
+                          const isHorizontal =
+                            fac.width >= fac.height * 1.4 &&
+                            fac.height < 54 &&
+                            availTextW >= minNeededTextW;
+
+                          if (isHorizontal) {
+                            // Horizontal row layout: [icon] [text]
+                            const rawTextW = textLen * fontSize * 0.65;
+                            const effectiveFs = rawTextW > availTextW
+                              ? Math.max(minLegibleFs, Math.min(fontSize, availTextW / (textLen * 0.65)))
+                              : fontSize;
+                            const actualTextW = textLen * effectiveFs * 0.65;
+                            const totalW = effectiveIconSizeH + textGap + Math.min(actualTextW, availTextW);
+                            const startX = Math.max(fac.x + padX, fac.x + (fac.width - totalW) / 2);
+                            const iconCenterX = startX + effectiveIconSizeH / 2;
+                            const textStartX = startX + effectiveIconSizeH + textGap;
+
+                            return (
+                              <g>
+                                {renderFacilitySvgIcon(
+                                  iconKey,
+                                  iconCenterX,
+                                  fac.y + fac.height / 2,
+                                  effectiveIconSizeH,
+                                  textCol
+                                )}
+                                <text
+                                  x={textStartX}
+                                  y={fac.y + fac.height / 2}
+                                  textAnchor="start"
+                                  dominantBaseline="central"
+                                  fill={textCol}
+                                  fontSize={effectiveFs}
+                                  fontWeight={
+                                    fontWeight === 'black'
+                                      ? '900'
+                                      : fontWeight === 'bold'
+                                      ? '700'
+                                      : fontWeight === 'semibold'
+                                      ? '600'
+                                      : '400'
+                                  }
+                                  letterSpacing="0.2"
+                                  textLength={actualTextW > availTextW ? availTextW : undefined}
+                                  lengthAdjust="spacingAndGlyphs"
+                                  className="select-none pointer-events-none uppercase"
+                                >
+                                  {fac.label}
+                                </text>
+                              </g>
+                            );
+                          } else {
+                            // Stacked layout: icon on top, text wrapped below
+                            const maxWordLen = words.reduce((m, w) => Math.max(m, w.length), 1);
+                            const maxAllowedFs = (availW - maxWordLen * 0.2) / (maxWordLen * 0.7);
+                            let effectiveFs = Math.min(fontSize, Math.max(5, maxAllowedFs));
+
+                            const wrapLines = (fs: number) => {
+                              if (words.length <= 1) return words;
+                              const charW = fs * 0.7 + 0.2;
+                              const res: string[] = [];
+                              let curr = '';
+                              for (const w of words) {
+                                const test = curr ? `${curr} ${w}` : w;
+                                if (test.length * charW <= availW) {
+                                  curr = test;
+                                } else {
+                                  if (curr) res.push(curr);
+                                  curr = w;
                                 }
-                                letterSpacing="0.8"
-                                className="select-none pointer-events-none uppercase"
-                              >
-                                {fac.label}
-                              </text>
-                            </>
-                          ) : (
-                            <>
-                              {renderFacilitySvgIcon(
-                                iconKey,
-                                fac.x + 16,
-                                fac.y + fac.height / 2,
-                                iconSize,
-                                textCol
-                              )}
-                              <text
-                                x={fac.x + 28}
-                                y={fac.y + fac.height / 2}
-                                textAnchor="start"
-                                dominantBaseline="central"
-                                fill={textCol}
-                                fontSize={fontSize}
-                                fontWeight={
-                                  fontWeight === 'black'
-                                    ? '900'
-                                    : fontWeight === 'bold'
-                                    ? '700'
-                                    : fontWeight === 'semibold'
-                                    ? '600'
-                                    : '400'
-                                }
-                                letterSpacing="0.8"
-                                className="select-none pointer-events-none uppercase"
-                              >
-                                {fac.label}
-                              </text>
-                            </>
-                          )}
-                        </g>
-                      )}
+                              }
+                              if (curr) res.push(curr);
+                              return res;
+                            };
+
+                            let lines = wrapLines(effectiveFs);
+                            let lineHeight = effectiveFs * 1.15;
+                            let totalTextH = lines.length * lineHeight;
+                            let effectiveIconSize = Math.max(10, Math.min(iconSize, availH * 0.42));
+                            let totalBlockH = effectiveIconSize + 4 + totalTextH;
+
+                            if (totalBlockH > availH) {
+                              const scale = Math.max(0.45, availH / totalBlockH);
+                              effectiveIconSize = Math.max(10, Math.min(effectiveIconSize * scale, availH * 0.35));
+                              effectiveFs = Math.max(5, effectiveFs * scale);
+                              lineHeight = effectiveFs * 1.15;
+                              lines = wrapLines(effectiveFs);
+                              totalTextH = lines.length * lineHeight;
+                              totalBlockH = effectiveIconSize + 3 + totalTextH;
+                            }
+
+                            const startY = fac.y + Math.max(padY, (fac.height - totalBlockH) / 2);
+                            const iconCenterY = startY + effectiveIconSize / 2;
+                            const textFirstLineY = startY + effectiveIconSize + 3 + lineHeight / 2;
+
+                            return (
+                              <g>
+                                {renderFacilitySvgIcon(
+                                  iconKey,
+                                  fac.x + fac.width / 2,
+                                  iconCenterY,
+                                  effectiveIconSize,
+                                  textCol
+                                )}
+                                <text
+                                  x={fac.x + fac.width / 2}
+                                  y={textFirstLineY}
+                                  textAnchor="middle"
+                                  dominantBaseline="central"
+                                  fill={textCol}
+                                  fontSize={effectiveFs}
+                                  fontWeight={
+                                    fontWeight === 'black'
+                                      ? '900'
+                                      : fontWeight === 'bold'
+                                      ? '700'
+                                      : fontWeight === 'semibold'
+                                      ? '600'
+                                      : '400'
+                                  }
+                                  letterSpacing="0.2"
+                                  className="select-none pointer-events-none uppercase"
+                                >
+                                  {lines.map((line, idx) => {
+                                    const estLineW = line.length * (effectiveFs * 0.7) + (line.length - 1) * 0.2;
+                                    return (
+                                      <tspan
+                                        key={idx}
+                                        x={fac.x + fac.width / 2}
+                                        dy={idx === 0 ? 0 : lineHeight}
+                                        textLength={estLineW > availW ? availW : undefined}
+                                        lengthAdjust="spacingAndGlyphs"
+                                      >
+                                        {line}
+                                      </tspan>
+                                    );
+                                  })}
+                                </text>
+                              </g>
+                            );
+                          }
+                        })()}
+                      </g>
 
                       {/* Facility Resize Handles when selected (All 8 Cardinal & Diagonal Handles) */}
                       {isSelected && !isReadOnly && (

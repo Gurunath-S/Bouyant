@@ -29,7 +29,8 @@ export class PaymentsController {
 
   static handleWebhook = async (req: Request, res: Response) => {
     const signature = req.headers['x-razorpay-signature'] as string | undefined;
-    const result = await PaymentsService.handleWebhook(req.body, signature);
+    const rawBody = (req as any).rawBody;
+    const result = await PaymentsService.handleWebhook(req.body, signature, rawBody);
     return res.status(200).json(result);
   };
 
@@ -131,6 +132,64 @@ export class PaymentsController {
     data: result,
   });
 }
+
+  /**
+   * SuperAdmin verifies or rejects offline cheque payments
+   */
+  static async verifyChequePayment(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication is required.');
+    }
+
+    // 🔒 Strict SuperAdmin Only Access:
+    if (req.user.role !== 'SUPERADMIN') {
+      throw ApiError.forbidden('Access denied. Only SuperAdmin can verify or reject cheques.');
+    }
+
+    const { paymentId, status, rejectionReason} = req.body;
+
+    const result = await PaymentsService.verifyChequePayment({
+      paymentId,
+      status,
+      rejectionReason,
+      user: {
+        role: req.user.role,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  }
+    /**
+   * Admin / Staff records offline cheque for remaining balance
+   */
+  static async recordChequePayment(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication is required.');
+    }
+
+    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate } = req.body;
+
+    const result = await PaymentsService.recordBalanceChequePayment({
+      bookingId,
+      amount,
+      chequeNumber,
+      bankName,
+      chequeDate,
+      referenceNote,
+      nextDueDate,
+      user: req.user,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  }
 
 }
 

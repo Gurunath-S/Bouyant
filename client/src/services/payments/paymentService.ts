@@ -62,5 +62,38 @@ export const paymentService = {
     const res: any = await apiClient.delete(`/payments/${paymentId}`);
     return res?.data?.data || res?.data || res;
   },
+    // SuperAdmin verify or reject offline cheque
+  verifyChequePayment: async (payload: {
+    paymentId: string;
+    status: 'CHEQUE_VERIFIED' | 'CHEQUE_REJECTED';
+    rejectionReason?: string;
+  }) => {
+    const res: any = await apiClient.post('/payments/cheque-verify', payload);
+    return res?.data?.data || res?.data || res;
+  },
+
+    recordChequePayment: async (payload: {
+    bookingId: string;
+    amount: number;
+    chequeDetails: {
+      chequeNumber: string;
+      bankName: string;
+      chequeDate: string;
+      referenceNote?: string;
+    };
+    nextDueDate?: string;
+  }) => {
+    const res: any = await apiClient.post('/payments/cheque', {
+      bookingId: payload.bookingId,
+      amount: payload.amount,
+      chequeNumber: payload.chequeDetails.chequeNumber,
+      bankName: payload.chequeDetails.bankName,
+      chequeDate: payload.chequeDetails.chequeDate,
+      referenceNote: payload.chequeDetails.referenceNote,
+      nextDueDate: payload.nextDueDate,
+    });
+    return res?.data?.data || res?.data || res;
+  },
 };
+
 
