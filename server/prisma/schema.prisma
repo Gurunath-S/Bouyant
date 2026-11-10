@@ -103,6 +103,8 @@ model User {
   spcode             String?        @unique
   pageAccess         String[]       @default([])
   isActive           Boolean        @default(true)
+  isDeleted          Boolean        @default(false)
+  deletedAt          DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -114,6 +116,7 @@ model User {
 
   @@index([email])
   @@index([companyId])
+  @@index([isDeleted])
 }
 
 model Company {
@@ -136,6 +139,8 @@ model Company {
   remarks        String?     @default("Not Provided")
   spcode         String?     
   regNo          String?     @unique
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -146,6 +151,7 @@ model Company {
   @@index([mobile])
   @@index([email])
   @@index([panNumber])
+  @@index([isDeleted])
 }
 
 model Exhibition {
@@ -172,6 +178,8 @@ model Exhibition {
   spcode          String?
   notificationEmails String?
   createdByUserId String?
+  isDeleted       Boolean          @default(false)
+  deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -183,6 +191,7 @@ model Exhibition {
   @@index([slug])
   @@index([status])
   @@index([createdByUserId])
+  @@index([isDeleted])
 }
 
 model FloorPlan {
@@ -195,6 +204,8 @@ model FloorPlan {
   gridColumns   Int         @default(20)
   gridRows      Int         @default(15)
   isPublished   Boolean     @default(false)
+  isDeleted     Boolean     @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -202,6 +213,7 @@ model FloorPlan {
   stalls        Stall[]
 
   @@index([exhibitionId])
+  @@index([isDeleted])
 }
 
 model Stall {
@@ -221,6 +233,8 @@ model Stall {
   status        StallStatus   @default(AVAILABLE)
   heldUntil     DateTime?
   heldByUserId  String?
+  isDeleted     Boolean       @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -232,6 +246,7 @@ model Stall {
   @@index([status])
   @@index([heldUntil])
   @@index([floorPlanId, status])
+  @@index([isDeleted])
 }
 
 model Booking {
@@ -250,6 +265,8 @@ model Booking {
   paymentStatus    BookingPaymentStatus @default(UNPAID)
   expiresAt        DateTime?
   idempotencyKey   String?       @unique
+  isDeleted        Boolean       @default(false)
+  deletedAt        DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -293,6 +310,7 @@ model Booking {
   @@index([paymentStatus])
   @@index([exhibitionId, status])
   @@index([idempotencyKey])
+  @@index([isDeleted])
 }
 
 model BookingStall {
@@ -331,6 +349,8 @@ model Payment {
   failureReason     String?
   nextPaymentDate   DateTime?
   paidAt            DateTime?
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -343,6 +363,7 @@ model Payment {
   @@index([razorpayOrderId])
   @@index([status])
   @@index([transactionId])
+  @@index([isDeleted])
 }
 
 model Invoice {
@@ -357,6 +378,8 @@ model Invoice {
   pdfUrl        String?
   status        InvoiceStatus @default(ISSUED)
   issueDate     DateTime      @default(now())
+  isDeleted     Boolean       @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -367,6 +390,7 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([bookingId])
   @@index([companyId])
+  @@index([isDeleted])
 }
 
 model PaymentReminder {
