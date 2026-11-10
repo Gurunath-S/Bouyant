@@ -71,28 +71,28 @@ async function runSecuritySuite() {
     console.log('--- 1. Authenticating Roles ---');
     const saLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'superadmin@buoyantmedia.com', password: 'SuperAdminPassword123!' },
+      body: { email: 'superadmin@buoyantmedia.com', password: 'Password123!' },
     });
     assert(saLogin.status === 200 && saLogin.data.data.user.role === 'SUPERADMIN', 'SuperAdmin Login (200, role SUPERADMIN)');
     const saToken = saLogin.data?.data?.tokens?.accessToken;
 
     const adminLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'admin@buoyantmedia.com', password: 'AdminPassword123!' },
+      body: { email: 'admin@buoyantmedia.com', password: 'Password123!' },
     });
     assert(adminLogin.status === 200 && adminLogin.data.data.user.role === 'ADMIN', 'Admin Login (200, role ADMIN)');
     const adminToken = adminLogin.data?.data?.tokens?.accessToken;
 
     const staffLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'staff@buoyantmedia.com', password: 'StaffPassword123!' },
+      body: { email: 'staff@buoyantmedia.com', password: 'Password123!' },
     });
     assert(staffLogin.status === 200 && staffLogin.data.data.user.role === 'STAFF', 'Staff Login (200, role STAFF)');
     const staffToken = staffLogin.data?.data?.tokens?.accessToken;
 
     const clientLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'user@buoyantmedia.com', password: 'UserPassword123!' },
+      body: { email: 'demo.client', password: 'DemoUser123!' },
     });
     assert(clientLogin.status === 200 && clientLogin.data.data.user.role === 'CLIENT', 'Client Login (200, role CLIENT)');
     const clientToken = clientLogin.data?.data?.tokens?.accessToken;

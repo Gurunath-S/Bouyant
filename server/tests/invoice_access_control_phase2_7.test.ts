@@ -407,13 +407,15 @@ async function runPhase2_7Suite() {
     console.log('\n--- Test 3: My Invoices Scoping ---');
     const myInvoicesA = await request('/invoices/my-invoices', { token: tokenA });
     assert(myInvoicesA.status === 200, 'Test 3.1: User A GET /invoices/my-invoices returns 200 OK');
-    const invIdsA = myInvoicesA.data.data.map((inv: any) => inv.id);
+    const invListA = Array.isArray(myInvoicesA.data.data) ? myInvoicesA.data.data : (myInvoicesA.data.data?.invoices || []);
+    const invIdsA = invListA.map((inv: any) => inv.id);
     assert(invIdsA.includes(invoiceA.id), 'Test 3.2: User A receives their own Company A invoice');
     assert(!invIdsA.includes(invoiceB.id), 'Test 3.3: User A receives ZERO instances of Company B invoice');
 
     const myInvoicesB = await request('/invoices/my-invoices', { token: tokenB });
     assert(myInvoicesB.status === 200, 'Test 3.4: User B GET /invoices/my-invoices returns 200 OK');
-    const invIdsB = myInvoicesB.data.data.map((inv: any) => inv.id);
+    const invListB = Array.isArray(myInvoicesB.data.data) ? myInvoicesB.data.data : (myInvoicesB.data.data?.invoices || []);
+    const invIdsB = invListB.map((inv: any) => inv.id);
     assert(invIdsB.includes(invoiceB.id), 'Test 3.5: User B receives their own Company B invoice');
     assert(!invIdsB.includes(invoiceA.id), 'Test 3.6: User B receives ZERO instances of Company A invoice');
     passed++;
@@ -475,7 +477,8 @@ async function runPhase2_7Suite() {
     assert(resUserCPdf.status === 403, 'Test 7.2: User without company receives 403 on PDF download');
 
     const myInvC = await request('/invoices/my-invoices', { token: tokenC });
-    assert(myInvC.status === 200 && myInvC.data.data.length === 0, 'Test 7.3: User without company receives empty array [] on my-invoices');
+    const cList = Array.isArray(myInvC.data?.data) ? myInvC.data.data : (myInvC.data?.data?.invoices || []);
+    assert(myInvC.status === 200 && cList.length === 0, 'Test 7.3: User without company receives empty array [] on my-invoices');
     passed++;
 
     // =========================================================================

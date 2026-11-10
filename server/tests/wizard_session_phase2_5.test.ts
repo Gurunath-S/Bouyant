@@ -170,7 +170,7 @@ async function runWizardSessionTestSuite() {
     console.log('\n--- Scenario 1: Authenticated Exhibitor Identity Retention ---');
     const exhibitorLoginRes = await request('/auth/login', {
       method: 'POST',
-      body: { email: existingExhibitorEmail, password: 'SecretPass123!' },
+      body: { email: existingExhibitorUsername, password: 'SecretPass123!' },
     });
     assert(
       exhibitorLoginRes.status === 200 && exhibitorLoginRes.data?.data?.user?.username === existingExhibitorUsername,
@@ -280,7 +280,7 @@ async function runWizardSessionTestSuite() {
     const invalidLoginRes = await request('/auth/login', {
       method: 'POST',
       body: {
-        email: existingExhibitorEmail,
+        email: existingExhibitorUsername,
         password: 'CompletelyWrongPassword!',
       },
     });
@@ -303,7 +303,7 @@ async function runWizardSessionTestSuite() {
     const validLoginRes = await request('/auth/login', {
       method: 'POST',
       body: {
-        email: existingExhibitorEmail,
+        email: existingExhibitorUsername,
         password: 'SecretPass123!',
       },
     });

@@ -65,7 +65,7 @@ async function runSuperAdminGovernanceSuite() {
     // 1. Authenticate as SuperAdmin and Staff
     const saLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'superadmin@buoyantmedia.com', password: 'SuperAdminPassword123!' },
+      body: { email: 'superadmin@buoyantmedia.com', password: 'Password123!' },
     });
     assert(saLogin.status === 200, 'SuperAdmin login succeeded');
     const saToken = saLogin.data?.data?.tokens?.accessToken;
@@ -73,7 +73,7 @@ async function runSuperAdminGovernanceSuite() {
 
     const staffLogin = await request('/auth/login', {
       method: 'POST',
-      body: { email: 'staff@buoyantmedia.com', password: 'StaffPassword123!' },
+      body: { email: 'staff@buoyantmedia.com', password: 'Password123!' },
     });
     assert(staffLogin.status === 200, 'Staff login succeeded');
     const staffToken = staffLogin.data?.data?.tokens?.accessToken;

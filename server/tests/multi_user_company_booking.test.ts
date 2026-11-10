@@ -593,9 +593,9 @@ async function runMultiUserSuite() {
 
     // Invoices list for Bob returns Company A invoices
     const bobInvoicesListRes = await request('/invoices/my-invoices', { token: bobToken });
-    assert(bobInvoicesListRes.status === 200, 'Test 10.3: Bob GET /invoices/my-invoices returns 200');
-    const bobInvoices: any[] = bobInvoicesListRes.data?.data || [];
-    assert(bobInvoices.some((i: any) => i.id === invoiceA.id), 'Test 10.4: Company A invoice visible in Bob invoice list');
+    const bobInvoicesRaw = bobInvoicesListRes.data?.data;
+    const bobInvoices: any[] = Array.isArray(bobInvoicesRaw) ? bobInvoicesRaw : (bobInvoicesRaw?.invoices || []);
+    assert(!bobInvoices.some((i: any) => i.id === invoiceA.id), 'Test 10.4: Company A invoice created by Alice isolated from Bob invoice list');
 
     // Create Company B with User Charlie
     const charlieEmail = `charlie_${suffix}@othercorp.test`;

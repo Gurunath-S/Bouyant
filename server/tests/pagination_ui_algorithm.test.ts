@@ -49,7 +49,7 @@ async function setupAuth() {
     method: 'POST',
     body: {
       email: 'superadmin@buoyantmedia.com',
-      password: 'SuperAdminPassword123!',
+      password: 'Password123!',
     },
   });
 
