@@ -153,18 +153,12 @@ export const hasUserPermission = (
   permission: Permission
 ): boolean => {
   if (!user || !user.role) return false;
+  if (user.role === 'SUPERADMIN') return true;
   if (permission === Permissions.PROFILE_MANAGE) return true;
 
-  const hasExplicitPageAccess = Array.isArray(user.pageAccess) && user.pageAccess.length > 0;
-
-  // Uncustomized Super Admin retains full platform capabilities
-  if (user.role === 'SUPERADMIN' && !hasExplicitPageAccess) return true;
-
-  // Baseline role permissions check (when not restricted by customized page access)
-  if (!hasExplicitPageAccess) {
-    const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
-    if (roleSet && roleSet.has(permission)) return true;
-  }
+  // Baseline role permissions check
+  const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
+  if (roleSet && roleSet.has(permission)) return true;
 
   // Custom page access grants check
   const effectivePages =
@@ -184,41 +178,6 @@ export const hasUserPermission = (
       Permissions.USER_DELETE,
     ];
     if (govPermissions.includes(permission)) return true;
-  }
-
-  if (effectivePages.includes('reports')) {
-    const reportPermissions: Permission[] = [
-      Permissions.REPORT_VIEW_PLATFORM,
-      Permissions.REPORT_VIEW_EVENT,
-      Permissions.REPORT_VIEW_OPERATIONAL,
-    ];
-    if (reportPermissions.includes(permission)) return true;
-  }
-
-  if (effectivePages.includes('events_floorplans')) {
-    const eventPermissions: Permission[] = [
-      Permissions.EVENT_MANAGE,
-      Permissions.EVENT_DELETE,
-      Permissions.FLOORPLAN_MANAGE,
-      Permissions.STALL_MANAGE,
-    ];
-    if (eventPermissions.includes(permission)) return true;
-  }
-
-  if (effectivePages.includes('event_register')) {
-    if (permission === Permissions.EVENT_CREATE) return true;
-  }
-
-  if (effectivePages.includes('companies')) {
-    if (permission === Permissions.COMPANY_MANAGE) return true;
-  }
-
-  if (effectivePages.includes('bookings')) {
-    if (permission === Permissions.BOOKING_MANAGE || permission === Permissions.BOOKING_VIEW_ALL) return true;
-  }
-
-  if (effectivePages.includes('payments')) {
-    if (permission === Permissions.PAYMENT_MANAGE || permission === Permissions.INVOICE_MANAGE) return true;
   }
 
   return false;

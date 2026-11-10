@@ -152,7 +152,7 @@ async function main() {
   // 5. Demo Exhibitor (Client User)
   console.log('👤 Upserting Demo Exhibitor (Client)...');
   await prisma.user.upsert({
-    where: { username: 'demo_user' },
+    where: { username: 'demo.client' },
     update: {
       passwordHash: demoClientPasswordHash,
       role: UserRole.CLIENT,
@@ -162,7 +162,7 @@ async function main() {
     create: {
       email: 'demo@buoyantmedia.com',
       passwordHash: demoClientPasswordHash,
-      username: 'demo_user',
+      username: 'demo.client',
       name: 'Demo Exhibitor',
       phone: '+919876543210',
       role: UserRole.CLIENT,
