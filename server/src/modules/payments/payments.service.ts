@@ -574,7 +574,7 @@ export class PaymentsService {
         await tx.payment.updateMany({
           where: {
             id: currentPayment.id,
-           status: { in: ['PENDING', 'FAILED', 'CANCELLED'] },
+            status: { in: ['PENDING', 'FAILED', 'CANCELLED'] },
           },
           data: {
             status: 'SUCCESS',
@@ -624,7 +624,7 @@ export class PaymentsService {
       // FIRST SUCCESSFUL PAYMENT → CONFIRM ALL STALLS
       // =====================================================
 
-           if (
+      if (
         booking.paymentStatus === 'UNPAID' ||
         booking.status === 'CANCELLED' ||
         booking.status === 'EXPIRED' ||
@@ -637,7 +637,7 @@ export class PaymentsService {
               id: {
                 in: stallIds,
               },
-             status: {
+              status: {
                 in: [
                   'AVAILABLE',
                   'TEMPORARILY_HELD',
@@ -1121,7 +1121,7 @@ static async createBalancePaymentOrder(
       }
     }
 
-   // Search filter: paymentReference, bookingReference, paymentMethod, company name, event
+    // Search filter: paymentReference, bookingReference, paymentMethod, company name, event
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({
@@ -1198,7 +1198,6 @@ static async createBalancePaymentOrder(
       return { success: true, message: 'Event acknowledged (no payment/order payload).' };
     }
 
-    
     // If orderId is present but paymentId is not (e.g. order.paid event), fetch payment from Razorpay
     if (orderId && !paymentId) {
       try {
@@ -1215,7 +1214,7 @@ static async createBalancePaymentOrder(
     if (!orderId || !paymentId) {
       return { success: true, message: 'Event acknowledged (could not resolve captured payment for order).' };
     }
-    
+
     const payment = await prisma.payment.findUnique({
       where: { razorpayOrderId: orderId },
     });

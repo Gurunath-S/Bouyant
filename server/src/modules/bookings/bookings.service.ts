@@ -1384,7 +1384,7 @@ static async createBooking(
 
   const snapshotBillingName = input.billingName?.trim() || company.name;
   const snapshotBillingGst = input.billingGst?.trim().toUpperCase() || company.gstNumber || null;
- const snapshotBillingPan =
+  const snapshotBillingPan =
     input.billingPan?.trim().toUpperCase() ||
     company.panNumber ||
     (snapshotBillingGst && snapshotBillingGst.length === 15 ? snapshotBillingGst.substring(2, 12).toUpperCase() : null);
@@ -1974,7 +1974,7 @@ static async createBooking(
   // 11. Save Razorpay Order ID
   // ==================================================
 
-   try {
+  try {
     const paymentHoldExtension = new Date(Date.now() + 15 * 60 * 1000);
     const [updatedPayment] = await prisma.$transaction([
       prisma.payment.update({
@@ -2445,7 +2445,7 @@ static async createBooking(
     }
 
     const where: Prisma.BookingWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
-
+ 
     const [bookings, total, aggregate, totalStallsCount] = await Promise.all([
       prisma.booking.findMany({
         where,
