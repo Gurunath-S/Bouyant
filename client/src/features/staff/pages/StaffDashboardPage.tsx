@@ -92,8 +92,6 @@ export const StaffDashboardPage: React.FC = () => {
     }
   }, [user?.id, selectedExhibitionId]);
 
-  const activeExhibition = exhibitions.find((e) => e.id === selectedExhibitionId);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,20 +157,6 @@ export const StaffDashboardPage: React.FC = () => {
             >
               Reset
             </button>
-          )}
-          {activeExhibition && (
-            <div className="flex items-center shrink-0">
-              <Link to={`/workspace/events/${activeExhibition.id}/view`}>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
-                >
-                  Manage This Event
-                </Button>
-              </Link>
-            </div>
           )}
         </div>
       </div>
