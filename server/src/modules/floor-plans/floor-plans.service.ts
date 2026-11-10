@@ -3,11 +3,12 @@ import { ApiError } from '../../utils/apiError.js';
 
 export class FloorPlansService {
   static async getById(floorPlanId: string) {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id: floorPlanId },
+    const floorPlan = await prisma.floorPlan.findFirst({
+      where: { id: floorPlanId, isDeleted: false } as any,
       include: {
         exhibition: true,
         stalls: {
+          where: { isDeleted: false } as any,
           orderBy: { stallNumber: 'asc' },
         },
       },
@@ -158,8 +159,8 @@ export class FloorPlansService {
         // 2. Synchronize stalls if provided
         if (Array.isArray(stalls)) {
           const existingStalls = await tx.stall.findMany({
-            where: { floorPlanId },
-            include: { bookingStalls: true },
+            where: { floorPlanId, isDeleted: false } as any,
+            include: { bookingStalls: { include: { booking: true } } },
           });
 
           // Build index of existing stalls by uppercase stallNumber
@@ -194,11 +195,14 @@ export class FloorPlansService {
 
           // Identify stalls to delete (stalls not in new list and with 0 bookings)
           const toDeleteIds: string[] = [];
-          for (const existing of existingStalls) {
+          for (const existing of existingStalls as any[]) {
             const isRetained = newStallIds.has(existing.id) || newStallNumbers.has(existing.stallNumber.toUpperCase());
             if (!isRetained) {
+              const hasActiveBooking =
+                existing.bookingStalls &&
+                existing.bookingStalls.some((bs: any) => bs.booking && !bs.booking.isDeleted && bs.booking.status !== 'CANCELLED');
               const isBookedOrHeld =
-                (existing.bookingStalls && existing.bookingStalls.length > 0) ||
+                hasActiveBooking ||
                 existing.status === 'BOOKED_CONFIRMED' ||
                 existing.status === 'PAYMENT_PENDING' ||
                 existing.status === 'BOOKING_IN_PROGRESS' ||
@@ -214,8 +218,9 @@ export class FloorPlansService {
           }
 
           if (toDeleteIds.length > 0) {
-            await tx.stall.deleteMany({
+            await tx.stall.updateMany({
               where: { id: { in: toDeleteIds } },
+              data: { isDeleted: true, deletedAt: new Date() } as any,
             });
           }
 
@@ -321,3 +326,4 @@ export class FloorPlansService {
     );
   }
 }
+

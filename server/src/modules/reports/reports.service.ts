@@ -26,7 +26,9 @@ export class ReportsService {
     _userId: string,
     filters: ReportFilters = {}
   ): Promise<{ bookingWhere: Prisma.BookingWhereInput; userSpcode?: string | null }> {
-    const bookingWhere: Prisma.BookingWhereInput = {};
+    const bookingWhere: any = {
+      isDeleted: false,
+    };
 
     // Exhibition scope
     if (filters.exhibitionId && filters.exhibitionId.toUpperCase() !== 'ALL') {
@@ -133,14 +135,15 @@ export class ReportsService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.exhibition.count(),
-      prisma.exhibition.count({ where: { status: 'PUBLISHED' } }),
-      prisma.user.count({ where: { role: UserRole.ADMIN, isActive: true } }),
-      prisma.user.count({ where: { role: UserRole.STAFF, isActive: true } }),
+      prisma.exhibition.count({ where: { isDeleted: false } as any }),
+      prisma.exhibition.count({ where: { status: 'PUBLISHED', isDeleted: false } as any }),
+      prisma.user.count({ where: { role: UserRole.ADMIN, isActive: true, isDeleted: false } as any }),
+      prisma.user.count({ where: { role: UserRole.STAFF, isActive: true, isDeleted: false } as any }),
       prisma.stall.findMany({
-        where: isEventScoped
-          ? { floorPlan: { exhibitionId: filters.exhibitionId } }
-          : {},
+        where: {
+          isDeleted: false,
+          ...(isEventScoped ? { floorPlan: { exhibitionId: filters.exhibitionId } } : {}),
+        } as any,
         select: {
           id: true,
           status: true,
@@ -148,7 +151,7 @@ export class ReportsService {
           price: true,
         },
       }),
-      prisma.company.count(),
+      prisma.company.count({ where: { isDeleted: false } as any }),
     ]);
 
     // Financial Reconciliation & Aggregations
@@ -318,19 +321,19 @@ export class ReportsService {
         : undefined,
 
       // Core KPI Metrics
-      totalRevenue: actualPaymentsReceived, // Backwards-compatible alias for UI components
-      actualPaymentsReceived,
-      totalBookingValue,
-      outstandingBalance,
-      cancelledBookingValue,
+      totalRevenue: role === 'STAFF' ? undefined : actualPaymentsReceived, // Backwards-compatible alias for UI components
+      actualPaymentsReceived: role === 'STAFF' ? 0 : actualPaymentsReceived,
+      totalBookingValue: role === 'STAFF' ? 0 : totalBookingValue,
+      outstandingBalance: role === 'STAFF' ? 0 : outstandingBalance,
+      cancelledBookingValue: role === 'STAFF' ? 0 : cancelledBookingValue,
       totalBookings: bookings.length,
       confirmedBookings: confirmedBookings.length,
       totalExhibitors: isEventScoped ? participatingCompaniesCount : totalCompaniesCount,
       participatingCompaniesCount,
       totalExhibitions: isEventScoped ? 1 : exhibitionsCount,
       publishedExhibitions: isEventScoped ? (scopedExhibition?.status === 'PUBLISHED' ? 1 : 0) : publishedExhibitionsCount,
-      activeAdmins: activeAdminsCount,
-      activeStaff: activeStaffCount,
+      activeAdmins: role === 'SUPERADMIN' ? activeAdminsCount : undefined,
+      activeStaff: role === 'SUPERADMIN' ? activeStaffCount : undefined,
 
       // Stall Occupancy
       totalStalls,
@@ -341,7 +344,7 @@ export class ReportsService {
       occupancyRate,
 
       // Breakdowns
-      financialSummary: {
+      financialSummary: role === 'STAFF' ? undefined : {
         paymentStatusBreakdown,
         bookingStatusBreakdown,
         paymentsMetrics: {
@@ -991,3 +994,4 @@ export class ReportsService {
     throw ApiError.badRequest(`Unsupported export type: ${type}`);
   }
 }
+

@@ -43,7 +43,7 @@ export class UsersService {
       search = searchParam || '';
     }
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
 
     // Role filter
     if (role && role.toUpperCase() !== 'ALL') {
@@ -260,8 +260,8 @@ export class UsersService {
   }
 
   static async getUserById(id: string) {
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: { id, isDeleted: false } as any,
       select: {
         id: true,
         name: true,
@@ -295,6 +295,7 @@ export class UsersService {
           },
         },
         createdExhibitions: {
+          where: { isDeleted: false } as any,
           select: {
             id: true,
             title: true,
@@ -349,8 +350,9 @@ export class UsersService {
 
     attributedBookings = await prisma.booking.findMany({
       where: {
+        isDeleted: false,
         OR: attributedOrConditions,
-      },
+      } as any,
       take: 200,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -400,7 +402,7 @@ export class UsersService {
     // If client has a company, fetch bookings of their company
     if (user.companyId) {
       companyBookings = await prisma.booking.findMany({
-        where: { companyId: user.companyId },
+        where: { companyId: user.companyId, isDeleted: false } as any,
         take: 20,
         orderBy: { createdAt: 'desc' },
         select: {
@@ -798,7 +800,6 @@ export class UsersService {
           toEmail: user.email,
           toName: user.name,
           username: finalUsername || undefined,
-          password: newPassword,
         });
         emailSent = emailResult.status === 'ACCEPTED';
       } catch (emailErr) {
@@ -855,9 +856,14 @@ export class UsersService {
       // Non-blocking cleanup
     }
 
-    // Delete user (Prisma onDelete SetNull preserves exhibitions & bookings, Notification cascades)
-    await prisma.user.delete({
+    // Soft-delete user (preserves exhibitions & bookings attribution for auditing and legal retention)
+    await prisma.user.update({
       where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      } as any,
     });
 
     return {
@@ -865,8 +871,7 @@ export class UsersService {
       name: user.name,
       email: user.email,
       role: user.role,
-      message: `User account '${user.name}' (${user.email}) has been permanently deleted.`,
+      message: `User account '${user.name}' (${user.email}) has been deleted.`,
     };
   }
 }
- 

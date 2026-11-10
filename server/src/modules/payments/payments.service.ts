@@ -468,14 +468,15 @@ export class PaymentsService {
           stallId: { in: stallIds },
           bookingId: { not: booking.id },
           booking: {
+            isDeleted: false,
             status: 'CONFIRMED',
-          },
+          } as any,
         },
         include: { stall: true },
       });
 
       if (conflictingBooked.length > 0) {
-        const conflictStallNumbers = conflictingBooked
+        const conflictStallNumbers = (conflictingBooked as any[])
           .map((b) => b.stall?.stallNumber || b.stallId)
           .join(', ');
         throw ApiError.conflict(
@@ -891,13 +892,13 @@ static async createBalancePaymentOrder(
     where: {
       stallId: { in: stallIds },
       bookingId: { not: booking.id },
-      booking: { status: 'CONFIRMED' },
+      booking: { status: 'CONFIRMED', isDeleted: false } as any,
     },
     include: { stall: true },
   });
 
   if (conflictingBooked.length > 0) {
-    const conflictStallNumbers = conflictingBooked
+    const conflictStallNumbers = (conflictingBooked as any[])
       .map((b) => b.stall?.stallNumber || b.stallId)
       .join(', ');
     throw ApiError.conflict(
@@ -1076,7 +1077,9 @@ static async createBalancePaymentOrder(
     }
 
     const { page, limit: take, skip } = normalizePagination(rawPage, rawLimit, 10, 100);
-    const andConditions: Prisma.PaymentWhereInput[] = [];
+    const andConditions: any[] = [
+      { isDeleted: false },
+    ];
 
     // Filter by status
     if (status && status !== 'ALL') {
@@ -1258,7 +1261,7 @@ static async createBalancePaymentOrder(
       },
     });
 
-    if (!payment) {
+    if (!payment || (payment as any).isDeleted) {
       throw ApiError.notFound('Payment record not found.');
     }
 
@@ -1291,9 +1294,13 @@ static async createBalancePaymentOrder(
         });
       }
 
-      // 2. Delete payment record
-      await tx.payment.delete({
+      // 2. Soft-delete payment record
+      await tx.payment.update({
         where: { id: paymentId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+        } as any,
       });
     });
 

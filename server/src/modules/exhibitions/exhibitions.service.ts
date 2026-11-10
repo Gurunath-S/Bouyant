@@ -22,7 +22,7 @@ export class ExhibitionsService {
     }
 
     const validExhibitionStatuses = ['DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED', 'CANCELLED', 'ARCHIVED'];
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (status && status.toUpperCase() !== 'ALL') {
       const upper = status.toUpperCase();
       if (validExhibitionStatuses.includes(upper)) {
@@ -130,10 +130,11 @@ export class ExhibitionsService {
       console.warn('Could not auto-release expired holds:', err);
     }
 
-    const exhibition = await prisma.exhibition.findFirst({
+    const exhibition: any = await prisma.exhibition.findFirst({
       where: {
         OR: [{ id: identifier }, { slug: identifier }],
-      },
+        isDeleted: false,
+      } as any,
       include: {
         floorPlans: {
           include: {
@@ -176,14 +177,14 @@ export class ExhibitionsService {
     }
 
     const now = new Date();
-    const allStalls = (exhibition.floorPlans || []).flatMap((fp) => fp.stalls || []);
+    const allStalls = (exhibition.floorPlans || []).flatMap((fp: any) => fp.stalls || []);
     const totalStallsFromDb = allStalls.length > 0 ? allStalls.length : (exhibition.totalStalls || 0);
 
     const bookedStallIdsFromBookings = new Set(
-      (exhibition.bookings || []).flatMap((b) => (b.stalls || []).map((s) => s.stallId))
+      (exhibition.bookings || []).flatMap((b: any) => (b.stalls || []).map((s: any) => s.stallId))
     );
 
-    let bookedStallsCount = allStalls.filter((s) => {
+    let bookedStallsCount = allStalls.filter((s: any) => {
       if (s.status === 'BOOKED_CONFIRMED' || s.status === 'BLOCKED') return true;
       if (bookedStallIdsFromBookings.has(s.id)) return true;
       if (['TEMPORARILY_HELD', 'PAYMENT_PENDING', 'BOOKING_IN_PROGRESS'].includes(s.status)) {
@@ -731,16 +732,59 @@ export class ExhibitionsService {
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1. Delete all bookings associated with this exhibition
-      // PostgreSQL cascade deletes related BookingStall, Payment, and Invoice records
-      await tx.booking.deleteMany({
+      const now = new Date();
+      // 1. Soft-delete all bookings associated with this exhibition and mark CANCELLED
+      await tx.booking.updateMany({
         where: { exhibitionId: id },
+        data: {
+          isDeleted: true,
+          deletedAt: now,
+          status: 'CANCELLED',
+        } as any,
       });
 
-      // 2. Delete the exhibition
-      // PostgreSQL cascade deletes related FloorPlan and Stall records
-      await tx.exhibition.delete({
+      // 2. Soft-delete floor plans and stalls
+      const floorPlans = await tx.floorPlan.findMany({
+        where: { exhibitionId: id },
+        select: { id: true },
+      });
+      const fpIds = floorPlans.map((fp) => fp.id);
+      if (fpIds.length > 0) {
+        await tx.stall.updateMany({
+          where: { floorPlanId: { in: fpIds } },
+          data: { isDeleted: true, deletedAt: now } as any,
+        });
+        await tx.floorPlan.updateMany({
+          where: { id: { in: fpIds } },
+          data: { isDeleted: true, deletedAt: now } as any,
+        });
+      }
+
+      // 3. Soft-delete payments and invoices associated with these bookings
+      const bookings = await tx.booking.findMany({
+        where: { exhibitionId: id },
+        select: { id: true },
+      });
+      const bookingIds = bookings.map((b) => b.id);
+      if (bookingIds.length > 0) {
+        await tx.payment.updateMany({
+          where: { bookingId: { in: bookingIds } },
+          data: { isDeleted: true, deletedAt: now } as any,
+        });
+        await tx.invoice.updateMany({
+          where: { bookingId: { in: bookingIds } },
+          data: { isDeleted: true, deletedAt: now } as any,
+        });
+      }
+
+      // 4. Soft-delete the exhibition and mark status as CANCELLED
+      await tx.exhibition.update({
         where: { id },
+        data: {
+          isDeleted: true,
+          deletedAt: now,
+          status: 'CANCELLED',
+        } as any,
       });
     });
 

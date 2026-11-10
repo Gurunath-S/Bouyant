@@ -7,8 +7,9 @@ import { hasUserPermission, Permissions } from '../../config/permissions.js';
 
 export class InvoicesService {
   static async getInvoiceById(identifier: string, user?: TokenPayload) {
-    let invoice = await prisma.invoice.findFirst({
+    let invoice: any = await prisma.invoice.findFirst({
       where: {
+        isDeleted: false,
         OR: [
           { id: identifier },
           { invoiceNumber: identifier },
@@ -17,7 +18,7 @@ export class InvoicesService {
           { paymentId: identifier },
           { payment: { paymentReference: identifier } },
         ],
-      },
+      } as any,
       include: {
         company: true,
         payment: true,
@@ -172,11 +173,12 @@ export class InvoicesService {
             userCompanyId = dbUser?.companyId || null;
           }
 
+          const invoiceBooking = (invoice as any).booking;
           if (
             !userCompanyId ||
             (invoice.companyId !== userCompanyId &&
-              invoice.booking?.companyId !== userCompanyId &&
-              invoice.booking?.userId !== user.userId)
+              invoiceBooking?.companyId !== userCompanyId &&
+              invoiceBooking?.userId !== user.userId)
           ) {
             throw ApiError.forbidden('Not authorized to access this invoice.');
           }
@@ -236,6 +238,7 @@ static async listUserInvoices(userOrUserId: TokenPayload | string,search:string=
     // Invoices are only given/shown if payment actually happened
     const whereClause: any = {
       companyId,
+      isDeleted: false,
       OR: [
         { payment: { status: 'SUCCESS' } },
         { status: 'PAID' },
@@ -349,7 +352,7 @@ const [invoices, total] = await Promise.all([
 
   static async generateInvoicePdf(invoiceId: string, user?: TokenPayload) {
     // Ownership/authorization is checked first inside getInvoiceById
-    const invoice = await this.getInvoiceById(invoiceId, user);
+    const invoice: any = await this.getInvoiceById(invoiceId, user);
     const bookingUpdatedAt = invoice.booking?.updatedAt?.getTime() || 0;
     const cacheKey = `${invoice.id}_${invoice.updatedAt?.getTime() || 0}_${bookingUpdatedAt}`;
     const cached = this.pdfCache.get(cacheKey);
@@ -384,7 +387,9 @@ const [invoices, total] = await Promise.all([
       rawLimit = limitArg;
     }
 
-    const andConditions: any[] = [];
+    const andConditions: any[] = [
+      { isDeleted: false },
+    ];
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({

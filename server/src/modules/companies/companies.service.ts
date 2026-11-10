@@ -1053,7 +1053,9 @@ export class CompaniesService {
     paymentStatus?: string
   ) {
     const { page: validPage, limit: validLimit, skip } = normalizePagination(page, limit, 20, 100);
-    const baseAndConditions: any[] = [];
+    const baseAndConditions: any[] = [
+      { isDeleted: false },
+    ];
 
     if (search && search.trim()) {
       const q = search.trim();

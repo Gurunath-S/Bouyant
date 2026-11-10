@@ -1203,7 +1203,7 @@ static async createBooking(
 
   const isPrivilegedUser = ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role ?? '');
 
-   if (!isPrivilegedUser && input.paymentMode !== 'ONLINE_RAZORPAY') {
+   if (!isPrivilegedUser && input.paymentMode && input.paymentMode !== 'ONLINE_RAZORPAY') {
       throw ApiError.forbidden(
         'You are not authorized to use this paymentMode.'
       );
@@ -1398,7 +1398,7 @@ static async createBooking(
 
   if (!isPrivilegedUser && dbUser) {
     bookingUserId = dbUser.id;
-  } else {
+  } else if (isPrivilegedUser) {
     // When Admin or Staff fills in a booking for a client/exhibitor company,
     // attribute the booking to the exhibitor user of that company rather than the staff/admin!
     const matchedCompanyUser = await prisma.user.findFirst({
@@ -1448,144 +1448,128 @@ static async createBooking(
  const paymentMode = input.paymentMode?.toUpperCase();
 
 
-  // if (isDirectConfirm) {
-  //   const adminBookingRef = `BKG-2026-${crypto
-  //     .randomUUID()
-  //     .replace(/-/g, '')
-  //     .substring(0, 10)
-  //     .toUpperCase()}`;
+  if (isDirectConfirm) {
+    const adminBookingRef = `BKG-2026-${crypto
+      .randomUUID()
+      .replace(/-/g, '')
+      .substring(0, 10)
+      .toUpperCase()}`;
 
-  //   return await prisma.$transaction(
-  //     async (tx) => {
-  //       // 1. Mark stalls as confirmed immediately
-  //       await tx.stall.updateMany({
-  //         where: { id: { in: input.stallIds } },
-  //         data: {
-  //           status: StallStatus.BOOKED_CONFIRMED,
-  //           heldUntil: null,
-  //           heldByUserId: null,
-  //         },
-  //       });
+    return await prisma.$transaction(
+      async (tx) => {
+        // 1. Mark stalls as confirmed immediately
+        await tx.stall.updateMany({
+          where: { id: { in: input.stallIds } },
+          data: {
+            status: StallStatus.BOOKED_CONFIRMED,
+            heldUntil: null,
+            heldByUserId: null,
+          },
+        });
 
-  //       // 2. Cancel any previous PENDING_PAYMENT booking for these stalls
-  //       await tx.booking.updateMany({
-  //         where: {
-  //           companyId: input.companyId,
-  //           exhibitionId: exhibition.id,
-  //           status: BookingStatus.PENDING_PAYMENT,
-  //           stalls: { some: { stallId: { in: input.stallIds } } },
-  //         },
-  //         data: { status: BookingStatus.CANCELLED },
-  //       });
+        // 2. Cancel any previous PENDING_PAYMENT booking for these stalls
+        await tx.booking.updateMany({
+          where: {
+            companyId: input.companyId,
+            exhibitionId: exhibition.id,
+            status: BookingStatus.PENDING_PAYMENT,
+            stalls: { some: { stallId: { in: input.stallIds } } },
+          },
+          data: { status: BookingStatus.CANCELLED },
+        });
 
-  //       // 3. Create confirmed booking with point-in-time snapshots
-  //       const booking = await tx.booking.create({
-  //         data: {
-  //           bookingReference: adminBookingRef,
-  //           companyId: input.companyId,
-  //           exhibitionId: exhibition.id,
-  //           userId: bookingUserId,
-  //           bookedByUserId,
-  //           bookingSource,
-  //           contactPerson: snapshotContactPerson,
-  //           contactEmail: snapshotContactEmail,
-  //           contactPhone: snapshotContactPhone,
-  //           billingName: snapshotBillingName,
-  //           billingGst: snapshotBillingGst,
-  //           billingPan: snapshotBillingPan,
-  //           billingAddress: snapshotBillingAddress,
-  //           billingCity: snapshotBillingCity,
-  //           billingState: snapshotBillingState,
-  //           billingPinCode: snapshotBillingPinCode,
-  //           billingCountry: snapshotBillingCountry,
-  //           status: BookingStatus.CONFIRMED,
-  //           paymentStatus: BookingPaymentStatus.PAID_FULL,
-  //           totalAmount: result.basePrice,
-  //           taxAmount: result.bookingTaxAmount,
-  //           grandTotal: result.grandTotal,
-  //           paidAmount: result.grandTotal,
-  //           balanceAmount: new Prisma.Decimal(0),
-  //           discountAmount: result.discountAmount,
-  //           discountType: input.discountType,
-  //           stalls: {
-  //             create: stalls.map((s) => ({
-  //               stallId: s.id,
-  //               price: new Prisma.Decimal(s.price.toString()),
-  //             })),
-  //           },
-  //         },
-  //         include: {
-  //           stalls: { include: { stall: true } },
-  //           exhibition: true,
-  //           company: true,
-  //           user: {
-  //             select: { id: true, name: true, email: true, role: true, spcode: true },
-  //           },
-  //           bookedByUser: {
-  //             select: { id: true, name: true, email: true, role: true, spcode: true },
-  //           },
-  //         },
-  //       });
+        // 3. Create confirmed booking with point-in-time snapshots
+        const booking = await tx.booking.create({
+          data: {
+            bookingReference: adminBookingRef,
+            companyId: input.companyId,
+            exhibitionId: exhibition.id,
+            userId: bookingUserId,
+            bookedByUserId,
+            bookingSource,
+            contactPerson: snapshotContactPerson,
+            contactEmail: snapshotContactEmail,
+            contactPhone: snapshotContactPhone,
+            billingName: snapshotBillingName,
+            billingGst: snapshotBillingGst,
+            billingPan: snapshotBillingPan,
+            billingAddress: snapshotBillingAddress,
+            billingCity: snapshotBillingCity,
+            billingState: snapshotBillingState,
+            billingPinCode: snapshotBillingPinCode,
+            billingCountry: snapshotBillingCountry,
+            status: BookingStatus.CONFIRMED,
+            paymentStatus: BookingPaymentStatus.PAID_FULL,
+            totalAmount: result.basePrice,
+            taxAmount: result.bookingTaxAmount,
+            grandTotal: result.grandTotal,
+            paidAmount: result.grandTotal,
+            balanceAmount: new Prisma.Decimal(0),
+            discountAmount: result.discountAmount,
+            discountType: input.discountType,
+            stalls: {
+              create: stalls.map((s) => ({
+                stallId: s.id,
+                price: new Prisma.Decimal(s.price.toString()),
+              })),
+            },
+          },
+          include: {
+            stalls: { include: { stall: true } },
+            exhibition: true,
+            company: true,
+            user: {
+              select: { id: true, name: true, email: true, role: true, spcode: true },
+            },
+            bookedByUser: {
+              select: { id: true, name: true, email: true, role: true, spcode: true },
+            },
+          },
+        });
 
-  //       // 4. Create offline/admin/staff payment record (no Razorpay)
-  //       const isStaff = user?.role === 'STAFF';
-  //       const defaultMethod = isStaff ? 'OFFLINE_STAFF_DIRECT' : 'ADMIN_DIRECT_ALLOCATION';
-  //       const paymentProvider = isStaff ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
-  //       const paymentMethod = isStaff
-  //         ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? input.paymentMethod : 'OFFLINE_STAFF_DIRECT')
-  //         : (input.paymentMethod || defaultMethod);
+        // 4. Create offline/admin/staff payment record (no Razorpay)
+        const isStaff = user?.role === 'STAFF';
+        const defaultMethod = isStaff ? 'OFFLINE_STAFF_DIRECT' : 'ADMIN_DIRECT_ALLOCATION';
+        const paymentProvider = isStaff ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
+        const paymentMethod = isStaff
+          ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? input.paymentMethod : 'OFFLINE_STAFF_DIRECT')
+          : (input.paymentMethod || defaultMethod);
 
-  //       const paymentRef = generateReference('PAY', 10, false);
-  //       const payment = await tx.payment.create({
-  //         data: {
-  //           paymentReference: paymentRef,
-  //           bookingId: booking.id,
-  //           amount: result.grandTotal,
-  //           currency: 'INR',
-  //           status: PaymentStatus.SUCCESS,
-  //           provider: paymentProvider,
-  //           paymentMethod: paymentMethod,
-  //           paidAt: new Date(),
-  //           nextPaymentDate
-  //         },
-  //       });
+        const paymentRef = generateReference('PAY', 10, false);
+        const payment = await tx.payment.create({
+          data: {
+            paymentReference: paymentRef,
+            bookingId: booking.id,
+            amount: result.grandTotal,
+            currency: 'INR',
+            status: PaymentStatus.SUCCESS,
+            provider: paymentProvider,
+            paymentMethod: paymentMethod,
+            paidAt: new Date(),
+            nextPaymentDate
+          },
+        });
 
-  //       // // 5. Auto-generate invoice
-  //       // const invoiceNum = generateReference('INV', 6);
-  //       // await tx.invoice.create({
-  //       //   data: {
-  //       //     invoiceNumber: invoiceNum,
-  //       //     bookingId: booking.id,
-  //       //     paymentId: payment.id,
-  //       //     companyId: input.companyId,
-  //       //     totalAmount: result.basePrice,
-  //       //     taxAmount: result.bookingTaxAmount,
-  //       //     grandTotal: result.grandTotal,
-  //       //     status: 'PAID',
-  //       //     issueDate: new Date(),
-  //       //   },
-  //       // });
-
-  //       return {
-  //         ...booking,
-  //         id: booking.id,
-  //         bookingId: booking.id,
-  //         bookingReference: booking.bookingReference,
-  //         status: booking.status,
-  //         paymentStatus: booking.paymentStatus,
-  //         paymentId: payment.id,
-  //         data: {
-  //           bookingId: booking.id,
-  //           bookingReference: booking.bookingReference,
-  //           paymentId: payment.id,
-  //           paymentStatus: 'SUCCESS',
-  //           bookingStatus: 'CONFIRMED',
-  //         },
-  //       };
-  //     },
-  //     { timeout: 15000 }
-  //   );
-  // }
+        return {
+          ...booking,
+          id: booking.id,
+          bookingId: booking.id,
+          bookingReference: booking.bookingReference,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          paymentId: payment.id,
+          data: {
+            bookingId: booking.id,
+            bookingReference: booking.bookingReference,
+            paymentId: payment.id,
+            paymentStatus: 'SUCCESS',
+            bookingStatus: 'CONFIRMED',
+          },
+        };
+      },
+      { timeout: 15000 }
+    );
+  }
 
   // ==================================================
   // 7. Generate booking reference (standard Razorpay flow)
@@ -2053,7 +2037,7 @@ static async createBooking(
 
     if (typeof userOrCompanyId === 'string') {
       return await prisma.booking.findMany({
-        where: { companyId: userOrCompanyId },
+        where: { companyId: userOrCompanyId, isDeleted: false } as any,
         orderBy: { createdAt: 'desc' },
         include: {
           stalls: { include: { stall: true } },
@@ -2074,6 +2058,7 @@ static async createBooking(
       return await prisma.booking.findMany({
         where: {
           companyId: user.companyId,
+          isDeleted: false,
           OR: [
             { userId: user.userId },
             ...(userEmail
@@ -2084,7 +2069,7 @@ static async createBooking(
                 ]
               : []),
           ],
-        },
+        } as any,
         orderBy: { createdAt: 'desc' },
         include: {
           stalls: { include: { stall: true } },
@@ -2097,9 +2082,10 @@ static async createBooking(
     }
 
     // For ADMIN / STAFF / SUPERADMIN or other roles
-    const whereClause: Prisma.BookingWhereInput = user.companyId
-      ? { companyId: user.companyId }
-      : { userId: user.userId };
+    const whereClause: any = {
+      ...(user.companyId ? { companyId: user.companyId } : { userId: user.userId }),
+      isDeleted: false,
+    };
 
     return await prisma.booking.findMany({
       where: whereClause,
@@ -2129,7 +2115,7 @@ static async createBooking(
       },
     });
 
-    if (!booking) throw ApiError.notFound('Booking record not found.');
+    if (!booking || (booking as any).isDeleted) throw ApiError.notFound('Booking record not found.');
 
     if (userOrCompanyId) {
       if (typeof userOrCompanyId === 'string') {
@@ -2165,11 +2151,12 @@ static async createBooking(
   static async getPublicBookingSummary(bookingIdOrRef: string) {
     const booking = await prisma.booking.findFirst({
       where: {
+        isDeleted: false,
         OR: [
           { id: bookingIdOrRef },
           { bookingReference: bookingIdOrRef },
         ],
-      },
+      } as any,
       select: {
         id: true,
         bookingReference: true,
@@ -2293,7 +2280,9 @@ static async createBooking(
     }
 
     const { page, limit, skip } = normalizePagination(rawPage, rawLimit, 20, 100);
-    const andConditions: Prisma.BookingWhereInput[] = [];
+    const andConditions: any[] = [
+      { isDeleted: false },
+    ];
 
     if (status && status !== 'ALL') {
       andConditions.push({ status: status as any });
@@ -2779,8 +2768,9 @@ static async createBooking(
               stallId,
               bookingId: { not: bookingId },
               booking: {
+                isDeleted: false,
                 status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT, BookingStatus.HELD] },
-              },
+              } as any,
             },
           });
 
@@ -2797,11 +2787,24 @@ static async createBooking(
         }
       }
 
-      // 2. Clean up related records and booking
-      await tx.bookingStall.deleteMany({ where: { bookingId } });
-      await tx.invoice.deleteMany({ where: { bookingId } });
-      await tx.payment.deleteMany({ where: { bookingId } });
-      await tx.booking.delete({ where: { id: bookingId } });
+      // 2. Soft delete related payments, invoices, and the booking itself
+      const now = new Date();
+      await tx.payment.updateMany({
+        where: { bookingId },
+        data: { isDeleted: true, deletedAt: now } as any,
+      });
+      await tx.invoice.updateMany({
+        where: { bookingId },
+        data: { isDeleted: true, deletedAt: now } as any,
+      });
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          isDeleted: true,
+          deletedAt: now,
+          status: BookingStatus.CANCELLED,
+        } as any,
+      });
     });
 
     return {
