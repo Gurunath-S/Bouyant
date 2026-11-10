@@ -1615,6 +1615,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                       : null) ||
                     'Not provided'}
                 </span>
+                
               </div>
 
               <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">

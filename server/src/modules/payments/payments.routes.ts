@@ -4,7 +4,7 @@ import { authenticateToken } from '../../middlewares/auth.js';
 import { requirePermission } from '../../middlewares/permission.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { Permissions } from '../../config/permissions.js';
-import { CashPaymentSchema } from './payment.schema.js';
+import { CashPaymentSchema,VerifyChequeSchema,ChequePaymentSchema} from './payment.schema.js';
 import { validateRequest } from '../../middlewares/validate.js';
 
 const router = Router();
@@ -14,6 +14,12 @@ router.post('/webhook', asyncHandler(PaymentsController.handleWebhook));
 router.post('/balance/:bookingId', authenticateToken, asyncHandler(PaymentsController.balancePayment));
 router.use(authenticateToken);
 router.post('/cash',authenticateToken,validateRequest(CashPaymentSchema),asyncHandler(PaymentsController.cashPayment));
+router.post('/cheque', authenticateToken, validateRequest(ChequePaymentSchema), asyncHandler(PaymentsController.recordChequePayment));
+router.post(
+  '/cheque-verify',
+  validateRequest(VerifyChequeSchema),
+  asyncHandler(PaymentsController.verifyChequePayment)
+);
 
 router.get('/', requirePermission(Permissions.PAYMENT_MANAGE), asyncHandler(PaymentsController.listAll));
 router.delete('/:id', requirePermission(Permissions.PAYMENT_DELETE), asyncHandler(PaymentsController.delete));

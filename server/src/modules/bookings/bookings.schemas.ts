@@ -35,7 +35,7 @@ export const CreateBookingSchema = z.object({
 
   // Optional payment method label recorded on the offline payment record
   paymentMethod: z.string().nullable().optional(),
-   paymentMode: z.enum(['ONLINE_RAZORPAY', 'CASH']).optional(),
+  paymentMode: z.enum(['ONLINE_RAZORPAY', 'CASH',"CHEQUE"]).optional(),
 
   // Internal booking notes (admin use)
   notes: z.string().nullable().optional(),
@@ -69,6 +69,41 @@ export const CreateBookingSchema = z.object({
     }, 'Invalid payment reminder date')
     .nullable()
     .optional(),
+      // Cheque payment details (optional)
+  chequeDetails: z
+  .object({
+    chequeNumber: z
+      .string()
+      .trim()
+      .min(1, 'Cheque number is required'),
+
+    bankName: z
+      .string()
+      .trim()
+      .min(1, 'Bank name is required'),
+
+    chequeDate: z
+      .string()
+      .min(1, 'Cheque date is required')
+      .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        'Cheque date must be in YYYY-MM-DD format'
+      ),
+
+    referenceNote: z
+      .string()
+      .trim()
+      .optional(),
+  })
+  .optional(),
+}).superRefine((data, ctx) => {
+  if (data.paymentMode === 'CHEQUE' && !data.chequeDetails) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['chequeDetails'],
+      message: 'Cheque details are required for cheque payments',
+    });
+  }
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;

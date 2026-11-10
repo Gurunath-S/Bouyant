@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+​import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Stall } from '../../../types';
 import { useFloorPlanStore } from '../../../stores/floorPlanStore';
 import { useAuthStore } from '../../../stores/authStore';

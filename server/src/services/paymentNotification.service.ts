@@ -14,6 +14,8 @@ static async sendPaymentEmails(emailData: {
   finalBalance: Prisma.Decimal;
   newPaidAmount?: Prisma.Decimal;
   isInitialPayment?: boolean;
+  isRejectedCheque?:boolean
+  rejectionReason?:string
 }): Promise<void> {
   const {
     booking,
@@ -23,14 +25,22 @@ static async sendPaymentEmails(emailData: {
     finalBalance,
     newPaidAmount,
     isInitialPayment = true,
+    isRejectedCheque=false,
+    rejectionReason
   } = emailData;
 
   setImmediate(async () => {
     try {
       // 1. Calculate payment summary
       const grandTotalNum = Number(booking.grandTotal || 0);
-
-      const cumulativePaidNum = newPaidAmount
+      // 👇 isRejectedCheque or isPendingCheque aana cheque amount-ah add panna koodadhu!
+           // 1. Cheque payment-aa nu check panrom
+    const isCheque = payment.paymentMode === 'CHEQUE';
+    const isPendingCheque = isCheque && payment.status === 'PENDING';
+    
+      const cumulativePaidNum = (isRejectedCheque || isPendingCheque)
+        ? Number(booking.paidAmount || 0)
+        : newPaidAmount
         ? newPaidAmount.toNumber()
         : Number(booking.paidAmount || 0) + paymentAmount.toNumber();
 
@@ -43,6 +53,16 @@ static async sendPaymentEmails(emailData: {
           : 100;
 
       const isBalancePayment = !isInitialPayment;
+
+
+    // 2. Direct-aa Payment table columns-la irundhe details edukrom:
+    const chequeDetails = isCheque && payment.chequeNumber ? {
+      chequeNumber: payment.chequeNumber,
+      bankName: payment.bankName || 'N/A',
+      chequeDate: payment.chequeDate 
+        ? new Date(payment.chequeDate).toISOString().slice(0, 10) 
+        : '',
+    } : undefined;
 
       const invoiceNumber =
         invoice?.invoiceNumber ||
@@ -139,6 +159,10 @@ static async sendPaymentEmails(emailData: {
             userName: displayUsername,
             pdfBuffer,
             paymentMode: payment.paymentMode,
+             isPendingCheque,
+             chequeDetails,
+             isRejectedCheque,
+             rejectionReason
           });
         } catch (err: any) {
           console.error(
@@ -237,6 +261,10 @@ static async sendPaymentEmails(emailData: {
             paymentReference: payment.paymentReference,
             pdfBuffer,
             paymentMode: payment.paymentMode,
+            isPendingCheque,
+            chequeDetails,
+            isRejectedCheque,
+            rejectionReason
           });
         }
         // 7. Send WhatsApp Booking Confirmation

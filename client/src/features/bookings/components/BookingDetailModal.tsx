@@ -467,3 +467,4 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
     </Modal>
   );
 };
+ 

@@ -14,6 +14,7 @@ export type BookingStatus =
   | 'INITIATED'
   | 'HELD'
   | 'PENDING_PAYMENT'
+  | 'PENDING_CHEQUE_VERIFICATION'
   | 'CONFIRMED'
   | 'CANCELLED'
   | 'EXPIRED';
@@ -24,7 +25,14 @@ export type BookingPaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUN
 
 export type InvoiceStatus = 'ISSUED' | 'PAID' | 'VOID';
 
-export type PaymentExecutionMethod = 'ONLINE_RAZORPAY' | 'CASH';
+export type PaymentExecutionMethod = 'ONLINE_RAZORPAY' | 'CASH' | 'CHEQUE';
+
+export interface ChequeDetails {
+  chequeNumber: string;
+  bankName: string;
+  chequeDate: string;
+  referenceNote?: string;
+}
 
 export interface User {
   id: string;

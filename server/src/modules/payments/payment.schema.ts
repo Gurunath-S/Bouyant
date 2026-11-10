@@ -30,3 +30,43 @@ export const CashPaymentSchema = z.object({
     }, 'Invalid next payment due date')
     .optional(),
 });
+
+
+export const VerifyChequeSchema = z.object({
+  paymentId: z.string().min(1, 'Payment ID is required.'),
+  status: z.enum(['CHEQUE_VERIFIED', 'CHEQUE_REJECTED'], {
+    errorMap: () => ({
+      message: 'Status must be either CHEQUE_VERIFIED or CHEQUE_REJECTED.',
+    }),
+  }),
+  rejectionReason: z
+    .string()
+    .trim()
+    .optional(),
+});
+
+export const ChequePaymentSchema = z.object({
+  bookingId: z.string().min(1, 'Booking ID is required.'),
+  amount: z.coerce
+    .number()
+    .finite()
+    .positive('Cheque payment amount must be greater than zero.')
+    .refine(
+      (amount) => Number.isSafeInteger(amount * 100),
+      'Cheque amount must have at most two decimal places.'
+    ),
+  chequeNumber: z.string().trim().min(1, 'Cheque number is required.'),
+  bankName: z.string().trim().min(1, 'Bank & branch name is required.'),
+  chequeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Cheque date must be in YYYY-MM-DD format.'),
+  referenceNote: z.string().trim().optional(),
+  nextDueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Next due date must be in YYYY-MM-DD format.')
+    .optional(),
+});
+
+export type ChequePaymentInput = z.infer<typeof ChequePaymentSchema>;
+
+export type VerifyChequeInput = z.infer<typeof VerifyChequeSchema>;

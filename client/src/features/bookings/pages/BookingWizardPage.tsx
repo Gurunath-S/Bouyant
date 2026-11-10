@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+​import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, useBlocker } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
@@ -582,8 +582,8 @@ export const BookingWizardPage: React.FC = () => {
         setCompanies((prev) => [...prev.filter((c) => c.id !== compWithUser.id), compWithUser]);
         setSelectedCompany(compWithUser);
 
-	        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
-	        if (createdUser && !isPrivileged) {
+        const isPrivileged = Boolean(user && ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user.role));
+        if (createdUser && !isPrivileged) {
             const authenticatedUser = {
               id: createdUser.id,
               email: createdUser.email,
@@ -596,11 +596,11 @@ export const BookingWizardPage: React.FC = () => {
               createdAt: createdUser.createdAt || new Date().toISOString(),
             };
 
-	          setPendingUserAuth({
-	            user: authenticatedUser,
-	            tokens: tokens,
-	          });
-	        }
+          setPendingUserAuth({
+            user: authenticatedUser,
+            tokens: tokens,
+          });
+        }
         if (tempPass) {
           setGeneratedOTP(tempPass);
         }
@@ -738,10 +738,10 @@ export const BookingWizardPage: React.FC = () => {
         throw new Error('Failed to generate Razorpay payment order from backend.');
       }
 
-	      const keyId = response.razorpayKeyId;
-	      if (!keyId) {
-	        throw new Error('Payment gateway key is missing from backend response.');
-	      }
+      const keyId = response.razorpayKeyId;
+      if (!keyId) {
+        throw new Error('Payment gateway key is missing from backend response.');
+      }
       setRazorpayOrderInfo({
         razorpayOrderId: response.razorpayOrderId,
         razorpayKeyId: keyId,
@@ -776,7 +776,7 @@ export const BookingWizardPage: React.FC = () => {
         exhibition: exhibition || undefined,
       };
 
-	      setCreatedBooking(realBooking as Booking);
+      setCreatedBooking(realBooking as Booking);
 
       // Directly launch Razorpay Gateway Modal from Step 3
       await executeRazorpayGateway(realBooking as Booking, {

@@ -6,6 +6,8 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { formatCurrency, formatDisplayDate } from '../../../utils/date';
 import { loadRazorpay } from '../../../utils/razorpay';
+import { AdminPaymentModeSelector } from '../../bookings/components/wizard/AdminPaymentModeSelector';
+import type { PaymentExecutionMethod, ChequeDetails } from '@/types';
 import {
   CreditCard,
   CheckCircle2,
@@ -14,6 +16,7 @@ import {
   Loader2,
   Calendar,
   ShieldCheck,
+  Landmark
 } from 'lucide-react';
 
 interface CompletePaymentModalProps {
@@ -23,7 +26,7 @@ interface CompletePaymentModalProps {
   onSuccess: () => void;
   isAdminMode?: boolean;
 }
-type PaymentExecutionMethod = 'ONLINE' | 'CASH';
+
 
 export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   isOpen,
@@ -34,7 +37,6 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 }) => {
   const { user } = useAuthStore();
   const isStaffOrAdmin = isAdminMode || ['ADMIN', 'SUPERADMIN', 'STAFF'].includes(user?.role || '');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentExecutionMethod>('ONLINE');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -43,10 +45,25 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const [paymentOption, setPaymentOption] = useState<'full' | 'half' | 'custom'>('full');
   const [customAmount, setCustomAmount] = useState<string>('');
   const [nextDueDate, setNextDueDate] = useState<string>('');
-
+  const [paymentMethod, setPaymentMethod] = useState<PaymentExecutionMethod>('ONLINE_RAZORPAY');
+  // 2. Cheque Details Form State
+  const [chequeDetails, setChequeDetails] = useState<ChequeDetails>({
+    chequeNumber: '',
+    bankName: '',
+    chequeDate: '',
+    referenceNote: '',
+  });
 
 
   const handleClose = () => {
+    if (isProcessing) return;
+    setPaymentMethod('ONLINE_RAZORPAY');
+    setChequeDetails({
+      chequeNumber: '',
+      bankName: '',
+      chequeDate: '',
+      referenceNote: '',
+    });
     setError(null);
     setSuccessMessage(null);
     onClose();
@@ -217,12 +234,57 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       setError('Please select a promise due date for the remaining balance.');
       return;
     }
-
-    try {
+        try {
       setIsProcessing(true);
       setError(null);
-    if (paymentMethod === 'CASH') {
-         await paymentService.recordCashPayment({
+
+      // 👇 1. CHEQUE PAYMENT FLOW
+      if (paymentMethod === 'CHEQUE') {
+        if (!chequeDetails.chequeNumber.trim()) {
+          setError('Please enter the cheque number.');
+          setIsProcessing(false);
+          return;
+        }
+
+        if (!chequeDetails.bankName.trim()) {
+          setError('Please enter the bank and branch name.');
+          setIsProcessing(false);
+          return;
+        }
+
+        if (!chequeDetails.chequeDate) {
+          setError('Please select the cheque issue date.');
+          setIsProcessing(false);
+          return;
+        }
+
+        await paymentService.recordChequePayment({
+          bookingId: booking.id,
+          amount: totalPayableAmount,
+          chequeDetails: {
+            chequeNumber: chequeDetails.chequeNumber.trim(),
+            bankName: chequeDetails.bankName.trim(),
+            chequeDate: chequeDetails.chequeDate,
+            referenceNote: chequeDetails.referenceNote?.trim() || undefined,
+          },
+          nextDueDate: isPartialPayment ? nextDueDate : undefined,
+        });
+
+        setSuccessMessage(
+          `Cheque payment of ${formatCurrency(totalPayableAmount)} submitted successfully. Awaiting SuperAdmin verification.`
+        );
+
+        setTimeout(() => {
+          onSuccess();
+          handleClose();
+        }, 1200);
+
+        return;
+      }
+
+      // 👇 2. CASH PAYMENT FLOW
+      if (paymentMethod === 'CASH') {
+        await paymentService.recordCashPayment({
           bookingId: booking.id,
           amount: totalPayableAmount,
           nextDueDate: isPartialPayment ? nextDueDate : undefined,
@@ -232,15 +294,15 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             ? `Partial cash payment of ${formatCurrency(totalPayableAmount)} recorded successfully.`
             : `Cash payment of ${formatCurrency(totalPayableAmount)} recorded successfully.`
         );
-       // Allow the success message to display before closing.
-      setTimeout(() => {
-        onSuccess();
-        handleClose();
-      }, 1200);
+        setTimeout(() => {
+          onSuccess();
+          handleClose();
+        }, 1200);
 
-      return;
-    }
-      // Online Razorpay Payment flow with custom/reduced amount and due date
+        return;
+      }
+
+      // 👇 3. ONLINE RAZORPAY FLOW
       const orderInfo = await paymentService.createBalanceOrder(booking.id, {
         amount: totalPayableAmount,
         nextDueDate: isPartialPayment ? nextDueDate : undefined,
@@ -366,33 +428,46 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
 
                 {/* Razorpay Supported Instruments & Security Banner */}
                       {/* Payment Method Information Banner */}
-                {paymentMethod === 'ONLINE' ? (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl flex flex-col gap-1 text-xs">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="font-semibold text-xs">
-                        Razorpay Secure Payment
-                      </span>
-                    </div>
-
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-6">
-                      UPI • NetBanking • Credit/Debit Cards • Wallets
-                    </span>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex flex-col gap-1 text-xs">
-                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="font-semibold text-xs">
-                        Cash Payment
-                      </span>
-                    </div>
-
-                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium pl-6">
-                      Record the cash amount received from the client.
-                    </span>
-                  </div>
-                )}
+                {paymentMethod === 'ONLINE_RAZORPAY' ? (
+              /* 1. ONLINE RAZORPAY */
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl flex flex-col gap-1 text-xs">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="font-semibold text-xs">
+                    Razorpay Secure Payment
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-6">
+                  UPI • NetBanking • Credit/Debit Cards • Wallets
+                </span>
+              </div>
+            ) : paymentMethod === 'CASH' ? (
+              /* 2. CASH PAYMENT */
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex flex-col gap-1 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="font-semibold text-xs">
+                    Cash Payment
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium pl-6">
+                  Record the cash amount received from the client.
+                </span>
+              </div>
+            ) : (
+              /* 3. CHEQUE DEPOSIT */
+              <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-2xl flex flex-col gap-1 text-xs">
+                <div className="flex items-center gap-2 text-purple-800 dark:text-purple-300">
+                  <Landmark className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span className="font-semibold text-xs">
+                    Cheque Payment
+                  </span>
+                </div>
+                <span className="text-[10px] text-purple-700 dark:text-purple-400 font-medium pl-6">
+                  Bank cheque deposit. Requires SuperAdmin clearance and verification.
+                </span>
+              </div>
+            )}
               </div>
 
               {/* Right Column (7 cols): Payment Amount Selection & Options */}
@@ -502,41 +577,32 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     </span>
                   </div>
                 </div>
-               <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('ONLINE')}
-                          className={`rounded-xl border p-4 text-left ${
-                            paymentMethod === 'ONLINE'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-slate-200'
-                          }`}
-                        >
-                          <CreditCard className="mb-2 h-5 w-5" />
-                          <p className="font-bold">Online Payment</p>
-                          <p className="text-xs text-slate-500">
-                            Pay using Razorpay
-                          </p>
-                        </button>
-
-                        {isStaffOrAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod('CASH')}
-                            className={`rounded-xl border p-4 text-left ${
-                              paymentMethod === 'CASH'
-                                ? 'border-emerald-600 bg-emerald-50'
-                                : 'border-slate-200'
-                            }`}
-                          >
-                            <p className="mb-2 text-lg font-bold">₹</p>
-                            <p className="font-bold">Cash Payment</p>
-                            <p className="text-xs text-slate-500">
-                              Record cash received
-                            </p>
-                          </button>
-                        )}
-                      </div>
+              {/* Admin / Staff Mode Selector (Online / Cash / Cheque) */}
+                {isStaffOrAdmin ? (
+                  <AdminPaymentModeSelector
+                    selectedMode={paymentMethod}
+                    onSelectMode={(mode) => {
+                      setPaymentMethod(mode);
+                      setError(null);
+                    }}
+                    chequeDetails={chequeDetails}
+                    onChangeChequeDetails={setChequeDetails}
+                    disabled={isProcessing}
+                  />
+                ) : (
+                  /* Normal Client User: Only Online Razorpay */
+                  <div className="p-4 rounded-xl border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-950/20">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-blue-600" />
+                      <span className="font-bold text-sm text-slate-800 dark:text-slate-100">
+                        Online Payment (Razorpay)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Pay balance securely using UPI, Credit/Debit Cards, or Netbanking.
+                    </p>
+                  </div>
+                )}
                 {/* When paying less than total balance: Ask for Remaining Due Date */}
                 {isPartialPayment && (
                   <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 rounded-2xl space-y-2 animate-in fade-in duration-150">
@@ -592,20 +658,23 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                 Cancel
               </Button>
               <Button
-                variant="primary"
                 type="submit"
-                disabled={isProcessing || totalPayableAmount <= 0 || (isPartialPayment && !nextDueDate)}
-                leftIcon={
-                  isProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="w-4 h-4" />
-                  )
+                onClick={handleSubmitPayment}
+                disabled={
+                  isProcessing ||
+                  (isPartialPayment && !nextDueDate) ||
+                  (paymentMethod === 'CHEQUE' && (!chequeDetails.chequeNumber.trim() || !chequeDetails.bankName.trim() || !chequeDetails.chequeDate))
                 }
                 className="bg-[#012970] hover:bg-[#09539b] text-white font-bold px-5"
               >
-                 {isProcessing
-                  ? paymentMethod === "CASH" ? 'Recording Cash Payment...':'Opening Razorpay...'
+                {isProcessing
+                  ? paymentMethod === 'CHEQUE'
+                    ? 'Submitting Cheque...'
+                    : paymentMethod === 'CASH'
+                    ? 'Recording Cash Payment...'
+                    : 'Opening Razorpay...'
+                  : paymentMethod === 'CHEQUE'
+                  ? `Submit Cheque (${formatCurrency(totalPayableAmount)})`
                   : isPartialPayment
                   ? `Pay Partial Now (${formatCurrency(totalPayableAmount)})`
                   : `Pay Remaining Balance (${formatCurrency(totalPayableAmount)})`}

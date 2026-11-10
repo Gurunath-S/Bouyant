@@ -118,7 +118,7 @@ export const ClientDashboardPage: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs relative overflow-hidden transition-all">
           {/* Subtle left accent bar */}
           <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#1B37A0] dark:bg-blue-500" />
-          
+
           <button
             type="button"
             onClick={dismissWelcomeBanner}
@@ -524,3 +524,4 @@ export const ClientDashboardPage: React.FC = () => {
     </div>
   );
 };
+ 

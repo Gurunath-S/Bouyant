@@ -129,6 +129,14 @@ export interface BookingConfirmationEmailPayload {
   temporaryPassword?: string | null;
   pdfBuffer?: Buffer | null;
   paymentMode?: string;
+  isPendingCheque?: boolean;
+  chequeDetails?: {
+    chequeNumber: string;
+    bankName: string;
+    chequeDate: string;
+  };
+  isRejectedCheque?:boolean
+  rejectionReason?:string
 }
 
 export interface PaymentAdminEmailPayload {
@@ -155,6 +163,14 @@ export interface PaymentAdminEmailPayload {
   notificationEmails: string[];
   pdfBuffer?: Buffer | null;
   paymentMode?: string;
+  isPendingCheque?: boolean;
+  chequeDetails?: {
+    chequeNumber: string;
+    bankName: string;
+    chequeDate: string;
+  },
+  isRejectedCheque?:boolean,
+  rejectionReason?:string,
 }
 
 export interface InvoiceEmailPayload {
@@ -221,11 +237,53 @@ export class EmailService {
     });
   }
 
+    // 📑 Reusable Cheque Details Card for both User & Admin Emails
+  private static renderChequeDetailsBox(chequeDetails?: {
+    chequeNumber: string;
+    bankName: string;
+    chequeDate: string;
+  }, amount?: number): string {
+    if (!chequeDetails || !chequeDetails.chequeNumber) return '';
+
+    return `
+      <div style="background:#faf5ff; border:1px solid #d8b4fe; border-radius:12px; padding:18px; margin:20px 0;">
+        <h4 style="margin:0 0 12px 0; color:#6b21a8; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid #e9d5ff; padding-bottom:6px;">
+          📑 Cheque Deposit Details
+        </h4>
+        <table class="mobile-table" width="100%" cellpadding="4" cellspacing="0" style="font-size:13px;">
+          <tr>
+            <td style="color:#6b21a8; font-weight:600; width:45%;">Cheque Number</td>
+            <td align="right" style="color:#1e1b4b; font-family:monospace; font-weight:800; font-size:14px; width:55%;">${escapeHtml(chequeDetails.chequeNumber)}</td>
+          </tr>
+          <tr>
+            <td style="color:#6b21a8; font-weight:600;">Bank & Branch</td>
+            <td align="right" style="color:#1e1b4b; font-weight:700;">${escapeHtml(chequeDetails.bankName)}</td>
+          </tr>
+          <tr>
+            <td style="color:#6b21a8; font-weight:600;">Cheque Date</td>
+            <td align="right" style="color:#1e1b4b; font-weight:700;">${escapeHtml(chequeDetails.chequeDate)}</td>
+          </tr>
+          ${amount ? `
+          <tr>
+            <td style="color:#6b21a8; font-weight:600;">Cheque Amount</td>
+            <td align="right" style="color:#6b21a8; font-weight:800; font-size:14px;">₹${this.formatINR(amount)}</td>
+          </tr>` : ''}
+        </table>
+      </div>
+    `;
+  }
+
   static async sendBookingConfirmationEmail(payload: BookingConfirmationEmailPayload) {
     const isPartialPayment = payload.remainingBalance > 0;
     const isBalancePayment = Boolean(payload.isBalancePayment);
+    const isPendingCheque = Boolean(payload.isPendingCheque);
+    const isRejectedCheque = Boolean(payload.isRejectedCheque);
 
-    const emailSubject = isBalancePayment
+       const emailSubject = isRejectedCheque
+      ? `Action Required: Cheque Payment Rejected - ${payload.bookingReference} - ${payload.exhibitionTitle}`
+      : isPendingCheque
+      ? `Booking Received (Cheque Verification Pending) - ${payload.bookingReference}`
+      : isBalancePayment
       ? (isPartialPayment
           ? `Payment Received (Balance Pending) - ${payload.bookingReference}`
           : `Payment Received (Fully Settled) - ${payload.bookingReference}`)
@@ -233,11 +291,20 @@ export class EmailService {
           ? `Booking Confirmed (Advance Payment) - ${payload.bookingReference}`
           : `Booking Confirmed - ${payload.bookingReference}`);
 
-    const headerTitle = isBalancePayment
+        const headerTitle = isRejectedCheque
+      ? 'Cheque Payment Rejected ⚠️'
+      : isPendingCheque
+      ? 'Cheque Verification Pending ⏳'
+      : isBalancePayment
       ? (isPartialPayment ? 'Payment Received 💳' : 'Payment Received — Fully Settled 🎉')
       : 'Booking Confirmed 🎉';
 
-    const paymentText = isBalancePayment
+       // 👇 Inga isRejectedCheque FIRST add pannikonga:
+    const paymentText = isRejectedCheque
+      ? 'Payment Rejected (Cheque Bounced / Declined) ❌'
+      : isPendingCheque
+      ? 'Cheque Deposit (Pending Verification) ⏳'
+      : isBalancePayment
       ? (isPartialPayment
           ? `Partial Balance Payment (${payload.paymentPercentage}% Paid)`
           : 'Balance Settled (100% Paid)')
@@ -252,12 +319,16 @@ export class EmailService {
     const safeExhibitionTitle = escapeHtml(payload.exhibitionTitle);
     const safeBookingReference = escapeHtml(payload.bookingReference);
 
-    const introText = isBalancePayment
+   
+ const introText = isRejectedCheque
+      ? `We regret to inform you that your cheque payment of <strong>₹${this.formatINR(payload.paymentAmount)}</strong> towards booking <strong>${safeBookingReference}</strong> for <strong>${safeExhibitionTitle}</strong> could not be cleared.<br/><br/><div style="padding:10px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#b91c1c; font-size:13px;"><strong>Rejection Reason:</strong> ${escapeHtml(payload.rejectionReason || 'Cheque bounced or details mismatch')}<br/><br/><em>Please arrange an alternative payment method or contact exhibition support to secure your stall(s).</em></div>` 
+ : isPendingCheque
+      ? `Thank you for submitting your booking for <strong>${safeExhibitionTitle}</strong>. We have recorded your cheque deposit details. Your stall(s) have been reserved and will be officially confirmed upon clearance and verification by SuperAdmin.`
+      : isBalancePayment
       ? (isPartialPayment
           ? `We have successfully received your installment/balance payment of <strong>₹${this.formatINR(payload.paymentAmount)}</strong> towards booking <strong>${safeBookingReference}</strong> for <strong>${safeExhibitionTitle}</strong>. Your updated payment summary and remaining balance are detailed below.`
           : `We have successfully received your final balance payment of <strong>₹${this.formatINR(payload.paymentAmount)}</strong> towards booking <strong>${safeBookingReference}</strong> for <strong>${safeExhibitionTitle}</strong>. Your booking is now <strong>fully settled and confirmed</strong>.`)
       : `Thank you for reserving stall(s) at <strong>${safeExhibitionTitle}</strong>. Your payment has been successfully processed and your reservation is confirmed.`;
-
     const html = `
       <!DOCTYPE html>
       <html>
@@ -286,7 +357,7 @@ export class EmailService {
               <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 24px;">
                 ${introText}
               </p>
-
+              ${this.renderChequeDetailsBox(payload.chequeDetails, payload.paymentAmount)}
               <!-- BOOKING SUMMARY BOX -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:24px;">
                 <h3 style="font-size:12px; font-weight:800; color:#012970; text-transform:uppercase; letter-spacing:0.8px; margin:0 0 14px; border-bottom:1px solid #cbd5e1; padding-bottom:8px;">
@@ -323,10 +394,27 @@ export class EmailService {
                       ${escapeHtml(payload.paymentMode || 'Not specified')}
                     </td>
                   </tr>
+                                    <!-- 1. ACTUAL AMOUNT PAID ROW -->
                   <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">${isBalancePayment ? 'Amount Paid (This Payment)' : 'Amount Paid'}</td>
-                    <td align="right" style="color:#059669; font-weight:800; font-size:14px; vertical-align:top;">₹${this.formatINR(payload.paymentAmount)}</td>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">
+                      ${isRejectedCheque ? 'Actual Amount Paid' : isBalancePayment ? 'Amount Paid (This Payment)' : 'Amount Paid'}
+                    </td>
+                    <td align="right" style="color:${isRejectedCheque ? '#475569' : '#059669'}; font-weight:800; font-size:14px; vertical-align:top;">
+                      ₹${this.formatINR(isRejectedCheque ? (payload.totalPaidAmount ?? 0) : payload.paymentAmount)}
+                    </td>
                   </tr>
+
+                  <!-- 2. REJECTED CHEQUE AMOUNT ROW (Only if Rejected) -->
+                  ${isRejectedCheque ? `
+                  <tr>
+                    <td style="color:#dc2626; font-weight:600; vertical-align:top;">
+                      Rejected Cheque Amount
+                    </td>
+                    <td align="right" style="color:#dc2626; font-weight:800; font-size:14px; vertical-align:top;">
+                      - ₹${this.formatINR(payload.paymentAmount)}
+                    </td>
+                  </tr>
+                  ` : ''}
                   ${payload.grandTotal ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Booking Amount</td>
@@ -352,7 +440,13 @@ export class EmailService {
                   `}
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice Number</td>
-                    <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">${payload.invoiceNumber}</td>
+                    <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">
+                      ${isRejectedCheque 
+                        ? '<span style="color:#dc2626; font-weight:600;">N/A (Payment Rejected)</span>' 
+                        : isPendingCheque 
+                        ? 'Pending Verification' 
+                        : payload.invoiceNumber}
+                    </td>
                   </tr>
                 </table>
               </div>
@@ -443,11 +537,17 @@ export class EmailService {
 
   static async sendPaymentAdminEmail(payload: PaymentAdminEmailPayload) {
     if (!payload.notificationEmails || payload.notificationEmails.length === 0) return true;
-
+    const isPendingCheque = Boolean(payload.isPendingCheque);
     console.log(`📢 [EMAIL SERVICE] Sending admin payment alert to: ${payload.notificationEmails.join(', ')}`);
+   const isRejectedCheque = Boolean(payload.isRejectedCheque);
 
     const isPartialPayment = payload.remainingBalance > 0;
-    const paymentStatusText = isPartialPayment
+       // 👇 Admin email-layum isRejectedCheque first check:
+    const paymentStatusText = isRejectedCheque
+      ? 'Cheque Payment Rejected ❌'
+      : isPendingCheque
+      ? 'Cheque Verification Required (Pending) ⏳'
+      : isPartialPayment
       ? `Partial Payment (${payload.paymentPercentage}%)`
       : 'Full Payment (100%)';
 
@@ -458,6 +558,17 @@ export class EmailService {
     const safeEmail = payload.email ? escapeHtml(payload.email) : '';
     const safePhone = payload.phone ? escapeHtml(payload.phone) : '';
     const safeGstNumber = payload.gstNumber ? escapeHtml(payload.gstNumber) : '';
+    const adminHeaderTitle = isRejectedCheque
+      ? 'Cheque Payment Rejected ❌'
+      : isPendingCheque
+      ? 'Cheque Deposit Received ⏳'
+      : 'New Payment Received 💳';
+    // 👇 3. Dynamic Admin Intro Text
+    const adminIntroText = isRejectedCheque
+      ? `The cheque payment for stall booking <strong>${safeBookingReference}</strong> by <strong>${safeCompanyName}</strong> has been <strong>REJECTED</strong> in the system.<br/><br/><div style="padding:10px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#b91c1c; font-size:13px;"><strong>Reason:</strong> ${escapeHtml(payload.rejectionReason || 'Cheque bounced or invalid details')}</div>`
+      : isPendingCheque
+      ? `A new booking has requested payment via <strong>Cheque</strong> for booking <strong>${safeBookingReference}</strong> in <strong>${safeExhibitionTitle}</strong>. Please verify the funds clearance in your bank account and approve it in the SuperAdmin Payments dashboard.`
+      : `A new payment has been processed for stall booking <strong>${safeBookingReference}</strong> in <strong>${safeExhibitionTitle}</strong>.`;
 
     const html = `
       <!DOCTYPE html>
@@ -477,14 +588,13 @@ export class EmailService {
           <div style="max-width:580px; margin:20px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
             <div class="mobile-header" style="background:#4338ca; padding:24px 32px; color:#ffffff;">
               <span style="background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; uppercase; letter-spacing:0.5px;">EXHIBITION ADMIN ALERT</span>
-              <h1 style="margin:8px 0 0; font-size:20px; font-weight:800;">New Payment Received 💳</h1>
+            <!-- Replace: <h1 style="margin:8px 0 0; font-size:20px; font-weight:800;">New Payment Received 💳</h1> -->
+              <h1 style="margin:8px 0 0; font-size:20px; font-weight:800;">${adminHeaderTitle}</h1>
               <p style="margin:4px 0 0; color:#c7d2fe; font-size:13px; font-weight:500;">${safeExhibitionTitle}</p>
             </div>
 
             <div class="mobile-padding" style="padding:24px 32px;">
-              <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">
-                A new payment has been processed for stall booking <strong>${safeBookingReference}</strong> in <strong>${safeExhibitionTitle}</strong>.
-              </p>
+            <p style="font-size:14px; line-height:1.6; color:#475569; margin:0 0 20px;">${adminIntroText}</p>
 
               <!-- EXHIBITOR DETAILS -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; margin-bottom:18px;">
@@ -516,7 +626,7 @@ export class EmailService {
                   </tr>` : ''}
                 </table>
               </div>
-
+                 ${this.renderChequeDetailsBox(payload.chequeDetails, payload.paymentAmount)}
               <!-- TRANSACTION & STALL DETAILS -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; margin-bottom:20px;">
                 <h3 style="font-size:11px; font-weight:800; color:#4338ca; text-transform:uppercase; letter-spacing:0.8px; margin:0 0 12px; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">TRANSACTION & STALL DETAILS</h3>
@@ -587,10 +697,16 @@ export class EmailService {
           ]
         : [];
 
+    const adminSubject = isRejectedCheque
+      ? `Alert: Cheque Payment Rejected - ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`
+      : isPendingCheque
+      ? `Action Required: Cheque Verification Pending - ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`
+      : `Payment Received: ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`;
+
       await getEmailTransporter().sendMail({
         from: `"Buoyant Media Admin Alert" <${user}>`,
         to: payload.notificationEmails.join(','),
-        subject: `Payment Received: ${payload.companyName} (${payload.bookingReference}) - ${payload.exhibitionTitle}`,
+        subject: adminSubject,
         html,
         attachments,
       });
