@@ -1,5 +1,9 @@
 {
-  "plugins": ["react", "typescript", "import"],
+  "plugins": [
+    "react",
+    "typescript",
+    "import"
+  ],
   "rules": {
     "eslint/no-unused-vars": [
       "warn",
@@ -8,7 +12,13 @@
         "varsIgnorePattern": "^_",
         "caughtErrorsIgnorePattern": "^_"
       }
-    ]
+    ],
+    "react/set-state-in-effect": "off",
+    "react/incompatible-library": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/immutability": "off",
+    "react/refs": "off",
+    "react/purity": "off"
   },
   "ignorePatterns": [
     "**/dist/**",

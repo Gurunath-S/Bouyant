@@ -430,7 +430,7 @@ export const searchCuratedVenuesAndHalls = (query: string, cityName?: string): S
 
     const cityMatches = !cleanCity || normalizeQuery(venue.city).includes(cleanCity) || cleanCity.includes(normalizeQuery(venue.city));
 
-    if (venueMatches) {
+    if (venueMatches && cityMatches) {
       // Add the main venue itself
       results.push({
         id: venue.id,

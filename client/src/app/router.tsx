@@ -39,7 +39,6 @@ const SuperAdminUsersPage = lazy(() => import('../features/super-admin/pages/Sup
 const UserGovernanceDetailPage = lazy(() => import('../features/super-admin/pages/UserGovernanceDetailPage').then(m => ({ default: m.UserGovernanceDetailPage })));
 const StaffDashboardPage = lazy(() => import('../features/staff/pages/StaffDashboardPage').then(m => ({ default: m.StaffDashboardPage })));
 const StaffRegisterEventPage = lazy(() => import('../features/staff/pages/StaffRegisterEventPage').then(m => ({ default: m.StaffRegisterEventPage })));
-const StaffEventsPage = lazy(() => import('../features/staff/pages/StaffEventsPage').then(m => ({ default: m.StaffEventsPage })));
 const ReportsPage = lazy(() => import('../features/reports/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 
 const WorkspaceUserDetailRedirect = () => {

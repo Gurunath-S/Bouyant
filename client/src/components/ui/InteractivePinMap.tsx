@@ -219,6 +219,8 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
     return [11.0168, 76.9558]; // Coimbatore default or Mumbai
   }, [latitude, longitude, venueName, cityName]);
 
+  const reverseGeocodeRef = useRef<(lat: number, lng: number) => void>(() => {});
+
   // Marker helper
   const updateMarkerPosition = useCallback(
     (lat: number, lng: number, label?: string) => {
@@ -237,7 +239,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
           marker.on('dragend', () => {
             const pos = marker.getLatLng();
             setCurrentCoords({ lat: pos.lat, lng: pos.lng });
-            reverseGeocode(pos.lat, pos.lng);
+            reverseGeocodeRef.current(pos.lat, pos.lng);
           });
         }
 
@@ -314,7 +316,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
         if (onChangeCoordinatesRef.current && !readOnly) {
           onChangeCoordinatesRef.current(lat, lng);
         }
-      } catch (err) {
+      } catch (_err) {
         if (nearbyPreset && onSyncAddressRef.current && !readOnly) {
           onSyncAddressRef.current({
             venue: nearbyPreset.name,
@@ -335,6 +337,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
     },
     [readOnly, cityName, stateName]
   );
+  reverseGeocodeRef.current = reverseGeocode;
 
   // Initialize Map with full zooming and panning enabled
   useEffect(() => {
@@ -505,7 +508,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
         }
       }
     }
-  }, [latitude, longitude, venueName, updateMarkerPosition]);
+  }, [latitude, longitude, venueName, updateMarkerPosition, currentCoords.lat, currentCoords.lng]);
 
   // ONLY move the map when the user genuinely changes venueName or cityName in the form inputs
   useEffect(() => {
@@ -597,7 +600,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
             }
           }
         }
-      } catch (err) {
+      } catch (_err) {
         // silent
       }
     }, 250);
@@ -666,7 +669,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
         if (combinedResults.length > 0) {
           setShowDropdown(true);
         }
-      } catch (err) {
+      } catch (_err) {
         // silent
       }
     }, 150);
