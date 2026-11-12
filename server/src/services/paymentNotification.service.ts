@@ -283,19 +283,25 @@ static async sendPaymentEmails(emailData: {
       );
     }
 
-       try {
-            await WhatsappService.sendBookingConfirmation({
-                booking,
-                payment,
-                invoice,
-                paymentAmount: paymentAmount.toNumber(),
-            });
-            } catch (err: any) {
-            console.error(
-                'WhatsApp booking confirmation failed:',
-                err?.message || err
-            );
-         }
+         //  Only for confirmed successful payments with an invoice (Cash, Online, or Verified Cheque!)
+      const isPendingCheque = payment.paymentMode === 'CHEQUE' && payment.status === 'PENDING';
+      const canSendWhatsapp = !isPendingCheque && !isRejectedCheque && payment.status === 'SUCCESS' && invoice !== null;
+
+      if (canSendWhatsapp) {
+        try {
+          // await WhatsappService.sendBookingConfirmation({
+          //   booking,
+          //   payment,
+          //   invoice,
+          //   paymentAmount: paymentAmount.toNumber(),
+          // });
+        } catch (err: any) {
+          console.error(
+            'WhatsApp booking confirmation failed:',
+            err?.message || err
+          );
+        }
+      }
   });
 }
 

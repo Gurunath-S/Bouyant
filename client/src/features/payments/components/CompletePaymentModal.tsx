@@ -265,8 +265,10 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             bankName: chequeDetails.bankName.trim(),
             chequeDate: chequeDetails.chequeDate,
             referenceNote: chequeDetails.referenceNote?.trim() || undefined,
+                
           },
           nextDueDate: isPartialPayment ? nextDueDate : undefined,
+           paymentType: paymentOption === 'full' ? 'FULL' : 'PARTIAL',
         });
 
         setSuccessMessage(

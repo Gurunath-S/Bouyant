@@ -54,21 +54,27 @@ export const CreateBookingSchema = z.object({
   billingState: z.string().trim().nullable().optional(),
   billingPinCode: z.string().trim().nullable().optional(),
   billingCountry: z.string().trim().nullable().optional(),
-  paymentReminderDate: z
-    .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      'Payment reminder date must be in YYYY-MM-DD format'
-    )
-    .refine((value) => {
-      const date = new Date(`${value}T00:00:00.000Z`);
-      return (
-        !Number.isNaN(date.getTime()) &&
-        date.toISOString().slice(0, 10) === value
-      );
-    }, 'Invalid payment reminder date')
-    .nullable()
-    .optional(),
+    paymentReminderDate: z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}$/,
+    'Payment reminder date must be in YYYY-MM-DD format'
+  )
+  .refine((val) => {
+    // 1. Real Calendar date check (rejects fake dates like Feb 30, April 31)
+    const date = new Date(`${val}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString().slice(0, 10) === val
+    );
+  }, 'Invalid payment reminder date')
+  .refine((val) => {
+    // 2. Not in the past check (Today or future date only)
+    const today = new Date().toISOString().slice(0, 10);
+    return val >= today;
+  }, 'Payment reminder date cannot be in the past')
+  .nullable()
+  .optional(),
       // Cheque payment details (optional)
   chequeDetails: z
   .object({
@@ -88,7 +94,20 @@ export const CreateBookingSchema = z.object({
       .regex(
         /^\d{4}-\d{2}-\d{2}$/,
         'Cheque date must be in YYYY-MM-DD format'
-      ),
+      )
+      .refine((val) => {
+        // 1. Real Calendar date check (rejects invalid dates like 2026-02-30)
+        const date = new Date(`${val}T00:00:00.000Z`);
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date.toISOString().slice(0, 10) === val
+        );
+      }, 'Invalid cheque date')
+      .refine((val) => {
+        // 2. Today or Future date check (cannot be in the past)
+        const today = new Date().toISOString().slice(0, 10);
+        return val >= today;
+      }, 'Cheque date cannot be in the past. It must be today or a future date'),
 
     referenceNote: z
       .string()

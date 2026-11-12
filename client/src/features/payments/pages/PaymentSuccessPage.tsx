@@ -24,6 +24,8 @@ import {
   Phone,
   Globe,
   FileText,
+  Clock,
+  Landmark,
 } from 'lucide-react';
 
 export const PaymentSuccessPage: React.FC = () => {
@@ -43,24 +45,28 @@ export const PaymentSuccessPage: React.FC = () => {
         .getPublicBookingSummary(bookingId)
         .then((data) => {
           setBooking(data);
-          // Dual corner party-popper confetti burst
-          try {
-            confetti({
-              particleCount: 50,
-              angle: 60,
-              spread: 55,
-              origin: { x: 0.15, y: 0.2 },
-              disableForReducedMotion: true,
-            });
-            confetti({
-              particleCount: 50,
-              angle: 120,
-              spread: 55,
-              origin: { x: 0.85, y: 0.2 },
-              disableForReducedMotion: true,
-            });
-          } catch (_e) {
-            // Ignore if confetti is disabled/unsupported
+
+          // Only burst celebratory confetti if payment is already confirmed or completed
+          const isChequePending = data?.payments?.[0]?.paymentMode === 'CHEQUE' && data?.payments?.[0]?.status === 'PENDING';
+          if (!isChequePending) {
+            try {
+              confetti({
+                particleCount: 50,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0.15, y: 0.2 },
+                disableForReducedMotion: true,
+              });
+              confetti({
+                particleCount: 50,
+                angle: 120,
+                spread: 55,
+                origin: { x: 0.85, y: 0.2 },
+                disableForReducedMotion: true,
+              });
+            } catch (_e) {
+              // Ignore if confetti is disabled/unsupported
+            }
           }
         })
         .catch((err) => console.error('Failed to load public booking summary:', err))
@@ -88,13 +94,25 @@ export const PaymentSuccessPage: React.FC = () => {
   const paidAmount = Number(booking?.paidAmount || (booking?.paymentStatus === 'PAID_FULL' || booking?.paymentStatus === 'SUCCESS' ? grandTotal : 0));
   const pendingBalance = Math.max(0, Number(booking?.balanceAmount ?? (grandTotal - paidAmount)));
 
+  // Latest Payment Record & Cheque Status
+  const latestPayment = booking?.payments && booking.payments.length > 0 
+    ? booking.payments[booking.payments.length - 1] 
+    : null;
+
+  const paymentMode = latestPayment?.paymentMode || 'ONLINE';
+  const isCheque = paymentMode === 'CHEQUE';
+  const isPendingCheque = isCheque && (latestPayment?.status === 'PENDING' || booking?.status === 'PENDING_CHEQUE_VERIFICATION');
+
   const isFullyPaid = pendingBalance === 0 && paidAmount > 0;
   const isPartialPayment = paidAmount > 0 && pendingBalance > 0;
 
   let paymentStatusBadgeText = 'PENDING';
   let badgeStyle = 'bg-amber-100 text-amber-800 border-amber-200';
 
-  if (isFullyPaid) {
+  if (isPendingCheque) {
+    paymentStatusBadgeText = 'Cheque';
+    badgeStyle = 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800';
+  } else if (isFullyPaid) {
     paymentStatusBadgeText = 'Successful';
     badgeStyle = 'bg-emerald-600 text-white border-emerald-600';
   } else if (isPartialPayment) {
@@ -102,20 +120,29 @@ export const PaymentSuccessPage: React.FC = () => {
     badgeStyle = 'bg-blue-600 text-white border-blue-600';
   }
 
-  const invoiceNumber = booking?.invoices?.[0]?.invoiceNumber || `INV-${booking?.bookingReference || '2026'}`;
-  const bookingDate = booking?.createdAt ? new Date(booking.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
-  const paymentMethod = booking?.payments?.[0]?.paymentMode || 'Online Payment';
-  
+  const invoiceNumber = isPendingCheque 
+    ? 'Awaiting Verification' 
+    : (booking?.invoices?.[0]?.invoiceNumber || `INV-${booking?.bookingReference || '2026'}`);
+
+  const bookingDate = booking?.createdAt 
+    ? new Date(booking.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) 
+    : new Date().toLocaleDateString('en-IN');
+
+  const paymentMethodLabel = isCheque 
+    ? 'Bank Cheque Deposit' 
+    : (latestPayment?.paymentMode || 'Online Payment');
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       {/* HEADER BANNER */}
       <div className="mb-6 text-center space-y-1.5">
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-          Booking Confirmed
+          {isPendingCheque ? 'Booking Received — Cheque Pending' : 'Booking Confirmed'}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-          Thank you for registering.
+          {isPendingCheque 
+            ? 'Your cheque deposit has been recorded and is currently awaiting clearance verification.'
+            : 'Thank you for registering. Your stall booking is confirmed.'}
         </p>
       </div>
 
@@ -190,12 +217,12 @@ export const PaymentSuccessPage: React.FC = () => {
                   <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                   <span><strong>Contact:</strong> {booking?.company?.contactPerson || booking?.contactPerson || booking?.user?.name || 'N/A'}</span>
                 </div>
-             <div className="flex items-start gap-1.5">
-               <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400 mt-0.5" />
-               <span className="break-all" title={userEmail || ''}>
-                <strong>Email:</strong> {userEmail || 'N/A'}
-               </span>
-            </div>
+                <div className="flex items-start gap-1.5">
+                  <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400 mt-0.5" />
+                  <span className="break-all" title={userEmail || ''}>
+                    <strong>Email:</strong> {userEmail || 'N/A'}
+                  </span>
+                </div>
                 {(booking?.company?.phone || booking?.contactPhone || booking?.phone) && (
                   <div className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -242,17 +269,25 @@ export const PaymentSuccessPage: React.FC = () => {
 
             {/* HEADER SECTION */}
             <div className="pt-8 pb-5 px-6 text-center space-y-3">
-              {/* Green Circular Success Icon */}
-              <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/25">
-                <Check className="w-9 h-9 stroke-[3]" />
-              </div>
+              {/* Dynamic Header Icon: Purple Clock for Cheque, Green Tick for Online/Cash */}
+              {isPendingCheque ? (
+                <div className="w-16 h-16 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-600/25">
+                  <Clock className="w-9 h-9 stroke-[2.5]" />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/25">
+                  <Check className="w-9 h-9 stroke-[3]" />
+                </div>
+              )}
 
               <div className="space-y-1">
                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  Payment Successful
+                  {isPendingCheque ? 'Cheque Verification in Progress' : 'Payment Successful'}
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Your booking has been confirmed successfully.
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium max-w-xs mx-auto">
+                  {isPendingCheque
+                    ? 'Your cheque deposit details have been recorded. Stall reservation will be confirmed once cleared by SuperAdmin.'
+                    : 'Your booking has been confirmed successfully.'}
                 </p>
               </div>
             </div>
@@ -278,10 +313,61 @@ export const PaymentSuccessPage: React.FC = () => {
                 </span>
               </div>
 
+              {/* 👇 CHEQUE DETAILS CARD (Only visible when payment is Cheque) */}
+              {isCheque && (latestPayment?.chequeNumber || latestPayment?.bankName) && (
+                <div className="p-3.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/70 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 text-xs">
+                      <Landmark className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      Cheque Information
+                    </span>
+                    <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 rounded-full">
+                      Awaiting Clearance
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] pt-1.5 border-t border-purple-200/60 dark:border-purple-800/40">
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Cheque Number</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {latestPayment.chequeNumber || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Cheque Date</span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {latestPayment.chequeDate 
+                          ? new Date(latestPayment.chequeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2">
+                      <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Bank & Branch</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {latestPayment.bankName || 'N/A'}
+                      </span>
+                    </div>
+
+                    {latestPayment.referenceNote && (
+                      <div className="col-span-2 pt-0.5">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Reference Note</span>
+                        <span className="text-slate-700 dark:text-slate-300 italic">
+                          {latestPayment.referenceNote}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2 text-slate-600 dark:text-slate-300">
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500 dark:text-slate-400 font-medium">Invoice Number</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{invoiceNumber}</span>
+                  <span className={`font-mono font-bold ${isPendingCheque ? 'text-amber-600 dark:text-amber-400 text-[11px]' : 'text-slate-900 dark:text-slate-100'}`}>
+                    {invoiceNumber}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center py-1">
@@ -291,7 +377,7 @@ export const PaymentSuccessPage: React.FC = () => {
 
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500 dark:text-slate-400 font-medium">Payment Method</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{paymentMethod}</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{paymentMethodLabel}</span>
                 </div>
 
                 <div className="flex justify-between items-center py-1">
@@ -329,13 +415,15 @@ export const PaymentSuccessPage: React.FC = () => {
                   </div>
 
                   <div className="flex justify-between items-center text-xs font-semibold pt-1">
-                    <span className="text-slate-600 dark:text-slate-400">Amount Paid</span>
-                    <span className="font-mono text-slate-900 dark:text-slate-100">
-                      ₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {isPendingCheque ? 'Cheque Amount (Submitted)' : 'Amount Paid'}
+                    </span>
+                    <span className={`font-mono ${isPendingCheque ? 'text-purple-600 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                      ₹{(isPendingCheque ? Number(latestPayment?.amount || grandTotal) : paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
-                  {pendingBalance > 0 && (
+                  {pendingBalance > 0 && !isPendingCheque && (
                     <div className="flex justify-between items-center text-xs font-semibold text-rose-600 dark:text-rose-400">
                       <span>Pending Balance</span>
                       <span className="font-mono">
@@ -346,7 +434,7 @@ export const PaymentSuccessPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* EXHIBITOR PORTAL ACCOUNT NOTICE (Only for guest/unauthenticated users) */}
+              {/* EXHIBITOR PORTAL ACCOUNT NOTICE */}
               {!isAuthenticated && (
                 <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-200/70 dark:border-slate-700/60 space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
@@ -368,7 +456,11 @@ export const PaymentSuccessPage: React.FC = () => {
                     variant="primary"
                     size="md"
                     leftIcon={<CheckCircle2 className="w-4.5 h-4.5 shrink-0" />}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center cursor-pointer"
+                    className={`w-full text-white font-extrabold text-sm py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center cursor-pointer ${
+                      isPendingCheque 
+                        ? 'bg-purple-600 hover:bg-purple-700' 
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
                     onClick={() => {
                       navigate(getDashboardUrl(user?.role));
                     }}
@@ -412,18 +504,37 @@ export const PaymentSuccessPage: React.FC = () => {
               <span>Next Steps</span>
             </div>
             <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                <span>Check email for booking confirmation and portal login details.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                <span>Access Exhibitor Portal to submit company profile.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                <span>Download tax invoice PDF from Exhibitor Portal.</span>
-              </li>
+              {isPendingCheque ? (
+                <>
+                  <li className="flex items-start gap-2">
+                    <Clock className="w-3.5 h-3.5 text-purple-500 mt-0.5 shrink-0" />
+                    <span>SuperAdmin will verify cheque clearance with the bank.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-purple-500 mt-0.5 shrink-0" />
+                    <span>Stall is reserved under pending approval status.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-purple-500 mt-0.5 shrink-0" />
+                    <span>Official tax invoice PDF will be issued upon clearance.</span>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>Check email for booking confirmation and portal login details.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>Access Exhibitor Portal to submit company profile.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>Download tax invoice PDF from Exhibitor Portal.</span>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -446,7 +557,3 @@ export const PaymentSuccessPage: React.FC = () => {
     </div>
   );
 };
-
-
-
-
