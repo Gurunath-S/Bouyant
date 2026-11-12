@@ -120,7 +120,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const viewBoxWidth = Math.max(1140, contentBounds.maxX + 40);
   const viewBoxHeight = Math.max(730, contentBounds.maxY + 40);
   const height = propHeight || Math.round(width * (viewBoxHeight / viewBoxWidth));
-  const pxPerMeter = layoutData?.gridSize || 20;
+  const _pxPerMeter = layoutData?.gridSize || 20;
 
   // Center floor plan at 100% zoom (locked scale so user only moves around the floor plan)
   const _handleFitToScreen = useCallback(() => {
@@ -428,12 +428,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   const panMoveRef = useRef(handleMouseMove);
+  panMoveRef.current = handleMouseMove;
   const panUpRef = useRef(handleMouseUp);
-
-  useEffect(() => {
-    panMoveRef.current = handleMouseMove;
-    panUpRef.current = handleMouseUp;
-  }, [handleMouseMove, handleMouseUp]);
+  panUpRef.current = handleMouseUp;
 
   // Window-level mouse move & mouse up to ensure panning never gets stuck or interrupted by browser
   useEffect(() => {

@@ -18,7 +18,6 @@ import {
   CalendarPlus,
   Calendar,
   Search,
-  UserPlus,
   RefreshCw,
   PlusCircle,
   Eye,
@@ -359,9 +358,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
   const publishedExhibitions = exhibitions.filter((e) => e.status === 'PUBLISHED').length;
   const totalAdminRegistrations = adminBookings.length;
   const totalAdminValue = adminBookings.reduce((sum, b) => sum + (Number(b.grandTotal) || 0), 0);
-
-  // Readable desk scope label
-  const deskLabel = deskScope === 'MY_DESK' ? 'My Registrations' : 'All Team Registrations';
 
   // Booking source display helper
   const getSourceBadge = (source?: string) => {

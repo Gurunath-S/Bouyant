@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   Loader2,
   Search,
-  MapPin,
   X,
 } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { bookingService } from '../../../services/bookings/bookingService';
@@ -9,19 +9,16 @@ import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/B
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
-import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
+import { formatDisplayDateTime } from '../../../utils/date';
 import {
   Layers,
-  Calendar,
   Building,
-  MapPin,
   ArrowRight,
   Briefcase,
   Users,
   CreditCard,
   Download,
   Eye,
-  UserPlus,
   Filter,
   TrendingUp,
 } from 'lucide-react';
@@ -74,13 +71,16 @@ export const StaffDashboardPage: React.FC = () => {
     }
   }
 
+  const selectedExhibitionIdRef = useRef(selectedExhibitionId);
+  selectedExhibitionIdRef.current = selectedExhibitionId;
+
   useEffect(() => {
     fetchExhibitionsList();
     fetchStaffDashboardData('ALL');
 
     const onFocus = () => {
       fetchExhibitionsList();
-      fetchStaffDashboardData(selectedExhibitionId);
+      fetchStaffDashboardData(selectedExhibitionIdRef.current);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);

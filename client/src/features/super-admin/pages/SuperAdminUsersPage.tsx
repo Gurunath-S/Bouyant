@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { userService } from '../../../services/users/userService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
-import { AdminStaffUser, CreateAdminStaffPayload, CreateUserPayload, UpdateUserPayload, Exhibition } from '../../../types';
+import { AdminStaffUser, CreateUserPayload, UpdateUserPayload, Exhibition } from '../../../types';
 import { PAGE_ACCESS_ITEMS, DEFAULT_ROLE_PAGE_ACCESS, getUserEffectivePageAccess } from '../../../config/pageAccess';
 import { Button } from '../../../components/ui/Button';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
@@ -29,14 +29,12 @@ import {
   TrendingUp,
   Building2,
   Calendar,
-  Globe2,
   Lock,
   Shield,
   Briefcase,
   AlertCircle,
   CheckSquare,
   Square,
-  Check,
   ExternalLink,
   X,
   Trash2,
@@ -119,8 +117,8 @@ export const SuperAdminUsersPage: React.FC = () => {
     CLIENT: 0,
   });
   const [publishedEvents, setPublishedEvents] = useState<Exhibition[]>([]);
+  const [_loadingEvents, setLoadingEvents] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadingEvents, setLoadingEvents] = useState(true);
 
   // Filters
   const [activeTab, setActiveTab] = useState<string>('ALL');

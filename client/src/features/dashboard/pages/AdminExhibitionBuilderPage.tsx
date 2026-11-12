@@ -501,7 +501,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     }
 
     return true;
-  }, [basicInfo, existingEvents, id]);
+  }, [basicInfo, existingEvents, id, eventDbId]);
 
   const handleContinueToStep2 = useCallback(() => {
     if (isViewMode) {
@@ -627,7 +627,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     } finally {
       setIsLoadingEvent(false);
     }
-  }, []);
+  }, [user?.spcode]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {

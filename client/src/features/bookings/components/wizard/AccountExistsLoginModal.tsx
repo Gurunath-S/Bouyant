@@ -4,7 +4,7 @@ import { Input } from '../../../../components/ui/Input';
 import { Button } from '../../../../components/ui/Button';
 import { authService } from '../../../../services/auth/authService';
 import { User } from '../../../../types';
-import { Lock, Mail, KeyRound, Eye, EyeOff, LogIn, AlertTriangle } from 'lucide-react';
+import { Lock, KeyRound, Eye, EyeOff, LogIn, AlertTriangle } from 'lucide-react';
 
 export interface AccountExistsLoginModalProps {
   isOpen: boolean;

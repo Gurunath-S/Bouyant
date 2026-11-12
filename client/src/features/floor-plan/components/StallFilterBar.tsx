@@ -45,7 +45,7 @@ const CATEGORY_STYLES: Record<
 
 export const StallFilterBar: React.FC<StallFilterBarProps> = ({
   stalls,
-  layoutData,
+  layoutData: _layoutData,
   onZoomChange,
   currentZoom = 100,
   showZoomControls = true,

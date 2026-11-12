@@ -65,7 +65,7 @@ export const AdminCompaniesPage: React.FC = () => {
       // Note: Default to "" (All Exhibitions) if no query param is passed,
       // ensuring all platform exhibitors are displayed initially.
     });
-  }, []);
+  }, [searchParams]);
 
   const fetchCompanies = useCallback(async () => {
     const reqId = ++companiesReqIdRef.current;

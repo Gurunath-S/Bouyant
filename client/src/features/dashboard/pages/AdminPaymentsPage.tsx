@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { paymentService } from '../../../services/payments/paymentService';
 import { apiClient } from '../../../services/api/apiClient';
-import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Printer, X, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw,CheckCircle2, XCircle } from 'lucide-react';
+import { CreditCard, Search, Filter, RefreshCw, DollarSign, Download, Eye, FileText, Receipt, Loader2, Trash2, AlertTriangle, RotateCcw,CheckCircle2, XCircle } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
@@ -93,7 +93,6 @@ export const AdminPaymentsPage: React.FC = () => {
 
   // Download Loading States
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [isModalDownloading, setIsModalDownloading] = useState(false);
 
   // Stale request race condition safety
   const paymentsReqIdRef = useRef(0);
@@ -192,7 +191,7 @@ export const AdminPaymentsPage: React.FC = () => {
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, []);
+  }, [fetchPayments, fetchInvoices]);
 
   // Re-fetch transactions whenever transactions filters change
   useEffect(() => {
@@ -270,6 +269,7 @@ export const AdminPaymentsPage: React.FC = () => {
       taxAmount,
       taxableAmount,
       cgstAmount,
+      sgstAmount,
       idForDownload:
         item.invoice?.id ||
         item.invoices?.[0]?.id ||

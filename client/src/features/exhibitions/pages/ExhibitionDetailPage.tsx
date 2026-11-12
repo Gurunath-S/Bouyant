@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
 import { Exhibition, Stall } from '../../../types';
-import { Button } from '../../../components/ui/Button';
 import { EventCountdownTimer } from '../../../components/ui/EventCountdownTimer';
 import {
   Calendar,
@@ -11,7 +10,6 @@ import {
   MapPin,
   Building2,
   Car,
-  ArrowLeft,
   ArrowRight,
   Check,
   Share2,
@@ -123,7 +121,7 @@ export const ExhibitionDetailPage: React.FC = () => {
 
   const [currentUpcomingEvent, setCurrentUpcomingEvent] = useState<Exhibition | null>(null);
 
-  async function fetchCurrentUpcoming() {
+  const fetchCurrentUpcoming = useCallback(async () => {
     try {
       const all = await exhibitionService.getExhibitions('PUBLISHED');
       const now = new Date();
@@ -135,12 +133,13 @@ export const ExhibitionDetailPage: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-  }
+  }, []);
 
-  async function fetchExhibition() {
+  const fetchExhibition = useCallback(async () => {
+    if (!slug) return;
     try {
       setLoading(true);
-      const expo = await exhibitionService.getExhibitionBySlug(slug!);
+      const expo = await exhibitionService.getExhibitionBySlug(slug);
       setExhibition(expo);
 
       if (expo.floorPlans && expo.floorPlans.length > 0) {
@@ -165,13 +164,13 @@ export const ExhibitionDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }
+  }, [slug]);
 
   useEffect(() => {
     setActivePhotoIndex(0);
     fetchExhibition();
     fetchCurrentUpcoming();
-  }, [slug]);
+  }, [fetchExhibition, fetchCurrentUpcoming]);
 
   if (loading) {
     return (
@@ -206,7 +205,7 @@ export const ExhibitionDetailPage: React.FC = () => {
     );
   }
 
-  const isCurrentUpcoming = !currentUpcomingEvent || (exhibition && exhibition.id === currentUpcomingEvent.id);
+  const _isCurrentUpcoming = !currentUpcomingEvent || (exhibition && exhibition.id === currentUpcomingEvent.id);
   const totalSlots = stalls.length > 0
     ? stalls.length
     : (typeof exhibition.totalStalls === 'number' && exhibition.totalStalls > 0)

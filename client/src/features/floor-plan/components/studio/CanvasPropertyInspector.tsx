@@ -874,7 +874,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
     const isPositionLocked = isBooked && !(unlockedBookedStallIds && unlockedBookedStallIds.has(stall.id));
     const widthMeters = Number((stall.width / pxPerMeter).toFixed(1));
     const depthMeters = Number((stall.height / pxPerMeter).toFixed(1));
-    const areaSqMeters = Number((widthMeters * depthMeters).toFixed(1));
+    const _areaSqMeters = Number((widthMeters * depthMeters).toFixed(1));
 
     return (
       <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 select-none shadow-xs overflow-y-auto z-20">
@@ -1546,7 +1546,7 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
 
     const widthMeters = Number((hall.width / pxPerMeter).toFixed(1));
     const heightMeters = Number((hall.height / pxPerMeter).toFixed(1));
-    const totalAreaSqMeters = Number((widthMeters * heightMeters).toFixed(1));
+    const _totalAreaSqMeters = Number((widthMeters * heightMeters).toFixed(1));
 
     return (
       <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 select-none shadow-xs overflow-y-auto z-20">

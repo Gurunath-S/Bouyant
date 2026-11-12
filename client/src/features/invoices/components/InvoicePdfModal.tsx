@@ -36,10 +36,10 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
 
   useEffect(() => {
     if (!isOpen || !targetIdOrReference) {
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
-        setPdfUrl(null);
-      }
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setError(null);
       return;
     }

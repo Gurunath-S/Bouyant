@@ -9,7 +9,7 @@ import {
 } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
 import { formatDisplayDate } from '../../../utils/date';
-import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
+import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
 import {
   BarChart3,
@@ -41,7 +41,6 @@ export const ReportsPage: React.FC = () => {
 
   const isSuperAdmin = role === 'SUPERADMIN';
   const isAdmin = role === 'ADMIN';
-  const isStaff = role === 'STAFF';
 
   const [searchParams, setSearchParams] = useSearchParams();
 

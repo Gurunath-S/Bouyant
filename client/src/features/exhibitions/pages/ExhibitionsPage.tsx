@@ -10,7 +10,7 @@ import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react'
 import { formatDisplayDate } from '../../../utils/date';
 
 export const ExhibitionsPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

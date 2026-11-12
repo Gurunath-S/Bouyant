@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../../services/api/apiClient';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
@@ -59,7 +59,7 @@ export const AdminDashboardPage: React.FC = () => {
     );
   }, [publishedExhibitions, eventSearchQuery]);
 
-  async function fetchAdminDashboardData() {
+  const fetchAdminDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -197,11 +197,11 @@ export const AdminDashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedExhibitionId]);
 
   useEffect(() => {
     fetchAdminDashboardData();
-  }, [selectedExhibitionId]);
+  }, [fetchAdminDashboardData]);
 
   // Helper to extract stall numbers safely from booking object
   const getStallNumbers = (b: any) => {

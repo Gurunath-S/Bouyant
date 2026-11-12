@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Exhibition, Stall, Company, Booking } from '../../../types';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { companyService } from '../../../services/companies/companyService';
-import { bookingService } from '../../../services/bookings/bookingService';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -35,7 +34,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
   isOpen,
   onClose,
   exhibition,
-  onSuccess,
+  onSuccess: _onSuccess,
 }) => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [fullExhibition, setFullExhibition] = useState<Exhibition | null>(null);
@@ -72,12 +71,12 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
 
   // Allocation Mode
   const [confirmDirectly, setConfirmDirectly] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState(
+  const [_paymentMethod, _setPaymentMethod] = useState(
     isStaff ? 'OFFLINE_STAFF_DIRECT' : 'OFFLINE_ADMIN_DIRECT'
   );
-  const [notes, _setNotes] = useState('');
+  const [_notes, _setNotes] = useState('');
 
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, _setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Step state (1: Select Company, 2: Select Stalls, 3: Confirm & Pay)
@@ -116,7 +115,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
       setSelectedStallIds([]);
       setSelectedCompanyId('');
       setCompanySearch('');
-      setPaymentMethod(isStaff ? 'OFFLINE_STAFF_DIRECT' : 'OFFLINE_ADMIN_DIRECT');
+      _setPaymentMethod(isStaff ? 'OFFLINE_STAFF_DIRECT' : 'OFFLINE_ADMIN_DIRECT');
       loadExhibitionDetails(exhibition.id);
       loadCompanies();
     }

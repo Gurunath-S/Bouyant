@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking } from '../../../types';
 import { paymentService } from '../../../services/payments/paymentService';
@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   X,
   AlertCircle,
-  Loader2,
   Calendar,
   ShieldCheck,
   Landmark
@@ -55,7 +54,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   });
 
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isProcessing) return;
     setPaymentMethod('ONLINE_RAZORPAY');
     setChequeDetails({
@@ -67,7 +66,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
     setError(null);
     setSuccessMessage(null);
     onClose();
-  };
+  }, [isProcessing, onClose]);
 
   const grandTotal = Number(booking?.grandTotal || 0);
   const paidAmount = Number(booking?.paidAmount || 0);
@@ -85,7 +84,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       setError(null);
       setSuccessMessage(null);
     }
-  }, [isOpen, booking?.id, baseBalanceDue]);
+  }, [isOpen, booking, baseBalanceDue]);
 
   const selectedBaseAmount = useMemo(() => {
     if (paymentOption === 'full') return baseBalanceDue;
@@ -134,7 +133,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [isOpen, isProcessing]);
+  }, [isOpen, isProcessing, handleClose]);
 
   if (!isOpen || !booking) return null;
 

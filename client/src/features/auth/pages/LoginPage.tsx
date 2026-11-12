@@ -23,7 +23,6 @@ import {
   EyeOff,
   ChevronLeft,
   ChevronRight,
-  KeyRound,
 } from 'lucide-react';
 
 const loginSchema = z.object({
@@ -108,42 +107,11 @@ export const LoginPage: React.FC = () => {
     return `${sStr} – ${eStr}`;
   };
 
-  const DEMO_ACCOUNTS = [
-    {
-      role: 'Demo Exhibitor',
-      badge: 'Client',
-      badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-      email: 'demo.client',
-      password: 'DemoUser123!',
-    },
-    {
-      role: 'Exhibition Admin',
-      badge: 'Admin',
-      badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-      email: 'admin@buoyantmedia.com',
-      password: 'Password123!',
-    },
-    {
-      role: 'Operations Staff',
-      badge: 'Staff',
-      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-      email: 'staff@buoyantmedia.com',
-      password: 'Password123!',
-    },
-    {
-      role: 'Super Admin',
-      badge: 'SuperAdmin',
-      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-      email: 'superadmin@buoyantmedia.com',
-      password: 'Password123!',
-    },
-  ];
+
 
   const {
     register,
     handleSubmit,
-    setValue,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

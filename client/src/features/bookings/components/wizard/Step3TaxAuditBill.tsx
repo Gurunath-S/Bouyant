@@ -18,12 +18,8 @@ import {
   Building2,
   Calendar,
   MapPin,
-  Mail,
-  FileCheck,
   CheckCircle2,
   LayoutGrid,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 
 interface Step3TaxAuditBillProps {
@@ -68,8 +64,8 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
   const [termsError, setTermsError] = useState(false);
   const [discountMode, setDiscountMode] = useState<'AMOUNT' | 'PERCENT'>('AMOUNT');
   const [discountValue, setDiscountValue] = useState<number>(0);
-  const [paymentExecutionMode, setPaymentExecutionMode] = useState<'DIRECT_OFFLINE' | 'ONLINE_GATEWAY'>('ONLINE_GATEWAY');
-  const [offlineMethod, setOfflineMethod] = useState<string>('ADMIN_DIRECT_ALLOCATION');
+  const [paymentExecutionMode, _setPaymentExecutionMode] = useState<'DIRECT_OFFLINE' | 'ONLINE_GATEWAY'>('ONLINE_GATEWAY');
+  const [offlineMethod, _setOfflineMethod] = useState<string>('ADMIN_DIRECT_ALLOCATION');
   const [paymentExecutionMethod, setPaymentExecutionMethod] = useState<PaymentExecutionMethod>('ONLINE_RAZORPAY');
   const [chequeDetails, setChequeDetails] = useState<ChequeDetails>({
     chequeNumber: '',

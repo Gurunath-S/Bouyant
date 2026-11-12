@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { userService } from '../../../services/users/userService';
 import { AdminStaffUser } from '../../../types';
@@ -8,7 +8,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { PaymentStatusBadge } from '../../../components/ui/Badge';
 import { showConfirm } from '../../../stores/dialogStore';
-import { formatDisplayDate, formatDisplayDateTime } from '../../../utils/date';
+import { formatDisplayDate } from '../../../utils/date';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import {
   ShieldCheck,
@@ -27,13 +27,9 @@ import {
   CreditCard,
   Briefcase,
   AlertCircle,
-  ExternalLink,
   RefreshCw,
   Power,
-  MapPin,
-  Tag,
   Clock,
-  Printer,
   ChevronRight,
   KeyRound,
   Edit3,
@@ -404,7 +400,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
     }
   };
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     if (!id) return;
     try {
       setLoading(true);
@@ -417,11 +413,11 @@ export const UserGovernanceDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchUserData();
-  }, [id]);
+  }, [fetchUserData]);
 
   useEffect(() => {
     if (user?.role === 'CLIENT' && activeTab !== 'bookings' && activeTab !== 'organization') {
@@ -605,7 +601,6 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const activeBookingsCount = bookings.filter((b: any) => b.status !== 'CANCELLED').length;
   const uniqueExhibitionsCount = new Set(bookings.map((b: any) => b.exhibitionId).filter(Boolean)).size;
 
-  const heldStalls = user.heldStalls || [];
   const effectivePages = getUserEffectivePageAccess(user);
 
   const getSourceBadge = (source?: string) => {

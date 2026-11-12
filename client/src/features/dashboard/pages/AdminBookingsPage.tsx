@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { bookingService } from '../../../services/bookings/bookingService';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { Booking, Exhibition } from '../../../types';
-import { BookmarkCheck, Eye, Search, Filter, RefreshCw, CreditCard, Download, Trash2, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
+import { BookmarkCheck, Eye, Search, RefreshCw, CreditCard, Download, Trash2, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
 import { BookingStatusBadge, PaymentStatusBadge } from '../../../components/ui/Badge';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { CompletePaymentModal } from '../../payments/components/CompletePaymentModal';
@@ -18,7 +18,6 @@ import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropd
 export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
-  const isStaff = user?.role === 'STAFF';
   const isSuperAdmin = user?.role === 'SUPERADMIN';
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -109,7 +108,7 @@ export const AdminBookingsPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [currentPage, pageSize, searchQuery, statusFilter, paymentStatusFilter, paymentMethodFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter]);
+  }, [currentPage, pageSize, searchQuery, statusFilter, paymentStatusFilter, paymentMethodFilter, exhibitionFilter, registrarFilter, balanceOnlyFilter, searchParams]);
 
   useEffect(() => {
     fetchBookings();

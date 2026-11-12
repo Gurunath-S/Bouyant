@@ -7,7 +7,6 @@ import { normalizeCountryName } from '../../../data/indianStatesCities';
 import { BackButton } from '../../../components/ui/BackButton';
 import { formatStallArea } from '../../../utils/stallArea';
 import {
-  ArrowLeft,
   Building2,
   Calendar,
   MapPin,

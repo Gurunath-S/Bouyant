@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Banknote, Landmark, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { CreditCard, Landmark, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import type { PaymentExecutionMethod,ChequeDetails } from '@/types';
 
 

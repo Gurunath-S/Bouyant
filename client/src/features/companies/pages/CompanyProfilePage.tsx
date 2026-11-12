@@ -82,9 +82,10 @@ export const CompanyProfilePage: React.FC = () => {
         .then((fresh) => {
           if (fresh && fresh.id) {
             populateForm(fresh);
-            if (user) {
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser && currentUser.companyId !== fresh.id) {
               setUser({
-                ...user,
+                ...currentUser,
                 companyId: fresh.id,
                 company: fresh,
               });
@@ -93,7 +94,7 @@ export const CompanyProfilePage: React.FC = () => {
         })
         .catch(() => {});
     }
-  }, [user?.companyId, user?.company?.id, populateForm]);
+  }, [user?.companyId, user?.company, user?.role, populateForm, setUser]);
 
   const onSubmit = async (data: any) => {
     try {

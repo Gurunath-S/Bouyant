@@ -35,8 +35,8 @@ export const SuperAdminDashboardPage: React.FC = () => {
 
   const [data, setData] = useState<ReportOverviewData | null>(null);
   const [publishedEvents, setPublishedEvents] = useState<Exhibition[]>([]);
+  const [_loadingEvents, setLoadingEvents] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
-  const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorMetrics, setErrorMetrics] = useState<string | null>(null);
 
   const [inspectedBooking, setInspectedBooking] = useState<Booking | null>(null);

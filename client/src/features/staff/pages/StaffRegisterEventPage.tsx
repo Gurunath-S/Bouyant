@@ -13,7 +13,6 @@ import { MultiImagePicker } from '../../../components/ui/MultiImagePicker';
 import { compressDataUrl } from '../../../utils/imageOptimizer';
 import {
   CalendarPlus,
-  ArrowLeft,
   CheckCircle2,
   Info,
 } from 'lucide-react';
@@ -80,7 +79,7 @@ export const StaffRegisterEventPage: React.FC = () => {
     if (user?.spcode && !formData.spcode) {
       setFormData((prev) => ({ ...prev, spcode: user.spcode || '' }));
     }
-  }, [user?.spcode]);
+  }, [user?.spcode, formData.spcode]);
 
   const handleTitleChange = (val: string) => {
     let code = '';

@@ -1200,7 +1200,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     // Restrict price, category, status, and stallNumber edits for already booked or held stalls
     let safeUpdates = updates;
     if (isStallBookedOrHeld(target)) {
-      const { price, category, status, stallNumber, ...allowed } = updates;
+      const { price: _price, category: _category, status: _status, stallNumber: _stallNumber, ...allowed } = updates;
       safeUpdates = allowed;
     }
 
@@ -1311,7 +1311,7 @@ export const GenericVisualStudio: React.FC<GenericVisualStudioProps> = ({
     const nextStalls = stalls.map((s) => {
       if (!selectedIds.has(s.id)) return s;
       if (isStallBookedOrHeld(s)) {
-        const { price, category, status, stallNumber, ...allowed } = updates;
+        const { price: _price, category: _category, status: _status, stallNumber: _stallNumber, ...allowed } = updates;
         return { ...s, ...allowed };
       }
       return { ...s, ...updates };

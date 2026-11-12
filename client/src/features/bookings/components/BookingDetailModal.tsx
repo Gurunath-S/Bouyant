@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   Download,
   Receipt,
-  CheckCircle2,
 } from 'lucide-react';
 import { downloadInvoicePdf } from '../../../utils/downloadInvoicePdf';
 import { getStallAreaSqMt, formatStallArea } from '../../../utils/stallArea';

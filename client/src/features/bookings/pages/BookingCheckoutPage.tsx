@@ -1,29 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { stallService } from '../../../services/stalls/stallService';
-import { bookingService } from '../../../services/bookings/bookingService';
-import { paymentService } from '../../../services/payments/paymentService';
 import { companyService } from '../../../services/companies/companyService';
 import { useAuthStore } from '../../../stores/authStore';
-import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Input } from '../../../components/ui/Input';
-import { ShieldCheck, Building2, CreditCard, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Building2, AlertCircle } from 'lucide-react';
 import { Stall, Company } from '../../../types';
 import { formatStallArea } from '../../../utils/stallArea';
 
 export const BookingCheckoutPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
 
   const stallId = searchParams.get('stallId');
   const [stall, setStall] = useState<Stall | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(user?.companyId || '');
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, _setErrorMsg] = useState('');
 
   // Form fields for new company inline setup
   const [newCompany, setNewCompany] = useState({
@@ -40,45 +35,40 @@ export const BookingCheckoutPage: React.FC = () => {
     category: 'Exhibitor',
   });
 
-  async function loadCheckoutData() {
-    try {
-      setLoading(true);
-      const stallsRes = await stallService.getStallsByFloorPlan('');
-      const matched = stallsRes.find((s) => s.id === stallId);
-      if (matched) setStall(matched);
-
-      if (user) {
-        const comps = await companyService.getMyCompanies();
-        setCompanies(comps);
-        if (comps.length > 0 && !selectedCompanyId) {
-          setSelectedCompanyId(comps[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Checkout data load failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    if (stallId) {
-      loadCheckoutData();
-    }
-  }, [stallId]);
+    if (!stallId) return;
+    let isMounted = true;
 
+    async function loadCheckoutData() {
+      try {
+        setLoading(true);
+        const stallsRes = await stallService.getStallsByFloorPlan('');
+        const matched = stallsRes.find((s) => s.id === stallId);
+        if (isMounted && matched) setStall(matched);
 
-  const handleCreateCompanyInline = async () => {
-    try {
-      const created = await companyService.createCompany(newCompany);
-      setCompanies([...companies, created]);
-      setSelectedCompanyId(created.id);
-      if (user) setUser({ ...user, companyId: created.id, company: created });
-      return created.id;
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to register corporate company.');
+        if (user) {
+          const comps = await companyService.getMyCompanies();
+          if (isMounted) {
+            setCompanies(comps);
+            if (comps.length > 0 && !selectedCompanyId) {
+              setSelectedCompanyId(comps[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Checkout data load failed:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
-  };
+
+    loadCheckoutData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [stallId, user, selectedCompanyId]);
+
 
   // const handleConfirmAndPay = async () => {
   //   if (!stall) return;

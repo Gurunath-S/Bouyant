@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation, useBlocker } from 'react-router-dom';
 import { exhibitionService } from '../../../services/exhibitions/exhibitionService';
 import { stallService } from '../../../services/stalls/stallService';
@@ -192,7 +192,7 @@ export const BookingWizardPage: React.FC = () => {
     return false;
   }, [exhibition]);
 
-  async function loadInitialData() {
+  const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       const expo = await exhibitionService.getExhibitionBySlug(slug!);
@@ -259,7 +259,7 @@ export const BookingWizardPage: React.FC = () => {
       }
       setLoading(false);
     }
-  }
+  }, [slug, user, preselectedCompany, preselectedCompanyId]);
 
   // Initialize booking session, preserving preselected company from navigation
   useEffect(() => {
@@ -272,7 +272,7 @@ export const BookingWizardPage: React.FC = () => {
     }
     setPendingUserAuth(null);
     setCreatedBooking(null);
-  }, [slug]);
+  }, [slug, preselectedCompany]);
 
   // Warn user if closing tab / reloading page while holding stalls
   useEffect(() => {
@@ -298,7 +298,7 @@ export const BookingWizardPage: React.FC = () => {
 
   useEffect(() => {
     if (slug) loadInitialData();
-  }, [slug, user]);
+  }, [slug, loadInitialData]);
 
   // Reset scroll & body overflow lock when changing wizard steps
   useEffect(() => {

@@ -15,7 +15,7 @@ interface TimerExtensionModalProps {
 
 export const TimerExtensionModal: React.FC<TimerExtensionModalProps> = ({
   isOpen,
-  durationMinutes = 10,
+  durationMinutes: _durationMinutes = 10,
   onRestartBooking,
 }) => {
   if (!isOpen) return null;

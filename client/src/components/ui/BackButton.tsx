@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { getDashboardUrl, getEventsConsoleUrl } from '../../utils/navigation';
+import { getDashboardUrl } from '../../utils/navigation';
 import { ConfirmLeaveToHomeModal } from './ConfirmLeaveToHomeModal';
 
 export interface BackButtonProps {

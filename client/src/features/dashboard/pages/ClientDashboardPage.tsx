@@ -16,7 +16,6 @@ import {
   Clock,
   Compass,
   FileText,
-  ExternalLink,
   X,
   Download,
   Eye,
