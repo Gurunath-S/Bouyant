@@ -67,7 +67,7 @@ async function runRegistrationCredentialsLifecycleSuite() {
 
     // 1.5 Deterministic collision alternatives
     // Create a temporary user with username 'test.user' + suffix to test collision progression
-    const baseUsername = `testuser.${testSuffix}`.slice(0, 20);
+    const _baseUsername = `testuser.${testSuffix}`.slice(0, 20);
     const userSeed = `Testuser ${testSuffix}`;
 
     const candidate1 = await CompaniesService.generateUniqueUsername(userSeed);

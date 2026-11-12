@@ -5,7 +5,6 @@ import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
 import { TokenPayload } from '../../utils/jwt.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
 import { generateReference } from '../../utils/reference.js';
 import { normalizePagination } from '../../utils/pagination.js';
 import { updateBookingPaymentReminder } from '../../services/paymentReminder.service.js'

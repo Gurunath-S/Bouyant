@@ -1,6 +1,5 @@
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/config/db.js';
-import { BookingsService } from '../src/modules/bookings/bookings.service.js';
 import { generateTokens } from '../src/utils/jwt.js';
 import { razorpay } from '../src/config/razorpay.js';
 import { EmailService } from '../src/services/email.service.js';
@@ -142,7 +141,7 @@ async function runMultiUserSuite() {
     const stall1 = await createStall('01');
     const stall2 = await createStall('02');
     const stall3 = await createStall('03');
-    const stall4 = await createStall('04');
+    const _stall4 = await createStall('04');
 
     // Setup Admin user
     const adminUser = await prisma.user.create({

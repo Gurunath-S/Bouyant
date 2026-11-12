@@ -252,7 +252,7 @@ const formatDate = (date?: Date): string => {
   return `${day}/${month}/${year}`;
 };
  
-const formatOrdinalDate = (date?: Date): string => {
+const _formatOrdinalDate = (date?: Date): string => {
   if (!date) return '';
   const day = date.getDate();
   const monthNames = [

@@ -485,7 +485,7 @@ async function runRound2Suite() {
     if (regNoGstRes.data?.user?.id) createdUserIds.push(regNoGstRes.data.user.id);
 
     // Exact name + email + phone matches the existing no-GSTIN company
-    const lookupExactFallback = await request('/auth/lookup-account', {
+    const _lookupExactFallback = await request('/auth/lookup-account', {
       method: 'GET',
       body: undefined,
     });

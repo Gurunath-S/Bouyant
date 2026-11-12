@@ -343,6 +343,7 @@ export class ExhibitionsService {
         category: input.category || null,
         startDate: startDt,
         endDate: endDt,
+        bookingEndDate: bookingEndDt,
         bannerUrl: input.bannerUrl || (input.images && input.images[0]) || null,
         images: Array.isArray(input.images) && input.images.length > 0
           ? input.images.filter(Boolean)

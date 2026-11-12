@@ -1,7 +1,5 @@
 import { prisma } from '../src/config/db.js';
 import { PaymentsService } from '../src/modules/payments/payments.service.js';
-import crypto from 'crypto';
-import { env } from '../src/config/env.js';
 
 async function runRemainingPaymentTests() {
   console.log('🧪 Starting Remaining-Payment Feature 1 Comprehensive Test Suite...');
@@ -24,7 +22,7 @@ async function runRemainingPaymentTests() {
   const staffUser = await prisma.user.findFirst({ where: { role: 'STAFF' } });
   const clientUser = await prisma.user.findFirst({ where: { role: 'CLIENT', companyId: { not: null } } });
   const otherClientUser = await prisma.user.findFirst({
-    where: { role: 'CLIENT', companyId: { not: null, not: clientUser?.companyId } }
+    where: { role: 'CLIENT', companyId: { not: null, notIn: clientUser?.companyId ? [clientUser.companyId] : [] } }
   });
 
   assert(!!adminUser, 'Admin user exists');

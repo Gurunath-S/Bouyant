@@ -3,7 +3,6 @@ import cron from "node-cron";
 import { prisma } from "../config/db.js";
 import { Prisma } from "@prisma/client";
 import { EmailService } from "../services/email.service.js";
-import {WhatsappService} from "../services/whatsapp.service.js";
 export function startPaymentReminderCron() {
   cron.schedule(
     "*/15 * * * *",  

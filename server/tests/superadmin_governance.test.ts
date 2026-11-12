@@ -327,7 +327,7 @@ async function runSuperAdminGovernanceSuite() {
     assert(userDetailRes.status === 200, 'Fetch user details succeeded (200)');
     assert(userDetailRes.data?.data?.id === saUserId, 'User ID matches');
     assert(Array.isArray(userDetailRes.data?.data?.rolePermissions), 'rolePermissions array is provided');
-    assert(!('passwordHash' in userDetailRes.data?.data), 'passwordHash is NOT exposed');
+    assert(!(userDetailRes.data?.data && 'passwordHash' in userDetailRes.data.data), 'passwordHash is NOT exposed');
 
     // 7. Security: Unauthorized User Blocked from /users
     console.log('\n--- 6. Security & RBAC Boundary ---');

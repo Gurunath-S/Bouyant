@@ -21,7 +21,7 @@ function requestJson(url: string, token: string): Promise<any> {
       res.on('end', () => {
         try {
           resolve(JSON.parse(data));
-        } catch (e) {
+        } catch (_e) {
           reject(new Error(`Failed to parse response: ${data}`));
         }
       });

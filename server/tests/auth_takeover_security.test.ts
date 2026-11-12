@@ -164,7 +164,7 @@ async function runAuthSecuritySuite() {
     // TEST 2: Phone Number Collision does NOT hijack existing user
     // A new guest uses phoneShared, but with a brand new email
     const newGuestEmail = `newguest_${testSuffix}@example.com`;
-    const phoneCollisionAttempt = await request('/companies', {
+    const _phoneCollisionAttempt = await request('/companies', {
       method: 'POST',
       body: {
         name: `New Guest Company ${testSuffix}`,
