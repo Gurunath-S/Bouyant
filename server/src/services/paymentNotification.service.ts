@@ -283,18 +283,23 @@ static async sendPaymentEmails(emailData: {
       );
     }
 
-         //  Only for confirmed successful payments with an invoice (Cash, Online, or Verified Cheque!)
+      // Only for confirmed successful payments with an invoice (Cash, Online, or Verified Cheque!)
       const isPendingCheque = payment.paymentMode === 'CHEQUE' && payment.status === 'PENDING';
       const canSendWhatsapp = !isPendingCheque && !isRejectedCheque && payment.status === 'SUCCESS' && invoice !== null;
 
       if (canSendWhatsapp) {
         try {
-          // await WhatsappService.sendBookingConfirmation({
-          //   booking,
-          //   payment,
-          //   invoice,
-          //   paymentAmount: paymentAmount.toNumber(),
-          // });
+          // Calculate remaining balance number
+          const balanceNum = finalBalance ? finalBalance.toNumber() : Number(booking.balanceAmount || 0);
+
+          await WhatsappService.sendBookingConfirmation({
+            booking,
+            payment,
+            invoice,
+            paymentAmount: paymentAmount.toNumber(),
+            balanceAmount: balanceNum,
+            nextPaymentDate: payment.nextPaymentDate || booking.nextPaymentDate,
+          });
         } catch (err: any) {
           console.error(
             'WhatsApp booking confirmation failed:',

@@ -1031,6 +1031,8 @@ static async createBalancePaymentOrder(
         where: {
           status: 'PENDING',
           createdAt: { lt: cutoff },
+          paymentMode: { not: 'CHEQUE' },
+          provider: { notIn: ['OFFLINE_ADMIN', 'OFFLINE_STAFF'] },
         },
         data: {
           status: 'CANCELLED',
@@ -1501,6 +1503,16 @@ static async createBalancePaymentOrder(
                     stall: true,
                   },
                 },
+              exhibition: true,
+             company: true,
+             user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
               },
             });
         

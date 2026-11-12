@@ -219,16 +219,25 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
+     if (paymentOption === 'custom') {
+      const enteredAmount = parseFloat(customAmount);
+      if (isNaN(enteredAmount) || enteredAmount <= 0) {
+        setError('Please enter a valid custom payment amount greater than ₹0.');
+        return;
+      }
+      if (enteredAmount > baseBalanceDue) {
+        setError(`Custom amount cannot exceed the remaining balance of ₹${baseBalanceDue.toLocaleString('en-IN')}.`);
+        return;
+      }
+    }
     if (totalPayableAmount <= 0) {
       setError('Please specify a valid payment amount greater than ₹0.');
       return;
     }
-
     if (totalPayableAmount > totalBalanceDue) {
       setError(`Payment amount cannot exceed the remaining balance of ₹${totalBalanceDue.toLocaleString('en-IN')}.`);
       return;
     }
-
     if (isPartialPayment && !nextDueDate) {
       setError('Please select a promise due date for the remaining balance.');
       return;

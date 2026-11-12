@@ -3,6 +3,7 @@ import cron from "node-cron";
 import { prisma } from "../config/db.js";
 import { Prisma } from "@prisma/client";
 import { EmailService } from "../services/email.service.js";
+import {WhatsappService} from "../services/whatsapp.service.js"
 export function startPaymentReminderCron() {
   cron.schedule(
     "*/15 * * * *",  
@@ -133,32 +134,32 @@ export function startPaymentReminderCron() {
                   },
                 });
 
-          // // whatsapp service for send remainder message
-          //    try {
-          //    const mobile = booking?.company?.mobile || "";
-          //       if (!mobile) {
-          //       console.log(
-          //           `[Payment Reminder] Missing mobile for ${booking.bookingReference}, skipping WhatsApp.`
-          //       );
-          //       return;
-          //     }
+          // whatsapp service for send remainder message
+             try {
+             const mobile = booking?.company?.mobile || "";
+                if (!mobile) {
+                console.log(
+                    `[Payment Reminder] Missing mobile for ${booking.bookingReference}, skipping WhatsApp.`
+                );
+                return;
+              }
 
 
-          //    await WhatsappService.sendWhatsappRemainder({
-          //       contactPerson:booking.company.contactPerson || booking.company.name,
-          //       mobile,
-          //       exhibitionName: booking.exhibition.title,
-          //       bookingReference: booking.bookingReference,
-          //       paymentAmount: Number(booking.balanceAmount),
-          //       nextPaymentDate,
-          //       stallDetails
-          //     });
-          //   } catch (whatsappError) {
-          //     console.error(
-          //       `[Payment Reminder] WhatsApp failed for ${booking.bookingReference}:`,
-          //       whatsappError
-          //     );
-          //   }
+             await WhatsappService.sendWhatsappRemainder({
+                contactPerson:booking.company.contactPerson || booking.company.name,
+                mobile,
+                exhibitionName: booking.exhibition.title,
+                bookingReference: booking.bookingReference,
+                paymentAmount: Number(booking.balanceAmount),
+                nextPaymentDate,
+                stallDetails
+              });
+            } catch (whatsappError) {
+              console.error(
+                `[Payment Reminder] WhatsApp failed for ${booking.bookingReference}:`,
+                whatsappError
+              );
+            }
 
 
           } catch (error) {
