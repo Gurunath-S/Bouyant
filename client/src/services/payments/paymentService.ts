@@ -82,6 +82,7 @@ export const paymentService = {
       referenceNote?: string;
     };
     nextDueDate?: string;
+    paymentType?:string;
   }) => {
     const res: any = await apiClient.post('/payments/cheque', {
       bookingId: payload.bookingId,
@@ -91,6 +92,7 @@ export const paymentService = {
       chequeDate: payload.chequeDetails.chequeDate,
       referenceNote: payload.chequeDetails.referenceNote,
       nextDueDate: payload.nextDueDate,
+      paymentType:payload.paymentType
     });
     return res?.data?.data || res?.data || res;
   },

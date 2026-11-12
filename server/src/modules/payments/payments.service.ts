@@ -1,6 +1,6 @@
 import { prisma } from '../../config/db.js';
 import { ApiError } from '../../utils/apiError.js';
-import { Prisma, PaymentStatus,PaymentMode,BookingStatus,BookingPaymentStatus,StallStatus} from '@prisma/client';
+import { Prisma, PaymentStatus,PaymentMode,BookingStatus,BookingPaymentStatus,StallStatus,ReminderStatus} from '@prisma/client';
 import crypto from "crypto";
 import { env } from '../../config/env.js';
 import { razorpay } from '../../config/razorpay.js';
@@ -1102,12 +1102,19 @@ static async createBalancePaymentOrder(
 
     // Filter by payment method (Cash / Online) — independent axis
     if (method && method !== 'ALL') {
-      if (method === 'CASH') {
-        // Cash: explicit CASH paymentMode OR offline admin provider
+           if (method === 'CASH') {
         andConditions.push({
           OR: [
             { paymentMode: 'CASH' },
-            { provider: 'OFFLINE_ADMIN' },
+            {
+              provider: 'OFFLINE_ADMIN',
+              NOT: {
+                OR: [
+                  { paymentMode: 'CHEQUE' },
+                  { paymentMethod: { startsWith: 'CHEQUE' } },
+                ],
+              },
+            },
           ],
         });
       } else if (method === 'ONLINE') {
@@ -1118,7 +1125,16 @@ static async createBalancePaymentOrder(
             { provider: 'RAZORPAY' },
           ],
         });
-      } else {
+      } 
+      else if (method === 'CHEQUE') {
+        andConditions.push({
+          OR: [
+            { paymentMode: 'CHEQUE' },
+            { paymentMethod: { startsWith: 'CHEQUE' } },
+          ],
+        });
+      }
+      else {
         andConditions.push({ paymentMethod: method });
       }
     }
@@ -1773,14 +1789,18 @@ static async createBalancePaymentOrder(
           new Prisma.Decimal(payment.amount)
         );
 
-        // // 4. Update / Cancel payment reminders based on remaining balance
-        // await updateBookingPaymentReminder(
-        //   tx,
-        //   confirmedBooking.id,
-        //   successPayment.id,
-        //   isFullyPaid ? null : successPayment.nextPaymentDate,
-        //   confirmedBooking.balanceAmount
-        // );
+         if (isFullyPaid) {
+          //  Balance is 0: Cancel all active PENDING reminders for this booking
+          await tx.paymentReminder.updateMany({
+            where: {
+              bookingId: confirmedBooking.id,
+              status: ReminderStatus.PENDING,
+            },
+            data: {
+              status: ReminderStatus.CANCELLED,
+            },
+          });
+        }
 
         return {
           isApproval: true,
@@ -1868,13 +1888,14 @@ static async createBalancePaymentOrder(
     chequeDate: string;
     referenceNote?: string;
     nextDueDate?: string;
+    paymentType?:string
     user: {
       userId?: string;
       role: string;
       spcode?: string|null;
     };
   }) {
-    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate, user } = input;
+    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate, user ,paymentType} = input;
 
     // 1. Role Authorization
     const allowedRoles = ['SUPERADMIN', 'ADMIN', 'STAFF'];
@@ -1932,6 +1953,8 @@ static async createBalancePaymentOrder(
           ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
           : 'BALANCE';
 
+    const isPartialPayment = input.paymentType?.toUpperCase() === "PARTIAL";
+
         // 4. Create PENDING Cheque Payment Record
         const payment = await tx.payment.create({
           data: {
@@ -1960,6 +1983,29 @@ static async createBalancePaymentOrder(
             status: BookingStatus.PENDING_CHEQUE_VERIFICATION,
           },
         });
+        //  If the user selects the full payment option for a cheque transaction, the booking balance will be equal to the grand total. In that case, we should not create a payment reminder. We only need to create a payment reminder when the user selects the partial payment option.
+       if(isPartialPayment){ 
+         try {
+            await updateBookingPaymentReminder(
+              tx,
+              updatedBooking.id,
+              payment.id,
+             (payment.nextPaymentDate ??
+                    new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
+              booking.balanceAmount
+            );
+          } catch (reminderErr: unknown) {
+            const message =
+              reminderErr instanceof Error
+                ? reminderErr.message
+                : String(reminderErr);
+
+            console.warn(
+              'Payment reminder scheduling warning (non-fatal):',
+              message
+            );
+          }
+       }
 
         return {
           payment,

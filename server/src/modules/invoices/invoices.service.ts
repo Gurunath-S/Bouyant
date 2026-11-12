@@ -406,12 +406,41 @@ const [invoices, total] = await Promise.all([
     }
 
     if (method && method !== 'ALL') {
-      if (method === 'CASH') {
+           if (method === 'CASH') {
         andConditions.push({
           OR: [
             { payment: { paymentMode: 'CASH' } },
-            { payment: { provider: 'OFFLINE_ADMIN' } },
-            { booking: { payments: { some: { OR: [{ paymentMode: 'CASH' }, { provider: 'OFFLINE_ADMIN' }] } } } },
+            {
+              payment: {
+                provider: 'OFFLINE_ADMIN',
+                NOT: {
+                  OR: [
+                    { paymentMode: 'CHEQUE' },
+                    { paymentMethod: { startsWith: 'CHEQUE' } },
+                  ],
+                },
+              },
+            },
+            {
+              booking: {
+                payments: {
+                  some: {
+                    OR: [
+                      { paymentMode: 'CASH' },
+                      {
+                        provider: 'OFFLINE_ADMIN',
+                        NOT: {
+                          OR: [
+                            { paymentMode: 'CHEQUE' },
+                            { paymentMethod: { startsWith: 'CHEQUE' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
           ],
         });
       } else if (method === 'ONLINE') {
@@ -420,6 +449,14 @@ const [invoices, total] = await Promise.all([
             { payment: { paymentMode: 'ONLINE_RAZORPAY' } },
             { payment: { provider: 'RAZORPAY' } },
             { booking: { payments: { some: { OR: [{ paymentMode: 'ONLINE_RAZORPAY' }, { provider: 'RAZORPAY' }] } } } },
+          ],
+        });
+      }else if (method === 'CHEQUE') {
+        andConditions.push({
+          OR: [
+            { payment: { paymentMode: 'CHEQUE' } },
+            { payment: { paymentMethod: { startsWith: 'CHEQUE' } } },
+            { booking: { payments: { some: { OR: [{ paymentMode: 'CHEQUE' }, { paymentMethod: { startsWith: 'CHEQUE' } }] } } } },
           ],
         });
       }

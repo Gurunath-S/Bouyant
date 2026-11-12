@@ -403,6 +403,7 @@ export const AdminPaymentsPage: React.FC = () => {
                     <option value="ALL">All Payment Types</option>
                     <option value="ONLINE">Online (Razorpay)</option>
                     <option value="CASH">Cash Deposit</option>
+                    <option value="CHEQUE">Cheque</option>     
                   </select>
                   <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -685,8 +686,9 @@ export const AdminPaymentsPage: React.FC = () => {
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
                   >
                     <option value="ALL">All Payment Types</option>
-                    <option value="ONLINE">🌐 Online (Razorpay)</option>
-                    <option value="CASH">💵 Cash Deposit</option>
+                    <option value="ONLINE"> Online (Razorpay)</option>
+                    <option value="CASH">   Cash Deposit</option>
+                    <option value="CHEQUE"> Cheque</option>
                   </select>
                   <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>

@@ -200,6 +200,7 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="ALL">All Booking Statuses</option>
               <option value="CONFIRMED">Confirmed</option>
               <option value="PENDING_PAYMENT">Pending Payment</option>
+              <option value="PENDING_CHEQUE_VERIFICATION">Cheque Verification Pending</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
 
@@ -213,6 +214,7 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="PAID_FULL">Fully Paid</option>
               <option value="PARTIALLY_PAID">Partially Paid</option>
               <option value="UNPAID">Unpaid</option>
+             
             </select>
 
             {/* Payment Type Filter (Cash vs Online) */}
@@ -224,6 +226,8 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="ALL">All Payment Types</option>
               <option value="ONLINE">Online (Razorpay)</option>
               <option value="CASH">Cash Deposit</option>
+              <option value="CHEQUE">Cheque</option>
+
             </select>
 
             <select

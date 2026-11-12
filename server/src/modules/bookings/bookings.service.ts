@@ -606,6 +606,7 @@ if (resultCash.emailData) {
     snapshotBillingCountry: string;
 
     nextPaymentDate: Date | null;
+    isPartialPayment:boolean
   }
 ) {
   // Step 1: Validate user role
@@ -638,8 +639,8 @@ if (resultCash.emailData) {
     snapshotBillingState,
     snapshotBillingPinCode,
     snapshotBillingCountry,
-
     nextPaymentDate,
+    isPartialPayment
   } = context;
 
   // Step 3: Calculate booking and cheque amounts
@@ -844,33 +845,32 @@ if (resultCash.emailData) {
         }
 
       // Step 5G: Create or update payment reminder.
+      // Step 5G: Create or update payment reminder.
       // Use the supplied date or default to 15 days from now.
+      //  If the user selects the full payment option for a cheque transaction, the booking balance will be equal to the grand total. In that case, we should not create a payment reminder. We only need to create a payment reminder when the user selects the partial payment option.
+       if(isPartialPayment){ 
+         try {
+            await updateBookingPaymentReminder(
+              tx,
+              booking.id,
+              payment.id,
+             (payment.nextPaymentDate ??
+                    new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
+              booking.balanceAmount
+            );
+          } catch (reminderErr: unknown) {
+            const message =
+              reminderErr instanceof Error
+                ? reminderErr.message
+                : String(reminderErr);
 
-        // const isFullyPaid = balanceAmount.isZero();
-        // try {
-        //     await updateBookingPaymentReminder(
-        //       tx,
-        //       booking.id,
-        //       payment.id,
-        //       isFullyPaid
-        //         ? null
-        //         : (payment.nextPaymentDate ??
-        //             new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)),
-        //       booking.balanceAmount
-        //     );
-        //   } catch (reminderErr: unknown) {
-        //     const message =
-        //       reminderErr instanceof Error
-        //         ? reminderErr.message
-        //         : String(reminderErr);
+            console.warn(
+              'Payment reminder scheduling warning (non-fatal):',
+              message
+            );
+          }
+       }
 
-        //     console.warn(
-        //       'Payment reminder scheduling warning (non-fatal):',
-        //       message
-        //     );
-        //   }
-
- 
       // Step 5H: Return booking and payment details.
       return {
         booking: booking,
@@ -1230,9 +1230,6 @@ static async createBooking(
     );
 	  }
 
-	  // Admin/Staff/SuperAdmin can skip Razorpay and directly confirm with an offline payment record
-	  const isDirectConfirm = !!(input.confirmDirectly && isPrivilegedUser);
-
 	  if (user && !isPrivilegedUser && user.companyId !== input.companyId) {
 	    throw ApiError.forbidden('You can only create bookings for your own company.');
 	  }
@@ -1448,129 +1445,6 @@ static async createBooking(
  const paymentMode = input.paymentMode?.toUpperCase();
 
 
-  if (isDirectConfirm) {
-    const adminBookingRef = `BKG-2026-${crypto
-      .randomUUID()
-      .replace(/-/g, '')
-      .substring(0, 10)
-      .toUpperCase()}`;
-
-    return await prisma.$transaction(
-      async (tx) => {
-        // 1. Mark stalls as confirmed immediately
-        await tx.stall.updateMany({
-          where: { id: { in: input.stallIds } },
-          data: {
-            status: StallStatus.BOOKED_CONFIRMED,
-            heldUntil: null,
-            heldByUserId: null,
-          },
-        });
-
-        // 2. Cancel any previous PENDING_PAYMENT booking for these stalls
-        await tx.booking.updateMany({
-          where: {
-            companyId: input.companyId,
-            exhibitionId: exhibition.id,
-            status: BookingStatus.PENDING_PAYMENT,
-            stalls: { some: { stallId: { in: input.stallIds } } },
-          },
-          data: { status: BookingStatus.CANCELLED },
-        });
-
-        // 3. Create confirmed booking with point-in-time snapshots
-        const booking = await tx.booking.create({
-          data: {
-            bookingReference: adminBookingRef,
-            companyId: input.companyId,
-            exhibitionId: exhibition.id,
-            userId: bookingUserId,
-            bookedByUserId,
-            bookingSource,
-            contactPerson: snapshotContactPerson,
-            contactEmail: snapshotContactEmail,
-            contactPhone: snapshotContactPhone,
-            billingName: snapshotBillingName,
-            billingGst: snapshotBillingGst,
-            billingPan: snapshotBillingPan,
-            billingAddress: snapshotBillingAddress,
-            billingCity: snapshotBillingCity,
-            billingState: snapshotBillingState,
-            billingPinCode: snapshotBillingPinCode,
-            billingCountry: snapshotBillingCountry,
-            status: BookingStatus.CONFIRMED,
-            paymentStatus: BookingPaymentStatus.PAID_FULL,
-            totalAmount: result.basePrice,
-            taxAmount: result.bookingTaxAmount,
-            grandTotal: result.grandTotal,
-            paidAmount: result.grandTotal,
-            balanceAmount: new Prisma.Decimal(0),
-            discountAmount: result.discountAmount,
-            discountType: input.discountType,
-            stalls: {
-              create: stalls.map((s) => ({
-                stallId: s.id,
-                price: new Prisma.Decimal(s.price.toString()),
-              })),
-            },
-          },
-          include: {
-            stalls: { include: { stall: true } },
-            exhibition: true,
-            company: true,
-            user: {
-              select: { id: true, name: true, email: true, role: true, spcode: true },
-            },
-            bookedByUser: {
-              select: { id: true, name: true, email: true, role: true, spcode: true },
-            },
-          },
-        });
-
-        // 4. Create offline/admin/staff payment record (no Razorpay)
-        const isStaff = user?.role === 'STAFF';
-        const defaultMethod = isStaff ? 'OFFLINE_STAFF_DIRECT' : 'ADMIN_DIRECT_ALLOCATION';
-        const paymentProvider = isStaff ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
-        const paymentMethod = isStaff
-          ? (input.paymentMethod && !input.paymentMethod.toUpperCase().includes('ADMIN') ? input.paymentMethod : 'OFFLINE_STAFF_DIRECT')
-          : (input.paymentMethod || defaultMethod);
-
-        const paymentRef = generateReference('PAY', 10, false);
-        const payment = await tx.payment.create({
-          data: {
-            paymentReference: paymentRef,
-            bookingId: booking.id,
-            amount: result.grandTotal,
-            currency: 'INR',
-            status: PaymentStatus.SUCCESS,
-            provider: paymentProvider,
-            paymentMethod: paymentMethod,
-            paidAt: new Date(),
-            nextPaymentDate
-          },
-        });
-
-        return {
-          ...booking,
-          id: booking.id,
-          bookingId: booking.id,
-          bookingReference: booking.bookingReference,
-          status: booking.status,
-          paymentStatus: booking.paymentStatus,
-          paymentId: payment.id,
-          data: {
-            bookingId: booking.id,
-            bookingReference: booking.bookingReference,
-            paymentId: payment.id,
-            paymentStatus: 'SUCCESS',
-            bookingStatus: 'CONFIRMED',
-          },
-        };
-      },
-      { timeout: 15000 }
-    );
-  }
-
   // ==================================================
   // 7. Generate booking reference (standard Razorpay flow)
   // ==================================================
@@ -1629,8 +1503,8 @@ static async createBooking(
       snapshotBillingState,
       snapshotBillingPinCode,
       snapshotBillingCountry,
-
       nextPaymentDate,
+      isPartialPayment
     })
     return chequeResult
     }
@@ -2301,13 +2175,21 @@ static async createBooking(
 
     // Filter by payment method type (CASH vs ONLINE)
     if (paymentMethod && paymentMethod !== 'ALL') {
-      if (paymentMethod === 'CASH') {
+            if (paymentMethod === 'CASH') {
         andConditions.push({
           payments: {
             some: {
               OR: [
                 { paymentMode: 'CASH' },
-                { provider: 'OFFLINE_ADMIN' },
+                {
+                  provider: 'OFFLINE_ADMIN',
+                  NOT: {
+                    OR: [
+                      { paymentMode: 'CHEQUE' },
+                      { paymentMethod: { startsWith: 'CHEQUE' } },
+                    ],
+                  },
+                },
               ],
             },
           },
@@ -2319,6 +2201,18 @@ static async createBooking(
               OR: [
                 { paymentMode: 'ONLINE_RAZORPAY' },
                 { provider: 'RAZORPAY' },
+              ],
+            },
+          },
+        });
+      }
+      else if (paymentMethod === 'CHEQUE') {
+        andConditions.push({
+          payments: {
+            some: {
+              OR: [
+                { paymentMode: 'CHEQUE' },
+                { paymentMethod: { startsWith: 'CHEQUE' } },
               ],
             },
           },

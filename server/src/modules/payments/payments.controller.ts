@@ -171,7 +171,7 @@ export class PaymentsController {
       throw ApiError.unauthorized('Authentication is required.');
     }
 
-    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate } = req.body;
+    const { bookingId, amount, chequeNumber, bankName, chequeDate, referenceNote, nextDueDate ,paymentType} = req.body;
 
     const result = await PaymentsService.recordBalanceChequePayment({
       bookingId,
@@ -182,6 +182,7 @@ export class PaymentsController {
       referenceNote,
       nextDueDate,
       user: req.user,
+      paymentType
     });
 
     return res.status(201).json({
