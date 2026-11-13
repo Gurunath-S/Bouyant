@@ -8,6 +8,8 @@ export interface SendConfirmationParams {
   payment: any;
   invoice: any;
   paymentAmount: number;
+  balanceAmount?: number; // 👈 Add this
+  nextPaymentDate?: Date | string | null; // 👈 Add this
 }
 
 export interface PaymentReminderPayload {
@@ -51,17 +53,15 @@ export class WhatsappService {
     }
   }
 
-  static async sendBookingConfirmation(params: SendConfirmationParams): Promise<void> {
-
-    const { booking, invoice, paymentAmount } = params;
-
+   static async sendBookingConfirmation(params: SendConfirmationParams): Promise<void> {
+    const { booking, invoice, paymentAmount, balanceAmount = 0, nextPaymentDate } = params;
     try {
       const askEvaToken = process.env.ASKEVA_TOKEN;
       if (!askEvaToken) {
         console.warn('⚠️ [ASKEVA] ASKEVA_TOKEN is not set in environment. Skipping WhatsApp dispatch.');
         return;
       }
-      // 1. Format and normalize recipient phone number (e.g. 919876543210)
+      // 1. Reusable Phone number validation
       const rawPhone = (booking.company?.mobile || booking.company?.phone || '').replace(/[^0-9]/g, '');
       if (!rawPhone || rawPhone.length < 10) {
         console.warn(`⚠️ [ASKEVA] Invalid or missing phone number for company "${booking.company?.name}". Skipping.`);
@@ -70,26 +70,55 @@ export class WhatsappService {
       const formattedPhone = rawPhone.startsWith('91') && rawPhone.length > 10 ? rawPhone : `91${rawPhone.slice(-10)}`;
       // 2. Generate secure 15-min signed download link
       const downloadUrl = this.generateSignedDownloadUrl(invoice.id, booking.id);
-      // 3. Format stall numbers & dimensions
+      // 3. Format stall numbers & dimensions (Common reuse)
       const stallNumbers = (booking.stalls || [])
         .map((s: any) => s.stall?.stallNumber || s.stallId)
         .join(', ') || 'N/A';
-      // Format stall dimensions / area for WhatsApp
       const stallDimensions = (booking.stalls || [])
         .map((s: any) => {
           const stall = s.stall;
           if (!stall) return 'Standard';
-
-          // Display Area in Sq.Mt (e.g. "9 Sq.Mt")
           const sqmt = getStallAreaSqMt(stall);
           if (stall.actualWidth && stall.actualHeight) {
             return `${stall.actualWidth}m × ${stall.actualHeight}m (${sqmt} Sq.Mt)`;
           }
           return `${sqmt} Sq.Mt`;
         })
-  .join(', ') || 'Standard';
-
-      // 4. Construct AskEva Payload
+        .join(', ') || 'Standard';
+      // 4. Decide Template: Partial vs Full Settlement
+      const isPartial = balanceAmount > 0;
+      const templateName = isPartial ? 'invoice_partial' : 'invoice';
+      // Common 6 parameters
+      const bodyParameters: Array<{ type: 'text'; text: string }> = [
+        { type: 'text', text: booking.company?.contactPerson || booking.company?.name || 'Customer' },
+        { type: 'text', text: booking.exhibition?.title || 'Exhibition' },
+        { type: 'text', text: booking.bookingReference },
+        { type: 'text', text: stallNumbers },
+        { type: 'text', text: stallDimensions },
+        { type: 'text', text: Math.round(paymentAmount).toString() },
+      ];
+      // If Partial payment: Add remaining balance & due date (7th & 8th parameters)
+      if (isPartial) {
+        let formattedDueDate = 'To be decided';
+        if (nextPaymentDate) {
+          const dueDate =
+            typeof nextPaymentDate === 'string'
+              ? DateTime.fromISO(nextPaymentDate, { zone: 'utc' })
+              : DateTime.fromJSDate(new Date(nextPaymentDate), { zone: 'utc' });
+          if (dueDate.isValid) {
+            formattedDueDate = dueDate.setZone('Asia/Kolkata').toLocaleString({
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric',
+            });
+          }
+        }
+        bodyParameters.push(
+          { type: 'text', text: Math.round(balanceAmount).toString() }, // 7. Balance
+          { type: 'text', text: formattedDueDate }                     // 8. Due Date
+        );
+      }
+      // 5. Construct AskEva Payload
       const payload = {
         to: formattedPhone,
         type: 'template',
@@ -98,7 +127,7 @@ export class WhatsappService {
             policy: 'deterministic',
             code: 'en',
           },
-          name: 'invoice',
+          name: templateName,
           components: [
             {
               type: 'header',
@@ -114,19 +143,12 @@ export class WhatsappService {
             },
             {
               type: 'body',
-              parameters: [
-                { type: 'text', text: booking.company.contactPerson || booking.company.name },
-                { type: 'text', text: booking.exhibition.title },
-                { type: 'text', text: booking.bookingReference },
-                { type: 'text', text: stallNumbers },
-                { type: 'text', text: stallDimensions },
-                { type: 'text', text: paymentAmount.toString() },
-              ],
+              parameters: bodyParameters,
             },
           ],
         },
       };
-      // 5. Send Request
+      // 6. Send Request
       const response = await fetch(`${this.API_BASE}?token=${askEvaToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,8 +158,7 @@ export class WhatsappService {
       if (!response.ok) {
         console.error('❌ [ASKEVA WHATSAPP ERROR]:', responseData);
       } else {
-        console.log('responseData of whatsapp',responseData)
-        console.log(`✅ [ASKEVA WHATSAPP SENT] to ${formattedPhone} for booking ${booking.bookingReference}`);
+        console.log(`✅ [ASKEVA WHATSAPP SENT] [Template: ${templateName}] to ${formattedPhone} for booking ${booking.bookingReference}`);
       }
     } catch (err: any) {
       console.error('⚠️ [ASKEVA DISPATCH EXCEPTION]:', err?.message || err);
