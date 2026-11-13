@@ -552,7 +552,7 @@ export class PaymentsService {
           'Payment amount exceeds the remaining booking balance.'
         );
       }
-
+  
       const remainingBalance =
         currentBalance.minus(
           paymentAmount
@@ -601,6 +601,9 @@ export class PaymentsService {
       // =====================================================
       // UPDATE BOOKING
       // =====================================================
+      const updatedPayment = await tx.payment.findUnique({
+        where: { id: currentPayment.id },
+      });
 
       const newPaidAmount = new Prisma.Decimal(booking.paidAmount?.toString() || '0').add(paymentAmount);
 
@@ -729,7 +732,7 @@ export class PaymentsService {
         response,
         emailData: {
           booking,
-          payment: currentPayment,
+          payment: updatedPayment,
           paymentAmount,
           finalBalance,
           newPaidAmount,
