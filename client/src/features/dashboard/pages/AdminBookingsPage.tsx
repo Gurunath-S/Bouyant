@@ -431,7 +431,7 @@ export const AdminBookingsPage: React.FC = () => {
                           )}
 
                           {isSuperAdmin &&
-                            (b.paymentStatus === 'UNPAID' || b.status === 'CANCELLED' || b.status === 'EXPIRED') &&
+                            (b.paymentStatus === 'UNPAID' || b.status === 'CANCELLED' || b.status === 'EXPIRED') && (b.status!=="PENDING_CHEQUE_VERIFICATION")&&
                             Number(b.paidAmount || 0) <= 0 && (
                               <button
                                 type="button"

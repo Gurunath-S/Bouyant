@@ -4,7 +4,7 @@ import { StallsService } from '../stalls/stalls.service.js';
 import { CreateExhibitionInput, UpdateExhibitionInput } from './exhibitions.schemas.js';
 
 export class ExhibitionsService {
-  static async listExhibitions(status?: string, search = '') {
+  static async listExhibitions(status?: string, search = '',page?:number,limit?:number) {
     // Auto-release expired stall holds and auto-complete expired published exhibitions
     try {
       await StallsService.releaseExpiredHolds();
@@ -119,6 +119,22 @@ export class ExhibitionsService {
         isFull,
       };
     });
+    
+    if (page !== undefined && limit !== undefined) {
+      const validPage = Math.max(1, page);
+      const validLimit = Math.max(1, limit);
+      const total = enrichedExhibitions.length;
+      const skip = (validPage - 1) * validLimit;
+      const paginatedData = enrichedExhibitions.slice(skip, skip + validLimit);
+      return {
+        exhibitions: paginatedData,
+        total,
+        page: validPage,
+        limit: validLimit,
+        totalPages: Math.ceil(total / validLimit),
+      };
+    }
+
    
     return enrichedExhibitions;
   }

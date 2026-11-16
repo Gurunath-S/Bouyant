@@ -472,12 +472,17 @@ export const ExhibitionDetailPage: React.FC = () => {
           {/* Section: Event Photos & Media Gallery */}
           {allEventImages.length > 1 && (
             <div className="space-y-4 bg-white dark:bg-slate-900 border border-[#E6EAF0] dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-lg font-bold text-[#121B3D] dark:text-slate-100 flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-[#0E8074]" />
-                  <span>Event Photos & Media Gallery ({allEventImages.length})</span>
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-lg font-bold text-[#121B3D] dark:text-slate-100 flex items-center gap-2 min-w-0">
+                  <ImageIcon className="w-5 h-5 text-[#0E8074] shrink-0" />
+                  <span className="break-words">
+                    Event Photos & Media Gallery ({allEventImages.length})
+                  </span>
                 </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400">Click any image to view in main banner</span>
+
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Click any image to view in main banner
+                </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
                 {allEventImages.map((img, idx) => (

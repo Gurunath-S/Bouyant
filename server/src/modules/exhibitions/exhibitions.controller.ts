@@ -7,7 +7,9 @@ export class ExhibitionsController {
   static list = async (req: Request, res: Response) => {
     const status = req.query.status as string;
     const search = req.query.search as string || '';
-    const exhibitions = await ExhibitionsService.listExhibitions(status, search);
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+    const exhibitions = await ExhibitionsService.listExhibitions(status, search,page,limit);
 
     return sendResponse({
       res,

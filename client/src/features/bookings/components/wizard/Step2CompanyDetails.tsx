@@ -1052,7 +1052,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Email</span>
-                  <span className="text-slate-800 dark:text-slate-200 truncate block">
+                  <span className="text-slate-800 dark:text-slate-200 block whitespace-normal break-all">
                     {selectedCompany.email}
                   </span>
                 </div>
@@ -1177,20 +1177,28 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             </div>
           )}
 
-          <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
-            <Button variant="outline" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+         <div className="pt-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 border-t border-slate-100 dark:border-slate-800">
+
+            <Button
+              variant="outline"
+              onClick={onBack}
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
+              className="w-full lg:w-auto justify-center"
+            >
               Back to Stall Selection
             </Button>
+
             <Button
               variant="primary"
               size="lg"
               disabled={!selectedCompany}
               onClick={onContinueWithSelectedCompany}
-              className="bg-[#09539b] hover:bg-[#012970] font-bold"
+              className="w-full lg:w-auto justify-center bg-[#09539b] hover:bg-[#012970] font-bold"
               rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
             >
               Continue to Tax Review & Contract
             </Button>
+
           </div>
         </div>
       )}
@@ -1248,7 +1256,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 <input
                   type="text"
                   placeholder="e.g. 27AAACT1029F1Z5"
@@ -1260,22 +1268,22 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                       setValue('gstNumber', upper, { shouldValidate: true, shouldDirty: true });
                     },
                   })}
-                  className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs h-9"
+                  className="w-full sm:w-56 px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#09539b] focus:border-[#09539b] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs h-9"
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleVerifyGst()}
-                  isLoading={isVerifyingGst}
-                  leftIcon={gstVerificationSuccess ? <CheckCircle2 className="w-4 h-4 text-white" /> : <ShieldCheck className="w-4 h-4 text-white" />}
-                  className={
-                    gstVerificationSuccess
-                      ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs shrink-0 h-9 px-3.5 shadow-sm border border-emerald-600 transition-colors"
-                      : "bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0 h-9 px-3.5 shadow-sm transition-colors"
-                  }
-                >
-                  {gstVerificationSuccess ? 'GST Verified' : 'Verify GST'}
-                </Button>
+               <Button
+                type="button"
+                size="sm"
+                onClick={() => handleVerifyGst()}
+                isLoading={isVerifyingGst}
+                leftIcon={gstVerificationSuccess ? <CheckCircle2 className="w-4 h-4 text-white" /> : <ShieldCheck className="w-4 h-4 text-white" />}
+                className={`w-full sm:w-auto justify-center ${
+                  gstVerificationSuccess
+                    ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs shrink-0 h-9 px-3.5 shadow-sm border border-emerald-600 transition-colors"
+                    : "bg-[#09539b] hover:bg-[#012970] text-white font-semibold text-xs shrink-0 h-9 px-3.5 shadow-sm transition-colors"
+                }`}
+              >
+                {gstVerificationSuccess ? 'GST Verified' : 'Verify GST'}
+              </Button>
               </div>
             </div>
 
@@ -1290,7 +1298,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                     <span>Verified Entity: {gstVerifiedDetails.legalName || gstVerifiedDetails.tradeName}</span>
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
-                    Status: {gstVerifiedDetails.status || 'Active'}
+                    Status : {gstVerifiedDetails.status || 'Active'}
                   </span>
                 </div>
                 {assignedRegNo && (
@@ -1502,7 +1510,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <SearchableCombobox
               label="Country"
               required
@@ -1589,14 +1597,14 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
             </div>
           )}
 
-          <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-5 flex flex-col-reverse sm:flex-row sm:justify-between items-stretch sm:items-center gap-3 border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
               size="lg"
               onClick={onBack}
-              className="border-2 border-slate-300 dark:border-slate-700 font-bold px-6 py-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-2xs"
-              leftIcon={<ArrowLeft className="w-4 h-4" />}
+              className="w-full sm:w-auto justify-center border-2 border-slate-300 dark:border-slate-700 font-bold px-4 sm:px-6 py-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-2xs text-xs sm:text-sm"
+              leftIcon={<ArrowLeft className="w-4 h-4 shrink-0" />}
             >
               Back to Stall Selection
             </Button>
@@ -1606,14 +1614,16 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               size="lg"
               disabled={!isFormComplete || isSubmitting}
               isLoading={isSubmitting}
-              className={`font-bold transition-all shadow-sm ${
+              className={`w-full sm:w-auto justify-center font-bold px-4 sm:px-6 py-2.5 text-xs sm:text-sm transition-all shadow-sm ${
                 !isFormComplete
                   ? 'opacity-50 cursor-not-allowed bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
                   : 'bg-[#09539b] hover:bg-[#012970] text-white cursor-pointer'
               }`}
-              rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542]" />}
+              rightIcon={<ArrowRight className="w-4 h-4 text-[#9cc542] shrink-0" />}
             >
-              Save & Continue to Tax Review & Contract
+              {/* Mobile-ல் சுருக்கமாகவும், Tablet & Laptop-ல் முழுமையாகவும் காட்டும் */}
+              <span className="inline sm:hidden">Continue to Tax &amp; Contract</span>
+              <span className="hidden sm:inline">Save &amp; Continue to Tax Review &amp; Contract</span>
             </Button>
           </div>
         </form>

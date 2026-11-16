@@ -644,7 +644,8 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
           </div>
 
           {/* Footer - Sticky Bottom, Always Visible */}
-          <div className="shrink-0 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                     {/* Footer - Sticky Bottom, Always Visible */}
+          <div className="shrink-0 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-500">Payable Now:</span>
               <span className="font-black text-slate-900 dark:text-slate-100 text-sm">
@@ -657,13 +658,13 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2.5">
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 type="button"
                 onClick={handleClose}
                 disabled={isProcessing}
-                className="px-4"
+                className="px-3 sm:px-4 shrink-0 text-xs sm:text-sm"
               >
                 Cancel
               </Button>
@@ -675,19 +676,19 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                   (isPartialPayment && !nextDueDate) ||
                   (paymentMethod === 'CHEQUE' && (!chequeDetails.chequeNumber.trim() || !chequeDetails.bankName.trim() || !chequeDetails.chequeDate))
                 }
-                className="bg-[#012970] hover:bg-[#09539b] text-white font-bold px-5"
+                className="bg-[#012970] hover:bg-[#09539b] text-white font-bold px-3 sm:px-5 flex-1 sm:flex-initial text-center justify-center text-xs sm:text-sm"
               >
                 {isProcessing
                   ? paymentMethod === 'CHEQUE'
                     ? 'Submitting Cheque...'
                     : paymentMethod === 'CASH'
-                    ? 'Recording Cash Payment...'
+                    ? 'Recording...'
                     : 'Opening Razorpay...'
                   : paymentMethod === 'CHEQUE'
                   ? `Submit Cheque (${formatCurrency(totalPayableAmount)})`
                   : isPartialPayment
-                  ? `Pay Partial Now (${formatCurrency(totalPayableAmount)})`
-                  : `Pay Remaining Balance (${formatCurrency(totalPayableAmount)})`}
+                  ? `Pay Partial (${formatCurrency(totalPayableAmount)})`
+                  : `Pay Balance (${formatCurrency(totalPayableAmount)})`}
               </Button>
             </div>
           </div>
