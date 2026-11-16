@@ -423,7 +423,7 @@ export class EmailService {
                   ` : ''}
                   ${payload.totalPaidAmount !== undefined && (payload.totalPaidAmount > payload.paymentAmount || isBalancePayment) ? `
                   <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Paid to Date</td>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Paid Amount</td>
                     <td align="right" style="color:#059669; font-weight:700; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.totalPaidAmount)}</td>
                   </tr>
                   ` : ''}
@@ -636,7 +636,7 @@ export class EmailService {
                     <td align="right" style="color:#6366f1; font-weight:800; font-family:monospace; vertical-align:top;">${payload.bookingReference}</td>
                   </tr>
                   <tr>
-                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice</td>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice Number</td>
                     <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">${payload.invoiceNumber}</td>
                   </tr>
                   <tr>

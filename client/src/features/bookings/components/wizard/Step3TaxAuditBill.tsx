@@ -268,31 +268,30 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
             Review corporate entity particulars, reserved booth specs, and flexible payment plan options.
           </p>
         </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                leftIcon={<ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />}
+                className="w-full sm:w-auto text-xs font-bold bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs"
+              >
+                Back to Company Details
+              </Button>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onBack}
-            leftIcon={<ArrowLeft className="w-4 h-4 text-[#09539b] dark:text-blue-400" />}
-            className="text-xs font-bold bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs"
-          >
-            Back to Company Details
-          </Button>
-
-          {onCancel && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onCancel}
-              className="text-xs font-bold bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 shadow-2xs"
-            >
-              Cancel Booking
-            </Button>
-          )}
-        </div>
+              {onCancel && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onCancel}
+                  className="w-full sm:w-auto text-xs font-bold bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 shadow-2xs"
+                >
+                  Cancel Booking
+                </Button>
+              )}
+            </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -789,7 +788,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                         : isAdmin && paymentExecutionMethod === 'CASH'
                           ? `Confirm Cash Booking (₹${payableToday.toLocaleString('en-IN')})`
                           : isAdmin && paymentExecutionMethod === 'CHEQUE'
-                            ? `Submit Cheque for Approval (₹${payableToday.toLocaleString('en-IN')})`
+                            ? `Pay Cheque for Approval (₹${payableToday.toLocaleString('en-IN')})`
                             : `Pay ₹${payableToday.toLocaleString('en-IN')} Now`}
               </Button>
 
@@ -850,13 +849,13 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
               {onCancelBookingAndRelease && (
                 <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={onCancelBookingAndRelease}
-                    className="text-[11px] font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                  >
-                    Cancel Booking &amp; Free Stalls
-                  </button>
+                 <button
+                  type="button"
+                  onClick={onCancelBookingAndRelease}
+                  className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 underline underline-offset-4 decoration-rose-300 dark:decoration-rose-800 hover:decoration-rose-600 transition-colors cursor-pointer"
+                >
+                  Cancel Booking &amp; Free Stalls
+                </button>
                 </div>
               )}
             </div>

@@ -6,7 +6,7 @@ import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { BackButton } from '../../../components/ui/BackButton';
 import { useAuthStore } from '../../../stores/authStore';
-import { Calendar, MapPin, Search, ChevronRight, Lock, Tag } from 'lucide-react';
+import { Calendar, MapPin, Search, ChevronRight, Lock, Tag,ChevronLeft } from 'lucide-react';
 import { formatDisplayDate } from '../../../utils/date';
 
 export const ExhibitionsPage: React.FC = () => {
@@ -14,6 +14,8 @@ export const ExhibitionsPage: React.FC = () => {
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9);
 
   async function fetchExhibitions() {
     try {
@@ -30,6 +32,10 @@ export const ExhibitionsPage: React.FC = () => {
   useEffect(() => {
     fetchExhibitions();
   }, []);
+
+   useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const currentUpcomingEvent = React.useMemo(() => {
     const now = new Date();
@@ -65,6 +71,12 @@ export const ExhibitionsPage: React.FC = () => {
     return matchesSearch;
   });
 
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const currentExhibitions = filtered.slice(startIndex, endIndex);
+
   const getBackConfig = () => {
     if (user?.role === 'SUPERADMIN' || user?.role === 'ADMIN') {
       return { to: '/workspace/events', label: 'Back to Exhibitions Console' };
@@ -98,17 +110,93 @@ export const ExhibitionsPage: React.FC = () => {
             Browse trade shows. <strong className="text-purple-600 dark:text-purple-400">Note: Stall bookings are strictly open for the current upcoming event alone.</strong>
           </p>
         </div>
+        
+        {/* 👉 Side-by-Side: Search Bar + Bold & Clear Pagination */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full min-w-0">
+            {/* 1. Search Bar */}
+            <div className="w-full lg:w-72 min-w-0">
+              <Input
+                placeholder="Search event, city, venue..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+              />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="max-w-xs w-full">
-            <Input
-              placeholder="Search by event, city, or venue..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              leftIcon={<Search className="w-4 h-4" />}
-            />
+            {/* 2. Responsive Pagination */}
+            {totalItems > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 w-full lg:w-auto min-w-0 max-w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-xl shadow-xs">
+
+                {/* Range & Total */}
+                <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+                  <span>Showing</span>
+                  <strong className="text-slate-900 dark:text-slate-100 font-bold font-mono">
+                    {startIndex + 1}–{endIndex}
+                  </strong>
+                  <span>of</span>
+                  <strong className="text-slate-900 dark:text-slate-100 font-bold font-mono">
+                    {totalItems}
+                  </strong>
+                </div>
+
+                {/* Divider */}
+                <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
+
+                {/* Per Page */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Per Page:
+                  </span>
+
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                  >
+                    <option value={6}>6</option>
+                    <option value={9}>9</option>
+                    <option value={12}>12</option>
+                    <option value={24}>24</option>
+                  </select>
+                </div>
+
+                {/* Divider */}
+                <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
+
+                {/* Page Number & Navigation */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200 mr-1">
+                    {currentPage} / {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
+            )}
+
           </div>
-        </div>
       </div>
 
       {/* Grid */}
@@ -122,7 +210,7 @@ export const ExhibitionsPage: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((expo) => {
+          {currentExhibitions.map((expo) => {
             const isCurrentUpcoming = currentUpcomingEvent && expo.id === currentUpcomingEvent.id;
             const isFull = expo.isFull === true || (expo.totalStalls > 0 && expo.availableStallsCount === 0);
 
@@ -214,6 +302,7 @@ export const ExhibitionsPage: React.FC = () => {
                     </Button>
                   </Link>
                 </div>
+             
               </div>
             );
           })}

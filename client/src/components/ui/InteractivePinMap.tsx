@@ -767,7 +767,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
       <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
               {title || (venueName ? `${venueName}${cityName ? `, ${cityName}` : ''}` : 'Venue Location')}
             </h4>
             {venueName &&

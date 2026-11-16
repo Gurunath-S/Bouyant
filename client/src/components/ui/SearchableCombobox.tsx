@@ -23,12 +23,12 @@ let activeDropdownCloser: (() => void) | null = null;
  */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query || !query.trim()) {
-    return <span className="truncate">{text}</span>;
+    return <span >{text}</span>;
   }
   const q = query.trim().toLowerCase();
   const idx = text.toLowerCase().indexOf(q);
   if (idx === -1) {
-    return <span className="truncate">{text}</span>;
+    return <span >{text}</span>;
   }
 
   const before = text.slice(0, idx);
@@ -36,7 +36,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   const after = text.slice(idx + q.length);
 
   return (
-    <span className="truncate">
+    <span >
       {before}
       <mark className="bg-purple-100 dark:bg-purple-900/70 text-purple-900 dark:text-purple-100 font-extrabold rounded-xs px-0.5 not-italic">
         {match}
@@ -439,7 +439,7 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
       {isOpen && !disabled && (
         <div
           style={{ maxHeight: `${maxListHeight}px` }}
-          className={`absolute z-[9999] w-full overflow-hidden flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl ${
+          className={`absolute z-[9999] w-full min-w-full sm:min-w-[280px] overflow-hidden flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           } animate-in fade-in zoom-in-95 duration-150`}
         >

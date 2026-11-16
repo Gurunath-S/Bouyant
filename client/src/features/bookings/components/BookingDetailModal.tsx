@@ -300,12 +300,12 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
             {/* Payment Transactions & Audit History */}
             <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
-                <h4 className="font-extrabold text-[#012970] dark:text-blue-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                <h4 className="font-extrabold text-[#012970] dark:text-blue-400 text-xs uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                   <CreditCard className="w-4 h-4 text-[#09539b] dark:text-blue-400 shrink-0" />
                   Payment Records &amp; Transactions ({successfulPayments.length} Completed)
                 </h4>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap shrink-0 inline-flex items-center">
                   {paymentList.length} {paymentList.length === 1 ? 'Record' : 'Records'}
                 </span>
               </div>
@@ -348,7 +348,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                             <span className="font-bold text-slate-800 dark:text-slate-100">
                               #{idx + 1} {installmentLabel}
                             </span>
-                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${badgeClass}`}>
                               {p.status}
                             </span>
                           </div>
@@ -363,23 +363,27 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div>
                             <span className="text-slate-400 block text-[10px]">Payment Ref:</span>
-                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block" title={p.paymentReference}>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200  block" title={p.paymentReference}>
                               {p.paymentReference || '-'}
                             </span>
                           </div>
                           <div>
                             <span className="text-slate-400 block text-[10px]">Method / Provider:</span>
-                            <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                              {p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                              {p.paymentMode === 'CHEQUE' || p.paymentMethod?.includes('CHEQUE')
+                               ? 'CHEQUE • Offline / In-Person'
+                                : p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
                                 ? 'CASH • Offline / In-Person'
                                 : `${p.provider || 'RAZORPAY'} • ${p.paymentMethod || 'UPI / Gateway'}`}
                             </span>
                           </div>
                           <div>
                             <span className="text-slate-400 block text-[10px]">Txn Reference:</span>
-                            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block truncate" title={p.transactionId || p.razorpayPaymentId || '-'}>
+                            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block" title={p.transactionId || p.razorpayPaymentId || (p.chequeNumber ? `Cheque #${p.chequeNumber}` : '-')}>
                               {p.transactionId || p.razorpayPaymentId || (
-                                p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
+                                p.paymentMode === 'CHEQUE' || p.paymentMethod?.includes('CHEQUE')
+                                  ? (p.chequeNumber ? `Cheque #${p.chequeNumber}${p.bankName ? ` (${p.bankName})` : ''}` : 'Cheque Clearance Pending')
+                                  : p.paymentMode === 'CASH' || p.provider === 'OFFLINE_ADMIN'
                                   ? 'Cash Collection'
                                   : p.status === 'CANCELLED'
                                   ? 'Cancelled (Unpaid)'
@@ -391,7 +395,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                           </div>
                           <div>
                             <span className="text-slate-400 block text-[10px]">Paid Date / Time:</span>
-                            <span className="font-medium text-slate-700 dark:text-slate-300 block truncate">
+                            <span className="font-medium text-slate-700 dark:text-slate-300 block">
                               {p.paidAt ? formatDisplayDateTime(p.paidAt) : (p.createdAt ? formatDisplayDateTime(p.createdAt) : '-')}
                             </span>
                           </div>

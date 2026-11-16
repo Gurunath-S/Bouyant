@@ -287,7 +287,7 @@ export const ReportsPage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* 1. Exhibition Scope */}
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
@@ -309,7 +309,7 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* 2. Date Range Presets */}
-          <div className="space-y-1">
+          {/* <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Time Period
             </label>
@@ -329,7 +329,7 @@ export const ReportsPage: React.FC = () => {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* 3. Booking Status Filter */}
           <div className="space-y-1">
