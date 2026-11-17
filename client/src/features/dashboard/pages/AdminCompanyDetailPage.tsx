@@ -50,7 +50,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING_PAYMENT' | 'CANCELLED'>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'PAID_FULL' | 'PARTIALLY_PAID' | 'UNPAID'>('ALL');
-  const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'VALUE_HIGH'>('NEWEST');
+  const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'VALUE_HIGH' | 'VALUE_LOW'>('NEWEST');
 
   // Pagination for bookings
   const [currentPage, setCurrentPage] = useState(1);
@@ -240,6 +240,9 @@ export const AdminCompanyDetailPage: React.FC = () => {
         }
         if (sortBy === 'VALUE_HIGH') {
           return Number(b.grandTotal || 0) - Number(a.grandTotal || 0);
+        }
+        if (sortBy === 'VALUE_LOW') {
+          return Number(a.grandTotal || 0) - Number(b.grandTotal || 0);
         }
         return 0;
       });
@@ -703,6 +706,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
               <option value="NEWEST">Newest Bookings First</option>
               <option value="OLDEST">Oldest Bookings First</option>
               <option value="VALUE_HIGH">Highest Contract Value</option>
+              <option value="VALUE_LOW">Lowest Contract Value</option>
             </select>
           </div>
         </div>
