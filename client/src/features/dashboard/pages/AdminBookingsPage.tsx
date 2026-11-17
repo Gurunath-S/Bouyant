@@ -19,7 +19,7 @@ export const AdminBookingsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPERADMIN';
-
+  const isAdmin = user?.role === 'ADMIN';
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [totalBookings, setTotalBookings] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
@@ -229,17 +229,18 @@ export const AdminBookingsPage: React.FC = () => {
               <option value="CHEQUE">Cheque</option>
 
             </select>
-
-            <select
-              value={registrarFilter}
-              onChange={(e) => setRegistrarFilter(e.target.value)}
-              className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
-            >
-              <option value="ALL">All Registered</option>
-              <option value="ADMIN">Admin Registered</option>
-              <option value="STAFF">Staff Registered</option>
-              <option value="CLIENT">Client Direct Online</option>
-            </select>
+              {(isSuperAdmin || isAdmin) && (
+              <select
+                value={registrarFilter}
+                onChange={(e) => setRegistrarFilter(e.target.value)}
+                className="text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-700 dark:text-slate-200"
+              >
+                <option value="ALL">All Registered</option>
+                <option value="ADMIN">Admin Registered</option>
+                <option value="STAFF">Staff Registered</option>
+                <option value="CLIENT">Client Direct Online</option>
+              </select>
+            )}
 
             <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100/50">
               <input

@@ -246,6 +246,10 @@ export class AuthService {
     if (!user) {
       throw ApiError.unauthorized('Invalid username/email or password.');
     }
+    // 👇 ADD THIS: Check if account is deleted (soft-deleted) BEFORE password check
+    if ((user as any).isDeleted === true) {
+      throw ApiError.unauthorized('Your account does not exist. Please contact the administrator for assistance.');
+    }
 
     const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
 
