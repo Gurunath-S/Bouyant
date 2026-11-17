@@ -359,8 +359,11 @@ export const UserGovernanceDetailPage: React.FC = () => {
       setEditModalError(null);
       setEditFieldErrors({});
       setEditPassword('');
+      setSavingEdit(false);
       setTimeout(() => setActionNotice(null), 5000);
-      await fetchUserData();
+      fetchUserData().catch((fetchErr) => {
+        console.warn('Background fetchUserData failed:', fetchErr);
+      });
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user profile.';
       setEditModalError(errMsg);

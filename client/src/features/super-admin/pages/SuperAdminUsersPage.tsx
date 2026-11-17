@@ -748,7 +748,10 @@ export const SuperAdminUsersPage: React.FC = () => {
         handleOpenDetails(editUser.id);
       }
 
-      await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage, pageSize);
+      setActionLoading(false);
+      fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage, pageSize).catch((err) =>
+        console.warn('Background user fetch failed:', err)
+      );
       loadExistingUsersForValidation();
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to update user.';
@@ -835,7 +838,10 @@ export const SuperAdminUsersPage: React.FC = () => {
       setResetUsername('');
       setShowResetPassword(false);
       setSendNotificationEmail(true);
-      await fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage);
+      setActionLoading(false);
+      fetchUsers(selectedEventId, statusFilter, searchQuery, activeTab, currentPage).catch((err) =>
+        console.warn('Background user fetch failed:', err)
+      );
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to reset password.';
       setResetModalError(errMsg);

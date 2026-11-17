@@ -682,16 +682,15 @@ export class UsersService {
     }
 
     if (passwordHash && input.sendNotificationEmail !== false) {
-      try {
-        await EmailService.sendAdminPasswordResetNotificationEmail({
-          toEmail: email,
-          toName: input.name ? input.name.trim() : user.name,
-          username: username || undefined,
-          password: input.password!.trim(),
-        });
-      } catch (emailErr) {
+      // Dispatch password notification asynchronously so user update returns immediately without blocking on SMTP round-trips
+      EmailService.sendAdminPasswordResetNotificationEmail({
+        toEmail: email,
+        toName: input.name ? input.name.trim() : user.name,
+        username: username || undefined,
+        password: input.password!.trim(),
+      }).catch((emailErr) => {
         console.warn(`Failed to dispatch password notification email to ${email}:`, emailErr);
-      }
+      });
     }
 
     return updated;
@@ -795,22 +794,19 @@ export class UsersService {
 
     let emailSent = false;
     if (sendEmailNotification) {
-      try {
-        const emailResult = await EmailService.sendAdminPasswordResetNotificationEmail({
-          toEmail: user.email,
-          toName: user.name,
-          username: finalUsername || undefined,
-        });
-        emailSent = emailResult.status === 'ACCEPTED';
-      } catch (emailErr) {
+      // Dispatch password notification asynchronously so reset returns immediately without blocking on slow SMTP networks
+      EmailService.sendAdminPasswordResetNotificationEmail({
+        toEmail: user.email,
+        toName: user.name,
+        username: finalUsername || undefined,
+      }).catch((emailErr) => {
         console.warn(`Failed to dispatch password reset notification email to ${user.email}:`, emailErr);
-      }
+      });
+      emailSent = true;
     }
 
     const message = emailSent
       ? `Password for ${user.name} (${finalUsername || user.email}) has been reset and login credentials sent to ${user.email}.`
-      : sendEmailNotification
-      ? `Password for ${user.name} (${finalUsername || user.email}) has been reset successfully.`
       : `Password for ${user.name} (${finalUsername || user.email}) has been reset successfully (notification skipped).`;
 
     return {
