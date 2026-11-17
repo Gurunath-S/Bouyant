@@ -73,8 +73,8 @@ export class BookingsController {
     const registeredByRole = req.query.registeredByRole as string;
     const exhibitionId = req.query.exhibitionId as string;
     const userId = req.query.userId as string;
-    let bookedByUserId = req.query.bookedByUserId as string;
-    if (bookedByUserId === 'me' && req.user?.userId) {
+        let bookedByUserId = req.query.bookedByUserId as string;
+    if ((bookedByUserId === 'me' || req.user?.role === 'STAFF') && req.user?.userId) {
       bookedByUserId = req.user.userId;
     }
     const bookingSource = req.query.bookingSource as string;
@@ -92,6 +92,7 @@ export class BookingsController {
       userId,
       bookedByUserId,
       bookingSource,
+      staffSpcode: req.user?.spcode || undefined,
       paymentMethod,
     });
     return sendResponse({

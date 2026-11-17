@@ -132,7 +132,11 @@ export class CompaniesController {
     const status = (req.query.status as string) || undefined;
     const paymentStatus = (req.query.paymentStatus as string) || undefined;
 
-    const result = await CompaniesService.listCompanies(page, limit, search, exhibitionId, status, paymentStatus);
+        // 👇 ADD THIS
+    const isStaff = req.user?.role === 'STAFF';
+    const staffSpcode = isStaff ? (req.user?.spcode || undefined) : undefined;
+
+    const result = await CompaniesService.listCompanies(page, limit, search, exhibitionId, status, paymentStatus,staffSpcode);
     return sendResponse({
       res,
       statusCode: 200,

@@ -29,10 +29,10 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   nextSuggestedNumber,
   existingStalls = [],
 }) => {
-  const [widthMeters, setWidthMeters] = useState<number>(3);
-  const [depthMeters, setDepthMeters] = useState<number>(3);
-  const [widthFeet, setWidthFeet] = useState<number>(9.8);
-  const [depthFeet, setDepthFeet] = useState<number>(9.8);
+  const [widthMeters, setWidthMeters] = useState<number | string>(3);
+  const [depthMeters, setDepthMeters] = useState<number | string>(3);
+  const [widthFeet, setWidthFeet] = useState<number | string>(9.8);
+  const [depthFeet, setDepthFeet] = useState<number | string>(9.8);
   const [stallNumber, setStallNumber] = useState<string>(nextSuggestedNumber);
 
   React.useEffect(() => {
@@ -58,8 +58,8 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   const pxPerMeter = 20;
 
   // Live calculations
-  const effectiveWidthMeters = unit === 'm' ? widthMeters : Number((widthFeet / 3.28084).toFixed(2));
-  const effectiveDepthMeters = unit === 'm' ? depthMeters : Number((depthFeet / 3.28084).toFixed(2));
+ const effectiveWidthMeters = unit === 'm' ? (Number(widthMeters) || 0.5) : Number(((Number(widthFeet) || 1.6) / 3.28084).toFixed(2));
+ const effectiveDepthMeters = unit === 'm' ? (Number(depthMeters) || 0.5) : Number(((Number(depthFeet) || 1.6) / 3.28084).toFixed(2));
   const areaSqMeters = Number((effectiveWidthMeters * effectiveDepthMeters).toFixed(1));
   const areaSqFt = areaSqMeters;
 
@@ -81,62 +81,75 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
   const handleUnitToggle = (newUnit: 'm' | 'ft') => {
     if (newUnit === unit) return;
     setUnit(newUnit);
-    if (newUnit === 'ft') {
-      const wFt = Number((widthMeters * 3.28084).toFixed(1));
-      const dFt = Number((depthMeters * 3.28084).toFixed(1));
-      setWidthFeet(wFt);
-      setDepthFeet(dFt);
-      if (autoNameDimension) {
-        setCustomLabel(`${wFt}×${dFt}ft`);
-      }
-    } else {
-      const wM = Number((widthFeet / 3.28084).toFixed(1));
-      const dM = Number((depthFeet / 3.28084).toFixed(1));
-      setWidthMeters(wM);
-      setDepthMeters(dM);
-      if (autoNameDimension) {
-        setCustomLabel(`${wM}×${dM}m`);
-      }
-    }
+   if (newUnit === 'ft') {
+  const wFt = Number((Number(widthMeters) * 3.28084).toFixed(1));
+  const dFt = Number((Number(depthMeters) * 3.28084).toFixed(1));
+  setWidthFeet(wFt);
+  setDepthFeet(dFt);
+  if (autoNameDimension) {
+    setCustomLabel(`${wFt}×${dFt}ft`);
+  }
+} else {
+  const wM = Number((Number(widthFeet) / 3.28084).toFixed(1));
+  const dM = Number((Number(depthFeet) / 3.28084).toFixed(1));
+  setWidthMeters(wM);
+  setDepthMeters(dM);
+  if (autoNameDimension) {
+    setCustomLabel(`${wM}×${dM}m`);
+  }
+}
   };
 
-  const handleWidthChange = (val: number) => {
-    const w = Math.max(0.5, val);
-    if (unit === 'm') {
-      setWidthMeters(w);
-      const wFt = Number((w * 3.28084).toFixed(1));
-      setWidthFeet(wFt);
-      if (autoNameDimension) {
-        setCustomLabel(`${w}×${depthMeters}m`);
-      }
-    } else {
-      setWidthFeet(w);
-      const wM = Number((w / 3.28084).toFixed(2));
-      setWidthMeters(wM);
-      if (autoNameDimension) {
-        setCustomLabel(`${w}×${depthFeet}ft`);
-      }
+  // 🟢 Replace handleWidthChange & handleDepthChange with this:
+const handleWidthChange = (valStr: string) => {
+  if (valStr === '') {
+    if (unit === 'm') setWidthMeters('');
+    else setWidthFeet('');
+    return;
+  }
+  const val = Number(valStr);
+  if (isNaN(val)) return;
+  if (unit === 'm') {
+    setWidthMeters(val);
+    const wFt = Number((val * 3.28084).toFixed(1));
+    setWidthFeet(wFt);
+    if (autoNameDimension) {
+      setCustomLabel(`${val}×${depthMeters || 0}m`);
     }
-  };
+  } else {
+    setWidthFeet(val);
+    const wM = Number((val / 3.28084).toFixed(2));
+    setWidthMeters(wM);
+    if (autoNameDimension) {
+      setCustomLabel(`${val}×${depthFeet || 0}ft`);
+    }
+  }
+};
 
-  const handleDepthChange = (val: number) => {
-    const d = Math.max(0.5, val);
-    if (unit === 'm') {
-      setDepthMeters(d);
-      const dFt = Number((d * 3.28084).toFixed(1));
-      setDepthFeet(dFt);
-      if (autoNameDimension) {
-        setCustomLabel(`${widthMeters}×${d}m`);
-      }
-    } else {
-      setDepthFeet(d);
-      const dM = Number((d / 3.28084).toFixed(2));
-      setDepthMeters(dM);
-      if (autoNameDimension) {
-        setCustomLabel(`${widthFeet}×${d}ft`);
-      }
+const handleDepthChange = (valStr: string) => {
+  if (valStr === '') {
+    if (unit === 'm') setDepthMeters('');
+    else setDepthFeet('');
+    return;
+  }
+  const val = Number(valStr);
+  if (isNaN(val)) return;
+  if (unit === 'm') {
+    setDepthMeters(val);
+    const dFt = Number((val * 3.28084).toFixed(1));
+    setDepthFeet(dFt);
+    if (autoNameDimension) {
+      setCustomLabel(`${widthMeters || 0}×${val}m`);
     }
-  };
+  } else {
+    setDepthFeet(val);
+    const dM = Number((val / 3.28084).toFixed(2));
+    setDepthMeters(dM);
+    if (autoNameDimension) {
+      setCustomLabel(`${widthFeet || 0}×${val}ft`);
+    }
+  }
+};
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,7 +232,7 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESET_DIMENSIONS.map((p) => {
-                const isActive = widthMeters === p.widthMeters && depthMeters === p.depthMeters && unit === 'm';
+               const isActive = Number(widthMeters) === p.widthMeters && Number(depthMeters) === p.depthMeters && unit === 'm';
                 return (
                   <button
                     key={p.label}
@@ -283,16 +296,21 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Frontage Width ({unit})
                 </label>
-                <input
-                  type="number"
-                  step={unit === 'm' ? '0.5' : '1'}
-                  min="0.5"
-                  value={unit === 'm' ? widthMeters : widthFeet}
-                  onChange={(e) => handleWidthChange(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                {/* Frontage Width Input */}
+                  <input
+                    type="number"
+                    step={unit === 'm' ? '0.5' : '1'}
+                    min="0.5"
+                    value={unit === 'm' ? widthMeters : widthFeet}
+                    onChange={(e) => handleWidthChange(e.target.value)}
+                    onBlur={() => {
+                      if (unit === 'm' && (!widthMeters || Number(widthMeters) < 0.5)) handleWidthChange('0.5');
+                      if (unit === 'ft' && (!widthFeet || Number(widthFeet) < 1.6)) handleWidthChange('1.6');
+                    }}
+                    className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {unit === 'm' ? `≈ ${(widthMeters * 3.28084).toFixed(1)} ft` : `≈ ${(widthFeet / 3.28084).toFixed(1)} m`}
+                  {unit === 'm' ? `≈ ${(Number(widthMeters) * 3.28084).toFixed(1)} ft` : `≈ ${(Number(widthFeet) / 3.28084).toFixed(1)} m`}
                 </span>
               </div>
 
@@ -305,11 +323,15 @@ export const CreateCustomStallModal: React.FC<CreateCustomStallModalProps> = ({
                   step={unit === 'm' ? '0.5' : '1'}
                   min="0.5"
                   value={unit === 'm' ? depthMeters : depthFeet}
-                  onChange={(e) => handleDepthChange(Number(e.target.value))}
+                  onChange={(e) => handleDepthChange(e.target.value)}
+                  onBlur={() => {
+                    if (unit === 'm' && (!depthMeters || Number(depthMeters) < 0.5)) handleDepthChange('0.5');
+                    if (unit === 'ft' && (!depthFeet || Number(depthFeet) < 1.6)) handleDepthChange('1.6');
+                  }}
                   className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {unit === 'm' ? `≈ ${(depthMeters * 3.28084).toFixed(1)} ft` : `≈ ${(depthFeet / 3.28084).toFixed(1)} m`}
+                {unit === 'm' ? `≈ ${(Number(depthMeters) * 3.28084).toFixed(1)} ft` : `≈ ${(Number(depthFeet) / 3.28084).toFixed(1)} m`}
                 </span>
               </div>
             </div>

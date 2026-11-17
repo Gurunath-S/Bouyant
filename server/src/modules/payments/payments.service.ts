@@ -1056,6 +1056,8 @@ static async createBalancePaymentOrder(
       status?: string;
       method?: string;
       plan?: string;
+      staffUserId?: string;   // 👈 ADD
+      staffSpcode?: string;   // 👈 ADD
     } | number,
     limitArg?: number
   ) {
@@ -1085,7 +1087,17 @@ static async createBalancePaymentOrder(
     const andConditions: any[] = [
       { isDeleted: false },
     ];
-
+  // 👇 ADD THIS: Scope payments strictly for Staff
+  // 👇 Scope payments strictly for Staff: only their own bookings
+    if (options && typeof options === 'object' && options.staffUserId) {
+      const { staffUserId } = options;
+      andConditions.push({
+        OR: [
+          { booking: { bookedByUserId: staffUserId } },
+          { booking: { userId: staffUserId } },
+        ],
+      });
+    }
     // Filter by status
     if (status && status !== 'ALL') {
       andConditions.push({ status: status as any });
@@ -1974,11 +1986,9 @@ static async createBalancePaymentOrder(
           ? (await tx.user.findUnique({ where: { id: user.userId }, select: { spcode: true } }))?.spcode
           : null);
         const attributionTag = userSpcode ? ` [${userSpcode}]` : user.userId ? ` [ID:${user.userId.slice(-6)}]` : '';
-        const paymentProvider = user.role === 'STAFF' ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
-        const isPartial = amountInPaise < balanceInPaise;
-       
+        const paymentProvider = user.role === 'STAFF' ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';       
 
-    const isPartialPayment = input.paymentType?.toUpperCase() === "PARTIAL";
+    const isPartialPayment = paymentType?.toUpperCase() === "PARTIAL";
 
         // 4. Create PENDING Cheque Payment Record
         const payment = await tx.payment.create({

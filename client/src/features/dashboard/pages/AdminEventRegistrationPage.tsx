@@ -1082,10 +1082,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
                       <th className="py-3.5 px-4 text-center min-w-[200px]">Exhibition Event</th>
                       <th className="py-3.5 px-4 text-center min-w-[180px]">Registered Company</th>
                       <th className="py-3.5 px-4 text-center min-w-[130px]">Allocated Stalls</th>
-                      <th className="py-3.5 px-4 text-center min-w-[135px]">Status & Payment</th>
+                      <th className="py-3.5 px-4 text-center min-w-[185px]">Status & Payment</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[130px]">Value & Balance</th>
                       <th className="py-3.5 px-4 text-center min-w-[130px]">Booked By</th>
+                    {!isStaff && (
                       <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[110px]">Channel</th>
+                    )}
                       <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[220px]">Actions</th>
                     </tr>
                   </thead>
@@ -1155,12 +1157,12 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 align-middle min-w-[135px] text-center">
-                          <div className="flex flex-col gap-1.5 items-center justify-center">
-                            <BookingStatusBadge status={b.status} className="w-full max-w-[130px] text-center" />
-                            <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full max-w-[130px] text-center" />
-                          </div>
-                        </td>
+                       <td className="py-3.5 px-4 align-middle min-w-[185px] text-center">
+                        <div className="flex flex-col gap-1.5 items-center justify-center">
+                          <BookingStatusBadge status={b.status} className="w-full max-w-[175px] text-center text-[10.5px]" />
+                          <PaymentStatusBadge status={b.paymentStatus || 'UNPAID'} className="w-full max-w-[175px] text-center" />
+                        </div>
+                      </td>
 
                         <td className="py-3.5 px-4 text-center whitespace-nowrap min-w-[130px]">
                           <span className="font-mono font-black text-slate-900 dark:text-slate-100 text-xs block">
@@ -1187,16 +1189,18 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 min-w-[110px] text-center whitespace-nowrap">
-                          {(() => {
-                            const badge = getSourceBadge(b.bookingSource);
-                            return (
-                              <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border ${badge.cls}`}>
-                                {badge.label}
-                              </span>
-                            );
-                          })()}
-                        </td>
+                        {!isStaff && (
+                         <td className="py-3.5 px-4 min-w-[110px] text-center whitespace-nowrap">
+                              {(() => {
+                                const badge = getSourceBadge(b.bookingSource);
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border ${badge.cls}`}>
+                                    {badge.label}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                          )}
 
                         <td className="py-3.5 px-4 text-center min-w-[220px] whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5 justify-center flex-nowrap">

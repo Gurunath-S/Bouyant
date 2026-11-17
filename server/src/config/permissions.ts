@@ -88,8 +88,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
     Permissions.PROFILE_MANAGE,
   ]),
 
-  STAFF: new Set([
+   STAFF: new Set([
     Permissions.EVENT_CREATE,
+    Permissions.BOOKING_MANAGE,
+    Permissions.PAYMENT_MANAGE,
+    Permissions.INVOICE_MANAGE,
+    Permissions.COMPANY_MANAGE,
     Permissions.REPORT_VIEW_OPERATIONAL,
     Permissions.PROFILE_MANAGE,
   ]),

@@ -367,7 +367,7 @@ const [invoices, total] = await Promise.all([
   }
 
   static async listAllInvoices(
-    options?: { page?: number | string; limit?: number | string; search?: string; status?: string; method?: string } | number,
+    options?: { page?: number | string; limit?: number | string; search?: string; status?: string; method?: string; staffUserId?: string; } | number,
     limitArg?: number
   ) {
     let rawPage: any;
@@ -390,6 +390,18 @@ const [invoices, total] = await Promise.all([
     const andConditions: any[] = [
       { isDeleted: false },
     ];
+
+      // 👇 ADD THIS: Filter invoices by staff's own bookings
+    if (options && typeof options === 'object' && options.staffUserId) {
+      andConditions.push({
+        booking: {
+          OR: [
+            { bookedByUserId: options.staffUserId },
+            { userId: options.staffUserId },
+          ],
+        },
+      });
+    }
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({

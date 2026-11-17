@@ -63,7 +63,10 @@ export class PaymentsController {
     const status = (req.query.status as string) || '';
     const method = (req.query.method as string) || '';
     const plan = (req.query.plan as string) || '';
-
+    
+    const isStaff = req.user?.role === 'STAFF';
+    const staffUserId = isStaff ? req.user?.userId : undefined;
+       const staffSpcode = (isStaff ? req.user?.spcode : undefined) || undefined;
     const result = await PaymentsService.listPayments({
       page,
       limit,
@@ -71,6 +74,8 @@ export class PaymentsController {
       status,
       method,
       plan,
+      staffUserId,   // 👈 Pass this
+      staffSpcode,
     });
     return sendResponse({
       res,
