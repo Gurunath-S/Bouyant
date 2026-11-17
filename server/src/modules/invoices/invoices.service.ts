@@ -474,10 +474,37 @@ const [invoices, total] = await Promise.all([
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           include: {
             company: { select: { name: true, companyCode: true } },
+            payment: {
+              select: {
+                id: true,
+                paymentReference: true,
+                paymentMode: true,
+                paymentMethod: true,
+                provider: true,
+                status: true,
+                chequeNumber: true,
+                bankName: true,
+              },
+            },
             booking: {
               include: {
                 stalls: { include: { stall: { select: { stallNumber: true } } } },
                 exhibition: { select: { title: true } },
+                payments: {
+                  where: { status: 'SUCCESS' },
+                  select: {
+                    id: true,
+                    paymentReference: true,
+                    paymentMode: true,
+                    paymentMethod: true,
+                    provider: true,
+                    status: true,
+                    chequeNumber: true,
+                    bankName: true,
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
               },
             },
           },
@@ -501,10 +528,37 @@ const [invoices, total] = await Promise.all([
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
         company: { select: { name: true, companyCode: true } },
+        payment: {
+          select: {
+            id: true,
+            paymentReference: true,
+            paymentMode: true,
+            paymentMethod: true,
+            provider: true,
+            status: true,
+            chequeNumber: true,
+            bankName: true,
+          },
+        },
         booking: {
           include: {
             stalls: { include: { stall: { select: { stallNumber: true } } } },
             exhibition: { select: { title: true } },
+            payments: {
+              where: { status: 'SUCCESS' },
+              select: {
+                id: true,
+                paymentReference: true,
+                paymentMode: true,
+                paymentMethod: true,
+                provider: true,
+                status: true,
+                chequeNumber: true,
+                bankName: true,
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
           },
         },
       },

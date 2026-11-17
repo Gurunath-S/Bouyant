@@ -737,6 +737,7 @@ export const AdminPaymentsPage: React.FC = () => {
                         <th className="w-12 py-3.5 px-3 text-center">S.No</th>
                         <th className="py-3.5 px-4">Invoice No.</th>
                         <th className="py-3.5 px-4">Exhibitor Company</th>
+                        <th className="py-3.5 px-4">Payment Type</th>
                         <th className="py-3.5 px-4">Issue Date</th>
                         <th className="py-3.5 px-4 text-right">Base Amount</th>
                         <th className="py-3.5 px-4 text-right">GST (18%)</th>
@@ -745,24 +746,69 @@ export const AdminPaymentsPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-                      {invoices.map((inv, idx) => (
-                        <tr
-                          key={inv.id}
-                          onClick={() => setSelectedBillOrInvoice(inv)}
-                          className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
-                        >
-                          <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
-                            {(invoicePage - 1) * invoicePageSize + idx + 1}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-purple-700 dark:text-purple-400">
-                            {inv.invoiceNumber}
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">
-                            {inv.company?.name || 'Enterprise'}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                            {formatDisplayDate(inv.issueDate || inv.createdAt)}
-                          </td>
+                      {invoices.map((inv, idx) => {
+                        const paymentObj = inv.payment || (inv.booking?.payments && inv.booking.payments[0]);
+                        const isCheque =
+                          paymentObj?.paymentMode === 'CHEQUE' ||
+                          (typeof paymentObj?.paymentMethod === 'string' &&
+                            paymentObj.paymentMethod.toUpperCase().includes('CHEQUE'));
+                        const isCash =
+                          paymentObj?.paymentMode === 'CASH' ||
+                          paymentObj?.provider === 'OFFLINE_ADMIN' ||
+                          (typeof paymentObj?.paymentMethod === 'string' &&
+                            paymentObj.paymentMethod.toUpperCase().includes('CASH'));
+
+                        return (
+                          <tr
+                            key={inv.id}
+                            onClick={() => setSelectedBillOrInvoice(inv)}
+                            className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
+                          >
+                            <td className="w-12 py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                              {(invoicePage - 1) * invoicePageSize + idx + 1}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-purple-700 dark:text-purple-400">
+                              {inv.invoiceNumber}
+                            </td>
+                            <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">
+                              {inv.company?.name || 'Enterprise'}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {isCheque ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 w-fit">
+                                    <Receipt className="w-3 h-3 text-amber-500" />
+                                    Cheque
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                    {paymentObj?.chequeNumber ? `#${paymentObj.chequeNumber}` : 'In-Person / Cheque'}
+                                  </span>
+                                </div>
+                              ) : isCash ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 w-fit">
+                                    <DollarSign className="w-3 h-3 text-emerald-500" />
+                                    Cash Deposit
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                    Cash Collection
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 w-fit">
+                                    <CreditCard className="w-3 h-3 text-blue-500" />
+                                    Online
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                    {paymentObj?.paymentMethod || 'Razorpay Gateway'}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                              {formatDisplayDate(inv.issueDate || inv.createdAt)}
+                            </td>
                           <td className="py-3.5 px-4 text-right font-mono">
                             ₹{Number(inv.totalAmount).toLocaleString('en-IN')}
                           </td>
@@ -808,7 +854,8 @@ export const AdminPaymentsPage: React.FC = () => {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>
