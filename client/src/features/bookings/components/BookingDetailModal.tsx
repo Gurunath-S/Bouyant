@@ -428,7 +428,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 Pay Remaining Amount (₹{balanceDue.toLocaleString()})
               </Button>
             )}
-            {Number(currentBooking.paidAmount || 0) > 0 && (currentBooking.invoice || currentBooking.id) && (
+            {Number(currentBooking.paidAmount || 0) > 0 &&
+            currentBooking.status !== 'CANCELLED' &&
+            currentBooking.status !== 'EXPIRED' &&
+            currentBooking.paymentStatus !== 'UNPAID' && (currentBooking.invoice || currentBooking.id) && (
               <>
                 {currentBooking.invoice?.id && (
                   <Link to={`/invoices/${currentBooking.invoice.id}`} target="_blank">

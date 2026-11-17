@@ -169,7 +169,7 @@ export const AdminBookingsPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Search Bar */}
-          <div className="relative w-full md:w-80">
+          <div className="relative w-full md:w-96">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
@@ -415,7 +415,7 @@ export const AdminBookingsPage: React.FC = () => {
                             );
                           })()}
 
-                          {Number(b.paidAmount || 0) > 0 && (
+                          {Number(b.paidAmount || 0) > 0 &&  b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && b.paymentStatus !== 'UNPAID' && (
                             <button
                               type="button"
                               onClick={(e) => {

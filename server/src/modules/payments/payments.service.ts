@@ -9,7 +9,7 @@ import { generateReference } from '../../utils/reference.js';
 import { normalizePagination } from '../../utils/pagination.js';
 import { updateBookingPaymentReminder } from '../../services/paymentReminder.service.js'
 import {PaymentNotificationService} from '../../services/paymentNotification.service.js'
-
+import { formatDateDMY } from '../../utils/dateHelper.js';
 import { BookingsService } from '../bookings/bookings.service.js';
 export class PaymentsService {
 
@@ -585,6 +585,7 @@ export class PaymentsService {
             razorpaySignature:
               data.razorpay_signature,
             paidAt:  new Date(),
+            installmentType:bookingIsFullyPaid?"FULL_PAID":`PARTIAL_PAID|DUE${formatDateDMY(currentPayment?.nextPaymentDate)}`
           },
         });
 
@@ -615,7 +616,7 @@ export class PaymentsService {
         data: {
           paidAmount: newPaidAmount,
           balanceAmount: finalBalance,
-          status: 'CONFIRMED',
+          status: bookingIsFullyPaid ? 'CONFIRMED' : 'PENDING_PAYMENT',
           paymentStatus:
             bookingIsFullyPaid
               ? 'PAID_FULL'
@@ -1460,8 +1461,8 @@ static async createBalancePaymentOrder(
 
       const isPartial = !isFullyPaid;
       const installmentTypeStr = isPartial
-    ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
-    : 'BALANCE';
+    ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${formatDateDMY(nextDueDate)}` : 'PARTIAL_BALANCE')
+    : 'FULL_PAID';
       // 10. Create a successful cash payment record
       const payment = await tx.payment.create({
         data: {
@@ -1708,6 +1709,11 @@ static async createBalancePaymentOrder(
                 paymentStatus: BookingPaymentStatus.UNPAID,
                 expiresAt: null,
               },
+              include: {
+              stalls: { include: { stall: true } },
+              company: { include: { users: true } },
+              exhibition: true,
+            },
             });
 
             const stallIds = booking.stalls.map((bs) => bs.stallId);
@@ -1737,6 +1743,11 @@ static async createBalancePaymentOrder(
                 status: BookingStatus.PENDING_PAYMENT,
                 paymentStatus: BookingPaymentStatus.PARTIALLY_PAID,
               },
+              include: {
+                stalls: { include: { stall: true } },
+                company: { include: { users: true } },
+                exhibition: true,
+              },
             });
           }
 
@@ -1760,7 +1771,7 @@ static async createBalancePaymentOrder(
         const newPaidAmount = (currentPaidInPaise + chequeAmountInPaise) / 100;
         const newBalanceAmount = Math.max(0, (grandTotalInPaise - (currentPaidInPaise + chequeAmountInPaise)) / 100);
         const isFullyPaid = newBalanceAmount === 0;
-
+        
         // 1. Update Payment to SUCCESS
         const successPayment = await tx.payment.update({
           where: { id: payment.id },
@@ -1768,6 +1779,7 @@ static async createBalancePaymentOrder(
             status: PaymentStatus.SUCCESS,
             paidAt: new Date(),
             referenceNote: 'Verified by SuperAdmin',
+            installmentType:isFullyPaid ? "FULL_PAID":`PARTIAL_PAID|DUE ${formatDateDMY(payment.nextPaymentDate)}`
           },
         });
 
@@ -1964,9 +1976,7 @@ static async createBalancePaymentOrder(
         const attributionTag = userSpcode ? ` [${userSpcode}]` : user.userId ? ` [ID:${user.userId.slice(-6)}]` : '';
         const paymentProvider = user.role === 'STAFF' ? 'OFFLINE_STAFF' : 'OFFLINE_ADMIN';
         const isPartial = amountInPaise < balanceInPaise;
-        const installmentTypeStr = isPartial
-          ? (nextDueDate ? `PARTIAL_BALANCE|DUE:${nextDueDate}` : 'PARTIAL_BALANCE')
-          : 'BALANCE';
+       
 
     const isPartialPayment = input.paymentType?.toUpperCase() === "PARTIAL";
 
@@ -1981,7 +1991,7 @@ static async createBalancePaymentOrder(
             provider: paymentProvider,
             paymentMode: PaymentMode.CHEQUE,
             paymentMethod: `CHEQUE${attributionTag}`,
-            installmentType: installmentTypeStr,
+            installmentType: "Cheque Pending",
             chequeNumber,
             bankName,
             chequeDate: new Date(`${chequeDate}T00:00:00.000Z`),

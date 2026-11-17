@@ -650,7 +650,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
               </span>
             </div>
             <div>
-              <span className="text-slate-400 block text-[11px]">Sales Person Code</span>
+              <span className="text-slate-400 block text-[11px]">Sp Code</span>
               <span className="font-mono text-purple-600 font-bold">
                 {company.spcode || 'B001'}
               </span>
@@ -1354,7 +1354,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         title={`Register ${company.name} to an Exhibition`}
-        maxWidth="md"
+        maxWidth="lg"
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-500">

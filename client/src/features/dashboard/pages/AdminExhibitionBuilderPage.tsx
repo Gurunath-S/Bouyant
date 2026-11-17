@@ -598,6 +598,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             try {
               const parsed = JSON.parse(fp.backgroundUrl);
               setLayoutData(parsed);
+           if (parsed?.halls && parsed.halls.length > 0 && parsed.halls[0]?.name) {
+                setHallConfig((prev) => ({ ...prev, hallName: parsed.halls[0].name }));
+              }
             } catch (e) {
               console.warn('Could not parse layoutData JSON', e);
             }
@@ -937,11 +940,11 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
         };
         const targetId = eventDbId || id;
         await exhibitionService.updateExhibition(targetId!, updatePayload);
-
+         const primaryName = layoutData?.halls?.[0]?.name || hallConfig.hallName || 'Main Hall';
         // Synchronize floor plan spatial layout & stalls
         if (floorPlanId) {
           await floorPlanService.syncFloorPlan(floorPlanId, {
-            name: hallConfig.hallName,
+            name: primaryName,
             width: cleanLayoutData?.canvasWidth || 1400,
             height: cleanLayoutData?.canvasHeight || 850,
             layoutData: cleanLayoutData,
@@ -1394,7 +1397,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     setBasicInfo((prev) => ({
                       ...prev,
                       title,
-                      slug: !id ? autoSlug : prev.slug,
+                      slug:autoSlug,
                       eventCode: newEventCode,
                     }));
                   }}
@@ -2356,6 +2359,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
             onChangeLayout={({ layoutData: currentLayout, stalls: currentStalls }) => {
               setLayoutData(currentLayout);
               setStalls(currentStalls as any);
+              if (currentLayout?.halls && currentLayout.halls.length > 0 && currentLayout.halls[0]?.name) {
+                setHallConfig((prev) => ({ ...prev, hallName: currentLayout.halls[0].name }));
+              }
             }}
             onSaveLayout={async ({ layoutData: savedLayout, stalls: savedStalls }) => {
               // Validate stall identifier uniqueness
@@ -2381,6 +2387,9 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
               setLayoutData(savedLayout);
               setStalls(savedStalls as any);
+              if (savedLayout?.halls && savedLayout.halls.length > 0 && savedLayout.halls[0]?.name) {
+                  setHallConfig((prev) => ({ ...prev, hallName: savedLayout.halls[0].name }));
+               }
               try {
                 // Ensure layout blueprint and banners are compressed
                 let cleanSavedLayout = savedLayout;
@@ -2425,7 +2434,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
                     totalStalls: savedStalls.length,
                   });
                   await floorPlanService.syncFloorPlan(floorPlanId, {
-                    name: hallConfig.hallName,
+                    name:  cleanSavedLayout?.halls?.[0]?.name || hallConfig.hallName,
                     width: cleanSavedLayout.canvasWidth,
                     height: cleanSavedLayout.canvasHeight,
                     layoutData: cleanSavedLayout,
@@ -2873,9 +2882,13 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Hall</span>
-                      <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">{hallConfig.hallName || 'Main Hall'}</p>
-                    </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Hall</span>
+                        <p className="text-sm font-bold text-slate-800 mt-0.5 truncate" title={layoutData?.halls?.map((h) => h.name).join(', ') || hallConfig.hallName}>
+                          {layoutData?.halls && layoutData.halls.length > 0
+                            ? layoutData.halls.map((h) => h.name).join(', ')
+                            : hallConfig.hallName || 'Main Hall'}
+                        </p>
+                      </div>
                     <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Halls / Pavilions</span>
                       <p className="text-sm font-bold text-slate-800 mt-0.5">{layoutData?.halls?.length || 1} Configured</p>

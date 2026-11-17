@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { escapeHtml } from '../utils/htmlEscape.js';
 import { resolveClientOrigin } from '../utils/urlHelper.js';
 import { DateTime } from "luxon";
+import {formatDateDMY} from '../utils/dateHelper.js'
 
 export function getSmtpUser(): string {
   return (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
@@ -121,6 +122,7 @@ export interface BookingConfirmationEmailPayload {
   paymentAmount: number;
   totalPaidAmount?: number;
   grandTotal?: number;
+  taxAmount:number
   remainingBalance: number;
   isBalancePayment?: boolean;
   paymentDate: Date | string;
@@ -157,6 +159,7 @@ export interface PaymentAdminEmailPayload {
   paymentAmount: number;
   remainingBalance: number;
   grandTotal?: number;
+  taxAmount:number;
   paymentMethod?: string;
   paymentDate: Date | string;
   paymentReference: string;
@@ -261,7 +264,7 @@ export class EmailService {
           </tr>
           <tr>
             <td style="color:#6b21a8; font-weight:600;">Cheque Date</td>
-            <td align="right" style="color:#1e1b4b; font-weight:700;">${escapeHtml(chequeDetails.chequeDate)}</td>
+            <td align="right" style="color:#1e1b4b; font-weight:700;">${escapeHtml(formatDateDMY(chequeDetails.chequeDate))}</td>
           </tr>
           ${amount ? `
           <tr>
@@ -421,6 +424,11 @@ export class EmailService {
                     <td align="right" style="color:#0f172a; font-weight:700; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.grandTotal)}</td>
                   </tr>
                   ` : ''}
+                   ${payload.taxAmount ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">GST / Tax Amount (18%)</td>
+                    <td align="right" style="color:#0f172a; font-weight:600; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.taxAmount)}</td>
+                  </tr>` : ''}
                   ${payload.totalPaidAmount !== undefined && (payload.totalPaidAmount > payload.paymentAmount || isBalancePayment) ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Paid Amount</td>
@@ -442,7 +450,7 @@ export class EmailService {
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Invoice Number</td>
                     <td align="right" style="color:#0f172a; font-weight:700; font-family:monospace; vertical-align:top;">
                       ${isRejectedCheque 
-                        ? '<span style="color:#dc2626; font-weight:600;">N/A (Payment Rejected)</span>' 
+                        ? '<span style="color:#dc2626; font-weight:600;">Not Generated (Payment Rejected)</span>' 
                         : isPendingCheque 
                         ? 'Pending Verification' 
                         : payload.invoiceNumber}
@@ -540,7 +548,7 @@ export class EmailService {
     const isPendingCheque = Boolean(payload.isPendingCheque);
     console.log(`📢 [EMAIL SERVICE] Sending admin payment alert to: ${payload.notificationEmails.join(', ')}`);
    const isRejectedCheque = Boolean(payload.isRejectedCheque);
-
+   
     const isPartialPayment = payload.remainingBalance > 0;
        // 👇 Admin email-layum isRejectedCheque first check:
     const paymentStatusText = isRejectedCheque
@@ -645,6 +653,17 @@ export class EmailService {
                       ${payload.stalls.map((s) => `<div>Stall ${s.stallNumber} <span style="font-weight:normal; color:#64748b; font-size:12px;">(${s.category}${s.price ? ` - ₹${this.formatINR(s.price)}` : ''})</span></div>`).join('')}
                     </td>
                   </tr>
+                   ${payload.grandTotal ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Total Bill (Grand Total)</td>
+                    <td align="right" style="color:#0f172a; font-weight:800; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.grandTotal)}</td>
+                  </tr>` : ''}
+
+                  ${payload.taxAmount ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">GST / Tax Amount (18%)</td>
+                    <td align="right" style="color:#0f172a; font-weight:600; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.taxAmount)}</td>
+                  </tr>` : ''}
                  <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">
                       Payment Mode

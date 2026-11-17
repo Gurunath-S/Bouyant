@@ -523,7 +523,7 @@ export const AdminPaymentsPage: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 {isPartial ? (
                                   <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                                    PARTIAL PAYMENT ({p.installmentType || 'Token'})
+                                    {p.installmentType!="Cheque Pending"?"PARTIAL PAYMENT":"Cheque Under Clearence"} ({p.installmentType || 'Token'})
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
@@ -660,7 +660,7 @@ export const AdminPaymentsPage: React.FC = () => {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search Invoice #, Company, Booking Ref..."
+                    placeholder="Search Invoice No., Company, Booking Ref..."
                     value={invoiceSearch}
                     onChange={(e) => setInvoiceSearch(e.target.value)}
                     className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all placeholder-slate-400"
@@ -735,7 +735,7 @@ export const AdminPaymentsPage: React.FC = () => {
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold">
                         <th className="w-12 py-3.5 px-3 text-center">S.No</th>
-                        <th className="py-3.5 px-4">Invoice #</th>
+                        <th className="py-3.5 px-4">Invoice No.</th>
                         <th className="py-3.5 px-4">Exhibitor Company</th>
                         <th className="py-3.5 px-4">Issue Date</th>
                         <th className="py-3.5 px-4 text-right">Base Amount</th>

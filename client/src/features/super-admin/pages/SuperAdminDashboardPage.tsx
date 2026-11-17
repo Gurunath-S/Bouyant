@@ -450,7 +450,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
               <BarChart3 className="w-5 h-5" />
             </div>
             <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-              Platform-Wide Analytics
+              Platform-Reports
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
               Financial summaries, stall occupancy breakdown by category, payment conversions, and exportable logs.
