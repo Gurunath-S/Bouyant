@@ -80,7 +80,7 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
   const basePrice = selectedStalls.reduce((sum, s) => sum + Number(s.price), 0);
   const isPartial = paymentType === 'PARTIAL';
-  const effectivePartialPercent = Math.max(10, Math.min(99, partialPercentage));
+  const effectivePartialPercent = Math.max(10, Math.min(99, partialPercentage||50));
 
   // Discount and admin controls are only shown when the parent explicitly enables them
   // (i.e. booking opened from the admin dashboard). Never shown on the public booking wizard,
@@ -518,12 +518,23 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
 
                 <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Custom Advance %:</span>
-                  <input
+                                    <input
                     type="number"
                     min="10"
                     max="99"
-                    value={partialPercentage}
-                    onChange={(e) => setPartialPercentage(Number(e.target.value))}
+                    placeholder="10"
+                    value={partialPercentage || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setPartialPercentage(0);
+                        return;
+                      }
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num)) {
+                        setPartialPercentage(num > 99 ? 99 : num);
+                      }
+                    }}
                     className="w-20 px-2.5 py-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg font-mono font-bold text-xs text-center text-slate-900 dark:text-slate-100"
                   />
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">

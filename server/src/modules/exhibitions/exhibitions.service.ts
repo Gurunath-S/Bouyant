@@ -484,6 +484,15 @@ export class ExhibitionsService {
         );
       }
       cleanUpdateData.title = trimmedTitle;
+         if (trimmedTitle !== exhibition.title) {
+        let baseSlug = trimmedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        if (!baseSlug) baseSlug = `exhibition-${Date.now().toString().slice(-4)}`;
+        let newSlug = baseSlug;
+        while (await prisma.exhibition.findFirst({ where: { slug: newSlug, NOT: { id } } })) {
+          newSlug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+        }
+        cleanUpdateData.slug = newSlug;
+      }
     }
     if (input.description !== undefined) cleanUpdateData.description = input.description;
     if (input.venue !== undefined) cleanUpdateData.venue = input.venue;

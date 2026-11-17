@@ -650,10 +650,20 @@ export const AdminEventRegistrationPage: React.FC = () => {
                   bookedCount = totalStalls;
                 }
 
-                const availableStalls = Math.max(0, totalStalls - bookedCount);
+               const availableStalls = Math.max(0, totalStalls - bookedCount);
                 const percentBooked = totalStalls > 0 ? Math.min(100, Math.round((bookedCount / totalStalls) * 100)) : 0;
                 const isFull = e.isFull === true || (totalStalls > 0 && (availableStalls === 0 || bookedCount >= totalStalls));
                 const isCurrentUpcoming = currentUpcomingEvent && e.id === currentUpcomingEvent.id;
+
+                // 
+                const now = new Date();
+                const isBookingClosed = Boolean(
+                  e.status === 'COMPLETED' ||
+                  e.status === 'CANCELLED' ||
+                  (e.bookingEndDate && now > new Date(e.bookingEndDate)) ||
+                  (!e.bookingEndDate && e.startDate && now > new Date(new Date(e.startDate).getTime() - 15 * 24 * 60 * 60 * 1000)) ||
+                  (e.endDate && now > new Date(e.endDate))
+                );
 
                 return (
                   <div
@@ -676,6 +686,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-black/30 pointer-events-none" />
                         <div className="relative z-10 flex items-center justify-between">
                           <span className="font-mono font-bold text-[11px] px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-xs text-purple-200 border border-purple-400/30">
                             {e.eventCode || 'EX'}-{e.edition || '01'}
@@ -702,21 +713,21 @@ export const AdminEventRegistrationPage: React.FC = () => {
                         </div>
 
                         <div className="relative z-10">
-                          {e.category && (
-                            <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">
-                              {e.category}
-                            </span>
-                          )}
-                          <Link
-                            to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
-                            state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
-                            className="hover:underline"
-                          >
-                            <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-purple-200 transition-colors">
-                              {e.title}
-                            </h3>
-                          </Link>
-                        </div>
+                            {e.category && (
+                              <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider block drop-shadow-sm">
+                                {e.category}
+                              </span>
+                            )}
+                            <Link
+                              to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
+                              state={{ from: '/workspace/events/register', fromLabel: 'Event Registration Hub' }}
+                              className="hover:underline"
+                            >
+                              <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-purple-200 transition-colors drop-shadow-md">
+                                {e.title}
+                              </h3>
+                            </Link>
+                          </div>
                       </div>
 
                       {/* Event Metadata */}
@@ -766,7 +777,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                                 `${availableStalls} ${availableStalls === 1 ? 'stall' : 'stalls'} available`
                               )}
                             </span>
-                            <span>{isFull ? 'Registrations Closed' : 'Allocation Open'}</span>
+                            <span>{isFull ? 'Registrations Closed' : isBookingClosed ? 'Bookings Closed' : 'Allocation Open'}</span>
                           </div>
                         </div>
                       </div>
@@ -775,7 +786,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                     {/* Card Actions */}
                     <div className="p-4 pt-0">
                       <div className="flex items-center gap-2">
-                        {isFull ? (
+                        {isFull || isBookingClosed  ? (
                           // When stall is full: hide registration and show "See Details" navigating to event details page
                           <Link
                             to={`/exhibitions/${e.slug || e.id}?from=/workspace/events/register`}
@@ -915,8 +926,8 @@ export const AdminEventRegistrationPage: React.FC = () => {
           )}
 
           {/* Filters for Registered Data */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="relative flex-1">
+         <div className="flex flex-col lg:flex-row flex-wrap items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+             <div className="relative flex-1 min-w-[280px] sm:min-w-[340px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
@@ -1125,9 +1136,6 @@ export const AdminEventRegistrationPage: React.FC = () => {
                           <span className="font-bold block text-slate-900 dark:text-slate-100">
                             {b.company?.name}
                           </span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">
-                            {b.company?.contactPerson} ({b.company?.mobile})
-                          </span>
                         </td>
 
                         <td className="py-3.5 px-4 min-w-[130px] text-center">
@@ -1205,21 +1213,25 @@ export const AdminEventRegistrationPage: React.FC = () => {
                               <span>View</span>
                             </button>
 
-                            {Number(b.balanceAmount) > 0 && b.status !== 'CANCELLED' && (
-                              <button
-                                type="button"
-                                title="Collect / Record Pending Balance"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setPayingBooking(b);
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors shrink-0 whitespace-nowrap cursor-pointer"
-                              >
-                                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                <span>Pay</span>
-                              </button>
-                            )}
-
+                           {Number(b.balanceAmount) > 0 &&
+                            (b.status === 'PENDING_PAYMENT' || b.status === 'INITIATED') && (
+                            <button
+                              type="button"
+                              title="Collect / Record Pending Balance"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPayingBooking(b);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-lg transition-colors shrink-0 whitespace-nowrap cursor-pointer"
+                            >
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span>Pay</span>
+                            </button>
+                          )}
+                        {Number(b.paidAmount || 0) > 0 &&
+                          b.status !== 'CANCELLED' &&
+                          b.status !== 'EXPIRED' &&
+                          b.paymentStatus !== 'UNPAID' && (
                             <button
                               type="button"
                               title="Download Tax Invoice / Bill"
@@ -1232,6 +1244,7 @@ export const AdminEventRegistrationPage: React.FC = () => {
                               <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
                               <span>Bill</span>
                             </button>
+                        )}
                           </div>
                         </td>
                       </tr>

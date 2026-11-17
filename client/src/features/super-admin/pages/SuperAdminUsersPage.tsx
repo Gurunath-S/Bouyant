@@ -1043,7 +1043,7 @@ export const SuperAdminUsersPage: React.FC = () => {
 
           {/* Search & Status Filter */}
           <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-            <div className="relative flex-1 sm:w-64">
+            <div className="relative flex-1 sm:w-96">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"

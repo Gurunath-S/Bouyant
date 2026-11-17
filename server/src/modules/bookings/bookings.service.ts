@@ -10,6 +10,7 @@ import { normalizePagination } from '../../utils/pagination.js';
 import { generateReference } from '../../utils/reference.js';
 import { updateBookingPaymentReminder } from '../../services/paymentReminder.service.js'
 import { PaymentNotificationService } from '../../services/paymentNotification.service.js';
+import { formatDateDMY } from '../../utils/dateHelper.js';
 export class BookingsService {
   /**
    * CREATE BOOKING WITH STRICT CONCURRENCY & AUTHORITATIVE SERVER PRICING
@@ -402,7 +403,7 @@ public static async createInvoice(
             paymentMethod: paymentMethod,
             paidAt: new Date(),
             nextPaymentDate,
-            installmentType:isFullyPaid ? "FULL_PAID":"PARTIAL_PAID"
+            installmentType:isFullyPaid ? "FULL_PAID":`PARTIAL_PAID|DUE${formatDateDMY(nextPaymentDate)}`
           },
         });
         //  Generate invoice for the cash payment
@@ -816,7 +817,7 @@ if (resultCash.emailData) {
               `${chequeDetails.chequeDate}T00:00:00.000Z`
             ),
             referenceNote: chequeDetails.referenceNote ?? null,
-
+            installmentType:"Cheque Pending",
             // Reminder date
             nextPaymentDate,
           },
@@ -1765,6 +1766,7 @@ static async createBooking(
               razorpayOrderId:null,
               nextPaymentDate,
               paymentMode:PaymentMode.ONLINE_RAZORPAY,
+              
             },
           });
 

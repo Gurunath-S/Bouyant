@@ -8,9 +8,10 @@ import {
   ReportFilters,
 } from '../../../types';
 import { useAuthStore } from '../../../stores/authStore';
-import { formatDisplayDate } from '../../../utils/date';
+import { formatDisplayDate,isoToDisplayInputDate} from '../../../utils/date';
 import { BookingStatusBadge } from '../../../components/ui/Badge';
 import { EventSelectorDropdown } from '../../../components/ui/EventSelectorDropdown';
+
 import {
   BarChart3,
   TrendingUp,
@@ -420,9 +421,9 @@ export const ReportsPage: React.FC = () => {
           </div>
           {startDate && endDate && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-semibold text-purple-600 dark:text-purple-400">
-                Active: {startDate} ➔ {endDate}
-              </span>
+             <span className="text-[11px] font-mono font-semibold text-purple-600 dark:text-purple-400">
+              Active: {isoToDisplayInputDate(startDate)} ➔ {isoToDisplayInputDate(endDate)}
+            </span>
               {startDate !== endDate && (
                 <button
                   type="button"

@@ -126,7 +126,7 @@ static async sendPaymentEmails(emailData: {
         booking.billingGst?.trim() ||
         comp?.gstNumber ||
         undefined;
-
+  
       const displayUsername =
         bookingOwnerUser?.username || null;
 
@@ -152,6 +152,7 @@ static async sendPaymentEmails(emailData: {
             paymentAmount: paymentAmount.toNumber(),
             totalPaidAmount: cumulativePaidNum,
             grandTotal: grandTotalNum,
+            taxAmount: Number(booking.taxAmount || 0),
             remainingBalance: finalBalance.toNumber(),
             isBalancePayment,
             paymentDate,
@@ -255,6 +256,7 @@ static async sendPaymentEmails(emailData: {
             paymentAmount: paymentAmount.toNumber(),
             remainingBalance: finalBalance.toNumber(),
             grandTotal: grandTotalNum,
+            taxAmount: Number(booking.taxAmount || 0),
             paymentMethod:
               payment.paymentMethod || 'Online Gateway',
             paymentDate,
