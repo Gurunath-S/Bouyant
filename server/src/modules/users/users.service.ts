@@ -321,15 +321,79 @@ export class UsersService {
       throw ApiError.notFound('User not found.');
     }
 
+    let userCompany = user.company;
+    let resolvedCompanyId = user.companyId;
+
+    if (!resolvedCompanyId && user.email) {
+      const email = user.email.toLowerCase().trim();
+      const matchedComp = await prisma.company.findFirst({
+        where: {
+          isDeleted: false,
+          OR: [
+            { email: { equals: email, mode: 'insensitive' } },
+            { contactPerson: { equals: user.name, mode: 'insensitive' } },
+            { bookings: { some: { contactEmail: { equals: email, mode: 'insensitive' } } } },
+            { bookings: { some: { userId: user.id } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          companyCode: true,
+          contactPerson: true,
+          mobile: true,
+          email: true,
+          address: true,
+          city: true,
+          state: true,
+          pinCode: true,
+          country: true,
+          gstNumber: true,
+          panNumber: true,
+          industry: true,
+          website: true,
+        },
+      });
+
+      if (matchedComp) {
+        userCompany = matchedComp;
+        resolvedCompanyId = matchedComp.id;
+      }
+    }
+
     let attributedBookings: any[] = [];
     let companyBookings: any[] = [];
     let heldStalls: any[] = [];
 
-    // Fetch bookings directly attributed to this user as creator/actor (bookedByUserId) or client owner (userId)
+    // Fetch bookings directly attributed to this user as creator/actor (bookedByUserId), client owner (userId), email, phone, or company
     const attributedOrConditions: any[] = [
       { bookedByUserId: user.id },
       { userId: user.id },
     ];
+
+    if (user.email) {
+      attributedOrConditions.push({
+        contactEmail: { equals: user.email.toLowerCase().trim(), mode: 'insensitive' },
+      });
+    }
+
+    if (user.phone && user.phone.trim()) {
+      attributedOrConditions.push({
+        contactPhone: { contains: user.phone.trim().slice(-10) },
+      });
+    }
+
+    if (user.name && user.name.trim().length > 3) {
+      attributedOrConditions.push({
+        contactPerson: { equals: user.name.trim(), mode: 'insensitive' },
+      });
+    }
+
+    if (resolvedCompanyId) {
+      attributedOrConditions.push({
+        companyId: resolvedCompanyId,
+      });
+    }
 
     // Fallback for legacy unassigned bookings where bookedByUserId was not recorded (null)
     if (user.spcode && user.spcode.trim()) {
@@ -364,14 +428,27 @@ export class UsersService {
         paidAmount: true,
         balanceAmount: true,
         totalAmount: true,
+        taxAmount: true,
         discountAmount: true,
         discountType: true,
         bookingSource: true,
         bookedByUserId: true,
+        userId: true,
+        companyId: true,
+        exhibitionId: true,
         contactPerson: true,
         contactEmail: true,
         contactPhone: true,
+        billingName: true,
+        billingGst: true,
+        billingPan: true,
+        billingAddress: true,
+        billingCity: true,
+        billingState: true,
+        billingPinCode: true,
+        billingCountry: true,
         createdAt: true,
+        updatedAt: true,
         bookedByUser: {
           select: { id: true, name: true, email: true, role: true, spcode: true },
         },
@@ -379,31 +456,81 @@ export class UsersService {
           select: { id: true, name: true, email: true, role: true, spcode: true },
         },
         company: {
-          select: { id: true, name: true, spcode: true, city: true, contactPerson: true, mobile: true, email: true },
+          select: {
+            id: true,
+            name: true,
+            companyCode: true,
+            spcode: true,
+            city: true,
+            state: true,
+            pinCode: true,
+            address: true,
+            gstNumber: true,
+            panNumber: true,
+            industry: true,
+            website: true,
+            contactPerson: true,
+            mobile: true,
+            email: true,
+          },
         },
         exhibition: {
-          select: { id: true, title: true, edition: true, eventCode: true, spcode: true, venue: true, city: true, startDate: true, endDate: true },
+          select: {
+            id: true,
+            title: true,
+            edition: true,
+            eventCode: true,
+            spcode: true,
+            venue: true,
+            city: true,
+            startDate: true,
+            endDate: true,
+          },
         },
         stalls: {
           select: {
             price: true,
-            stall: { select: { id: true, stallNumber: true, category: true, areaSqFt: true } },
+            stall: {
+              select: {
+                id: true,
+                stallNumber: true,
+                name: true,
+                category: true,
+                areaSqFt: true,
+                actualWidth: true,
+                actualHeight: true,
+                status: true,
+              },
+            },
           },
         },
         payments: {
-          select: { id: true, paymentReference: true, status: true, amount: true, provider: true, paymentMethod: true, paidAt: true },
+          select: {
+            id: true,
+            paymentReference: true,
+            status: true,
+            amount: true,
+            provider: true,
+            paymentMethod: true,
+            paymentMode: true,
+            paidAt: true,
+            createdAt: true,
+            invoice: {
+              select: { id: true, invoiceNumber: true, status: true, grandTotal: true },
+            },
+          },
         },
         invoices: {
-          select: { id: true, invoiceNumber: true, status: true },
+          select: { id: true, invoiceNumber: true, status: true, grandTotal: true, createdAt: true },
         },
       },
     });
 
-    // If client has a company, fetch bookings of their company
-    if (user.companyId) {
+    // If client has a company, fetch all bookings of their company
+    if (resolvedCompanyId) {
       companyBookings = await prisma.booking.findMany({
-        where: { companyId: user.companyId, isDeleted: false } as any,
-        take: 20,
+        where: { companyId: resolvedCompanyId, isDeleted: false } as any,
+        take: 50,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -412,6 +539,7 @@ export class UsersService {
           paymentStatus: true,
           grandTotal: true,
           paidAmount: true,
+          balanceAmount: true,
           createdAt: true,
           exhibition: {
             select: { id: true, title: true, edition: true, eventCode: true, venue: true, city: true },
@@ -452,6 +580,7 @@ export class UsersService {
 
     return {
       ...user,
+      company: userCompany,
       pageAccess: effectivePages,
       attributedBookings,
       companyBookings,

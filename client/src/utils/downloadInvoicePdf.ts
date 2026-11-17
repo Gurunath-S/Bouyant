@@ -93,11 +93,12 @@ export async function downloadInvoicePdf(
     const t = target as any;
     idOrReference =
       t.invoice?.id ||
+      (t.paymentReference && t.id ? t.id : '') ||
       t.invoices?.[0]?.id ||
       t.invoiceId ||
       t.invoiceNumber ||
-      t.bookingReference ||
       t.paymentReference ||
+      t.bookingReference ||
       t.id ||
       '';
   }

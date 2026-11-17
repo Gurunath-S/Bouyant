@@ -272,10 +272,11 @@ export const AdminPaymentsPage: React.FC = () => {
       sgstAmount,
       idForDownload:
         item.invoice?.id ||
+        (item.paymentReference && item.id ? item.id : null) ||
         item.invoices?.[0]?.id ||
         booking?.invoices?.[0]?.id ||
-        booking?.id ||
         item.id ||
+        booking?.id ||
         item.invoiceId ||
         item.bookingId,
     };
@@ -483,7 +484,7 @@ export const AdminPaymentsPage: React.FC = () => {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
                       {payments.map((p, idx) => {
                         const isPartial = p.installmentType && p.installmentType !== 'FULL';
-                        const idToUse = p.invoiceId || p.booking?.id || p.bookingId || p.id;
+                        const idToUse = p.invoice?.id || p.id;
                         return (
                           <tr
                             key={p.id}
@@ -588,7 +589,7 @@ export const AdminPaymentsPage: React.FC = () => {
                                   onClick={async () => {
                                     setDownloadingId(idToUse);
                                     try {
-                                      await downloadInvoicePdf(idToUse, `Invoice-${p.booking?.bookingReference || p.paymentReference}.pdf`);
+                                      await downloadInvoicePdf(idToUse, `Invoice-${p.paymentReference || p.id}.pdf`);
                                     } finally {
                                       setDownloadingId(null);
                                     }

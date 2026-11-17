@@ -1183,6 +1183,7 @@ static async createBalancePaymentOrder(
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: {
+          invoice: true,
           booking: {
             include: {
               stalls: { include: { stall: true } },

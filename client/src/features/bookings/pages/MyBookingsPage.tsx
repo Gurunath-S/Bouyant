@@ -196,7 +196,11 @@ export const MyBookingsPage: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 leftIcon={<Download className="w-3.5 h-3.5" />}
-                                onClick={() => downloadInvoicePdf(b)}
+                                onClick={() => {
+                                  const sp = (b.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                  const latest = sp[sp.length - 1];
+                                  downloadInvoicePdf(latest?.invoice?.id || latest?.id || b.invoice?.id || b.id, b.bookingReference);
+                                }}
                                 title="Download Tax Invoice Bill (PDF)"
                               >
                                 Bill PDF
@@ -207,7 +211,11 @@ export const MyBookingsPage: React.FC = () => {
                               variant="outline"
                               size="sm"
                               leftIcon={<Download className="w-3.5 h-3.5" />}
-                              onClick={() => downloadInvoicePdf(b)}
+                              onClick={() => {
+                                const sp = (b.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                const latest = sp[sp.length - 1];
+                                downloadInvoicePdf(latest?.invoice?.id || latest?.id || b.invoice?.id || b.id, b.bookingReference);
+                              }}
                               title="Download Tax Invoice Bill (PDF)"
                             >
                               Bill PDF

@@ -404,9 +404,19 @@ export const StaffDashboardPage: React.FC = () => {
                     {paidAmount > 0 && (
                       <button
                         type="button"
-                        onClick={() => downloadInvoicePdf(b)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const successPayments = (b.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                          const latestP = successPayments[successPayments.length - 1];
+                          const targetId = latestP?.invoice?.id || latestP?.id || b.invoice?.id || b.id;
+                          downloadInvoicePdf(targetId, b.bookingReference);
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Download Tax Bill PDF"
+                        title={
+                          ((b.payments || []).filter((p: any) => p.status === 'SUCCESS').length > 1)
+                            ? 'Download latest bill PDF (click row to view & download all individual payment bills)'
+                            : 'Download Tax Bill PDF'
+                        }
                       >
                         <Download className="w-3 h-3 text-slate-500" />
                         <span>Bill</span>

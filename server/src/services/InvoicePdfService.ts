@@ -70,7 +70,15 @@ export interface InvoicePdfData {
     accountNumber: string;
     branchAndIfsc: string;
   };
- 
+
+  paymentInfo?: {
+    paymentReference?: string;
+    paymentMode?: string;
+    installmentLabel?: string;
+    chequeNumber?: string;
+    bankName?: string;
+  };
+
   note?: string;
 }
  
@@ -314,7 +322,27 @@ export class InvoicePdfService {
     const contactPhone = (booking?.contactPhone && booking.contactPhone.trim()) || comp.mobile || '';
     const buyerState = String(billingState || '').trim().toLowerCase().replace(/\s+/g, '');
     const isTamilNadu = buyerState === 'tamilnadu';
- 
+
+    const payment = invoice.payment || null;
+    let paymentInfo: InvoicePdfData['paymentInfo'] = undefined;
+    if (payment) {
+      let installmentLabel = '';
+      if (payment.installmentType?.includes('PARTIAL')) {
+        installmentLabel = 'Partial / Advance Payment';
+      } else if (payment.installmentType?.includes('BALANCE')) {
+        installmentLabel = 'Balance Payment';
+      } else {
+        installmentLabel = 'Payment Receipt / Tax Invoice';
+      }
+      paymentInfo = {
+        paymentReference: payment.paymentReference,
+        paymentMode: payment.paymentMode || payment.provider || payment.paymentMethod,
+        installmentLabel,
+        chequeNumber: payment.chequeNumber || undefined,
+        bankName: payment.bankName || undefined,
+      };
+    }
+
     return {
       invoiceNumber: invoice.invoiceNumber || '160',
       invoiceDate: invoice.createdAt ? new Date(invoice.createdAt) : new Date(),
@@ -354,6 +382,7 @@ export class InvoicePdfService {
         accountNumber: '18020200001046',
         branchAndIfsc: 'SAIBABA COLONY & FDRL0001802',
       },
+      paymentInfo,
       note: 'All payments should be made by cheque or draft, account payee only and made in favor of Buoyant Media',
     };
   }
@@ -568,6 +597,17 @@ export class InvoicePdfService {
                                 { text: `DATE: ${formatExhibitionDateRange(data.exhibition)},`, bold: true },
                                 { text: `VENUE: ${data.exhibition.venue.toUpperCase()}`, bold: true },
                                 { text: `${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.`, bold: true },
+                                ...(data.paymentInfo?.paymentReference
+                                  ? [
+                                      {
+                                        text: `PAYMENT: ${data.paymentInfo.installmentLabel || 'Installment'} | Ref: ${data.paymentInfo.paymentReference}${data.paymentInfo.paymentMode ? ` (${data.paymentInfo.paymentMode})` : ''}${data.paymentInfo.chequeNumber ? ` | Cheque: ${data.paymentInfo.chequeNumber}` : ''}`,
+                                        fontSize: 7.5,
+                                        bold: true,
+                                        color: '#1e293b',
+                                        margin: [0, 4, 0, 0] as [number, number, number, number],
+                                      },
+                                    ]
+                                  : []),
                               ],
                               margin: [0, 0, 0, 35],
                               border: [false, false, true, false],

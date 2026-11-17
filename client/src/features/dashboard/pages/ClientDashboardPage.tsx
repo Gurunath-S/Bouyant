@@ -363,7 +363,12 @@ export const ClientDashboardPage: React.FC = () => {
                                     variant="secondary"
                                     size="sm"
                                     leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                                    onClick={() => downloadInvoicePdf(booking.invoice?.id || booking.id, booking.bookingReference)}
+                                    onClick={() => {
+                                      const sp = (booking.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                      const latestP = sp[sp.length - 1];
+                                      const targetId = latestP?.invoice?.id || latestP?.id || booking.invoice?.id || booking.id;
+                                      downloadInvoicePdf(targetId, booking.bookingReference);
+                                    }}
                                   >
                                     PDF
                                   </Button>
@@ -373,7 +378,12 @@ export const ClientDashboardPage: React.FC = () => {
                                   variant="outline"
                                   size="sm"
                                   leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                                  onClick={() => downloadInvoicePdf(booking.id, booking.bookingReference)}
+                                  onClick={() => {
+                                    const sp = (booking.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                    const latestP = sp[sp.length - 1];
+                                    const targetId = latestP?.invoice?.id || latestP?.id || booking.id;
+                                    downloadInvoicePdf(targetId, booking.bookingReference);
+                                  }}
                                 >
                                   Bill PDF
                                 </Button>

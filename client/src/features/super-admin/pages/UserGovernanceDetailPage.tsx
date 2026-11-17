@@ -45,7 +45,11 @@ import {
   LayoutDashboard,
   UserPlus,
   Search,
+  FileText,
+  Receipt,
+  ExternalLink,
 } from 'lucide-react';
+import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
 import { getUserEffectivePageAccess } from '../../../config/pageAccess';
 import { useAuthStore } from '../../../stores/authStore';
 
@@ -128,7 +132,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const [user, setUser] = useState<AdminStaffUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'exhibitions' | 'bookings' | 'permissions' | 'organization'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'exhibitions' | 'bookings' | 'payments' | 'stalls' | 'permissions' | 'organization'
+  >('overview');
+  const [selectedBookingForModal, setSelectedBookingForModal] = useState<any | null>(null);
+  const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
+  const [stallSearchQuery, setStallSearchQuery] = useState('');
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -422,12 +431,6 @@ export const UserGovernanceDetailPage: React.FC = () => {
     fetchUserData();
   }, [fetchUserData]);
 
-  useEffect(() => {
-    if (user?.role === 'CLIENT' && activeTab !== 'bookings' && activeTab !== 'organization') {
-      setActiveTab('bookings');
-    }
-  }, [user?.role, activeTab]);
-
   const handleToggleStatus = async () => {
     if (!user) return;
     const nextState = !user.isActive;
@@ -512,6 +515,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
   const bookings = React.useMemo(() => {
     const raw = user?.attributedBookings || [];
     if (!user) return [];
+    if (user.role === 'CLIENT') {
+      return raw;
+    }
     return raw.filter((b: any) => {
       if (b.bookedByUserId) {
         return b.bookedByUserId === user.id;
@@ -536,6 +542,72 @@ export const UserGovernanceDetailPage: React.FC = () => {
         b.stalls?.some((s: any) => s.stall?.stallNumber?.toLowerCase().includes(q))
     );
   }, [bookings, bookingSearchQuery]);
+
+  const allPayments = React.useMemo(() => {
+    const list: any[] = [];
+    bookings.forEach((bk: any) => {
+      (bk.payments || []).forEach((p: any) => {
+        list.push({
+          ...p,
+          booking: bk,
+          bookingReference: bk.bookingReference,
+          exhibition: bk.exhibition,
+          company: bk.company,
+        });
+      });
+    });
+    return list.sort(
+      (a, b) => new Date(b.createdAt || b.paidAt || 0).getTime() - new Date(a.createdAt || a.paidAt || 0).getTime()
+    );
+  }, [bookings]);
+
+  const filteredPayments = React.useMemo(() => {
+    if (!paymentSearchQuery.trim()) return allPayments;
+    const q = paymentSearchQuery.toLowerCase().trim();
+    return allPayments.filter(
+      (p: any) =>
+        p.paymentReference?.toLowerCase().includes(q) ||
+        p.bookingReference?.toLowerCase().includes(q) ||
+        p.provider?.toLowerCase().includes(q) ||
+        p.paymentMethod?.toLowerCase().includes(q) ||
+        p.paymentMode?.toLowerCase().includes(q) ||
+        p.exhibition?.title?.toLowerCase().includes(q) ||
+        p.status?.toLowerCase().includes(q)
+    );
+  }, [allPayments, paymentSearchQuery]);
+
+  const allAllocatedStalls = React.useMemo(() => {
+    const list: any[] = [];
+    bookings.forEach((bk: any) => {
+      (bk.stalls || []).forEach((s: any) => {
+        if (s.stall) {
+          list.push({
+            ...s.stall,
+            stallPrice: s.price,
+            booking: bk,
+            bookingReference: bk.bookingReference,
+            bookingStatus: bk.status,
+            paymentStatus: bk.paymentStatus,
+            exhibition: bk.exhibition,
+          });
+        }
+      });
+    });
+    return list;
+  }, [bookings]);
+
+  const filteredStalls = React.useMemo(() => {
+    if (!stallSearchQuery.trim()) return allAllocatedStalls;
+    const q = stallSearchQuery.toLowerCase().trim();
+    return allAllocatedStalls.filter(
+      (s: any) =>
+        s.stallNumber?.toLowerCase().includes(q) ||
+        s.name?.toLowerCase().includes(q) ||
+        s.category?.toLowerCase().includes(q) ||
+        s.bookingReference?.toLowerCase().includes(q) ||
+        s.exhibition?.title?.toLowerCase().includes(q)
+    );
+  }, [allAllocatedStalls, stallSearchQuery]);
 
   if (loading) {
     return (
@@ -602,7 +674,9 @@ export const UserGovernanceDetailPage: React.FC = () => {
   );
   const confirmedBookingsCount = bookings.filter((b: any) => b.status === 'CONFIRMED').length;
   const activeBookingsCount = bookings.filter((b: any) => b.status !== 'CANCELLED').length;
-  const uniqueExhibitionsCount = new Set(bookings.map((b: any) => b.exhibitionId).filter(Boolean)).size;
+  const uniqueExhibitionsCount = new Set(
+    bookings.map((b: any) => b.exhibitionId || b.exhibition?.id).filter(Boolean)
+  ).size;
 
   const effectivePages = getUserEffectivePageAccess(user);
 
@@ -947,6 +1021,18 @@ export const UserGovernanceDetailPage: React.FC = () => {
         {user.role === 'CLIENT' ? (
           <>
             <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'overview'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              Client Overview
+            </button>
+
+            <button
               onClick={() => setActiveTab('bookings')}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
                 activeTab === 'bookings'
@@ -956,6 +1042,30 @@ export const UserGovernanceDetailPage: React.FC = () => {
             >
               <TrendingUp className="w-3.5 h-3.5" />
               Stall Bookings & Invoices ({bookings.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'payments'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              Payments & Ledger ({allPayments.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('stalls')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === 'stalls'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Allocated Stalls ({allAllocatedStalls.length})
             </button>
 
             <button
@@ -1042,7 +1152,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
             <h3 className="font-black text-sm text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-purple-600" />
-              Staff & Admin Operational Scope
+              {user.role === 'CLIENT' ? 'Exhibitor Client Profile & Scope' : 'Staff & Admin Operational Scope'}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {user.role === 'SUPERADMIN' ? (
@@ -1068,156 +1178,329 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <strong className="text-slate-900 dark:text-slate-100">Client Exhibitor Account:</strong>{' '}
-                  Registered exhibitor profile participating in trade exhibitions with stall allocations and tax
-                  invoices.
+                  <strong className="text-slate-900 dark:text-slate-100">Verified Client Exhibitor Account:</strong>{' '}
+                  Commercial exhibitor participating in trade fairs. Corporate entity:{' '}
+                  <strong className="text-purple-600">{user.company?.name || 'Direct Exhibitor (Self)'}</strong>.
+                  This profile provides complete visibility into stall reservations, floor plan inventory allocations, installment transactions, and tax invoices.
                 </>
               )}
             </p>
           </div>
 
-          {/* Dual Columns: Recent Exhibitions & Recent Bookings */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Recent Exhibitions */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-purple-600" />
-                  Recent Exhibitions Created
-                </h4>
-                <button
-                  onClick={() => setActiveTab('exhibitions')}
-                  className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                >
-                  View all ({exhibitions.length}) <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {exhibitions.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  No exhibitions created by this account yet.
+          {user.role === 'CLIENT' ? (
+            /* Client Overview: Recent Bookings & Recent Payments */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Recent Reservations */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-purple-600" />
+                    Recent Stall Reservations
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('bookings')}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                  >
+                    View all ({bookings.length}) <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {exhibitions.slice(0, 4).map((ex) => (
-                    <div
-                      key={ex.id}
-                      className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                            {ex.eventCode || 'EX'}-{ex.edition || '01'}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                              ex.status === 'PUBLISHED'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : ex.status === 'COMPLETED'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}
-                          >
-                            {ex.status}
-                          </span>
+
+                {bookings.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    No stall reservations placed by or attributed to this client account yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {bookings.slice(0, 4).map((bk: any) => {
+                      const grandTotal = Number(bk.grandTotal || 0);
+                      const paid = Number(bk.paidAmount || 0);
+                      const balance = Number(bk.balanceAmount ?? (grandTotal - paid));
+
+                      return (
+                        <div
+                          key={bk.id}
+                          className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                                {bk.bookingReference}
+                              </span>
+                              <PaymentStatusBadge status={bk.paymentStatus} />
+                            </div>
+                            <h5 className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {bk.exhibition?.title || 'Exhibition'}
+                            </h5>
+                            <p className="text-[11px] text-slate-400">
+                              Stalls: {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'} •{' '}
+                              {bk.exhibition?.city || bk.exhibition?.venue || 'Venue'}
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0 space-y-1">
+                            <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
+                              ₹{grandTotal.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
+                              Paid: ₹{paid.toLocaleString('en-IN')}
+                            </span>
+                            {balance > 0 && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
+                                Due: ₹{balance.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                            <div className="flex items-center justify-end gap-1 pt-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedBookingForModal(bk)}
+                                className="text-[10px] py-0.5 px-2 font-bold"
+                              >
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const sp = (bk.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                  const latestP = sp[sp.length - 1];
+                                  const targetId = latestP?.invoice?.id || latestP?.id || bk.invoices?.[0]?.id || bk.id;
+                                  downloadInvoicePdf(targetId, bk.bookingReference);
+                                }}
+                                className="text-[10px] py-0.5 px-2 font-bold"
+                              >
+                                PDF
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                        <h5 className="font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">
-                          {ex.title}
-                        </h5>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {ex.totalStalls || 0} Stalls • Created {formatDisplayDate(ex.createdAt)}
-                        </p>
-                      </div>
-
-                      <Link to={`/workspace/events/${ex.slug || ex.id}/edit`}>
-                        <Button variant="outline" size="sm" className="shrink-0 text-xs py-1 px-2.5">
-                          Manage
-                        </Button>
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Right: Recent Attributed Bookings */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-indigo-600" />
-                  Recent Sales & Attributed Bookings
-                </h4>
-                <button
-                  onClick={() => setActiveTab('bookings')}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                >
-                  View all ({bookings.length}) <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {bookings.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  No sales bookings attributed to this SP code or user account yet.
+              {/* Right: Recent Payment Transactions */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-emerald-600" />
+                    Recent Payment Transactions
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('payments')}
+                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                  >
+                    View all ({allPayments.length}) <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {bookings.slice(0, 5).map((bk) => {
-                    const badge = getSourceBadge(bk.bookingSource);
-                    const grandTotal = Number(bk.grandTotal || 0);
-                    const paid = Number(bk.paidAmount || 0);
-                    const balance = Number(bk.balanceAmount ?? (grandTotal - paid));
-                    const bookedByName = bk.bookedByUser?.name || bk.user?.name || user.name;
-                    const bookedByRole = bk.bookedByUser?.role || bk.user?.role || user.role;
-                    const bookedBySpcode = bk.bookedByUser?.spcode || bk.user?.spcode || user.spcode;
 
-                    return (
+                {allPayments.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    No payment records logged for this client yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {allPayments.slice(0, 4).map((p: any) => {
+                      const amt = Number(p.amount || 0);
+                      const isSuccess = p.status === 'SUCCESS';
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                                {p.paymentReference}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                  isSuccess
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                }`}
+                              >
+                                {p.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              Booking: <span className="font-mono font-bold text-blue-600">{p.bookingReference}</span>
+                              {p.exhibition?.title ? ` • ${p.exhibition.title}` : ''}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              Mode: {p.paymentMode || p.paymentMethod || 'Direct Payment'} • {formatDisplayDate(p.paidAt || p.createdAt)}
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0 space-y-1.5">
+                            <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400 block">
+                              ₹{amt.toLocaleString('en-IN')}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const targetId = p.invoice?.id || p.id;
+                                downloadInvoicePdf(targetId, p.paymentReference || p.bookingReference);
+                              }}
+                              className="text-[10px] py-0.5 px-2 font-bold"
+                            >
+                              PDF Bill
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Dual Columns for Staff/Admin: Recent Exhibitions & Recent Bookings */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Recent Exhibitions */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-purple-600" />
+                    Recent Exhibitions Created
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('exhibitions')}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                  >
+                    View all ({exhibitions.length}) <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {exhibitions.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    No exhibitions created by this account yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {exhibitions.slice(0, 4).map((ex) => (
                       <div
-                        key={bk.id}
+                        key={ex.id}
                         className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
                       >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
-                              {bk.bookingReference}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {ex.eventCode || 'EX'}-{ex.edition || '01'}
                             </span>
-                            <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border ${badge.cls}`}>
-                              {badge.label}
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                                ex.status === 'PUBLISHED'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : ex.status === 'COMPLETED'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              }`}
+                            >
+                              {ex.status}
                             </span>
-                            <PaymentStatusBadge status={bk.paymentStatus} />
                           </div>
-                          <h5 className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                            {bk.company?.name || 'Client Exhibitor'}
+                          <h5 className="font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">
+                            {ex.title}
                           </h5>
-                          <p className="text-[11px] text-slate-400">
-                            Event: {bk.exhibition?.title || 'Exhibition'} • Stalls:{' '}
-                            {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-mono">
-                            Booked by: <span className="font-semibold text-purple-700 dark:text-purple-300">{bookedByName}</span> ({bookedByRole}{bookedBySpcode ? ` • ${bookedBySpcode}` : ''})
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {ex.totalStalls || 0} Stalls • Created {formatDisplayDate(ex.createdAt)}
                           </p>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
-                            ₹{grandTotal.toLocaleString('en-IN')}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
-                            Paid: ₹{paid.toLocaleString('en-IN')}
-                          </span>
-                          {balance > 0 && (
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
-                              Due: ₹{balance.toLocaleString('en-IN')}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-slate-400 mt-0.5 block">{formatDisplayDate(bk.createdAt)}</span>
-                        </div>
+                        <Link to={`/workspace/events/${ex.slug || ex.id}/edit`}>
+                          <Button variant="outline" size="sm" className="shrink-0 text-xs py-1 px-2.5">
+                            Manage
+                          </Button>
+                        </Link>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Recent Attributed Bookings */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-indigo-600" />
+                    Recent Sales & Attributed Bookings
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('bookings')}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  >
+                    View all ({bookings.length}) <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              )}
+
+                {bookings.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    No sales bookings attributed to this SP code or user account yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {bookings.slice(0, 5).map((bk) => {
+                      const badge = getSourceBadge(bk.bookingSource);
+                      const grandTotal = Number(bk.grandTotal || 0);
+                      const paid = Number(bk.paidAmount || 0);
+                      const balance = Number(bk.balanceAmount ?? (grandTotal - paid));
+                      const bookedByName = bk.bookedByUser?.name || bk.user?.name || user.name;
+                      const bookedByRole = bk.bookedByUser?.role || bk.user?.role || user.role;
+                      const bookedBySpcode = bk.bookedByUser?.spcode || bk.user?.spcode || user.spcode;
+
+                      return (
+                        <div
+                          key={bk.id}
+                          className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                                {bk.bookingReference}
+                              </span>
+                              <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border ${badge.cls}`}>
+                                {badge.label}
+                              </span>
+                              <PaymentStatusBadge status={bk.paymentStatus} />
+                            </div>
+                            <h5 className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {bk.company?.name || 'Client Exhibitor'}
+                            </h5>
+                            <p className="text-[11px] text-slate-400">
+                              Event: {bk.exhibition?.title || 'Exhibition'} • Stalls:{' '}
+                              {bk.stalls?.map((s: any) => s.stall?.stallNumber).filter(Boolean).join(', ') || 'Allocated'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              Booked by: <span className="font-semibold text-purple-700 dark:text-purple-300">{bookedByName}</span> ({bookedByRole}{bookedBySpcode ? ` • ${bookedBySpcode}` : ''})
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-black text-slate-900 dark:text-slate-100 block">
+                              ₹{grandTotal.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
+                              Paid: ₹{paid.toLocaleString('en-IN')}
+                            </span>
+                            {balance > 0 && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
+                                Due: ₹{balance.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 mt-0.5 block">{formatDisplayDate(bk.createdAt)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1466,13 +1749,168 @@ export const UserGovernanceDetailPage: React.FC = () => {
                           {formatDisplayDate(bk.createdAt)}
                         </td>
                         <td className="px-3.5 py-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedBookingForModal(bk)}
+                              className="text-xs py-1 px-2.5 font-bold"
+                            >
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const sp = (bk.payments || []).filter((p: any) => p.status === 'SUCCESS');
+                                const latestP = sp[sp.length - 1];
+                                const targetId = latestP?.invoice?.id || latestP?.id || bk.invoices?.[0]?.id || bk.id;
+                                downloadInvoicePdf(targetId, bk.bookingReference);
+                              }}
+                              className="text-xs py-1 px-2.5 font-bold"
+                            >
+                              PDF
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: PAYMENTS & TRANSACTIONS LEDGER */}
+      {activeTab === 'payments' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h3 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-emerald-600" />
+                Payments & Financial Ledger for {user.name}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Total of {allPayments.length} payment records logged with ₹{totalPaidAmount.toLocaleString('en-IN')} successfully verified.
+              </p>
+            </div>
+
+            {allPayments.length > 0 && (
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Filter by ref, mode, status, event..."
+                  value={paymentSearchQuery}
+                  onChange={(e) => setPaymentSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
+                />
+              </div>
+            )}
+          </div>
+
+          {allPayments.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+              No payment transactions or invoice receipts logged under this account yet.
+            </div>
+          ) : filteredPayments.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+              <p>No payments match "{paymentSearchQuery}".</p>
+              <button
+                type="button"
+                onClick={() => setPaymentSearchQuery('')}
+                className="text-xs text-purple-600 font-bold hover:underline"
+              >
+                Clear Filter
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="w-10 px-3 py-3 text-center">#</th>
+                    <th className="px-3.5 py-3">Payment Ref</th>
+                    <th className="px-3.5 py-3">Booking Reference</th>
+                    <th className="px-3.5 py-3">Exhibition Event</th>
+                    <th className="px-3.5 py-3">Channel / Mode</th>
+                    <th className="px-3.5 py-3 text-right">Amount (₹)</th>
+                    <th className="px-3.5 py-3">Status</th>
+                    <th className="px-3.5 py-3">Date & Time</th>
+                    <th className="px-3.5 py-3 text-center">Tax Bill / Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredPayments.map((p: any, idx: number) => {
+                    const amt = Number(p.amount || 0);
+                    const isSuccess = p.status === 'SUCCESS';
+
+                    return (
+                      <tr key={p.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="w-10 px-3 py-3.5 text-center font-mono font-bold text-slate-400">
+                          {idx + 1}
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100 block">
+                            {p.paymentReference}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ID: {p.id?.slice(-6) || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <button
+                            type="button"
+                            onClick={() => p.booking && setSelectedBookingForModal(p.booking)}
+                            className="font-mono font-bold text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1"
+                          >
+                            {p.bookingReference}
+                            <ExternalLink className="w-3 h-3 opacity-60" />
+                          </button>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100 block truncate max-w-[180px]">
+                            {p.exhibition?.title || 'Exhibition'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[180px]">
+                            {p.exhibition?.city || p.exhibition?.venue || 'Venue'}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            {p.paymentMode || p.paymentMethod || p.provider || 'Direct'}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5 text-right font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">
+                          ₹{amt.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-3.5 py-3.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isSuccess
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3.5 text-slate-400 font-mono text-[11px]">
+                          {formatDisplayDate(p.paidAt || p.createdAt)}
+                        </td>
+                        <td className="px-3.5 py-3.5 text-center">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => downloadInvoicePdf(bk.id, bk.bookingReference)}
+                            onClick={() => {
+                              const targetId = p.invoice?.id || p.id;
+                              downloadInvoicePdf(targetId, p.paymentReference || p.bookingReference);
+                            }}
                             className="text-xs py-1 px-2.5 font-bold"
                           >
-                            PDF
+                            PDF Bill
                           </Button>
                         </td>
                       </tr>
@@ -1480,6 +1918,112 @@ export const UserGovernanceDetailPage: React.FC = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: ALLOCATED STALLS CATALOG */}
+      {activeTab === 'stalls' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h3 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                Allocated Stalls & Booth Inventory for {user.name}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Total of {allAllocatedStalls.length} physical stall units reserved across {uniqueExhibitionsCount} trade fairs.
+              </p>
+            </div>
+
+            {allAllocatedStalls.length > 0 && (
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Filter by stall number, category, event..."
+                  value={stallSearchQuery}
+                  onChange={(e) => setStallSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-purple-500/30"
+                />
+              </div>
+            )}
+          </div>
+
+          {allAllocatedStalls.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+              No physical stalls currently reserved or allocated under this account.
+            </div>
+          ) : filteredStalls.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+              <p>No stalls match "{stallSearchQuery}".</p>
+              <button
+                type="button"
+                onClick={() => setStallSearchQuery('')}
+                className="text-xs text-purple-600 font-bold hover:underline"
+              >
+                Clear Filter
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredStalls.map((s: any, idx: number) => {
+                const sqFt = s.areaSqFt || 100;
+                const sqMt = (sqFt * 0.092903).toFixed(1);
+
+                return (
+                  <div
+                    key={s.id || idx}
+                    className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-lg text-purple-600 dark:text-purple-400">
+                        {s.stallNumber}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        {s.category || 'STANDARD'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                        {s.exhibition?.title || 'Exhibition Event'}
+                      </h4>
+                      <p className="text-slate-400 text-[11px] truncate">
+                        {s.exhibition?.venue || s.exhibition?.city || 'Trade Center'}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Stall Area</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {sqFt} sq.ft ({sqMt} m²)
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Base Price</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                          ₹{Number(s.stallPrice || s.price || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-slate-700/80 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => s.booking && setSelectedBookingForModal(s.booking)}
+                        className="font-mono font-bold text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        Ref: {s.bookingReference}
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                      <PaymentStatusBadge status={s.paymentStatus} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1621,6 +2165,21 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 <span className="font-medium text-slate-800 dark:text-slate-200">
                   {user.company.address}, {user.company.city}, {user.company.state} {user.company.pinCode}
                 </span>
+              </div>
+            </div>
+          ) : user.role === 'CLIENT' ? (
+            <div className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-800 text-center space-y-3">
+              <Building2 className="w-8 h-8 text-blue-600 mx-auto" />
+              <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                Direct Exhibitor / Unaffiliated Profile
+              </h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                This client account operates as an independent exhibitor ({user.name} • {user.email}). No separate corporate legal entity record is currently associated with this profile.
+              </p>
+              <div className="pt-2 flex justify-center items-center gap-4 text-xs font-mono text-slate-500">
+                <span>Phone: {user.phone || 'Not provided'}</span>
+                <span>•</span>
+                <span>Account Status: {user.isActive ? 'Active' : 'Deactivated'}</span>
               </div>
             </div>
           ) : (
@@ -2255,6 +2814,15 @@ export const UserGovernanceDetailPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {selectedBookingForModal && (
+        <BookingDetailModal
+          booking={selectedBookingForModal}
+          isOpen={!!selectedBookingForModal}
+          onClose={() => setSelectedBookingForModal(null)}
+          onRefresh={fetchUserData}
+        />
+      )}
     </div>
   );
 };

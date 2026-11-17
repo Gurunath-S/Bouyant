@@ -352,11 +352,30 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                               {p.status}
                             </span>
                           </div>
-                          <div className="text-right">
-                            <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400 text-sm">
-                              ₹{Number(p.amount || 0).toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-slate-400 ml-1">INR</span>
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400 text-sm">
+                                ₹{Number(p.amount || 0).toLocaleString()}
+                              </span>
+                              <span className="text-[10px] text-slate-400 ml-1">INR</span>
+                            </div>
+                            {isSuccess && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadInvoicePdf(
+                                    p.invoice?.id || p.id,
+                                    `Invoice-${p.invoice?.invoiceNumber || p.paymentReference || p.id}.pdf`
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded transition-colors shadow-xs"
+                                title="Download official tax invoice / bill for this specific payment"
+                              >
+                                <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                <span>Bill PDF</span>
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -444,9 +463,22 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                   variant="outline"
                   size="sm"
                   leftIcon={<Download className="w-3.5 h-3.5 text-blue-600" />}
-                  onClick={() => downloadInvoicePdf(currentBooking.invoice?.id || currentBooking.id, currentBooking.bookingReference)}
+                  onClick={() => {
+                    const latestSuccessPayment = [...successfulPayments].reverse()[0];
+                    const targetId =
+                      latestSuccessPayment?.invoice?.id ||
+                      latestSuccessPayment?.id ||
+                      currentBooking.invoice?.id ||
+                      currentBooking.id;
+                    downloadInvoicePdf(targetId, currentBooking.bookingReference);
+                  }}
+                  title={
+                    successfulPayments.length > 1
+                      ? 'Download latest bill PDF (or download individual bills above in Payment Records)'
+                      : 'Download Official PDF'
+                  }
                 >
-                  Download Official PDF
+                  {successfulPayments.length > 1 ? 'Download Latest Bill' : 'Download Official PDF'}
                 </Button>
               </>
             )}

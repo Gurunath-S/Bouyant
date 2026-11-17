@@ -7,14 +7,13 @@ import { hasUserPermission, Permissions } from '../../config/permissions.js';
 
 export class InvoicesService {
   static async getInvoiceById(identifier: string, user?: TokenPayload) {
+    // 1. Direct match by Invoice ID, Invoice Number, or Payment ID / Reference
     let invoice: any = await prisma.invoice.findFirst({
       where: {
         isDeleted: false,
         OR: [
           { id: identifier },
           { invoiceNumber: identifier },
-          { bookingId: identifier },
-          { booking: { bookingReference: identifier } },
           { paymentId: identifier },
           { payment: { paymentReference: identifier } },
         ],
@@ -31,51 +30,102 @@ export class InvoicesService {
               orderBy: { createdAt: 'asc' },
             },
             invoices: {
-              orderBy: { createdAt: 'asc' },
+              orderBy: { createdAt: 'desc' },
             },
           },
         },
       },
     });
 
+    // 2. If not found, check if identifier matches a Payment directly
     if (!invoice) {
-      // Check if identifier matches a payment whose booking has an invoice
       const payment = await prisma.payment.findFirst({
         where: {
           OR: [{ id: identifier }, { paymentReference: identifier }],
         },
         include: {
-          booking: {
+          invoice: {
             include: {
-              invoices: {
+              company: true,
+              payment: true,
+              booking: {
                 include: {
-                  company: true,
-                  payment: true,
-                  booking: {
-                    include: {
-                      stalls: { include: { stall: true } },
-                      exhibition: true,
-                      payments: {
-                        where: { status: 'SUCCESS' },
-                        orderBy: { createdAt: 'asc' },
-                      },
-                      invoices: true,
-                    },
+                  stalls: { include: { stall: true } },
+                  exhibition: true,
+                  payments: {
+                    where: { status: 'SUCCESS' },
+                    orderBy: { createdAt: 'asc' },
+                  },
+                  invoices: {
+                    orderBy: { createdAt: 'desc' },
                   },
                 },
+              },
+            },
+          },
+          booking: {
+            include: {
+              company: true,
+              stalls: { include: { stall: true } },
+              exhibition: true,
+              payments: {
+                where: { status: 'SUCCESS' },
+                orderBy: { createdAt: 'asc' },
+              },
+              invoices: {
+                orderBy: { createdAt: 'desc' },
               },
             },
           },
         },
       });
 
-      if (payment?.booking?.invoices?.length) {
-        invoice = payment.booking.invoices[0];
+      if (payment) {
+        if (payment.invoice) {
+          invoice = payment.invoice;
+        } else if (payment.status === 'SUCCESS' && payment.booking) {
+          // Auto-generate official tax invoice for this specific completed payment
+          const invoiceNum = `INV-${Date.now().toString().slice(-6)}`;
+          const paymentAmount = payment.amount;
+          const isFullPayment = Number(paymentAmount) === Number(payment.booking.grandTotal);
+          const totalAmount = isFullPayment
+            ? payment.booking.totalAmount
+            : Math.round(Number(paymentAmount) / 1.18);
+          const taxAmount = Number(paymentAmount) - Number(totalAmount);
+
+          invoice = await prisma.invoice.create({
+            data: {
+              invoiceNumber: invoiceNum,
+              bookingId: payment.booking.id,
+              companyId: payment.booking.companyId,
+              paymentId: payment.id,
+              totalAmount,
+              taxAmount,
+              grandTotal: paymentAmount,
+              status: 'PAID',
+            },
+            include: {
+              company: true,
+              payment: true,
+              booking: {
+                include: {
+                  stalls: { include: { stall: true } },
+                  exhibition: true,
+                  payments: {
+                    where: { status: 'SUCCESS' },
+                    orderBy: { createdAt: 'asc' },
+                  },
+                  invoices: true,
+                },
+              },
+            },
+          });
+        }
       }
     }
 
+    // 3. If still not found, check if identifier matches a Booking directly
     if (!invoice) {
-      // Check if identifier matches a booking directly
       const booking = await prisma.booking.findFirst({
         where: {
           OR: [{ id: identifier }, { bookingReference: identifier }],
@@ -86,10 +136,10 @@ export class InvoicesService {
           exhibition: true,
           payments: {
             where: { status: 'SUCCESS' },
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'desc' },
           },
           invoices: {
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'desc' },
           },
         },
       });
@@ -110,7 +160,7 @@ export class InvoicesService {
                     orderBy: { createdAt: 'asc' },
                   },
                   invoices: {
-                    orderBy: { createdAt: 'asc' },
+                    orderBy: { createdAt: 'desc' },
                   },
                 },
               },

@@ -197,7 +197,7 @@ export interface Payment {
   id: string;
   paymentReference: string;
   bookingId: string;
-  userId: string;
+  userId?: string;
   amount: number | string;
   currency: string;
   status: PaymentStatus;
@@ -206,9 +206,15 @@ export interface Payment {
   razorpayPaymentId?: string;
   razorpayOrderId?: string;
   paymentMethod?: string;
+  paymentMode?: string;
+  installmentType?: string;
+  chequeNumber?: string;
+  bankName?: string;
   failureReason?: string;
   paidAt?: string;
   createdAt: string;
+  invoice?: Invoice | { id: string; invoiceNumber?: string; status?: string; grandTotal?: number | string };
+  booking?: Booking;
 }
 
 export interface Invoice {
