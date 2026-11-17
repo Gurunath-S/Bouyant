@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 
 type ReportTab = 'overview' | 'stalls';
-type DatePreset = 'ALL' | '7D' | '30D' | 'MONTH' | 'CUSTOM';
 
 export const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,9 +52,7 @@ export const ReportsPage: React.FC = () => {
   const [selectedExhibitionId, setSelectedExhibitionId] = useState<string>(
     searchParams.get('exhibitionId') || 'ALL'
   );
-  const [datePreset, setDatePreset] = useState<DatePreset>(
-    (searchParams.get('datePreset') as DatePreset) || 'ALL'
-  );
+ 
   const [startDate, setStartDate] = useState<string>(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState<string>(searchParams.get('endDate') || '');
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'ALL');
@@ -107,40 +104,7 @@ export const ReportsPage: React.FC = () => {
       .catch((err) => console.error('Failed to load exhibitions list:', err));
   }, []);
 
-  // 3. Resolve Date Ranges based on Preset
-  const handleDatePresetChange = (preset: DatePreset) => {
-    setDatePreset(preset);
-    const today = new Date();
-    if (preset === 'ALL') {
-      setStartDate('');
-      setEndDate('');
-      syncUrlParams({ datePreset: 'ALL', startDate: null, endDate: null });
-    } else if (preset === '7D') {
-      const past = new Date();
-      past.setDate(today.getDate() - 7);
-      const s = past.toISOString().split('T')[0];
-      const e = today.toISOString().split('T')[0];
-      setStartDate(s);
-      setEndDate(e);
-      syncUrlParams({ datePreset: '7D', startDate: s, endDate: e });
-    } else if (preset === '30D') {
-      const past = new Date();
-      past.setDate(today.getDate() - 30);
-      const s = past.toISOString().split('T')[0];
-      const e = today.toISOString().split('T')[0];
-      setStartDate(s);
-      setEndDate(e);
-      syncUrlParams({ datePreset: '30D', startDate: s, endDate: e });
-    } else if (preset === 'MONTH') {
-      const s = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-      const e = today.toISOString().split('T')[0];
-      setStartDate(s);
-      setEndDate(e);
-      syncUrlParams({ datePreset: 'MONTH', startDate: s, endDate: e });
-    } else if (preset === 'CUSTOM') {
-      syncUrlParams({ datePreset: 'CUSTOM' });
-    }
-  };
+ 
 
   // 4. Fetch Primary Overview & Occupancy Data with Race Condition Prevention
   const loadPrimaryData = useCallback(async () => {
@@ -185,14 +149,12 @@ export const ReportsPage: React.FC = () => {
   // Reset all filters to default
   const handleResetFilters = () => {
     setSelectedExhibitionId('ALL');
-    setDatePreset('ALL');
     setStartDate('');
     setEndDate('');
     setStatusFilter('ALL');
     setPaymentStatusFilter('ALL');
     syncUrlParams({
       exhibitionId: null,
-      datePreset: null,
       startDate: null,
       endDate: null,
       status: null,
@@ -203,7 +165,6 @@ export const ReportsPage: React.FC = () => {
   const isEventScoped = selectedExhibitionId !== 'ALL';
   const hasActiveFilters =
     isEventScoped ||
-    datePreset !== 'ALL' ||
     Boolean(startDate) ||
     Boolean(endDate) ||
     statusFilter !== 'ALL' ||
@@ -309,29 +270,6 @@ export const ReportsPage: React.FC = () => {
             />
           </div>
 
-          {/* 2. Date Range Presets */}
-          {/* <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
-              Time Period
-            </label>
-            <div className="grid grid-cols-4 gap-1">
-              {(['ALL', '7D', '30D', 'MONTH'] as DatePreset[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => handleDatePresetChange(p)}
-                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                    datePreset === p
-                      ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {p === 'ALL' ? 'All Time' : p}
-                </button>
-              ))}
-            </div>
-          </div> */}
-
           {/* 3. Booking Status Filter */}
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
@@ -386,13 +324,12 @@ export const ReportsPage: React.FC = () => {
               onChange={(e) => {
                 const newStart = e.target.value;
                 setStartDate(newStart);
-                setDatePreset('CUSTOM');
                 let newEnd = endDate;
                 if (endDate && newStart && endDate < newStart) {
                   newEnd = newStart;
                   setEndDate(newStart);
                 }
-                syncUrlParams({ startDate: newStart, endDate: newEnd || null, datePreset: 'CUSTOM' });
+                syncUrlParams({ startDate: newStart, endDate: newEnd || null});
               }}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="From Date"
@@ -406,13 +343,12 @@ export const ReportsPage: React.FC = () => {
               onChange={(e) => {
                 const newEnd = e.target.value;
                 setEndDate(newEnd);
-                setDatePreset('CUSTOM');
                 let newStart = startDate;
                 if (startDate && newEnd && newEnd < startDate) {
                   newStart = newEnd;
                   setStartDate(newEnd);
                 }
-                syncUrlParams({ startDate: newStart || null, endDate: newEnd, datePreset: 'CUSTOM' });
+                syncUrlParams({ startDate: newStart || null, endDate: newEnd});
               }}
               className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="To Date"
@@ -429,8 +365,7 @@ export const ReportsPage: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setEndDate(startDate);
-                    setDatePreset('CUSTOM');
-                    syncUrlParams({ startDate, endDate: startDate, datePreset: 'CUSTOM' });
+                    syncUrlParams({ startDate, endDate: startDate});
                   }}
                   className="text-[10px] text-purple-700 dark:text-purple-300 hover:underline cursor-pointer"
                   title="Filter for this single day"
@@ -819,7 +754,8 @@ export const ReportsPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     {Object.entries(occupancy.categoryBreakdown || {}).map(([cat, stats]) => {
-                      const rate = stats.total > 0 ? Math.round((stats.booked / stats.total) * 100) : 0;
+                     const bookedCount = stats.total - stats.available;
+                      const rate = stats.total > 0 ? Math.round((bookedCount / stats.total) * 100) : 0;
                       return (
                         <div
                           key={cat}

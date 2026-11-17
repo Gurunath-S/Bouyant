@@ -441,7 +441,7 @@ export const AdminCompanyDetailPage: React.FC = () => {
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <BackButton to="/workspace/companies" label="Exhibitors Directory" variant="ghost" size="xs" />
           <span>/</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+          <span className="font-semibold text-slate-800 dark:text-slate-200  max-w-[200px]">
             {company.name}
           </span>
         </div>

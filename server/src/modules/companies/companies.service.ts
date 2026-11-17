@@ -1050,14 +1050,22 @@ export class CompaniesService {
     search = '',
     exhibitionId?: string,
     status?: string,
-    paymentStatus?: string
+    paymentStatus?: string,
+    staffSpcode?: string 
   ) {
     const { page: validPage, limit: validLimit, skip } = normalizePagination(page, limit, 20, 100);
     const baseAndConditions: any[] = [
       { isDeleted: false },
     ];
 
-    if (search && search.trim()) {
+      // 👇 ADD THIS: Staff only sees their own assigned companies
+    if (staffSpcode) {
+      baseAndConditions.push({
+        spcode: { equals: staffSpcode, mode: 'insensitive' },
+      });
+    }
+    
+        if (search && search.trim()) {
       const q = search.trim();
       baseAndConditions.push({
         OR: [
@@ -1069,6 +1077,28 @@ export class CompaniesService {
           { gstNumber: { contains: q, mode: 'insensitive' as const } },
           { contactPerson: { contains: q, mode: 'insensitive' as const } },
           { industry: { contains: q, mode: 'insensitive' as const } },
+          {
+            bookings: {
+              some: {
+                status: { not: 'CANCELLED' as const },
+                stalls: {
+                  some: {
+                    stall: {
+                      stallNumber: { contains: q, mode: 'insensitive' as const },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          {
+            bookings: {
+              some: {
+                status: { not: 'CANCELLED' as const },
+                bookingReference: { contains: q, mode: 'insensitive' as const },
+              },
+            },
+          },
         ],
       });
     }

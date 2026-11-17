@@ -473,6 +473,7 @@ export const AdminPaymentsPage: React.FC = () => {
                         <th className="py-3.5 px-4">Payment ID</th>
                         <th className="py-3.5 px-4">Booking Ref</th>
                         <th className="py-3.5 px-4">Payment Plan / Type</th>
+                        <th className="py-3.5 px-4">Payment Mode</th>
                         <th className="py-3.5 px-4">Status</th>
                         <th className="py-3.5 px-4">Date & Time</th>
                         <th className="py-3.5 px-4 text-right">Amount</th>
@@ -532,9 +533,10 @@ export const AdminPaymentsPage: React.FC = () => {
                                 )}
                               </div>
                               <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 font-medium">
-                                Mode: {p.paymentMethod || 'Simulated Gateway'}
+                                Mode: {p.paymentMethod || 'Online (Razorpay)'}
                               </span>
                             </td>
+                            <td className="py-3.5 px-4">{p.paymentMode||""}</td>
                             <td className="py-3.5 px-4">
                               <PaymentStatusBadge status={p.status} />
                             </td>

@@ -1929,13 +1929,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Font Size (px)
                 </label>
-                <input
-                  type="number"
+               <InspectorNumericInput
                   disabled={readOnly}
-                  min="10"
-                  max="36"
-                  value={hall.fontSize || 13}
-                  onChange={(e) => onUpdateHall(hall.id, { fontSize: Number(e.target.value) })}
+                  min={8}
+                  max={48}
+                  step={1}
+                  value={hall.fontSize ?? 13}
+                  onChange={(size) => onUpdateHall(hall.id, { fontSize: size })}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
                 />
               </div>
@@ -2533,13 +2533,13 @@ export const CanvasPropertyInspector: React.FC<CanvasPropertyInspectorProps> = (
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Font Size (px)
                 </label>
-                <input
-                  type="number"
+               <InspectorNumericInput
                   disabled={readOnly}
-                  min="8"
-                  max="72"
-                  value={ann.fontSize || 12}
-                  onChange={(e) => onUpdateAnnotation(ann.id, { fontSize: Number(e.target.value) })}
+                  min={8}
+                  max={72}
+                  step={1}
+                  value={ann.fontSize ?? 12}
+                  onChange={(size) => onUpdateAnnotation(ann.id, { fontSize: size })}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono bg-white"
                 />
                 <div className="flex gap-1 mt-1">
