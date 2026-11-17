@@ -47,6 +47,7 @@ export class ExhibitionsService {
             name: true,
             isPublished: true,
             stalls: {
+              where: { isDeleted: false } as any,
               select: {
                 id: true,
                 stallNumber: true,
@@ -155,6 +156,7 @@ export class ExhibitionsService {
         floorPlans: {
           include: {
             stalls: {
+              where: { isDeleted: false } as any,
               orderBy: { stallNumber: 'asc' },
             },
           },
@@ -700,7 +702,7 @@ export class ExhibitionsService {
           }
         }
 
-        const totalStallCount = await prisma.stall.count({ where: { floorPlanId: fp.id } });
+        const totalStallCount = await prisma.stall.count({ where: { floorPlanId: fp.id, isDeleted: false } });
         cleanUpdateData.totalStalls = totalStallCount;
       }
     }
