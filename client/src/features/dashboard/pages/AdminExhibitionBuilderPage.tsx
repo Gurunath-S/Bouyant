@@ -626,7 +626,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load exhibition details:', err);
-      setLoadError(err.response?.data?.message || 'Failed to load event profile.');
+      setLoadError(err?.response?.data?.message || err?.message || 'Failed to load event profile.');
     } finally {
       setIsLoadingEvent(false);
     }
@@ -1061,7 +1061,7 @@ export const AdminExhibitionBuilderPage: React.FC = () => {
     } catch (err: any) {
       await showAlert({
         title: 'Save Failed',
-        message: err.response?.data?.message || 'Failed to save exhibition event.',
+        message: err?.response?.data?.message || err?.message || 'Failed to save exhibition event.',
         type: 'danger',
       });
     } finally {

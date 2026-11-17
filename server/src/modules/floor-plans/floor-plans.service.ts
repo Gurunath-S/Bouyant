@@ -193,8 +193,10 @@ export class FloorPlansService {
           const newStallNumbers = new Set(sanitizedStalls.map((s) => s.stallNumber.toUpperCase()));
           const newStallIds = new Set(sanitizedStalls.filter((s) => s.id).map((s) => s.id));
 
-          // Identify stalls to delete (stalls not in new list and with 0 bookings)
-          const toDeleteIds: string[] = [];
+          // Identify stalls to delete (stalls not in new list)
+          const hardDeleteIds: string[] = [];
+          const softDeleteTombstones: Array<{ id: string; tombstoneNumber: string }> = [];
+
           for (const existing of existingStalls as any[]) {
             const isRetained = newStallIds.has(existing.id) || newStallNumbers.has(existing.stallNumber.toUpperCase());
             if (!isRetained) {
@@ -213,14 +215,35 @@ export class FloorPlansService {
                 // Preserve stalls with active bookings, holds, or pending customer payments
                 continue;
               }
-              toDeleteIds.push(existing.id);
+
+              const hasAnyBookingHistory = existing.bookingStalls && existing.bookingStalls.length > 0;
+              if (hasAnyBookingHistory) {
+                // Soft delete and tombstone stallNumber to release uniqueness constraint on (floorPlanId, stallNumber)
+                softDeleteTombstones.push({
+                  id: existing.id,
+                  tombstoneNumber: `${existing.stallNumber}__DEL_${existing.id.slice(0, 8)}`,
+                });
+              } else {
+                // Hard delete unbooked stall cleanly from database
+                hardDeleteIds.push(existing.id);
+              }
             }
           }
 
-          if (toDeleteIds.length > 0) {
-            await tx.stall.updateMany({
-              where: { id: { in: toDeleteIds } },
-              data: { isDeleted: true, deletedAt: new Date() } as any,
+          if (hardDeleteIds.length > 0) {
+            await tx.stall.deleteMany({
+              where: { id: { in: hardDeleteIds } },
+            });
+          }
+
+          for (const tomb of softDeleteTombstones) {
+            await tx.stall.update({
+              where: { id: tomb.id },
+              data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                stallNumber: tomb.tombstoneNumber,
+              } as any,
             });
           }
 
@@ -303,10 +326,14 @@ export class FloorPlansService {
             }
           }
 
-          // Update totalStalls on Exhibition
+          // Recount active remaining stalls and update totalStalls on Exhibition
+          const activeStallsCount = await tx.stall.count({
+            where: { floorPlanId, isDeleted: false },
+          });
+
           await tx.exhibition.update({
             where: { id: floorPlan.exhibitionId },
-            data: { totalStalls: stalls.length },
+            data: { totalStalls: activeStallsCount },
           });
         }
 
@@ -314,6 +341,7 @@ export class FloorPlansService {
           where: { id: floorPlanId },
           include: {
             stalls: {
+              where: { isDeleted: false },
               orderBy: { stallNumber: 'asc' },
             },
           },
