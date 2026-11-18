@@ -24,7 +24,12 @@ export const InvoiceDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState('');
-  const isMobile = typeof window !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
+    // (Screen size:
+  const isMobile = typeof window !== 'undefined' && (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.innerWidth < 1024 ||
+    ('ontouchstart' in window)
+  );
   const pdfCanvasContainerRef = React.useRef<HTMLDivElement>(null);
   const [mobileRenderLoading, setMobileRenderLoading] = useState(false);
 
@@ -149,19 +154,21 @@ export const InvoiceDetailPage: React.FC = () => {
     const renderPdf = async () => {
       setMobileRenderLoading(true);
       try {
+                // Load PDF.js cleanly without hanging
         if (!(window as any).pdfjsLib) {
           await new Promise<void>((resolve, reject) => {
             const existingScript = document.querySelector('script[src*="pdf.js"]');
             if (existingScript) {
-              existingScript.addEventListener('load', () => resolve());
-              return;
+              existingScript.remove(); // பழைய script-ஐ நீக்கிவிட்டு புதிதாக லோட் செய்யும்
             }
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
             script.async = true;
             script.onload = () => {
-              (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              try {
+                (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+                  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              } catch (_) {}
               resolve();
             };
             script.onerror = () => reject(new Error('Failed to load PDF engine'));

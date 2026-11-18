@@ -33,7 +33,13 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
+  const pdfCanvasContainerRef = useRef<HTMLDivElement>(null);
+  const [mobileRenderLoading, setMobileRenderLoading] = useState(false);
+  const isMobile = typeof window !== 'undefined' && (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.innerWidth < 1024 ||
+    ('ontouchstart' in window)
+  );
   useEffect(() => {
     if (!isOpen || !targetIdOrReference) {
       setPdfUrl((prev) => {
@@ -155,6 +161,73 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
       }
     };
   }, [isOpen, targetIdOrReference]);
+    // Render full visual invoice on mobile devices using Canvas
+  useEffect(() => {
+    if (!isMobile || !pdfUrl || !isOpen) return;
+
+    let isMounted = true;
+
+    const renderPdf = async () => {
+      setMobileRenderLoading(true);
+      try {
+        if (!(window as any).pdfjsLib) {
+          await new Promise<void>((resolve, reject) => {
+            const existingScript = document.querySelector('script[src*="pdf.js"]');
+            if (existingScript) existingScript.remove();
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.async = true;
+            script.onload = () => {
+              try {
+                (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+                  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              } catch (_) {}
+              resolve();
+            };
+            script.onerror = () => reject(new Error('Failed to load PDF engine'));
+            document.head.appendChild(script);
+          });
+        }
+
+        const pdfjs = (window as any).pdfjsLib;
+        const loadingTask = pdfjs.getDocument(pdfUrl);
+        const pdf = await loadingTask.promise;
+
+        if (!isMounted || !pdfCanvasContainerRef.current) return;
+        pdfCanvasContainerRef.current.innerHTML = '';
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const containerWidth = pdfCanvasContainerRef.current.clientWidth || window.innerWidth - 48;
+          const unscaledViewport = page.getViewport({ scale: 1 });
+          const scale = containerWidth / unscaledViewport.width;
+          const viewport = page.getViewport({ scale: Math.max(scale, 1.2) });
+
+          const canvas = document.createElement('canvas');
+          canvas.className = 'w-full shadow-md rounded-lg mb-4 bg-white border border-slate-200 dark:border-slate-700 block';
+          const ctx = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+
+          if (isMounted && pdfCanvasContainerRef.current) {
+            pdfCanvasContainerRef.current.appendChild(canvas);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to render PDF on modal canvas:', err);
+      } finally {
+        if (isMounted) setMobileRenderLoading(false);
+      }
+    };
+
+    renderPdf();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isMobile, pdfUrl, isOpen]);
 
   const handlePrint = () => {
     if (iframeRef.current && iframeRef.current.contentWindow) {
@@ -316,14 +389,28 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
                 </Button>
               </div>
             </div>
-          ) : pdfUrl ? (
-            <iframe
-              ref={iframeRef}
-              src={`${pdfUrl}#toolbar=1&view=FitH`}
-              title={`Invoice ${invoiceNumber || targetIdOrReference || ''}`}
-              className="w-full border-0 bg-white"
-              style={{ width: '100%', height: '100%', minHeight: '620px', display: 'block' }}
-            />
+            ) : pdfUrl ? (
+            isMobile ? (
+              /* Mobile View: High Quality Canvas */
+              <div className="p-2 sm:p-4 bg-slate-100 dark:bg-slate-900 overflow-y-auto max-h-[70vh]">
+                {mobileRenderLoading && (
+                  <div className="flex flex-col items-center justify-center py-8 text-slate-500 gap-2">
+                    <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                    <p className="text-xs">Rendering mobile invoice preview...</p>
+                  </div>
+                )}
+                <div ref={pdfCanvasContainerRef} className="flex flex-col items-center w-full" />
+              </div>
+            ) : (
+              /* Desktop View: Standard iframe */
+              <iframe
+                ref={iframeRef}
+                src={`${pdfUrl}#toolbar=1&view=FitH`}
+                title={`Invoice ${invoiceNumber || targetIdOrReference || ''}`}
+                className="w-full border-0 bg-white"
+                style={{ width: '100%', height: '100%', minHeight: '620px', display: 'block' }}
+              />
+            )
           ) : null}
         </div>
       </div>
