@@ -342,7 +342,7 @@ export const LoginPage: React.FC = () => {
                       className="text-slate-400 hover:text-[#1E3FA0] dark:hover:text-blue-400 focus:outline-none p-1 transition-colors"
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ?<Eye className="w-4 h-4" />: <EyeOff className="w-4 h-4" /> }
                     </button>
                   }
                   error={errors.password?.message}
