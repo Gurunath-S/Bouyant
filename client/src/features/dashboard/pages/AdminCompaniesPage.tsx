@@ -52,6 +52,13 @@ export const AdminCompaniesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+      // Common Clear All Filters handler
+  const handleClearAllFilters = () => {
+    setSelectedExhibitionId('');
+    setActiveTab('ALL');
+    setSearch('');
+  };
+
   // Race condition protection
   const companiesReqIdRef = useRef(0);
 
@@ -350,11 +357,10 @@ export const AdminCompaniesPage: React.FC = () => {
                     {totalCompanies} Exhibitors Registered
                   </span>
                   <button
-                    onClick={() => setSelectedExhibitionId('')}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                    title="View All Events"
+                    onClick={handleClearAllFilters}
+                    className="text-purple-600 hover:text-purple-800 font-bold hover:underline cursor-pointer flex items-center gap-1 text-xs ml-1"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" /> Clear Filters
                   </button>
                 </div>
               </div>
@@ -369,13 +375,9 @@ export const AdminCompaniesPage: React.FC = () => {
                 <strong>{totalCompanies}</strong> exhibitors across all historical trade fairs.
               </span>
             </div>
-            {(activeTab !== 'ALL' || search) && (
+           {(activeTab !== 'ALL' || search) && (
               <button
-                onClick={() => {
-                  setSelectedExhibitionId('');
-                  setActiveTab('ALL');
-                  setSearch('');
-                }}
+                onClick={handleClearAllFilters}
                 className="text-purple-600 hover:text-purple-800 font-bold hover:underline cursor-pointer flex items-center gap-1"
               >
                 <X className="w-3.5 h-3.5" /> Clear Filters
