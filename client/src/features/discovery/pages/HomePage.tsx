@@ -142,9 +142,9 @@ export const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl font-normal">
-                {featuredEvent.description}
-              </p>
+             <p className="text-slate-600  dark:text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl font-normal line-clamp-4">
+              {featuredEvent.description}
+             </p>
 
               {/* Modern Light Glass Countdown Timer Container */}
               <div className="max-w-md bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl shadow-xs border border-[#1E3FA0]/15 dark:border-slate-700 space-y-2.5">

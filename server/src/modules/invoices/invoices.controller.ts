@@ -90,7 +90,7 @@ static myInvoices = async (req: AuthenticatedRequest, res: Response) => {
     const pdfBuffer = await InvoicesService.generateInvoicePdf(id, req.user);
     const cleanId = String(id|| 'invoice').replace(/[^a-zA-Z0-9_-]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Invoice-${cleanId}.pdf"`);
+    res.setHeader('Content-Disposition',`inline; filename="Invoice-${cleanId}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
