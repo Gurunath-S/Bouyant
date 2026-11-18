@@ -1136,6 +1136,7 @@ export class CompaniesService {
       });
     }
 
+         // 1. Paid Condition: Company must have ACTUAL money paid (paidAmount > 0) in this event
     const paidCondition = {
       bookings: {
         some: {
@@ -1145,12 +1146,13 @@ export class CompaniesService {
             { paymentStatus: 'PAID_FULL' },
             { paymentStatus: 'PARTIALLY_PAID' },
             { paidAmount: { gt: 0 } },
-            { status: 'CONFIRMED' },
           ],
         },
       },
     };
 
+    // 2. Not Paid Condition: Cheque pending (₹0 paid) or unpaid bookings in this event,
+    // AND has ZERO paid bookings in this event
     const notPaidCondition = hasExhibitionScope
       ? {
           bookings: {
@@ -1160,11 +1162,23 @@ export class CompaniesService {
               OR: [
                 { paymentStatus: 'UNPAID' },
                 { paidAmount: { equals: 0 } },
+                { status: 'PENDING_CHEQUE_VERIFICATION' }, // 👈 Cheque pending capture aagum
+                { status: 'PENDING_PAYMENT' },
+              ],
+            },
+            none: {
+              exhibitionId,
+              status: { not: 'CANCELLED' as const },
+              OR: [
+                { paymentStatus: 'PAID_FULL' },
+                { paymentStatus: 'PARTIALLY_PAID' },
+                { paidAmount: { gt: 0 } },
               ],
             },
           },
         }
       : {
+          // All Exhibitions: Platform full-ah yentha paid booking-um illathavanga
           bookings: {
             none: {
               status: { not: 'CANCELLED' as const },
@@ -1172,7 +1186,6 @@ export class CompaniesService {
                 { paymentStatus: 'PAID_FULL' },
                 { paymentStatus: 'PARTIALLY_PAID' },
                 { paidAmount: { gt: 0 } },
-                { status: 'CONFIRMED' },
               ],
             },
           },

@@ -45,8 +45,6 @@ import {
   LayoutDashboard,
   UserPlus,
   Search,
-  FileText,
-  Receipt,
   ExternalLink,
 } from 'lucide-react';
 import { BookingDetailModal } from '../../bookings/components/BookingDetailModal';
