@@ -2286,7 +2286,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 onClick={() => setShowResetPassword(!showResetPassword)}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
-                {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showResetPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -2583,7 +2583,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     title={showEditPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showEditPassword ? <Eye className="w-4 h-4" />:<EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400">

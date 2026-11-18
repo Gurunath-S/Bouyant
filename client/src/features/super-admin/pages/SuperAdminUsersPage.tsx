@@ -2158,7 +2158,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                         title={showCreatePassword ? 'Hide password' : 'Show password'}
                         tabIndex={-1}
                       >
-                        {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showCreatePassword ? <Eye className="w-4 h-4" />: <EyeOff className="w-4 h-4" /> }
                       </button>
                     }
                   />

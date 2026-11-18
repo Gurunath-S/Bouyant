@@ -317,43 +317,67 @@ export const ReportsPage: React.FC = () => {
             <Calendar className="w-3.5 h-3.5" /> Date Bounds:
           </span>
           <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={startDate}
-              max={endDate || undefined}
-              onChange={(e) => {
-                const newStart = e.target.value;
-                setStartDate(newStart);
-                let newEnd = endDate;
-                if (endDate && newStart && endDate < newStart) {
-                  newEnd = newStart;
-                  setEndDate(newStart);
-                }
-                syncUrlParams({ startDate: newStart, endDate: newEnd || null});
-              }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="From Date"
-              title="Report start date"
-            />
+                    <div className="flex items-center gap-2">
+            {/* From Date (DD/MM/YYYY) */}
+            <div className="relative inline-flex items-center">
+              <input
+                type="text"
+                readOnly
+                placeholder="DD/MM/YYYY"
+                value={isoToDisplayInputDate(startDate)}
+                onClick={(e) => (e.currentTarget.nextElementSibling as HTMLInputElement)?.showPicker?.()}
+                className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 w-28 cursor-pointer font-mono"
+                title="Click to pick Start Date (DD/MM/YYYY)"
+              />
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  setStartDate(newStart);
+                  let newEnd = endDate;
+                  if (endDate && newStart && endDate < newStart) {
+                    newEnd = newStart;
+                    setEndDate(newStart);
+                  }
+                  syncUrlParams({ startDate: newStart, endDate: newEnd || null });
+                }}
+                className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+              />
+            </div>
+
             <span className="text-slate-400 font-medium">to</span>
-            <input
-              type="date"
-              value={endDate}
-              min={startDate || undefined}
-              onChange={(e) => {
-                const newEnd = e.target.value;
-                setEndDate(newEnd);
-                let newStart = startDate;
-                if (startDate && newEnd && newEnd < startDate) {
-                  newStart = newEnd;
-                  setStartDate(newEnd);
-                }
-                syncUrlParams({ startDate: newStart || null, endDate: newEnd});
-              }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="To Date"
-              title="Report end date (cannot be earlier than start date)"
-            />
+
+            {/* To Date (DD/MM/YYYY) */}
+            <div className="relative inline-flex items-center">
+              <input
+                type="text"
+                readOnly
+                placeholder="DD/MM/YYYY"
+                value={isoToDisplayInputDate(endDate)}
+                onClick={(e) => (e.currentTarget.nextElementSibling as HTMLInputElement)?.showPicker?.()}
+                className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 w-28 cursor-pointer font-mono"
+                title="Click to pick End Date (DD/MM/YYYY)"
+              />
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => {
+                  const newEnd = e.target.value;
+                  setEndDate(newEnd);
+                  let newStart = startDate;
+                  if (startDate && newEnd && newEnd < startDate) {
+                    newStart = newEnd;
+                    setStartDate(newEnd);
+                  }
+                  syncUrlParams({ startDate: newStart || null, endDate: newEnd });
+                }}
+                className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+              />
+            </div>
+          </div>
           </div>
           {startDate && endDate && (
             <div className="flex items-center gap-2">
