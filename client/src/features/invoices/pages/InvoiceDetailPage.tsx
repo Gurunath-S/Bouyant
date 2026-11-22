@@ -305,7 +305,7 @@ export const InvoiceDetailPage: React.FC = () => {
           label={backConfig.label}
         />
 
-        <div className="flex items-center gap-2">
+               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {pdfUrl && (
             <>
               <Button
@@ -316,6 +316,7 @@ export const InvoiceDetailPage: React.FC = () => {
                   printWin?.addEventListener('load', () => printWin.print());
                 }}
                 leftIcon={<Printer className="h-4 w-4 text-slate-600 dark:text-slate-400" />}
+                className="text-xs px-2.5 sm:px-3"
               >
                 Print
               </Button>
@@ -324,6 +325,7 @@ export const InvoiceDetailPage: React.FC = () => {
                 size="sm"
                 onClick={() => window.open(pdfUrl, '_blank')}
                 leftIcon={<ExternalLink className="h-4 w-4 text-slate-600 dark:text-slate-400" />}
+                className="text-xs px-2.5 sm:px-3"
               >
                 Full Page
               </Button>
@@ -332,9 +334,10 @@ export const InvoiceDetailPage: React.FC = () => {
                 size="sm"
                 onClick={() => downloadInvoicePdf(id!, `Invoice-${invoice.invoiceNumber || id}.pdf`)}
                 leftIcon={<Download className="h-4 w-4 text-white" />}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-2.5 sm:px-3"
               >
-                Download PDF (.pdf)
+                <span className="hidden sm:inline">Download PDF (.pdf)</span>
+                <span className="sm:hidden">Download PDF</span>
               </Button>
             </>
           )}

@@ -195,7 +195,7 @@ export const ExhibitionsPage: React.FC = () => {
           <p className="text-slate-600 dark:text-slate-300 text-sm font-semibold">No exhibitions match your search.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {currentExhibitions.map((expo) => {
             const isCurrentUpcoming = currentUpcomingEvent && expo.id === currentUpcomingEvent.id;
             const isFull = expo.isFull === true || (expo.totalStalls > 0 && expo.availableStallsCount === 0);
