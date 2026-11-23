@@ -127,26 +127,26 @@ export const ExhibitionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 👉 Top Pagination Row (Notes மற்றும் Line-க்கு கீழே Screenshot-ல் உள்ளபடி) */}
+            {/* Top Pagination Row (All Devices Responsive) */}
       {totalItems > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 text-xs text-slate-600 dark:text-slate-400">
           {/* Left: Showing count */}
-          <div className="font-medium text-slate-700 dark:text-slate-300">
-            Showing <strong className="text-slate-900 dark:text-slate-100 font-bold">{startIndex + 1}–{endIndex}</strong> of <strong className="text-slate-900 dark:text-slate-100 font-bold">{totalItems}</strong> exhibitions
+          <div className="font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+            Showing <strong className="text-slate-900 dark:text-slate-100 font-bold font-mono">{startIndex + 1}–{endIndex}</strong> of <strong className="text-slate-900 dark:text-slate-100 font-bold font-mono">{totalItems}</strong> exhibitions
           </div>
 
-          {/* Right: Per page & Navigation buttons */}
-          <div className="flex items-center gap-3">
+          {/* Right: Per page & Navigation buttons (Never Breaks) */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 whitespace-nowrap">
             {/* Per Page */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-slate-500 dark:text-slate-400">Per Page</span>
+            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+              <span className="font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Per Page</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer shadow-xs focus:ring-2 focus:ring-purple-500"
+                className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer shadow-xs focus:ring-2 focus:ring-purple-500 text-xs"
               >
                 <option value={6}>6</option>
                 <option value={9}>9</option>
@@ -156,7 +156,7 @@ export const ExhibitionsPage: React.FC = () => {
             </div>
 
             {/* Prev / Page / Next */}
-            <div className="flex items-center gap-1.5 ml-2">
+            <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -167,7 +167,7 @@ export const ExhibitionsPage: React.FC = () => {
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
 
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-1 font-mono">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-1.5 font-mono whitespace-nowrap">
                 {currentPage} / {totalPages}
               </span>
 
@@ -195,7 +195,7 @@ export const ExhibitionsPage: React.FC = () => {
           <p className="text-slate-600 dark:text-slate-300 text-sm font-semibold">No exhibitions match your search.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {currentExhibitions.map((expo) => {
             const isCurrentUpcoming = currentUpcomingEvent && expo.id === currentUpcomingEvent.id;
             const isFull = expo.isFull === true || (expo.totalStalls > 0 && expo.availableStallsCount === 0);
@@ -268,20 +268,26 @@ export const ExhibitionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                    {expo.totalStalls} Stalls
+                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 block truncate">
+                      {expo.totalStalls} Stalls
+                    </span>
                     {typeof expo.bookedStallsCount === 'number' && (
-                      <span className="text-[11px] text-slate-400 font-normal ml-1">
+                      <span className="text-[10px] text-slate-400 font-normal block truncate">
                         ({expo.bookedStallsCount} booked)
                       </span>
                     )}
-                  </span>
-                  <Link to={`/exhibitions/${expo.slug || expo.id}`}>
+                  </div>
+                  <Link to={`/exhibitions/${expo.slug || expo.id}`} className="shrink-0">
                     <Button
                       variant={!isFull && expo.status === 'PUBLISHED' ? 'primary' : 'outline'}
                       size="sm"
-                      className={!isFull && expo.status === 'PUBLISHED' ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold' : ''}
+                      className={`text-xs px-3 py-1.5 whitespace-nowrap shrink-0 ${
+                        !isFull && expo.status === 'PUBLISHED'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white font-extrabold'
+                          : ''
+                      }`}
                       rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
                     >
                       {isFull ? 'See Details' : expo.status === 'PUBLISHED' ? 'Book Stalls Now' : 'View Details'}
