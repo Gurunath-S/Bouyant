@@ -167,28 +167,28 @@ useEffect(() => {
   return (
     <>
       {/* Mobile Backdrop Overlay*/}
-            {/* Mobile & Tablet Backdrop Overlay*/}
+        {/* Mobile & Tablet Backdrop Overlay*/}
       {isMobileOpen && (
         <div
           onClick={closeMobile}
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 xl:hidden transition-opacity"
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`fixed left-0 top-14 bottom-0 z-40 lg:z-30 lg:sticky lg:top-14 lg:bottom-auto ${
+        className={`fixed left-0 top-14 bottom-0 z-40 xl:z-30 xl:sticky xl:top-14 xl:bottom-auto ${
           isMobileOpen
             ? 'translate-x-0 shadow-2xl'
-            : '-translate-x-full lg:translate-x-0 shadow-none'
-        } transition-transform lg:transition-none lg:transform-none duration-300 ease-in-out h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none ${
+            : '-translate-x-full xl:translate-x-0 shadow-none'
+        } transition-transform xl:transition-none xl:transform-none duration-300 ease-in-out h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
       {/* Collapse / Expand Toggle Button */}
       <button
         onClick={toggleCollapse}
-        className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-md items-center justify-center text-slate-500 hover:text-[#09539b] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer group"
+        className="hidden xl:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-md items-center justify-center text-slate-500 hover:text-[#09539b] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer group"
         title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
       >
