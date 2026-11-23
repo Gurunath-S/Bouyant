@@ -96,7 +96,7 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               onClick={toggleMobile}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors lg:hidden cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors xl:hidden cursor-pointer"
               aria-label="Toggle Sidebar Menu"
             >
               {isMobileOpen ? <X className="w-6 h-6 text-[#1E3FA0] dark:text-blue-400" /> : <Menu className="w-6 h-6" />}
