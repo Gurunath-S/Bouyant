@@ -177,11 +177,11 @@ export const ReportsPage: React.FC = () => {
   const getPageTitle = () => {
     if (isSuperAdmin) return 'Platform Reports';
     if (isAdmin) return 'Business Reports';
-    return 'Operational Reports';
+    return 'Platform Reports';
   };
 
   const getPageSubtitle = () => {
-    if (isSuperAdmin)
+    if (isSuperAdmin || !isAdmin)
       return 'Authoritative platform gross revenues, verified cash collections, outstanding receivables, and occupancy rates.';
     return 'Event performance, payment collection audit, category sales breakdown, and operational reconciliation.';
   };

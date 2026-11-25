@@ -321,11 +321,11 @@ export class ReportsService {
         : undefined,
 
       // Core KPI Metrics
-      totalRevenue: role === 'STAFF' ? undefined : actualPaymentsReceived, // Backwards-compatible alias for UI components
-      actualPaymentsReceived: role === 'STAFF' ? 0 : actualPaymentsReceived,
-      totalBookingValue: role === 'STAFF' ? 0 : totalBookingValue,
-      outstandingBalance: role === 'STAFF' ? 0 : outstandingBalance,
-      cancelledBookingValue: role === 'STAFF' ? 0 : cancelledBookingValue,
+      totalRevenue: actualPaymentsReceived, // Backwards-compatible alias for UI components
+      actualPaymentsReceived,
+      totalBookingValue,
+      outstandingBalance,
+      cancelledBookingValue,
       totalBookings: bookings.length,
       confirmedBookings: confirmedBookings.length,
       totalExhibitors: isEventScoped ? participatingCompaniesCount : totalCompaniesCount,
@@ -344,7 +344,7 @@ export class ReportsService {
       occupancyRate,
 
       // Breakdowns
-      financialSummary: role === 'STAFF' ? undefined : {
+      financialSummary: {
         paymentStatusBreakdown,
         bookingStatusBreakdown,
         paymentsMetrics: {

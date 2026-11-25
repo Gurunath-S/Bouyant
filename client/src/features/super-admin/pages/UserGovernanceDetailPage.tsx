@@ -108,7 +108,7 @@ const PAGE_ICON_CONFIG: Record<
 const DEFAULT_ROLE_PAGE_ACCESS: Record<string, string[]> = {
   SUPERADMIN: ['dashboard', 'events_floorplans', 'event_register', 'companies', 'bookings', 'payments', 'reports', 'governance'],
   ADMIN: ['dashboard', 'events_floorplans', 'event_register', 'companies', 'bookings', 'payments', 'reports'],
-  STAFF: ['dashboard', 'event_register', 'companies', 'bookings', 'payments'],
+  STAFF: ['dashboard', 'event_register', 'companies', 'bookings', 'payments', 'reports'],
   CLIENT: ['dashboard'],
 };
 

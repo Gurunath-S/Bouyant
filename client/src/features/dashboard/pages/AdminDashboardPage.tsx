@@ -79,7 +79,17 @@ export const AdminDashboardPage: React.FC = () => {
         .filter((e) => new Date(e.endDate) >= now)
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-      const defaultEvent = upcomingPublishedEvents[0] || allExhibitions[0] || null;
+      // Prefer upcoming exhibitions that actually have active bookings
+      const upcomingWithBookings = upcomingPublishedEvents.filter((e) =>
+        allBookings.some(
+          (b: any) =>
+            b.exhibitionId === e.id &&
+            b.status !== 'CANCELLED' &&
+            b.status !== 'EXPIRED'
+        )
+      );
+
+      const defaultEvent = upcomingWithBookings[0] || upcomingPublishedEvents[0] || allExhibitions[0] || null;
 
       // Determine target active event
       let targetSummary = null;

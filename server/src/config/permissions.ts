@@ -84,7 +84,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
     Permissions.PAYMENT_MANAGE,
     Permissions.INVOICE_MANAGE,
     Permissions.COMPANY_MANAGE,
+    Permissions.REPORT_VIEW_PLATFORM,
     Permissions.REPORT_VIEW_EVENT,
+    Permissions.REPORT_VIEW_OPERATIONAL,
     Permissions.PROFILE_MANAGE,
   ]),
 
@@ -94,6 +96,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<Permission>> = {
     Permissions.PAYMENT_MANAGE,
     Permissions.INVOICE_MANAGE,
     Permissions.COMPANY_MANAGE,
+    Permissions.REPORT_VIEW_PLATFORM,
+    Permissions.REPORT_VIEW_EVENT,
     Permissions.REPORT_VIEW_OPERATIONAL,
     Permissions.PROFILE_MANAGE,
   ]),
@@ -160,15 +164,25 @@ export const hasUserPermission = (
   if (user.role === 'SUPERADMIN') return true;
   if (permission === Permissions.PROFILE_MANAGE) return true;
 
-  // Baseline role permissions check
-  const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
-  if (roleSet && roleSet.has(permission)) return true;
-
   // Custom page access grants check
   const effectivePages =
     user.pageAccess && user.pageAccess.length > 0
       ? user.pageAccess
       : DEFAULT_ROLE_PAGE_ACCESS[user.role as UserRole] || [];
+
+  // Report viewing permissions: granted if user has 'reports' page access
+  const reportPermissions: Permission[] = [
+    Permissions.REPORT_VIEW_PLATFORM,
+    Permissions.REPORT_VIEW_EVENT,
+    Permissions.REPORT_VIEW_OPERATIONAL,
+  ];
+  if (reportPermissions.includes(permission)) {
+    return effectivePages.includes('reports');
+  }
+
+  // Baseline role permissions check
+  const roleSet = ROLE_PERMISSIONS[user.role as UserRole];
+  if (roleSet && roleSet.has(permission)) return true;
 
   if (effectivePages.includes('governance')) {
     const govPermissions: Permission[] = [
