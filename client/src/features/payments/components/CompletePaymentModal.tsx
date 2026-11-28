@@ -45,23 +45,23 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
   const [customAmount, setCustomAmount] = useState<string>('');
   const [nextDueDate, setNextDueDate] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentExecutionMethod>('ONLINE_RAZORPAY');
+  const [referenceNote, setReferenceNote] = useState<string>('');
   // 2. Cheque Details Form State
   const [chequeDetails, setChequeDetails] = useState<ChequeDetails>({
     chequeNumber: '',
     bankName: '',
     chequeDate: '',
-    referenceNote: '',
   });
 
 
   const handleClose = useCallback(() => {
     if (isProcessing) return;
     setPaymentMethod('ONLINE_RAZORPAY');
+    setReferenceNote('');
     setChequeDetails({
       chequeNumber: '',
       bankName: '',
       chequeDate: '',
-      referenceNote: '',
     });
     setError(null);
     setSuccessMessage(null);
@@ -273,9 +273,9 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
             chequeNumber: chequeDetails.chequeNumber.trim(),
             bankName: chequeDetails.bankName.trim(),
             chequeDate: chequeDetails.chequeDate,
-            referenceNote: chequeDetails.referenceNote?.trim() || undefined,
                 
           },
+           referenceNote: referenceNote.trim() || undefined,
           nextDueDate: isPartialPayment ? nextDueDate : undefined,
            paymentType: paymentOption === 'full' ? 'FULL' : 'PARTIAL',
         });
@@ -297,6 +297,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
         await paymentService.recordCashPayment({
           bookingId: booking.id,
           amount: totalPayableAmount,
+          referenceNote: referenceNote.trim() || undefined,
           nextDueDate: isPartialPayment ? nextDueDate : undefined,
         });
         setSuccessMessage(
@@ -315,6 +316,7 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
       // 👇 3. ONLINE RAZORPAY FLOW
       const orderInfo = await paymentService.createBalanceOrder(booking.id, {
         amount: totalPayableAmount,
+        referenceNote: referenceNote.trim() || undefined,
         nextDueDate: isPartialPayment ? nextDueDate : undefined,
       });
 
@@ -637,7 +639,22 @@ export const CompletePaymentModal: React.FC<CompletePaymentModalProps> = ({
                     </p>
                   </div>
                 )}
-
+               {/* Optional Reference / Remarks Note */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 space-y-1.5 animate-in fade-in duration-150">
+                <label htmlFor="completePaymentReferenceNote" className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Reference / Depositor Note <span className="text-slate-400 font-normal">(Optional)</span></span>
+                  <span className="text-[10px] text-slate-400 font-normal">Max 500 chars</span>
+                </label>
+                <input
+                  id="completePaymentReferenceNote"
+                  type="text"
+                  maxLength={500}
+                  placeholder="e.g. Direct cash collected at office, or UTR / Remarks..."
+                  value={referenceNote}
+                  onChange={(e) => setReferenceNote(e.target.value)}
+                  className="w-full text-xs font-medium bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
 
               </div>
             </div>

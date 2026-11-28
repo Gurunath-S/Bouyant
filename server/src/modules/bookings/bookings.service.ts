@@ -403,7 +403,8 @@ public static async createInvoice(
             paymentMethod: paymentMethod,
             paidAt: new Date(),
             nextPaymentDate,
-            installmentType:isFullyPaid ? "FULL_PAID":`PARTIAL_PAID|DUE${formatDateDMY(nextPaymentDate)}`
+            installmentType:isFullyPaid ? "FULL_PAID":`PARTIAL_PAID|DUE${formatDateDMY(nextPaymentDate)}`,
+            referenceNote: input.referenceNote || null,
           },
         });
         //  Generate invoice for the cash payment
@@ -816,7 +817,7 @@ if (resultCash.emailData) {
             chequeDate: new Date(
               `${chequeDetails.chequeDate}T00:00:00.000Z`
             ),
-            referenceNote: chequeDetails.referenceNote ?? null,
+           referenceNote: input.referenceNote || null,
             installmentType:"Cheque Pending",
             // Reminder date
             nextPaymentDate,
@@ -1521,7 +1522,7 @@ static async createBooking(
 	  // 8. Assign a fresh hold timer for payment based on configured STALL_HOLD_DURATION_MINUTES
 	  // ==================================================
 
-	  const holdMinutes = env.STALL_HOLD_DURATION_MINUTES || 10;
+	  const holdMinutes = env.STALL_HOLD_DURATION_MINUTES || 30;
 	  const holdUntil = new Date(Date.now() + holdMinutes * 60 * 1000);
 
   // ==================================================
@@ -1766,7 +1767,7 @@ static async createBooking(
               razorpayOrderId:null,
               nextPaymentDate,
               paymentMode:PaymentMode.ONLINE_RAZORPAY,
-              
+              referenceNote: input.referenceNote || null
             },
           });
 
@@ -1835,7 +1836,7 @@ static async createBooking(
   // ==================================================
 
   try {
-    const paymentHoldExtension = new Date(Date.now() + 15 * 60 * 1000);
+    const paymentHoldExtension = new Date(Date.now() + 30 * 60 * 1000);
     const [updatedPayment] = await prisma.$transaction([
       prisma.payment.update({
         where: {

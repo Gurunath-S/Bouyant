@@ -292,7 +292,7 @@ export class PaymentsService {
         // IMPORTANT:
         //
         // Do NOT immediately release the stall if your
-        // business rule is to keep the 15-minute hold.
+        // business rule is to keep the 30-minute hold.
         //
         // Keep:
         // Booking = PENDING_PAYMENT
@@ -1350,11 +1350,12 @@ static async createBalancePaymentOrder(
   bookingId: string;
   amount: number;
   nextDueDate?: string;
+  referenceNote?: string;
   user: {
     role: string;
   };
 }) {
-  const { bookingId, amount, nextDueDate } = input;
+  const { bookingId, amount, nextDueDate,referenceNote } = input;
 
   // 1. Validate amount
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -1492,7 +1493,9 @@ static async createBalancePaymentOrder(
             ? null
             : nextPaymentDate,
           paidAt: new Date(),
+          referenceNote: referenceNote || null,
         },
+
       });
 
       // 11. Update booking totals and status
@@ -1634,9 +1637,9 @@ static async createBalancePaymentOrder(
   }) {
     const { paymentId, status, rejectionReason, user } = input;
 
-    // 1. Role validation - Strict SuperAdmin Only
-    if (user.role !== 'SUPERADMIN') {
-      throw ApiError.forbidden('Only SuperAdmin can verify or reject cheque payments.');
+       // 1. Role validation - SuperAdmin & Admin
+    if (user.role !== 'SUPERADMIN' && user.role !== 'ADMIN') {
+      throw ApiError.forbidden('Only SuperAdmin or Admin can verify or reject cheque payments.');
     }
 
     const isApproval = status === 'CHEQUE_VERIFIED';

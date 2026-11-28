@@ -65,14 +65,10 @@ const MONTH_NAMES = [
 ];
 
 const PRESET_CATEGORIES = [
-  'Industrial & Automation',
-  'Electronics & Technology',
-  'Healthcare & Pharma',
-  'Textiles & Apparel',
-  'Building & Construction',
-  'Food & Hospitality',
-  'Automotive & Mobility',
-  'General Trade Fair',
+  'Building',
+  'Jewellery',
+  'Medical',
+  'Lifestyle',
 ];
 
 // Helper to extract 2-digit month from ISO date string (e.g. '2026-10-15' -> '10', fallback to current month)

@@ -343,15 +343,13 @@ export const HomePage: React.FC = () => {
                   <span className="text-xs font-black text-[#0E8074] dark:text-teal-400 uppercase tracking-wider block">Step 03</span>
                   <h3 className="text-lg font-bold text-[#121B3D] dark:text-slate-100">Instant Hold & Invoice</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                    Lock your booth instantly with a 15-minute online hold, submit company details, and receive GST invoice.
+                     Lock your booth instantly with a 30-minute online hold, submit company details, and receive GST invoice.
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
-
-
       </main>
 
       <PublicFooter />

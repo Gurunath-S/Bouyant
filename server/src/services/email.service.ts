@@ -139,6 +139,7 @@ export interface BookingConfirmationEmailPayload {
   };
   isRejectedCheque?:boolean
   rejectionReason?:string
+  nextPaymentDate?: Date | string | null;
 }
 
 export interface PaymentAdminEmailPayload {
@@ -174,6 +175,7 @@ export interface PaymentAdminEmailPayload {
   },
   isRejectedCheque?:boolean,
   rejectionReason?:string,
+  nextPaymentDate?: Date | string | null;
 }
 
 export interface InvoiceEmailPayload {
@@ -435,11 +437,19 @@ export class EmailService {
                     <td align="right" style="color:#059669; font-weight:700; font-size:13px; vertical-align:top;">₹${this.formatINR(payload.totalPaidAmount)}</td>
                   </tr>
                   ` : ''}
-                  ${isPartialPayment ? `
+                                   ${isPartialPayment ? `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Remaining Balance</td>
                     <td align="right" style="color:#dc2626; font-weight:800; font-size:14px; vertical-align:top;">₹${this.formatINR(payload.remainingBalance)}</td>
                   </tr>
+                  ${payload.nextPaymentDate ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Next Payment Due Date</td>
+                    <td align="right" style="color:#d97706; font-weight:800; font-size:13px; vertical-align:top;">
+                      ${formatDateDMY(payload.nextPaymentDate)}
+                    </td>
+                  </tr>
+                  ` : ''}
                   ` : `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Remaining Balance</td>
@@ -691,7 +701,15 @@ export class EmailService {
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Remaining Balance</td>
                     <td align="right" style="color:#dc2626; font-weight:800; font-size:14px; vertical-align:top;">₹${this.formatINR(payload.remainingBalance)}</td>
-                  </tr>` : `
+                  </tr>
+                  ${payload.nextPaymentDate ? `
+                  <tr>
+                    <td style="color:#64748b; font-weight:500; vertical-align:top;">Next Payment Due Date</td>
+                    <td align="right" style="color:#d97706; font-weight:800; font-size:13px; vertical-align:top;">
+                      ${formatDateDMY(payload.nextPaymentDate)}
+                    </td>
+                  </tr>
+                  ` : ''}` : `
                   <tr>
                     <td style="color:#64748b; font-weight:500; vertical-align:top;">Account Status</td>
                     <td align="right" style="color:#059669; font-weight:800; font-size:12px; text-transform:uppercase; vertical-align:top;">PAID IN FULL</td>

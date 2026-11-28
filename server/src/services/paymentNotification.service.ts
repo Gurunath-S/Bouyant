@@ -163,7 +163,8 @@ static async sendPaymentEmails(emailData: {
              isPendingCheque,
              chequeDetails,
              isRejectedCheque,
-             rejectionReason
+             rejectionReason,
+             nextPaymentDate: payment.nextPaymentDate||null
           });
         } catch (err: any) {
           console.error(
@@ -266,7 +267,8 @@ static async sendPaymentEmails(emailData: {
             isPendingCheque,
             chequeDetails,
             isRejectedCheque,
-            rejectionReason
+            rejectionReason,
+            nextPaymentDate: payment.nextPaymentDate||null
           });
         }
         // 7. Send WhatsApp Booking Confirmation

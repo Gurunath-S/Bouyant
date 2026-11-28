@@ -597,17 +597,6 @@ export class InvoicePdfService {
                                 { text: `DATE: ${formatExhibitionDateRange(data.exhibition)},`, bold: true },
                                 { text: `VENUE: ${data.exhibition.venue.toUpperCase()}`, bold: true },
                                 { text: `${(data.exhibition.city || 'COIMBATORE').toUpperCase()}, TN, INDIA.`, bold: true },
-                                ...(data.paymentInfo?.paymentReference
-                                  ? [
-                                      {
-                                        text: `PAYMENT: ${data.paymentInfo.installmentLabel || 'Installment'} | Ref: ${data.paymentInfo.paymentReference}${data.paymentInfo.paymentMode ? ` (${data.paymentInfo.paymentMode})` : ''}${data.paymentInfo.chequeNumber ? ` | Cheque: ${data.paymentInfo.chequeNumber}` : ''}`,
-                                        fontSize: 7.5,
-                                        bold: true,
-                                        color: '#1e293b',
-                                        margin: [0, 4, 0, 0] as [number, number, number, number],
-                                      },
-                                    ]
-                                  : []),
                               ],
                               margin: [0, 0, 0, 35],
                               border: [false, false, true, false],

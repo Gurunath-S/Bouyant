@@ -349,15 +349,6 @@ export const PaymentSuccessPage: React.FC = () => {
                         {latestPayment.bankName || 'N/A'}
                       </span>
                     </div>
-
-                    {latestPayment.referenceNote && (
-                      <div className="col-span-2 pt-0.5">
-                        <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Reference Note</span>
-                        <span className="text-slate-700 dark:text-slate-300 italic">
-                          {latestPayment.referenceNote}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -395,7 +386,14 @@ export const PaymentSuccessPage: React.FC = () => {
                       : 'Assigned'}
                   </span>
                 </div>
-
+                {latestPayment?.referenceNote && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Reference Note</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 text-xs italic">
+                      {latestPayment.referenceNote}
+                    </span>
+                  </div>
+                )}
                 {/* FINANCIAL SUMMARY */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
                   <div className="flex justify-between items-center">
@@ -539,6 +537,7 @@ export const PaymentSuccessPage: React.FC = () => {
           </div>
 
           {/* Exhibitor Support Card */}
+                    {/* Exhibitor Support Card */}
           <div className="bg-indigo-50/70 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700 rounded-2xl p-5 shadow-xs space-y-2 text-xs">
             <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold">
               <Headphones className="w-4 h-4" />
@@ -547,9 +546,17 @@ export const PaymentSuccessPage: React.FC = () => {
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
               Our exhibition operations team is available to assist with stall setup and venue guidelines.
             </p>
-            <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold block pt-1">
-              support@buoyantmedia.com
-            </span>
+            <div className="flex flex-col space-y-1 pt-1 font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+              <a href="mailto:info@buoyantevents.com" className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                info@buoyantevents.com
+              </a>
+              <a href="mailto:buoyantexhibition@gmail.com" className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                buoyantexhibition@gmail.com
+              </a>
+              <a href="mailto:buoyantevent@gmail.com" className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                buoyantevent@gmail.com
+              </a>
+            </div>
           </div>
         </div>
 

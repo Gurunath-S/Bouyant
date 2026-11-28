@@ -249,22 +249,6 @@ export const AdminPaymentModeSelector: React.FC<AdminPaymentModeSelectorProps> =
             </div>
           </div>
 
-          <div>
-            <label htmlFor="referenceNote" className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-              Reference / Depositor Note (Optional)
-            </label>
-            <input
-              id="referenceNote"
-              type="text"
-              placeholder="e.g. Cheque handed over by Managing Director at registration"
-              value={chequeDetails.referenceNote || ''}
-              onChange={(e) =>
-                onChangeChequeDetails({ ...chequeDetails, referenceNote: e.target.value })
-              }
-              className="w-full mt-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
           <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>

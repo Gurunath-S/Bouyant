@@ -71,8 +71,8 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
     chequeNumber: '',
     bankName: '',
     chequeDate: '',
-    referenceNote: '',
   });
+  const [referenceNote, setReferenceNote] = useState('');
   const [nextPaymentDate, setNextPaymentDate] = useState<Date | null>(null);
   const [dateError, setDateError] = useState(false);
   const today = new Date();
@@ -180,14 +180,16 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
             String(nextPaymentDate.getDate()).padStart(2, '0'),
     ].join('-'),
    }),
-   ...(isChequePayment && {
-  chequeDetails: {
-    chequeNumber: chequeDetails.chequeNumber.trim(),
-    bankName: chequeDetails.bankName.trim(),
-    chequeDate: chequeDetails.chequeDate,
-    referenceNote: chequeDetails.referenceNote?.trim() || undefined,
-  },
-}),
+  ...(isChequePayment && {
+      chequeDetails: {
+        chequeNumber: chequeDetails.chequeNumber.trim(),
+        bankName: chequeDetails.bankName.trim(),
+        chequeDate: chequeDetails.chequeDate,
+      },
+    }),
+    ...(referenceNote.trim() && {
+      referenceNote: referenceNote.trim(),
+    }),
     };
 
     onProceedToPayment(payload);
@@ -515,10 +517,10 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
               Please select a payment due date for the remaining balance before proceeding.
             </p>
           )}
-
+              {user && user?.role!=='CLIENT'&&(
                 <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Custom Advance %:</span>
-                                    <input
+                   <input
                     type="number"
                     min="10"
                     max="99"
@@ -542,6 +544,8 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                     <b className="font-mono text-slate-800 dark:text-slate-200 font-extrabold">₹{unpaidBase.toLocaleString('en-IN')}</b> + 18% GST)
                   </span>
                 </div>
+              )}
+                
 
                 <div className="p-3 bg-amber-100/70 dark:bg-amber-950/60 border-l-4 border-amber-500 rounded-r-xl text-xs text-amber-900 dark:text-amber-200 font-medium flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -563,6 +567,22 @@ export const Step3TaxAuditBill: React.FC<Step3TaxAuditBillProps> = ({
                 </div>
               </div>
             )}
+                    {/* Optional Reference / Remarks Note (For all payment modes) */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-1.5">
+          <label htmlFor="bookingReferenceNote" className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+            <span>Reference / Depositor Note <span className="text-slate-400 font-normal">(Optional)</span></span>
+            <span className="text-[10px] text-slate-400 font-normal">Max 500 chars</span>
+          </label>
+          <input
+            id="bookingReferenceNote"
+            type="text"
+            maxLength={500}
+            placeholder="e.g. Transaction UTR, Depositor name, or booking note..."
+            value={referenceNote}
+            onChange={(e) => setReferenceNote(e.target.value)}
+            className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#9cc542] text-slate-900 dark:text-white"
+          />
+        </div>
           </div>
 
        {/* Admin Payment Mode Selector Component */}

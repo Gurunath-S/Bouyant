@@ -40,7 +40,7 @@ export const paymentService = {
     return res;
   },
 
-  createBalanceOrder: async (bookingId: string, payload?: { amount?: number; nextDueDate?: string }) => {
+  createBalanceOrder: async (bookingId: string, payload?: { amount?: number; nextDueDate?: string ;referenceNote?: string}) => {
     const res: any = await apiClient.post(`/payments/balance/${bookingId}`, payload || {});
     return res?.data?.data || res?.data || res;
   },
@@ -48,6 +48,7 @@ export const paymentService = {
    recordCashPayment: async (payload: {
     bookingId: string;
     amount: number;
+    referenceNote?: string;
     nextDueDate?: string;
   }) => {
     const res: any = await apiClient.post(
@@ -79,8 +80,8 @@ export const paymentService = {
       chequeNumber: string;
       bankName: string;
       chequeDate: string;
-      referenceNote?: string;
     };
+     referenceNote?: string;
     nextDueDate?: string;
     paymentType?:string;
   }) => {
@@ -90,7 +91,7 @@ export const paymentService = {
       chequeNumber: payload.chequeDetails.chequeNumber,
       bankName: payload.chequeDetails.bankName,
       chequeDate: payload.chequeDetails.chequeDate,
-      referenceNote: payload.chequeDetails.referenceNote,
+      referenceNote: payload.referenceNote,
       nextDueDate: payload.nextDueDate,
       paymentType:payload.paymentType
     });

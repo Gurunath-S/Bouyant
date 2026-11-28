@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Search,
   X,
-  Crosshair,
   Building2,
   MapPin,
   Plus,
@@ -733,22 +732,7 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
     }
   };
 
-  // Device GPS
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        setCurrentCoords({ lat, lng });
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.setView([lat, lng], 16);
-        }
-        reverseGeocode(lat, lng);
-      },
-      () => {},
-      { timeout: 8000, enableHighAccuracy: true }
-    );
-  };
+
 
   const googleDirectionsUrl = useMemo(() => {
     if (currentCoords.lat && currentCoords.lng) {
@@ -833,18 +817,6 @@ export const InteractivePinMap: React.FC<InteractivePinMapProps> = ({
               Satellite
             </button>
           </div>
-
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={handleUseCurrentLocation}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium cursor-pointer"
-              title="Use current location"
-            >
-              <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-              <span>My Location</span>
-            </button>
-          )}
 
           {googleDirectionsUrl && (
             <a

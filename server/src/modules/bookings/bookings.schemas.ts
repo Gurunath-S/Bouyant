@@ -39,7 +39,7 @@ export const CreateBookingSchema = z.object({
 
   // Internal booking notes (admin use)
   notes: z.string().nullable().optional(),
-
+  referenceNote: z.string().trim().max(500).nullable().optional(),
   // Optional booking representative contact snapshot (Phase 2.3)
   contactPerson: z.string().trim().nullable().optional(),
   contactEmail: z.union([z.string().email().trim().toLowerCase(), z.literal(''), z.null()]).optional(),
@@ -108,11 +108,6 @@ export const CreateBookingSchema = z.object({
         const today = new Date().toISOString().slice(0, 10);
         return val >= today;
       }, 'Cheque date cannot be in the past. It must be today or a future date'),
-
-    referenceNote: z
-      .string()
-      .trim()
-      .optional(),
   })
   .optional(),
 }).superRefine((data, ctx) => {

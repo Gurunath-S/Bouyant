@@ -116,7 +116,7 @@ export const BookingCheckoutPage: React.FC = () => {
     return (
       <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 max-w-md mx-auto my-12">
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Stall Hold Expired or Invalid</h3>
-        <p className="text-xs text-slate-500">The 15-minute hold on this booth has ended.</p>
+        <p className="text-xs text-slate-500">The 30-minute hold on this booth has ended.</p>
         <div className="flex justify-center">
           <BackButton to="/exhibitions" label="Return to Floor Plan" variant="outline" />
         </div>

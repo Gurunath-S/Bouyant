@@ -22,8 +22,8 @@ export class StallsService {
       if (expiredStalls.length === 0) return 0;
       const expiredStallIds = expiredStalls.map((s) => s.id);
 
-      // Protect in-flight checkouts: Do not release stalls if there is an active pending Razorpay payment created within the last 15 minutes
-      const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+      // Protect in-flight checkouts: Do not release stalls if there is an active pending Razorpay payment created within the last 30 minutes
+     const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
       const activeCheckoutStalls = await tx.bookingStall.findMany({
         where: {
           stallId: { in: expiredStallIds },
@@ -31,7 +31,7 @@ export class StallsService {
             payments: {
               some: {
                 status: 'PENDING',
-                createdAt: { gte: fifteenMinutesAgo },
+                createdAt: { gte: thirtyMinutesAgo },
                 razorpayOrderId: { not: null },
               },
             },
