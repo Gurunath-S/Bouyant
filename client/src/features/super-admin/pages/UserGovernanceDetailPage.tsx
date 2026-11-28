@@ -346,16 +346,16 @@ export const UserGovernanceDetailPage: React.FC = () => {
       setUser((prev) =>
         prev
           ? {
-              ...prev,
-              name: updated.name,
-              email: updated.email,
-              username: updated.username,
-              phone: updated.phone,
-              spcode: updated.spcode,
-              role: updated.role,
-              pageAccess: updated.pageAccess,
-              company: updated.company || prev.company,
-            }
+            ...prev,
+            name: updated.name,
+            email: updated.email,
+            username: updated.username,
+            phone: updated.phone,
+            spcode: updated.spcode,
+            role: updated.role,
+            pageAccess: updated.pageAccess,
+            company: updated.company || prev.company,
+          }
           : null
       );
       setActionNotice({
@@ -703,11 +703,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
       {/* Action Toast Alert */}
       {actionNotice && (
         <div
-          className={`p-4 rounded-2xl border text-xs flex items-center justify-between animate-fadeIn ${
-            actionNotice.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-              : 'bg-rose-50 dark:bg-rose-950/70 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-          }`}
+          className={`p-4 rounded-2xl border text-xs flex items-center justify-between animate-fadeIn ${actionNotice.type === 'success'
+            ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+            : 'bg-rose-50 dark:bg-rose-950/70 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+            }`}
         >
           <div className="flex items-center gap-2 font-bold">
             {actionNotice.type === 'success' ? (
@@ -733,15 +732,14 @@ export const UserGovernanceDetailPage: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start sm:items-center gap-4">
             <div
-              className={`w-16 h-16 rounded-2xl font-black text-2xl flex items-center justify-center shrink-0 shadow-xs ring-4 ${
-                user.role === 'SUPERADMIN'
-                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 ring-amber-300 dark:ring-amber-800'
-                  : user.role === 'ADMIN'
+              className={`w-16 h-16 rounded-2xl font-black text-2xl flex items-center justify-center shrink-0 shadow-xs ring-4 ${user.role === 'SUPERADMIN'
+                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 ring-amber-300 dark:ring-amber-800'
+                : user.role === 'ADMIN'
                   ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 ring-purple-300 dark:ring-purple-800'
                   : user.role === 'STAFF'
-                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 ring-emerald-300 dark:ring-emerald-800'
-                  : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-blue-300 dark:ring-blue-800'
-              }`}
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 ring-emerald-300 dark:ring-emerald-800'
+                    : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-blue-300 dark:ring-blue-800'
+                }`}
             >
               {user.name.charAt(0).toUpperCase()}
             </div>
@@ -835,17 +833,16 @@ export const UserGovernanceDetailPage: React.FC = () => {
               onClick={handleToggleStatus}
               disabled={togglingStatus || !canModifyThisUser || currentUser?.id === user.id}
               leftIcon={<Power className="w-4 h-4" />}
-              className={`font-black text-xs rounded-xl shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${
-                user.isActive
-                  ? 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/50'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
+              className={`font-black text-xs rounded-xl shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${user.isActive
+                ? 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/50'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
               title={
                 !canModifyThisUser
                   ? 'Only Super Administrators can alter Super Admin account status'
                   : currentUser?.id === user.id
-                  ? 'You cannot deactivate your own account'
-                  : undefined
+                    ? 'You cannot deactivate your own account'
+                    : undefined
               }
             >
               {togglingStatus ? 'Updating...' : user.isActive ? 'Deactivate Login' : 'Activate User Account'}
@@ -867,10 +864,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                 !canModifyThisUser
                   ? 'Only Super Administrators can delete Super Admin accounts'
                   : user.email?.toLowerCase() === 'superadmin@buoyantmedia.com'
-                  ? 'Root Super Administrator account cannot be deleted'
-                  : currentUser?.id === user.id
-                  ? 'You cannot delete your own account'
-                  : `Delete user account for ${user.name}`
+                    ? 'Root Super Administrator account cannot be deleted'
+                    : currentUser?.id === user.id
+                      ? 'You cannot delete your own account'
+                      : `Delete user account for ${user.name}`
               }
             >
               Delete Account
@@ -1020,11 +1017,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
           <>
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'overview'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'overview'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Briefcase className="w-3.5 h-3.5" />
               Client Overview
@@ -1032,11 +1028,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('bookings')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'bookings'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'bookings'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
               Stall Bookings & Invoices ({bookings.length})
@@ -1044,11 +1039,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('payments')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'payments'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'payments'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
               Payments & Ledger ({allPayments.length})
@@ -1056,11 +1050,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('stalls')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'stalls'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'stalls'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Layers className="w-3.5 h-3.5" />
               Allocated Stalls ({allAllocatedStalls.length})
@@ -1068,11 +1061,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('organization')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'organization'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'organization'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Building2 className="w-3.5 h-3.5" />
               Exhibitor Entity & Profile
@@ -1082,11 +1074,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
           <>
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'overview'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'overview'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Briefcase className="w-3.5 h-3.5" />
               Works Overview & Timeline
@@ -1094,11 +1085,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('exhibitions')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'exhibitions'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'exhibitions'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Layers className="w-3.5 h-3.5" />
               Exhibitions Created ({exhibitions.length})
@@ -1106,11 +1096,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('bookings')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'bookings'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'bookings'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
               Sales & Attributed Bookings ({bookings.length})
@@ -1118,11 +1107,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('permissions')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'permissions'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'permissions'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Lock className="w-3.5 h-3.5" />
               Page Access & Permissions ({effectivePages.length})
@@ -1130,11 +1118,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('organization')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                activeTab === 'organization'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'organization'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <Building2 className="w-3.5 h-3.5" />
               Entity & Profile
@@ -1314,11 +1301,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                                 {p.paymentReference}
                               </span>
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                                  isSuccess
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                }`}
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${isSuccess
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                  }`}
                               >
                                 {p.status}
                               </span>
@@ -1390,13 +1376,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
                               {ex.eventCode || 'EX'}-{ex.edition || '01'}
                             </span>
                             <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                                ex.status === 'PUBLISHED'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                  : ex.status === 'COMPLETED'
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${ex.status === 'PUBLISHED'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : ex.status === 'COMPLETED'
                                   ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                                   : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                              }`}
+                                }`}
                             >
                               {ex.status}
                             </span>
@@ -1550,13 +1535,12 @@ export const UserGovernanceDetailPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3.5">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            ex.status === 'PUBLISHED'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : ex.status === 'COMPLETED'
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${ex.status === 'PUBLISHED'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : ex.status === 'COMPLETED'
                               ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          }`}
+                            }`}
                         >
                           {ex.status}
                         </span>
@@ -1886,11 +1870,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                         </td>
                         <td className="px-3.5 py-3.5">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                              isSuccess
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isSuccess
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              }`}
                           >
                             {p.status}
                           </span>
@@ -2048,11 +2031,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
               return (
                 <div
                   key={page.id}
-                  className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
-                    isGranted
-                      ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/60 shadow-xs'
-                      : 'bg-slate-50/60 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700 opacity-60'
-                  }`}
+                  className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${isGranted
+                    ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/60 shadow-xs'
+                    : 'bg-slate-50/60 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700 opacity-60'
+                    }`}
                 >
                   <div className="mt-0.5 shrink-0">
                     {isGranted ? (
@@ -2067,11 +2049,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                         {page.label}
                       </span>
                       <span
-                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                          isGranted
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                            : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
-                        }`}
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isGranted
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                          }`}
                       >
                         {isGranted ? 'Granted' : 'Restricted'}
                       </span>
@@ -2155,7 +2136,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                       : null) ||
                     'Not provided'}
                 </span>
-                
+
               </div>
 
               <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
@@ -2424,11 +2405,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                         key={r}
                         type="button"
                         onClick={() => handleEditRoleChange(r)}
-                        className={`p-2.5 rounded-xl border text-left transition-all ${
-                          editUserRole === r
-                            ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
-                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                        }`}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${editUserRole === r
+                          ? 'border-[#09539b] bg-blue-50/70 text-[#09539b] dark:bg-blue-950/40 dark:text-blue-300 ring-2 ring-blue-500/30 font-bold'
+                          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 font-bold">
                           {r === 'SUPERADMIN' ? (
@@ -2583,7 +2563,7 @@ export const UserGovernanceDetailPage: React.FC = () => {
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     title={showEditPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showEditPassword ? <Eye className="w-4 h-4" />:<EyeOff className="w-4 h-4" />}
+                    {showEditPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400">
@@ -2664,11 +2644,10 @@ export const UserGovernanceDetailPage: React.FC = () => {
                       <div
                         key={page.id}
                         onClick={() => handleToggleEditPage(page.id)}
-                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${
-                          isSelected
-                            ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 select-none group hover:shadow-xs ${isSelected
+                          ? 'border-[#09539b] bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/25 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
                       >
                         <div className="flex items-start justify-between gap-1.5">
                           <div className="flex items-center gap-2 min-w-0">
