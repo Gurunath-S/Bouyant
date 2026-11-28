@@ -9,8 +9,8 @@ export const PublicFooter: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-slate-800">
           {/* Brand Col */}
           <div className="md:col-span-7 space-y-4">
-            <div className="flex items-center gap-3">
-              <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 object-contain brightness-0 invert" />
+            <div className="bg-white px-2.5 py-1 rounded-xl inline-flex items-center shadow-xs">
+               <img src="/assets/logo.png" alt="BUOYANT Media" className="h-9 object-contain" />
             </div>
             <p className="text-xs text-slate-400 leading-relaxed max-w-lg font-normal">
               Buoyant Media is South India’s premier B2B trade fair organizer, hosting flagship industrial, construction, and healthcare exhibitions across Coimbatore, Chennai, and Bengaluru.
@@ -23,15 +23,23 @@ export const PublicFooter: React.FC = () => {
             <ul className="space-y-2.5 text-xs text-slate-400">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
-                <span>No.57A Ramasamy Street, KK Pudur, Coimbatore - 641038, Tamil Nadu</span>
+                <span>No:57A, Ramasamy Street, KK Pudur,NSR Road, Saibaba Colony, Coimbatore - 641038 Tamilnadu, India</span>
               </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-[#0E8074] shrink-0" />
-                <span>+91 422 244 8899 / +91 98422 12345</span>
+              <li className="flex items-start gap-2">
+                <Phone className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
+                <div className="flex flex-col space-y-1">
+                  <a href="tel:04224332337" className="hover:text-white transition-colors">0422 4332337</a>
+                  <a href="tel:+919500288222" className="hover:text-white transition-colors">+91 95002 88222</a>
+                  <a href="tel:+919500288333" className="hover:text-white transition-colors">+91 95002 88333</a>
+                </div>
               </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-[#0E8074] shrink-0" />
-                <span>info@buoyantevents.com</span>
+              <li className="flex items-start gap-2">
+                <Mail className="w-4 h-4 text-[#0E8074] shrink-0 mt-0.5" />
+                <div className="flex flex-col space-y-1">
+                  <a href="mailto:info@buoyantevents.com" className="hover:text-white transition-colors">info@buoyantevents.com</a>
+                  <a href="mailto:buoyantexhibition@gmail.com" className="hover:text-white transition-colors">buoyantexhibition@gmail.com</a>
+                  <a href="mailto:buoyantevent@gmail.com" className="hover:text-white transition-colors">buoyantevent@gmail.com</a>
+                </div>
               </li>
             </ul>
           </div>

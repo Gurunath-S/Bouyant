@@ -29,6 +29,7 @@ export const CashPaymentSchema = z.object({
       );
     }, 'Invalid next payment due date')
     .optional(),
+   referenceNote: z.string().trim().max(500).optional(),
 });
 
 

@@ -7,7 +7,7 @@ export const stallService = {
       const res: any = await apiClient.get('/stalls/hold-config');
       return res.data;
     } catch {
-      return { durationMinutes: 10, durationSeconds: 600 };
+      return { durationMinutes: 30, durationSeconds: 1800 };
     }
   },
 

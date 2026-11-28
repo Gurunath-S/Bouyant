@@ -109,8 +109,8 @@ export const BookingWizardPage: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Stall Hold Timer & Expiration Popup State (Dynamically configured via STALL_HOLD_DURATION_MINUTES)
-  const [holdDurationMinutes, setHoldDurationMinutes] = useState<number>(10);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(600); // Defaults to 10 mins (600s)
+  const [holdDurationMinutes, setHoldDurationMinutes] = useState<number>(30);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(1800); // 30 mins (30 * 60)
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
   const [isGatewayActive, setIsGatewayActive] = useState<boolean>(false);
@@ -340,7 +340,7 @@ export const BookingWizardPage: React.FC = () => {
     }
   }, [currentStep, selectedStallIds.length, isTimerActive, remainingSeconds, isGatewayActive, paymentStatusState]);
 
-  // Timer Tick Interval (Silent 15-minute expiration trigger, paused during payment gateway / processing)
+  // Timer Tick Interval (Silent 30-minute expiration trigger, paused during payment gateway / processing)
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isTimerActive && !isGatewayActive && paymentStatusState !== 'PROCESSING' && remainingSeconds > 0) {

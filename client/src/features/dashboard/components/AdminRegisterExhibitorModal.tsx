@@ -60,6 +60,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
     pinCode: '',
     gstNumber: '',
     industry: 'Technology',
+    remarks: '',
   });
 
   const { user } = useAuthStore();
@@ -738,7 +739,7 @@ export const AdminRegisterExhibitorModal: React.FC<AdminRegisterExhibitorModalPr
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Creates a <strong>Pending Payment</strong> reservation with 15-minute provisional lock for payment link delivery to exhibitor.
+                  Creates a <strong>Pending Payment</strong> reservation with 30-minute provisional lock...
                 </p>
               </div>
             </div>

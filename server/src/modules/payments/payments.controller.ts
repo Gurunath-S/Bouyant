@@ -122,12 +122,13 @@ export class PaymentsController {
     );
   }
 
-  const { bookingId, amount, nextDueDate } = req.body;
+  const { bookingId, amount, nextDueDate,referenceNote} = req.body;
 
   const result = await PaymentsService.cashPayment({
     bookingId,
     amount,
     nextDueDate,
+    referenceNote,
     user: req.user,
   });
 
@@ -146,9 +147,9 @@ export class PaymentsController {
       throw ApiError.unauthorized('Authentication is required.');
     }
 
-    // 🔒 Strict SuperAdmin Only Access:
-    if (req.user.role !== 'SUPERADMIN') {
-      throw ApiError.forbidden('Access denied. Only SuperAdmin can verify or reject cheques.');
+        // 🔒 SuperAdmin & Admin Access:
+    if (req.user.role !== 'SUPERADMIN' && req.user.role !== 'ADMIN') {
+      throw ApiError.forbidden('Access denied. Only SuperAdmin or Admin can verify or reject cheques.');
     }
 
     const { paymentId, status, rejectionReason} = req.body;

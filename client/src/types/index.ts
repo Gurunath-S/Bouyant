@@ -31,7 +31,6 @@ export interface ChequeDetails {
   chequeNumber: string;
   bankName: string;
   chequeDate: string;
-  referenceNote?: string;
 }
 
 export interface User {
@@ -70,6 +69,7 @@ export interface Company {
   industry: string;
   category?: string;
   website?: string;
+  remarks?: string;
   createdAt: string;
   bookings?: Booking[];
   _count?: {

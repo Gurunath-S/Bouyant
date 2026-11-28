@@ -9,7 +9,7 @@ export const CreateCompanySchema = z
     address: z.string().trim().min(1, 'Address is required'),
     city: z.string().trim().min(1, 'City is required'),
     state: z.string().trim().min(1, 'State is required'),
-    pinCode: z.string().trim().optional().or(z.literal('')).default('641001'),
+    pinCode: z.string().trim().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
     country: z.string().trim().optional().default('India'),
     gstNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),
     panNumber: z.string().trim().toUpperCase().optional().or(z.literal('')),

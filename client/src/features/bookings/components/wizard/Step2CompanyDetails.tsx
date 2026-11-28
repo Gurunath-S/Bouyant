@@ -101,12 +101,11 @@ export const companySchema = z.object({
   address: z.string().min(5, 'Corporate address is required (min 5 characters)'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
-  pinCode: z
+   pinCode: z
     .string()
     .trim()
-    .refine((val) => !val || /^\d{6}$/.test(val), { message: 'PIN code must be exactly 6 digits' })
-    .optional()
-    .or(z.literal('')),
+    .min(6, 'PIN code is required (6 digits)')
+    .refine((val) => /^\d{6}$/.test(val), { message: 'PIN code must be exactly 6 digits' }),
   country: z.string().min(2, 'Country is required').default('India'),
   gstNumber: z.string().trim().refine((val) => !val || val.length === 15, { message: 'GST Registration Number must be 15 characters' }).optional().or(z.literal('')),
   panNumber: z.string().trim().refine((val) => !val || val.length === 10, { message: 'PAN Number must be 10 characters' }).optional().or(z.literal('')),
@@ -114,6 +113,7 @@ export const companySchema = z.object({
   industry: z.string().optional().or(z.literal('')),
   category: z.string().min(2, 'Product/Service Category is required'),
   website: z.string().optional(),
+  remarks: z.string().trim().max(500, 'Remarks must be under 500 characters').optional().or(z.literal('')),
 });
 
 export type CompanyFormData = z.infer<typeof companySchema>;
@@ -211,6 +211,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       industry: 'Technology & Manufacturing',
       category: 'Exhibitor / Booth',
       website: '',
+      remarks: '',
     },
   });
 
@@ -225,7 +226,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
   const watchedState = watch('state');
   const watchedCity = watch('city');
   const watchedCountry = watch('country');
-
+  const watchedPinCode = watch('pinCode');
   // Compute remaining missing fields to gate page advancement and provide visual guidance
   const missingFields = React.useMemo(() => {
     const list: string[] = [];
@@ -238,6 +239,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     if (!watchedCountry?.trim()) list.push('Country');
     if (!watchedState?.trim()) list.push('State');
     if (!watchedCity?.trim()) list.push('City');
+   if (!watchedPinCode?.trim() || watchedPinCode.trim().length !== 6) list.push('6-digit PIN Code');
     if (usernameStatus === 'invalid') list.push('Valid Portal Username');
     return list;
   }, [
@@ -250,6 +252,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
     watchedCountry,
     watchedState,
     watchedCity,
+    watchedPinCode,
     usernameStatus,
   ]);
 
@@ -369,6 +372,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('panNumber', selectedCompany.panNumber || '');
       setValue('tanNumber', selectedCompany.tanNumber || '');
       if (selectedCompany.website) setValue('website', selectedCompany.website);
+      if ((selectedCompany as any).remarks && (selectedCompany as any).remarks !== 'Not Provided') setValue('remarks', (selectedCompany as any).remarks);
     } else if (user && user.role === 'CLIENT') {
       if (user.username) setValue('username', user.username);
       if (user.name) setValue('contactPerson', user.name);
@@ -398,6 +402,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       setValue('panNumber', '');
       setValue('tanNumber', '');
       setValue('website', '');
+      setValue('remarks', '');
     }
   }, [user, selectedCompany, setValue, getValues, isClientUser, isAddingNewCompany, isEditingExistingCompany]);
 
@@ -845,6 +850,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       panNumber: '',
       tanNumber: '',
       website: '',
+      remarks:''
     });
 
     setGstVerificationSuccess(false);
@@ -888,6 +894,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
       panNumber: comp.panNumber || '',
       tanNumber: comp.tanNumber || '',
       website: comp.website || '',
+      remarks: (comp as any).remarks && (comp as any).remarks !== 'Not Provided' ? (comp as any).remarks : '',
     });
 
     if (compUsername) {
@@ -1558,7 +1565,7 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               error={errors.city?.message}
             />
             <Input
-              label="PIN Code (6 digits) (Optional)"
+              label="PIN Code (6 digits)"
               maxLength={6}
               type="tel"
               placeholder="e.g. 400051"
@@ -1571,8 +1578,9 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
                 },
               })}
             />
+       
           </div>
-
+     
 
           {/* Required Fields Completion Status Notice */}
           {missingFields.length > 0 && (
@@ -1586,7 +1594,22 @@ export const Step2CompanyDetails: React.FC<Step2CompanyDetailsProps> = ({
               </div>
             </div>
           )}
-
+               {/* Remarks / Additional Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              Remarks / Additional Notes <span className="text-slate-400 font-normal">(Optional)</span>
+            </label>
+            <textarea
+              {...register('remarks')}
+              rows={3}
+              maxLength={500}
+              placeholder="Any additional notes, special requirements, or instructions..."
+              className="w-full px-3.5 py-2.5 bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#09539b] focus:border-transparent resize-y min-h-[80px] max-h-[160px] transition-all"
+            />
+            {errors.remarks && (
+              <p className="text-[11px] text-rose-600 font-semibold">{errors.remarks.message}</p>
+            )}
+          </div>
           {/* Missing Fields Error Alert */}
           {Object.keys(errors).length > 0 && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 animate-fadeIn">

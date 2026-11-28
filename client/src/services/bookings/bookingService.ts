@@ -35,6 +35,7 @@ export interface CreateBookingPayload {
   chequeDetails?: ChequeDetails;
   notes?: string;
   paymentReminderDate?: string | null;
+  referenceNote?: string; 
 }
 
 export interface CreateBookingResponse {

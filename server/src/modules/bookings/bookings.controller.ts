@@ -24,7 +24,7 @@ export class BookingsController {
     return sendResponse({
       res,
       statusCode: 201,
-      message: 'Stall booking initiated. Please proceed to payment within 15 minutes.',
+      message: 'Stall booking initiated. Please proceed to payment within 30 minutes.',
       data: booking,
     });
   };

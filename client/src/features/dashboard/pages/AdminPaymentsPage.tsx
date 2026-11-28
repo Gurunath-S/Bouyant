@@ -547,7 +547,7 @@ export const AdminPaymentsPage: React.FC = () => {
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <div className="inline-flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
-                                {isSuperAdmin && p.status === 'PENDING' && (p.paymentMode === 'CHEQUE' || p.paymentMethod?.includes('CHEQUE')) && (
+                               {(isSuperAdmin || user?.role === 'ADMIN') && p.status === 'PENDING' && (p.paymentMode === 'CHEQUE' || p.paymentMethod?.includes('CHEQUE')) && (
                                   <>
                                     <button
                                       type="button"
